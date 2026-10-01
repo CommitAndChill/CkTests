@@ -18,7 +18,6 @@
 #include "Materials/MaterialInstanceDynamic.h"
 
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
-#include "CkUsf/LookDefinition/CkUsf_LookDefinition_Naming.h"
 #include "CkUsf/Apply/CkUsf_Utils.h"
 #include "CkUsfEditor/Generator/CkUsf_Generator.h"
 
@@ -83,7 +82,7 @@ bool FCkTest_Usf_GeneratesUsableMasters::RunTest(const FString& Parameters)
         const auto LookName = Def->Get_EffectiveLookName();
         const auto Name = LookName.ToString();
 
-        const auto GeneratedPath = ck::usf::Get_GeneratedMasterObjectPath(LookName, TestPackageRoot);
+        const auto GeneratedPath = Def->Get_GeneratedMasterObjectPath(TestPackageRoot);
         const TWeakObjectPtr<UMaterial> GeneratedMaster = LoadObject<UMaterial>(nullptr, *GeneratedPath);
         if (TestNotNull(*FString::Printf(TEXT("the master generated this run resolves for look [%s]"), *Name),
             GeneratedMaster.Get()))
@@ -92,8 +91,11 @@ bool FCkTest_Usf_GeneratesUsableMasters::RunTest(const FString& Parameters)
                 GeneratedMaster->bUsedWithNanite != 0, Def->_UsedWithNanite);
         }
 
+        // Resolved where the look's own definition says its master lives, so a game-rooted look is checked at
+        // its game root rather than at the framework's.
         const TWeakObjectPtr<UMaterial> Master = Cast<UMaterial>(UCk_Utils_Usf_UE::Get_LookMasterMaterial(Def.Get()));
-        if (TestNotNull(*FString::Printf(TEXT("shipped master resolves for look [%s]"), *Name), Master.Get()))
+        if (TestNotNull(*FString::Printf(TEXT("shipped master resolves for look [%s] at [%s]"),
+            *Name, *Def->Get_GeneratedMasterObjectPath()), Master.Get()))
         {
             TestEqual(*FString::Printf(TEXT("shipped Nanite usage matches look [%s]"), *Name),
                 Master->bUsedWithNanite != 0, Def->_UsedWithNanite);
