@@ -417,7 +417,7 @@ class ACk_ProceduralAnimationGym_PlayerController : ACk_Gym_Base_PlayerControlle
         }
         if (_Set == 5)
         {
-            return "Centipedes: a 3- and a 5-segment train of walkers on a CkChain path history — stairs, the cylinder up and around, and the hump.";
+            return "Centipedes: a 3- and a 5-segment train of walkers on a CkChain path history - stairs, the cylinder up and around, and the hump.";
         }
         if (_Set == 3)
         {
