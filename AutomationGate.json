@@ -1,0 +1,267 @@
+{
+  "_about": [
+    "Known reds for THIS plugin's tests (UnrealToolbox v1.52+ reads this file in every project that contains the plugin). Only reds reproduced in the Ck home project (CkPlugins) belong here; a red that only one host shows stays in that host's own AutomationGate.json with the host coupling named.",
+    "Seeding rule: red = red in two full gates on one build AND red when run alone; flaky = red in at least one gate and green alone. Remove an entry in the PR that fixes the test."
+  ],
+  "knownReds": [
+    {
+      "test": "Ck.AggroDebugger.Authored.PIE",
+      "status": "red",
+      "reason": "Expected 'Engaged-only control follows a public active-target request' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.CapabilityGallery.InstalledResources",
+      "status": "red",
+      "reason": "Expected 'Reverse changes published order and retains the selected stable key' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.DialogDebugger.Authored.PIE",
+      "status": "red",
+      "reason": "Expected 'Native Dialog active-only checkbox routes through its real binding' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.Dynamic.Net.AS_DynamicFragment_DriverCarrierOnNotify",
+      "status": "red",
+      "reason": "[Client[0]] the dynamic handle to B must resolve (validated) AT OnRepNotify time, not eventually (1/2 assertions failed)",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.Dynamic.Net.AS_DynamicFragment_DriverCarrierReplicates",
+      "status": "red",
+      "reason": "[Client[0]] the dynamic handle to the separate replicated entity B should resolve (validated) on the client (1/3 assertions failed)",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.GoapDebugger.AgentColumn.Authored.PIE",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. Expected 'Physical mounted Replan action produces a real planner attempt: targeted=0 down=0 up=0' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo GREEN",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.GoapDebugger.SearchTrace.Authored.PIE",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. Editor died mid-test in 2 of 3 gates (G1, G3) - in flight when a lane editor died, no error text; suspect the D.6 lane-death class (idle watchdog / GenericWindow fatal), not the test.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51/v1.52, 3 full gates on one build 2026-10-01 (G1 raw, G2 raw, G3 judged v1.52) + solo fresh-boot runs: gates F P F (died G1+G3), solo GREEN",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.GoapDebugger.Squad.Authored.PIE",
+      "status": "red",
+      "reason": "Expected 'GOAP Squad physical Inspect target is present in the Slate path under its pointer' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.GoapDebugger.Timeline.Authored.PIE",
+      "status": "red",
+      "reason": "Expected 'GOAP Timeline physically routes mounted jump-to-replan input into scrub mode (targeted=0 down=0 up=0)' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.Jolt.Body.Lifecycle.ChurnThousandReturnsToBaseline",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. Editor died mid-test in 2 of 3 gates (G1, G3) - in flight when a lane editor died, no error text; suspect the D.6 lane-death class, or a long churn tripping the 180 s idle watchdog.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51/v1.52, 3 full gates on one build 2026-10-01 (G1 raw, G2 raw, G3 judged v1.52) + solo fresh-boot runs: gates F P F (died G1+G3), solo GREEN",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.ProceduralAnimation.Gait.LandingProbeLiftsASwingOntoAStep",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. 3 s WaitUntil 'A swing lifting onto a block top touches down' timed out (0 touchdowns in 60 samples) right after a 600 s particle-system compile timeout in the same lane - load-sensitive.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gate G1 2026-10-02 (3972 run/30 red) + a solo fresh-boot run: gate F, solo GREEN",
+      "added": "2026-10-02"
+    },
+    {
+      "test": "Ck.ResourceInspector.Activity.History",
+      "status": "flaky",
+      "reason": "FLAKY: green alone (renderer pass). 'Pinned snapshot exposes its production remove action' (Test_ResourceInspectorActivity.cpp:169). One of six routed-click UI tests that all failed together in G4's renderer pass (only 2 lanes on a loaded machine; 16 renderer-pass failures vs 10-13 in G1-G3) and all passed in G1-G3 - likely one shared environmental cause. Drop the entry if it never recurs.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gates G1-G4 on one build 2026-10-02 (3972 run; 30/29/28/35 red) + a solo fresh-boot run: gates PPPF, solo GREEN",
+      "added": "2026-10-02"
+    },
+    {
+      "test": "Ck.ResourceInspector.Dialog.NativeScenarios",
+      "status": "flaky",
+      "reason": "FLAKY: green alone (renderer pass). 'Confirm closes and clears exactly once' (Test_ResourceInspectorDialog.cpp:141). One of six routed-click UI tests that all failed together in G4's renderer pass (only 2 lanes on a loaded machine; 16 renderer-pass failures vs 10-13 in G1-G3) and all passed in G1-G3 - likely one shared environmental cause. Drop the entry if it never recurs.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gates G1-G4 on one build 2026-10-02 (3972 run; 30/29/28/35 red) + a solo fresh-boot run: gates PPPF, solo GREEN",
+      "added": "2026-10-02"
+    },
+    {
+      "test": "Ck.ResourceInspector.PinnedSnapshots.NativeRepeat",
+      "status": "flaky",
+      "reason": "FLAKY: green alone (renderer pass). 'Authored removal deletes only its card' (Test_ResourceInspectorRepeat.cpp:125). One of six routed-click UI tests that all failed together in G4's renderer pass (only 2 lanes on a loaded machine; 16 renderer-pass failures vs 10-13 in G1-G3) and all passed in G1-G3 - likely one shared environmental cause. Drop the entry if it never recurs.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gates G1-G4 on one build 2026-10-02 (3972 run; 30/29/28/35 red) + a solo fresh-boot run: gates PPPF, solo GREEN",
+      "added": "2026-10-02"
+    },
+    {
+      "test": "Ck.Snapshot.LevelRootRemoval.AuthorityBoundary",
+      "status": "red",
+      "reason": "Expected 'non-authoritative client cannot create durable world suppression' to be false.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.Snapshot.LevelRootRemoval.CancellationSurvivesSourceTeardown",
+      "status": "red",
+      "reason": "Expected 'opaque retirement authority can cancel after source teardown' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.Snapshot.LevelRootRemoval.DuplicateIdentityFailsClosed",
+      "status": "red",
+      "reason": "Expected 'persistent removal refuses a colliding authored identity' to be false.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.Snapshot.LevelRootRemoval.LevelActorBridgeOrigin",
+      "status": "red",
+      "reason": "Expected 'level ActorBridge SaveKey carries level-root provenance' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.Snapshot.Meta.NoProcessorBypassesQuarantine",
+      "status": "red",
+      "reason": "Expected '(i) view construction outside MakeProcessorView is at or below its ceiling (found 53, ceiling 33) - see ../../Saved/CkSnapshot/QuarantineFence.csv' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.Snapshot.Meta.WallTimeReadsAreAllowListed",
+      "status": "red",
+      "reason": "Expected 'wall-time reads are at or below their ceiling (found 137, ceiling 113) - see ../../Saved/CkSnapshot/WallTimeFence.csv' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.UIDebugger.History.PIE",
+      "status": "red",
+      "reason": "Expected 'Authored Expand All and Collapse All route to the retained tree' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.UiAuthoring.EcsDebugger.StateMachineInspector.AuthoredVariants",
+      "status": "red",
+      "reason": "Expected 'physical pointer hover reveals the OnHover Stop action' to be true.",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Ck.UnrealComponent.TransformPropagation.DirtyOwnersOnly",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. Editor died mid-test in both gates. (no Error line captured; see gate log)",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo GREEN",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "CkTests.UnitTests.CkUsf.GeneratesUsableMasters",
+      "status": "red",
+      "reason": "Look [DebugSceneOpaque]: param [Opacity] collides with the generated Custom-node input/output/local of the same name - rename it",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_AvoidanceVolume_InitialPathAvoidsExpandedObb",
+      "status": "red",
+      "reason": "Avoid If Possible did not fall back through the sealed corridor: ECk_Nav_PathStatus::Partial (4). Red alone twice; passed in G2, so it oscillates under load - listed red so a pass only prints 'Now passing'.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gates G1-G3 on one build 2026-10-02 (3972 run; 30 / 29 / 28 red): gates FPF, solo RED twice",
+      "added": "2026-10-02"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_BunchUp_SettlesAtSharedGoal",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. JITTER: an agent swung ~172 degrees between consecutive diag samples (ceiling 60).",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gate G1 2026-10-02 (3972 run/30 red) + a solo fresh-boot run: gate F, solo GREEN",
+      "added": "2026-10-02"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_GroundNav_Link_TraversalHandshakeFiresExactlyOnce",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. [Server] ! TimedOut",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates PF, solo GREEN",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_IskmRenderer_BatchedVisual",
+      "status": "flaky",
+      "reason": "FLAKY: green alone (2/2). Red in 1 of 3 gates (G3). Ck_AutoTest_IskmRenderer_BatchedVisual: FinishTest TestResult=Failed. Failed: timed out after 4.50s (90% of _TimeoutSeconds). Raise `default _TimeoutSeconds` if the test is merely slow. (1/0 assertions failed)",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51/v1.52, 3 full gates on one build 2026-10-01 (G1 raw, G2 raw, G3 judged v1.52) + solo fresh-boot runs: gates P P F, solo GREEN x2",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_PaViz_NavigationFocus",
+      "status": "red",
+      "reason": "CkUsf: Look [LitMetal] master material has shader compile errors (or is still compiling) - it will render as the checkered DefaultMaterial. See LogShaderCompilers for the HLSL error, then re-run Generate Look Materials or 'RecompileShaders Material M_CkUsf_Look_LitMetal'. [log]",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_PaViz_StressVisual",
+      "status": "red",
+      "reason": "CkUsf: Look [LitMetal] master material has shader compile errors (or is still compiling) - it will render as the checkered DefaultMaterial. See LogShaderCompilers for the HLSL error, then re-run Generate Look Materials or 'RecompileShaders Material M_CkUsf_Look_LitMetal'. [log]",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_PaViz_Visual",
+      "status": "red",
+      "reason": "CkUsf: Look [LitMetal] master material has shader compile errors (or is still compiling) - it will render as the checkered DefaultMaterial. See LogShaderCompilers for the HLSL error, then re-run Generate Look Materials or 'RecompileShaders Material M_CkUsf_Look_LitMetal'. [log]",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PillarCrossingRenderedTraversal",
+      "status": "red",
+      "reason": "CkUsf: Look [LitMetal] master material has shader compile errors (or is still compiling) - it will render as the checkered DefaultMaterial. See LogShaderCompilers for the HLSL error, then re-run Generate Look Materials or 'RecompileShaders Material M_CkUsf_Look_LitMetal'. [log]",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PillarsEngageSteppedTops",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. Ck_AutoTest_ProceduralAnimation_PillarsEngageSteppedTops: FinishTest TestResult=Failed. Failed: step 4/6 'verify distinct trusted top engagement and reach': Trusted planted simulation and posed hips stay reachable (13.421 cm at Beast RR x 420.5) (1/57 assertions failed)",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FP, solo GREEN",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PostsCentipedeReturns",
+      "status": "red",
+      "reason": "Ck_AutoTest_ProceduralAnimation_PostsCentipedeReturns: FinishTest TestResult=Failed. Failed: step 1/4 'the Centipede crosses the posts and returns': condition 'Check_Traversal' did not hold within the declared 120.00s bound (120.02s elapsed) - the step asserts a cadence, so this is a real timing reg",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_SpiderInteractiveRosterDiagnostics",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. Step 2/4 'verify two complete traversals and intact coverage' failed.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gate G1 2026-10-02 (3972 run/30 red) + a solo fresh-boot run: gate F, solo GREEN",
+      "added": "2026-10-02"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ScriptProcessor_PumpStopsAfterMarkerDrain",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. Ck_AutoTest_ScriptProcessor_PumpStopsAfterMarkerDrain: FinishTest TestResult=Failed. Failed: the seed frame must cost exactly two more pump passes than the quiet frame before it (the two real cascade passes) - got [2] vs quiet [1]; a larger delta means a phantom pass still keeps the whole pump loop",
+      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates PF, solo GREEN",
+      "added": "2026-10-01"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_VisualLod_RenderBandProfileLifecycle",
+      "status": "red",
+      "reason": "The arbiter setup regression must start with an unbaked AnimCollection (expected 0, got 4). Oscillates alone (green once, red on the G2 re-run); listed red on purpose so a pass only prints 'Now passing'.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gates G1+G2 on one build 2026-10-02 (3972 run; 30 / 29 red): gates FF, solo GREEN then RED",
+      "added": "2026-10-02"
+    }
+  ]
+}
