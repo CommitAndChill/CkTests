@@ -8163,6 +8163,19 @@ class ACk_AutoTest_ProceduralAnimation_CylinderHeightSourceDiagnostics_Actor : A
     }
 }
 
+class ACk_AutoTest_ProceduralAnimation_DetachKeepsLegInRecordWithDetachedStatus_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 15.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_ProceduralAnimation_DetachKeepsLegInRecordWithDetachedStatus");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
 class ACk_AutoTest_ProceduralAnimation_DetachLegReleasesPartsAndRebalances_Actor : ACk_AutoTestRunner
 {
     default _TimeoutSeconds = 15.0f;
@@ -8183,6 +8196,19 @@ class ACk_AutoTest_ProceduralAnimation_DetachTransfersOwnershipWhenRequested_Act
     TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
     {
         auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_ProceduralAnimation_DetachTransfersOwnershipWhenRequested");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_ProceduralAnimation_DetachTransfersPartsToLegAndLegToWorld_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 15.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_ProceduralAnimation_DetachTransfersPartsToLegAndLegToWorld");
         TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
         ResolvedClass = Path.TryLoadClass();
         return ResolvedClass;
