@@ -959,7 +959,7 @@ struct FCkProceduralAnimationGym_Crawler
         }
         for (auto Leg : Handles.Legs)
         {
-            if (ck::Is_NOT_Valid(Leg))
+            if (utils_procedural_leg::Get_IsAttached(Leg) == false)
             {
                 continue;
             }
@@ -2326,7 +2326,7 @@ struct FCkProceduralAnimationGym_Fixture
     {
         for (auto Index = 0; Index < Crawlers.Num(); Index++)
         {
-            if (Crawlers[Index].Handles.Legs.Num() == 0 || ck::Is_NOT_Valid(Crawlers[Index].Handles.Legs[0]))
+            if (Crawlers[Index].Handles.Legs.Num() == 0 || utils_procedural_leg::Get_IsAttached(Crawlers[Index].Handles.Legs[0]) == false)
             {
                 continue;
             }
@@ -2345,7 +2345,7 @@ struct FCkProceduralAnimationGym_Fixture
             return false;
         }
         auto Leg = Crawlers[InCrawlerIndex].Handles.Legs[InLegIndex];
-        if (ck::Is_NOT_Valid(Leg))
+        if (utils_procedural_leg::Get_IsAttached(Leg) == false)
         {
             return false;
         }

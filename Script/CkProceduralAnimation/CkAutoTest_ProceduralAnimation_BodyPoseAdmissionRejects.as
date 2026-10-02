@@ -203,7 +203,7 @@ class UCk_AutoTest_ProceduralAnimation_BodyPoseAdmissionRejects : UCk_AutoTest_B
         utils_procedural_leg::Request_Detach(LostLeg,
             FCk_Request_ProceduralLeg_Detach(ECk_ProceduralLeg_ReleasedPartsOwnership::KeepBodyOwned));
 
-        Add_Step_WaitUntil("the detached leg's handle reads invalid", n"Check_LegLost");
+        Add_Step_WaitUntil("the detached leg reads Detached", n"Check_LegLost");
         Add_Step("a gait that lost a captured leg rejects a body pose", n"Step_RejectLostLeg");
         // Three frames let the gait, body pose and rig processors run over the admitted and rejected compositions.
         Add_Step_WaitFrames("the world ticks over the admitted and rejected body poses", 3);
@@ -216,7 +216,7 @@ class UCk_AutoTest_ProceduralAnimation_BodyPoseAdmissionRejects : UCk_AutoTest_B
     private void Check_LegLost(FCk_Handle InHandle, FCk_SharedBool OutResult, FInstancedStruct InPayload)
     {
         auto Result = OutResult;
-        Result.Set(ck::Is_NOT_Valid(_LostLeg));
+        Result.Set(utils_procedural_leg::Get_Status(_LostLeg) == ECk_ProceduralLeg_Status::Detached);
     }
 
     UFUNCTION()

@@ -174,7 +174,8 @@ class UCk_AutoTest_ProceduralAnimation_LegAndPresetRequestsComplete : UCk_AutoTe
         auto Cancelled = CountResults(_EnableDisableResults, ECk_Request_OperationResult::Failed_Cancelled) > 0
             && CountResults(_DetachResults, ECk_Request_OperationResult::Failed_Cancelled) > 0
             && CountResults(_ApplyPresetResults, ECk_Request_OperationResult::Failed_Cancelled) > 0;
-        auto Gone = ck::Is_NOT_Valid(_DetachedLeg) && ck::Is_NOT_Valid(_CancelledRoot)
+        auto Gone = utils_procedural_leg::Get_Status(_DetachedLeg) == ECk_ProceduralLeg_Status::Detached
+            && ck::Is_NOT_Valid(_CancelledRoot)
             && ck::Is_NOT_Valid(_CancelledEnableDisableLeg) && ck::Is_NOT_Valid(_CancelledDetachLeg);
         auto Result = OutResult;
         Result.Set(Succeeded && Cancelled && Gone);
@@ -185,6 +186,8 @@ class UCk_AutoTest_ProceduralAnimation_LegAndPresetRequestsComplete : UCk_AutoTe
     {
         AssertCompletedOnce(_EnableDisableResults, "Request_EnableDisable");
         AssertCompletedOnce(_DetachResults, "Request_Detach");
+        Assert_True(utils_procedural_leg::Get_Status(_DetachedLeg) == ECk_ProceduralLeg_Status::Detached,
+            "The drained detach request left its leg detached");
         AssertCompletedOnce(_ApplyPresetResults, "Request_ApplyPreset");
         Assert_True(ck::IsValid(_DisabledLeg) && utils_procedural_leg::Get_EnableDisable(_DisabledLeg) != ECk_EnableDisable::Enable,
             "The drained enable/disable request left its leg disabled");

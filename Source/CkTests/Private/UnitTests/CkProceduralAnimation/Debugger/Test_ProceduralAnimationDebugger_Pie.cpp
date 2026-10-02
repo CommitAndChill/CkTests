@@ -51,7 +51,7 @@ namespace ck_test_procedural_animation_debugger_pie
     const auto IntactLegId = FName{TEXT("Leg1")};
     const auto PickedLegId = FName{TEXT("Leg2")};
     const auto ActedLegId = FName{TEXT("Leg3")};
-    constexpr auto ActedCrawlerLegsAfterDetach = SmallLegCount - 1;
+    constexpr auto ActedCrawlerAttachedLegsAfterDetach = SmallLegCount - 1;
 
     struct FState
     {
@@ -806,17 +806,24 @@ auto
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
-            return ck::Is_NOT_Valid(UCk_Utils_ProceduralLeg_UE::TryGet_Leg(State->Body, ActedLegId));
-        }), 10.0, TEXT("The mounted Detach button removes the selected leg from its body")));
+            return UCk_Utils_ProceduralLeg_UE::Get_Status(UCk_Utils_ProceduralLeg_UE::TryGet_Leg(State->Body, ActedLegId))
+                == ECk_ProceduralLeg_Status::Detached;
+        }), 10.0, TEXT("The mounted Detach button detaches the selected leg")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
             State->Model->Refresh();
             const auto Gait = UCk_Utils_ProceduralGait_UE::Cast(State->Body);
-            TestEqual(TEXT("The body keeps its surviving legs"), UCk_Utils_ProceduralLeg_UE::Get_Legs(State->Body).Num(),
-                ActedCrawlerLegsAfterDetach);
+            TestEqual(TEXT("The body keeps every leg in its record"), UCk_Utils_ProceduralLeg_UE::Get_Legs(State->Body).Num(),
+                SmallLegCount);
+            TestEqual(TEXT("The body has one attached leg fewer"),
+                UCk_Utils_ProceduralLeg_UE::Get_Legs(State->Body, ECk_ProceduralLeg_Filter::OnlyAttached).Num(),
+                ActedCrawlerAttachedLegsAfterDetach);
             TestEqual(TEXT("The gait walks on the survivors"), UCk_Utils_ProceduralGait_UE::Get_EnabledLegCount(Gait),
-                ActedCrawlerLegsAfterDetach);
+                ActedCrawlerAttachedLegsAfterDetach);
+            const auto DetachedLeg = UCk_Utils_ProceduralLeg_UE::TryGet_Leg(State->Body, ActedLegId);
+            TestTrue(TEXT("The detached leg still resolves by its id"), ck::IsValid(DetachedLeg)
+                && UCk_Utils_ProceduralLeg_UE::Get_Status(DetachedLeg) == ECk_ProceduralLeg_Status::Detached);
             const auto* Live = State->Model->Get_LiveStatus();
             if (TestNotNull(TEXT("The model holds a live snapshot after the detach"), Live))
             {
@@ -824,8 +831,10 @@ auto
                 {
                     return InLeg.Get_Id() == ActedLegId;
                 });
-                TestTrue(TEXT("The detached leg keeps its index-stable snapshot slot without an entity"),
-                    Detached != nullptr && Detached->Get_LegEntityId().IsEmpty());
+                TestTrue(TEXT("The detached leg keeps its index-stable snapshot slot and its entity"),
+                    Detached != nullptr && NOT Detached->Get_LegEntityId().IsEmpty());
+                TestTrue(TEXT("The detached leg's snapshot slot reads Detached"),
+                    Detached != nullptr && Detached->Get_Status() == ECk_ProceduralLeg_Status::Detached);
             }
 
             State->Panel->ReleaseSession();

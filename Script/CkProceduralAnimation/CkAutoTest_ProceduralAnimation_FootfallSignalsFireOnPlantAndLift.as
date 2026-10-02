@@ -121,7 +121,7 @@ class UCk_AutoTest_ProceduralAnimation_FootfallSignalsFireOnPlantAndLift : UCk_A
     UFUNCTION()
     private void Step_VerifySilence(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
-        Assert_True(ck::Is_NOT_Valid(_Leg), "Leg 0 was detached");
+        Assert_True(utils_procedural_leg::Get_IsAttached(_Leg) == false, "Leg 0 was detached");
         Assert_Equals_Int(_Plants.Num(), _PlantCountAtDetach, "A detached leg fires no further plant");
         Assert_Equals_Int(_LiftCount, _LiftCountAtDetach, "A detached leg fires no further lift");
         _Fixture.Request_Destroy();

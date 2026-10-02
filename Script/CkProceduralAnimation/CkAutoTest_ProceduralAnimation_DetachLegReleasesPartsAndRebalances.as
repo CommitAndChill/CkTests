@@ -189,7 +189,11 @@ class UCk_AutoTest_ProceduralAnimation_DetachLegReleasesPartsAndRebalances : UCk
         Assert_Equals_Int(_LegSetChanges, 1, "OnLegSetChanged fires exactly once");
         Assert_Equals_Int(_EnabledCount, 3, "The leg-set change reports three enabled legs");
         Assert_Equals_Int(_TotalCount, 4, "The leg-set change reports four authored legs");
-        Assert_Equals_Int(utils_procedural_leg::Get_Legs(Crawler.Handles.Root).Num(), 3, "The body's record keeps three legs");
+        Assert_Equals_Int(utils_procedural_leg::Get_Legs(Crawler.Handles.Root).Num(), 4, "The body keeps all four legs in its record");
+        Assert_Equals_Int(utils_procedural_leg::Get_Legs(Crawler.Handles.Root, ECk_ProceduralLeg_Filter::OnlyAttached).Num(), 3,
+            "Three of the body's legs are still attached");
+        Assert_True(utils_procedural_leg::Get_Status(Crawler.Handles.Legs[1]) == ECk_ProceduralLeg_Status::Detached,
+            "The detached leg reads Detached");
         Assert_Equals_Int(utils_procedural_gait::Get_EnabledLegCount(Crawler.Handles.Gait), 3, "The gait counts three enabled legs");
         Assert_True(utils_procedural_gait::Get_Status(Crawler.Handles.Gait) == ECk_ProceduralAnimation_Status::Ready, "The gait keeps evaluating on the survivors");
         Assert_Equals_Int(utils_ensure::Get_EnsureCount() - _EnsuresBefore, 0, "Detaching and ragdolling fire no ensure");

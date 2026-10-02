@@ -85,7 +85,8 @@ class UCk_AutoTest_ProceduralAnimation_DetachTransfersOwnershipWhenRequested : U
     {
         _Fixture.Update();
         auto Result = OutResult;
-        Result.Set(_Detachments > 0 && ck::Is_NOT_Valid(_Fixture.Crawlers[0].Handles.Legs[1]));
+        Result.Set(_Detachments > 0
+            && utils_procedural_leg::Get_Status(_Fixture.Crawlers[0].Handles.Legs[1]) == ECk_ProceduralLeg_Status::Detached);
     }
 
     UFUNCTION()

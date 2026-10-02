@@ -193,7 +193,7 @@ class UCk_AutoTest_ProceduralAnimation_BodyPoseSagsTowardLostLegs : UCk_AutoTest
         Assert_True(Overshoot < 0.02, f"The critically damped body-pose spring does not overshoot its settled drop ({Overshoot * 100.0 :.2}%)");
         for (auto Leg : _Fixture.Crawlers[0].Handles.Legs)
         {
-            if (ck::IsValid(Leg) && Get_IsRear(Leg))
+            if (utils_procedural_leg::Get_IsAttached(Leg) && Get_IsRear(Leg))
             {
                 auto RearLeg = Leg;
                 utils_procedural_leg::Request_Detach(RearLeg,
@@ -212,7 +212,7 @@ class UCk_AutoTest_ProceduralAnimation_BodyPoseSagsTowardLostLegs : UCk_AutoTest
             f"Detaching the disabled rear legs keeps the tilt toward them ({_TiltDisabled :.2} -> {TiltDetached :.2} degrees)");
         for (auto Leg : _Fixture.Crawlers[0].Handles.Legs)
         {
-            if (ck::IsValid(Leg) && Get_IsRear(Leg) == false)
+            if (utils_procedural_leg::Get_IsAttached(Leg) && Get_IsRear(Leg) == false)
             {
                 auto FrontLeg = Leg;
                 utils_procedural_leg::Request_Detach(FrontLeg,
