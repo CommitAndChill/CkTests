@@ -50,6 +50,8 @@ class ACk_ParticlesGym_PlayerController : ACk_Gym_Base_PlayerController
             "Strobing jagged bolt + crackle + dust.", "From sA NS_LightningStrike_1."));
         Stations.Add(Make_Station(n"Gym.Particles.AuraSwirl", "AURA SWIRL (16)",
             "Orbiting torus flame ring.", "From sA NS_FlameAura_1 (+ NS_Aura_1 spin)."));
+        Stations.Add(Make_Station(n"Gym.Particles.SteamJet", "STEAM JET (47)",
+            "Nozzle jet along +X, drag + buoyancy.", "Original design row: rate 70, life 0.9."));
 
         return Stations;
     }
@@ -98,6 +100,8 @@ class ACk_ParticlesGym_PlayerController : ACk_Gym_Base_PlayerController
         Request_SpawnBehavior(n"Gym.Particles.GroundRing",      14, n"Ring",     FVector(-200, 0, 10),  0.6);
         Request_SpawnBehavior(n"Gym.Particles.LightningStrike", 15, n"Electric", FVector(-200, 0, 5),   1.0);
         Request_SpawnBehavior(n"Gym.Particles.AuraSwirl",       16, n"Glow",     FVector(-200, 0, 20),  1.0);
+        // NAME_None: VisTag 2 draws through the smoke renderer's own material; a texture would only reach VisTag 0.
+        Request_SpawnBehavior(n"Gym.Particles.SteamJet",        47, NAME_None,   FVector(-200, 0, 60),  1.0);
     }
 
     private void Request_SpawnBehavior(FName InStationTag, int InBehaviorId, FName InTexture, FVector InOffset, float64 InScale)

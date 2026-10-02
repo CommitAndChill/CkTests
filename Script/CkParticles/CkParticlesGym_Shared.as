@@ -33,5 +33,6 @@ namespace Ck
         GameplayTags.Add(n"Gym.Particles.GroundRing");
         GameplayTags.Add(n"Gym.Particles.LightningStrike");
         GameplayTags.Add(n"Gym.Particles.AuraSwirl");
+        GameplayTags.Add(n"Gym.Particles.SteamJet");
     }
 }
