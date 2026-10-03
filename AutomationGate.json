@@ -181,9 +181,9 @@
     },
     {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_BunchUp_SettlesAtSharedGoal",
-      "status": "flaky",
-      "reason": "FLAKY: green alone. JITTER: an agent swung ~172 degrees between consecutive diag samples (ceiling 60).",
-      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gate G1 2026-10-02 (3972 run/30 red) + a solo fresh-boot run: gate F, solo GREEN",
+      "status": "red",
+      "reason": "OSCILLATES - listed red, not flaky, so a pass reports 'Now passing' instead of a failing solo re-run failing the gate. Seen two ways: JITTER: an agent swung ~172 degrees between consecutive diag samples (ceiling 60); FIDGET: agent 12 moved 8.68cm from where it settled (limit 8.0cm) at 0.5s into the quiet window.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gate G1 2026-10-02 (3972 run/30 red) + a solo fresh-boot run: gate F, solo GREEN; BusterBlock 2026-10-03 (CkFoundation bd735676f7, CkTests de8f1db044, UnrealToolbox v1.52): full gate G1 pass, full gate G2 F, solo fresh-boot run on an idle machine RED",
       "added": "2026-10-02"
     },
     {
