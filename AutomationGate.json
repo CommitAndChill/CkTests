@@ -76,9 +76,9 @@
     },
     {
       "test": "Ck.ProceduralAnimation.Gait.LandingProbeLiftsASwingOntoAStep",
-      "status": "flaky",
-      "reason": "FLAKY: green alone. 3 s WaitUntil 'A swing lifting onto a block top touches down' timed out (0 touchdowns in 60 samples) right after a 600 s particle-system compile timeout in the same lane - load-sensitive.",
-      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gate G1 2026-10-02 (3972 run/30 red) + a solo fresh-boot run: gate F, solo GREEN",
+      "status": "red",
+      "reason": "OSCILLATES across hosts - listed red, not flaky, so a pass reports 'Now passing' instead of a failing solo re-run failing the gate. In CkPlugins it is load-sensitive: green alone, and in the suite the 3 s WaitUntil 'A swing lifting onto a block top touches down' timed out (0 touchdowns in 60 samples) right after a 600 s particle-system compile timeout in the same lane. In Mars it is red every time, alone included: the same WaitUntil times out (208 samples, 0 touchdowns). Follow-up: find why the swing never lands in Mars and fix the test.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gate G1 2026-10-02 (3972 run/30 red) + a solo fresh-boot run: gate F, solo GREEN. Mars dev f4d3c25 (CkFoundation 9366c2a34, CkTests 771c2a98, CkGameplayDebugger 5af581da), UnrealToolbox v1.52, 3 full gates on one build 2026-10-03 + 3 solo fresh-boot runs: gates RED RED RED, solo RED RED RED",
       "added": "2026-10-02"
     },
     {
