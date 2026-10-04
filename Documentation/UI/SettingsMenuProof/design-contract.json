@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "status": "editor-focused-gate-passed-with-visual-gaps",
+  "date": "2026-10-03",
+  "sourceOfTruth": "code-and-declarative-text",
+  "reference": {
+    "image": "settings-menu-reference.png",
+    "logicalViewport": [1920, 1080],
+    "geometryIs": "normalized-design-target-not-image-pixel-measurement",
+    "runtimeTexture": false,
+    "generationPrompt": "generation-prompts.txt"
+  },
+  "resources": {
+    "plugin": "CkTests",
+    "html": "Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.html",
+    "css": "Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.css",
+    "region": "main",
+    "rootId": "settings-composition"
+  },
+  "architecture": {
+    "host": "shared code-created CommonUI UCk_PauseMenuProof_UE",
+    "authoredDescendants": "native Slate controls hosted by an authored UMG surface",
+    "gym": "UI Authoring in CkUI",
+    "backend": "in-memory state on the gym PlayerController; no machine settings writes",
+    "sourceStyledControls": ["slider", "checkbox", "select"],
+    "reload": {
+      "compatible": "retain native slider, checkbox, select and open popup; replace ordinary action buttons",
+      "invalid": "retain entire accepted view and draft without partial state"
+    },
+    "labels": "visible live native FText; screen-reader names deferred"
+  },
+  "palette": {
+    "panel": "#182129F5",
+    "panelBorder": "#56616A",
+    "text": "#F4F0E6",
+    "muted": "#ADB4BA",
+    "accent": "#E7AD4A",
+    "focusOutline": "#FFF6DF",
+    "buttonDark": "#25333E",
+    "buttonPressed": "#B87929",
+    "buttonDisabledText": "#727F8A"
+  },
+  "geometry": {
+    "panel": {"x": 480, "y": 152, "width": 960, "height": 776, "padding": 56, "radius": 16, "border": 1},
+    "contentWidth": 848,
+    "topSpacerFlex": 152,
+    "bottomSpacerFlex": 68,
+    "hintGap": 32,
+    "hintHeight": 52,
+    "volumeSlider": {"width": 848, "height": 40, "thumbWidth": 28, "thumbHeight": 28, "barThickness": 8},
+    "subtitlesCheckbox": {"size": 48},
+    "displaySelect": {"width": 332, "height": 64},
+    "buttons": {"width": 160, "height": 72, "gap": 16},
+    "referencePixelTolerance": 4,
+    "responsiveViewports": [[1280, 720], [1920, 1080], [2560, 1080]]
+  },
+  "bindings": {
+    "text": ["SettingsTitle", "SettingsSubtitle", "VolumeLabel", "VolumeValue", "SubtitlesLabel", "SubtitlesHelper", "DisplayModeLabel", "DirtyStatus", "SettingsCancel", "SettingsApply", "InputSettingsKey", "InputSettingsHint"],
+    "number": ["SettingsVolume"],
+    "boolean": ["SettingsSubtitles", "SettingsDirty", "SettingsCancelEnabled"],
+    "string": ["SettingsDisplayMode"],
+    "options": ["DisplayModes"],
+    "sliderInteraction": "EditVolume",
+    "sliderChanged": "PreviewVolume",
+    "checkboxChanged": "EditSubtitles",
+    "selectChanged": "EditDisplayMode",
+    "actions": ["CancelSettingsRequested", "ApplySettingsRequested"]
+  },
+  "controls": {
+    "volume": {"id": "settings-volume", "range": [0, 100], "step": 1},
+    "subtitles": {"id": "settings-subtitles", "labelOutsideControl": true, "backgroundColor": "#E7AD4A", "checkedImageColor": "#F4F0E6"},
+    "displayMode": {"id": "settings-display-mode", "optionKeys": ["Windowed", "Borderless", "Fullscreen"]},
+    "cancel": {"id": "settings-cancel", "enabledBinding": "SettingsCancelEnabled"},
+    "apply": {"id": "settings-apply", "enabledBinding": "SettingsDirty"}
+  },
+  "initialState": {
+    "committed": {"volume": 75, "subtitles": true, "displayMode": "Windowed"},
+    "draft": {"volume": 75, "subtitles": true, "displayMode": "Windowed"},
+    "dirtyStatus": "No changes",
+    "applyEnabled": false
+  },
+  "referencePose": {
+    "draftDisplayMode": "Borderless",
+    "dirtyStatus": "Unsaved changes",
+    "applyEnabled": true,
+    "focusedId": "settings-apply"
+  },
+  "behavior": {
+    "apply": "commit draft in memory and remain on Settings",
+    "cancelOrEscape": "discard draft and return to Pause when entered from Pause; otherwise close preview",
+    "viewReplacement": "release previous popup and input capture",
+    "gymShortcuts": {"1": "Pause menu", "2": "Settings"},
+    "menuTab": "native focus traversal without gym selector",
+    "persistWithinGymPlayerController": true,
+    "writeMachineSettings": false
+  },
+  "knownVisualGaps": [
+    "native slider bar is uniformly tinted rather than filled amber to value",
+    "native slider and closed dropdown retain Slate's default blue keyboard-focus decoration",
+    "native dropdown popup uses gray Slate menu styling; generated reference has no open-popup target"
+  ],
+  "validation": {
+    "editorRuntimeVerified": true,
+    "focusedGate": "Gate 10: Development Editor, 18/18 focused tests passed; zero skipped or contaminated",
+    "buildLog": "Saved/Logs/SettingsMenuProof-Build-10.log",
+    "testLog": "Saved/Logs/SettingsMenuProof-Gate-10.log",
+    "finalGateFreshEditorBoots": 1,
+    "editorFrameRateCapVerified": 30,
+    "freshLogEnsuresOrScriptErrorsOrCrashes": false,
+    "startupInfrastructureIssue": "Zen cache corruption/recovery delayed startup; cache was not repaired or deleted",
+    "nativeCaptures": {
+      "gate": "Gate 10; inspected at all three viewports and with dropdown open",
+      "directory": "Saved/Automation/SettingsMenuProof",
+      "files": ["settings-clean-1280x720.png", "settings-clean-1920x1080.png", "settings-clean-2560x1080.png", "settings-dirty-reference-1920x1080.png", "settings-dirty-all-fields-1920x1080.png", "settings-popup-open-1920x1080.png", "settings-popup-window.png"]
+    },
+    "packagedWindowsVerified": false,
+    "deferred": ["screen-reader names and verification", "physical gamepad input", "dynamic input glyphs", "multi-user ownership", "packaged Windows execution"]
+  }
+}
