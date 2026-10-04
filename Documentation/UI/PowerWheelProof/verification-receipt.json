@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "name": "Mass Effect 3 Power Wheel focused native verification",
+  "platform": "Windows PC",
+  "mode": "Editor automation with PIE and native Slate captures",
+  "renderer": "D3D12 / SM6",
+  "editorBootsInFinalGate": 1,
+  "build": {
+    "log": "Saved/Logs/PowerWheel-Build-05.log",
+    "sha256": "cfd99a28172cd0e6db2cdbe5d9728c3fb6f70bc9568ba8e9d3bb96469ec79fb6",
+    "result": "Succeeded",
+    "incrementalActions": 9,
+    "executionSeconds": 14.23
+  },
+  "gate": {
+    "log": "Saved/Logs/PowerWheel-Gate-11.log",
+    "sha256": "d6a8d926e980a944fc79e11a9ab788341a8383b540e44ffaf7c1337a63ea4ffd",
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0,
+    "editorExitCode": 0,
+    "duration": "6m 10s",
+    "powerWheelStartedAtUtc": "2026-10-04T14:34:49.205Z",
+    "powerWheelCompletedAtUtc": "2026-10-04T14:34:59.826Z",
+    "tests": [
+      {
+        "path": "Ck.UiAuthoring.CombatHudProof.ReplicaArt.NativeRetentionAndFreeze",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.HudControls.NativeRetentionAndAnimation",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.PowerWheel.Model.AtomicFailures",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.PowerWheel.Model.Configuration",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.PowerWheel.Model.QueueAndRelease",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.PowerWheel.PIE",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.RadialSelector.NativeSelectionAndRetention",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.UMG.SurfaceLifetime",
+        "result": "Success"
+      },
+      {
+        "path": "CkPlugins.UiAuthoring.Startup.ProjectBinaries",
+        "result": "Success"
+      }
+    ]
+  },
+  "implementationSourceSha256": {
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkPowerWheelProof.cpp": "4e43d7ba671755a988c5788a28ff57599d4fa824a0bdabb3bcadab82132f4429",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiRadialSelector.h": "5f7a92dcb6482ba6da02b328d18d2e3254867a1f43ba04c7995e91a08fb812ca",
+    "Plugins/CkTests/Source/CkTests/CkTests.Build.cs": "8ac29a759c905046e0c46a94d6885aec97e9c8dc360f051657922ed681b2a951",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_PowerWheelProof.cpp": "f1f058de26cec8abb70989fc82fe675d25425671d962a8c81ac85ee421eee9a9",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiRadialSelector.cpp": "999faf22dd5f0488053df7c4ca5dbebf81f997ff73e58ba5e56dfc9a34b19772",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkPowerWheel_Gym.as": "abd4261f2ec07c90a42de769cdb3ada45195eabad1dedfac761a65c0f1d2aad4",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_PowerWheelModel.cpp": "ce060abb0964a64b5d5bf301a1398f596b99c28abc109b1a1a38684d318ac794",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiRadialSelector.cpp": "e13f19a9c7e9a4452281c760e3e68146986d185d80dd6c58383feb3ee55dd8d0",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkPowerWheelProofModel.h": "c3c37363e86419a879ceb6baaf3ed528e6c1af77e4a99e3b222c3da7090239cf",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkPowerWheelProofModel.cpp": "2b762a2a4f8bdaf4a5536fcb06b83ca55efb52a065764e73dcf9ea14ddc78bfe",
+    "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as": "9a74c8c07109d1602c3dccc6ad3c15c70425463ba4f940c4a8771f818d4998fa",
+    "Plugins/CkTests/Resources/UiAuthoring/PowerWheelProof/PowerWheelProof.ui.css": "9a81634fb4c750a82ae7263b90d8503f71a403ae930f9a8abc2a77802a80ee13",
+    "Plugins/CkTests/Resources/UiAuthoring/PowerWheelProof/PowerWheelProof.ui.html": "d4057a6295f8dde4fff9996d4df1f718eff04c373ddddacbe5510c35889388b4",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkPowerWheelProof.h": "63450f3a85c91bb680c7c62aa61545e9b7bf5b05c1b0bbbee63cd8ce36b17bfd"
+  },
+  "captures": [
+    {
+      "name": "initial-1280x720",
+      "label": "Initial selection at 720p",
+      "width": 1280,
+      "height": 720,
+      "capturedAtUtc": "2026-10-04T14:34:58.106Z",
+      "source": "Saved/Automation/PowerWheelProof/initial-1280x720.png",
+      "file": "native-initial-1280x720.png",
+      "sha256": "b44a35eb6590a3fbd5dfe8dae692c43540aa026226584ee6ece0ff75d6242acb",
+      "edited": false
+    },
+    {
+      "name": "initial-1920x1080",
+      "label": "Initial selection at 1080p",
+      "width": 1920,
+      "height": 1080,
+      "capturedAtUtc": "2026-10-04T14:34:58.296Z",
+      "source": "Saved/Automation/PowerWheelProof/initial-1920x1080.png",
+      "file": "native-initial-1920x1080.png",
+      "sha256": "4ceb81dd51bada624b3d0694fe6d6b1a0076faa89884475604ed6e849a6c10e3",
+      "edited": false
+    },
+    {
+      "name": "initial-2560x1080",
+      "label": "Initial selection at ultrawide",
+      "width": 2560,
+      "height": 1080,
+      "capturedAtUtc": "2026-10-04T14:34:58.555Z",
+      "source": "Saved/Automation/PowerWheelProof/initial-2560x1080.png",
+      "file": "native-initial-2560x1080.png",
+      "sha256": "169811d53459a5fc363b33c0d920e83c55bed1940a726e9cda9a9367403e3372",
+      "edited": false
+    },
+    {
+      "name": "queued-three-1920x1080",
+      "label": "One queued power per actor",
+      "width": 1920,
+      "height": 1080,
+      "capturedAtUtc": "2026-10-04T14:34:58.892Z",
+      "source": "Saved/Automation/PowerWheelProof/queued-three-1920x1080.png",
+      "file": "native-queued-three-1920x1080.png",
+      "sha256": "50ae18d2dc4e3ac848a55260c808aa70513aa6fdb1c81efb86cf02010fb1828f",
+      "edited": false
+    },
+    {
+      "name": "cooldown-1920x1080",
+      "label": "Shared actor cooldowns",
+      "width": 1920,
+      "height": 1080,
+      "capturedAtUtc": "2026-10-04T14:34:59.294Z",
+      "source": "Saved/Automation/PowerWheelProof/cooldown-1920x1080.png",
+      "file": "native-cooldown-1920x1080.png",
+      "sha256": "415ac3aee5a207161811c99f1c26608dedadc5f3d69306cf4dc90112d21940b5",
+      "edited": false
+    },
+    {
+      "name": "shielded-1920x1080",
+      "label": "Shielded target blocks Throw",
+      "width": 1920,
+      "height": 1080,
+      "capturedAtUtc": "2026-10-04T14:34:59.508Z",
+      "source": "Saved/Automation/PowerWheelProof/shielded-1920x1080.png",
+      "file": "native-shielded-1920x1080.png",
+      "sha256": "083a2e20d4b55d4ec4d101a569c26eb62b12ac26b25499821f6a09baf872a3a1",
+      "edited": false
+    },
+    {
+      "name": "deployed-1920x1080",
+      "label": "Closed after deployment",
+      "width": 1920,
+      "height": 1080,
+      "capturedAtUtc": "2026-10-04T14:34:59.080Z",
+      "source": "Saved/Automation/PowerWheelProof/deployed-1920x1080.png",
+      "file": "native-deployed-1920x1080.png",
+      "sha256": "a12c3f02b65d5b482fbbccc07008b5a90d7454d9273d4671393b8e6ad9a9d42d",
+      "edited": false
+    },
+    {
+      "name": "canceled-1920x1080",
+      "label": "Closed after cancellation",
+      "width": 1920,
+      "height": 1080,
+      "capturedAtUtc": "2026-10-04T14:34:59.674Z",
+      "source": "Saved/Automation/PowerWheelProof/canceled-1920x1080.png",
+      "file": "native-canceled-1920x1080.png",
+      "sha256": "c35b5920b06b59c5a047d4951e9ef343c088789e79fd33de86630262c44ee965",
+      "edited": false
+    }
+  ],
+  "visualReview": {
+    "scope": "All eight unedited captures inspected; native text fit assertions cover six bound text widgets in each of the six open captures.",
+    "findings": [
+      "Center title and hint are centered beneath the reticle.",
+      "Selected glyph supplies focus feedback without a widget-wide rectangle.",
+      "No clipped or overlapping text observed at the three tested viewport sizes.",
+      "Queued, cooldown and shield-blocked states are visually distinct.",
+      "Deploy and cancel leave no wheel, portraits, hints or dimmer behind."
+    ]
+  },
+  "limits": [
+    "Focused gate only; no repository-wide regression claim.",
+    "Deterministic mixed-class power fixture; real gameplay abilities are not dispatched.",
+    "Recreated console-style geometry, glyphs and substituted typeface; not a pixel-identical PC-menu replica.",
+    "Physical gamepad and packaged-game behavior have not been verified.",
+    "JSON computedStyle records explicit authored CSS declarations, not measured native geometry."
+  ]
+}
