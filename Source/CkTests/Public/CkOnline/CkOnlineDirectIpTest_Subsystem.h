@@ -6,11 +6,13 @@
 #include "GameFramework/GameStateBase.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Tickable.h"
+#include "CkOnline/CkOnlineDirectIpTest_Bridge.h"
 
 #include "CkOnlineDirectIpTest_Subsystem.generated.h"
 
 class APlayerState;
 class UNetDriver;
+class UCk_OnlineDirect_Subsystem_UE;
 
 /** Replicated evidence for the transport gym. This marker is not a provider lobby ID. */
 UCLASS(BlueprintType, Blueprintable)
@@ -22,11 +24,14 @@ public:
     auto GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const -> void override;
     auto AddPlayerState(APlayerState* InPlayerState) -> void override;
     auto RemovePlayerState(APlayerState* InPlayerState) -> void override;
-    auto Request_BeginHosting() -> bool;
+    auto Request_BeginHosting(FGuid InLobbyEpoch = {}) -> bool;
     auto Request_RecordProof(APlayerState* InPlayerState) -> bool;
 
     UPROPERTY(Replicated, BlueprintReadOnly, Category = "Ck|Tests|Online Direct IP")
     FGuid SessionMarker;
+
+    UPROPERTY(Replicated, BlueprintReadOnly, Category = "Ck|Tests|Online Direct IP")
+    FGuid LobbyEpoch;
 
     UPROPERTY(Replicated, BlueprintReadOnly, Category = "Ck|Tests|Online Direct IP")
     int32 ProofSequence = 0;
@@ -76,6 +81,12 @@ public:
     bool Request_Join(const FString& InEndpoint);
 
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
+    bool Request_HostFromReadyLobby(int32 InPort = 7787);
+
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
+    bool Request_JoinFromReadyLobby(const FString& InEndpoint);
+
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
     bool Request_Disconnect();
 
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
@@ -84,8 +95,26 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
     bool Request_Proof();
 
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
+    bool Request_LogCheckpoint();
+
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
+    bool Request_TestControlReadyLoss();
+
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
+    bool Request_TestControlStop();
+
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     FString Get_StateText() const;
+
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
+    FString Get_LobbyBridgeText() const;
+
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
+    FString Get_LobbyEpochText() const;
+
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
+    bool Get_IsLobbyBridge() const { return _BridgeActive; }
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     FString Get_Endpoint() const { return _Endpoint; }
@@ -124,9 +153,17 @@ public:
     bool Get_IsOffline() const;
 
     static auto TryParseEndpoint(const FString& InEndpoint, FString& OutCanonical) -> bool;
+    static auto TryParseLobbyEndpoint(const FString& InEndpoint,
+        const ck::test::ip::FLobbyBinding& InBinding, FString& OutCanonical) -> bool;
 
 private:
+    friend class ACkOnlineDirectIpTest_GameState;
     enum class EState : uint8 { Offline, StartingHost, Hosting, Joining, Connected, Leaving, Failed };
+    auto DoRequestHost(int32 InPort, const ck::test::ip::FLobbyBinding* InBinding) -> bool;
+    auto DoRequestJoin(const FString& InEndpoint, const ck::test::ip::FLobbyBinding* InBinding) -> bool;
+    auto TryCaptureOwnedLobby(bool InHosting, ck::test::ip::FLobbyBinding& Out) const -> bool;
+    auto Get_BridgeStillValid() const -> bool;
+    auto TryGetTestControlService(UCk_OnlineDirect_Subsystem_UE*& OutService) -> bool;
     auto Get_ReadyWorld() const -> UWorld*;
     auto Get_ProofState() const -> ACkOnlineDirectIpTest_GameState*;
     auto DoReject(const FString& InReason) -> bool;
@@ -139,6 +176,12 @@ private:
     FString _Endpoint = TEXT("127.0.0.1:7787");
     FString _ReturnMap;
     FString _LastError;
+    FString _BridgeReadback = TEXT("none");
+    ck::test::ip::FLobbyBinding _BridgeBinding;
+    ck::test::ip::FLobbyBinding _BridgeLastBinding;
+    bool _BridgeActive = false;
+    bool _TestControlFaultQueued = false;
+    bool _ReturnToLobby = false;
     double _Deadline = 0.0;
     int32 _RequestedHostPort = 0;
     bool _HasJoinEndpoint = false;

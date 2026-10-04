@@ -7,6 +7,8 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
     default _AutoStageOriginField = false;
 
     private FCk_Handle_OnlineService _Service;
+    private FGuid _StartedGeneration;
+    private bool _OwnsTestService = false;
     private int32 _SignalCount = 0;
 
     UFUNCTION(BlueprintOverride)
@@ -16,6 +18,26 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         Add_Step_WaitUntil("service has completed the AS request", n"Check_Completed");
         Add_Step("verify reflected result", n"Step_Verify");
         Run_Steps(InHandle);
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void DoEndPlay(FCk_Handle InHandle)
+    {
+        DoCleanup();
+    }
+
+    private void DoCleanup()
+    {
+        if (ck::IsValid(_Service))
+        {
+            _Service.UnbindFrom_OnCompleted(
+                FCk_Delegate_OnlineService_Completed(this, n"OnCompleted"));
+        }
+        auto Probe = Subsystem::GetGameInstanceSubsystem(UCkOnlineTest_Subsystem);
+        if (_OwnsTestService && ck::IsValid(Probe)
+            && Probe.Get_Diagnostics().Get_Generation() == _StartedGeneration)
+        { Probe.Request_Stop(); }
+        _OwnsTestService = false;
     }
 
     UFUNCTION()
@@ -36,9 +58,13 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
             return;
         }
 
+        _StartedGeneration = Probe.Get_Diagnostics().Get_Generation();
+        _OwnsTestService = true;
+
         _Service = Probe.Get_Service();
         if (ck::Is_NOT_Valid(_Service))
         {
+            DoCleanup();
             FinishFailure("CkOnline did not return a service handle");
             return;
         }
@@ -51,6 +77,7 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         auto OperationId = Probe.Request_NewOperationId();
         if (!Probe.Request_MarkOperationImmediate(OperationId))
         {
+            DoCleanup();
             FinishFailure("CkOnline fake did not accept inline operation");
             return;
         }
@@ -88,10 +115,39 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         Assert_True(_SignalCount == 1,
             "AS completion signal fired exactly once");
 
-        _Service.UnbindFrom_OnCompleted(
-            FCk_Delegate_OnlineService_Completed(this, n"OnCompleted"));
+        auto Recovery = Subsystem::GetGameInstanceSubsystem(UCkOnlineDirectIpTest_Subsystem);
         auto Probe = Subsystem::GetGameInstanceSubsystem(UCkOnlineTest_Subsystem);
-        Probe.Request_Stop();
+        if (ck::Is_NOT_Valid(Recovery) || ck::Is_NOT_Valid(Probe))
+        {
+            DoCleanup();
+            FinishFailure("Online recovery test subsystem unavailable");
+            return;
+        }
+        auto StateBefore = Recovery.Get_StateText();
+        auto EndpointBefore = Recovery.Get_Endpoint();
+        int32 ShutdownsBefore = Probe.Get_AdapterShutdowns();
+        int32 CancelsBefore = Probe.Get_AdapterCancels();
+        Assert_False(Recovery.Request_TestControlReadyLoss(),
+            "ready-loss test rejects outside a bridged gameplay session");
+        Assert_False(Recovery.Request_TestControlStop(),
+            "control-stop test rejects outside a bridged gameplay session");
+        auto After = _Service.Get_Diagnostics();
+        Assert_True(After.Get_State() == ECk_OnlineService_State::Running
+            && After.Get_Generation() == Diag.Get_Generation(),
+            "rejected recovery actions retain the actual running service generation");
+        Assert_True(After.Get_Completed() == Diag.Get_Completed()
+            && After.Get_Pending() == Diag.Get_Pending() && _SignalCount == 1,
+            "rejected recovery actions produce no downstream completion or pending work");
+        Assert_True(Probe.Get_AdapterShutdowns() == ShutdownsBefore
+            && Probe.Get_AdapterCancels() == CancelsBefore,
+            "rejected recovery actions do not cancel or shut down the live adapter");
+        Assert_True(Recovery.Get_StateText() == StateBefore
+            && Recovery.Get_Endpoint() == EndpointBefore && !Recovery.Get_IsLobbyBridge(),
+            "rejected recovery actions leave IP state and bridge unchanged");
+        Assert_True(Recovery.Get_LastError().Len() > 0,
+            "rejected recovery actions expose their failure to the consumer");
+
+        DoCleanup();
         FinishSuccess();
     }
 }

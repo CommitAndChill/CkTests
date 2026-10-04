@@ -4,6 +4,8 @@
 #include "CkOnline/Direct/CkOnlineDirect_Utils.h"
 
 #include "CkOnline/CkOnlineDirectGym_Evidence.h"
+#include "CkOnline/CkOnlineDirectIpTest_Bridge.h"
+#include "CkOnline/CkOnlineDirectIpTest_Subsystem.h"
 #include "CkTest_OnlineDirectListener.h"
 
 #include "Misc/AutomationTest.h"
@@ -28,10 +30,10 @@ namespace ck_test_online_direct
         int32 BeforeCompletion = 0;
 
         auto Start(const FString& InName, int32 InPort, double InInviteLifetime = 30.0,
-            double InInitialTime = -1.0) -> bool
+            double InInitialTime = -1.0, const FString& InAdvertisedAddress = TEXT("127.0.0.1")) -> bool
         {
             auto Spec = FCk_OnlineDirect_Spec{};
-            Spec.Set_Name(InName).Set_AdvertisedAddress(TEXT("127.0.0.1"))
+            Spec.Set_Name(InName).Set_AdvertisedAddress(InAdvertisedAddress)
                 .Set_Port(InPort).Set_Capacity(2).Set_InviteLifetimeSeconds(InInviteLifetime)
                 .Set_OperationTimeoutSeconds(3.0);
             Feature = ck::direct::FFeature::TryCreate(Spec);
@@ -95,14 +97,24 @@ namespace ck_test_online_direct
         FGuid HostId;
         FGuid FirstClientId;
         FGuid RejoinedClientId;
+        ck::test::ip::FLobbyBinding HostBinding;
+        ck::test::ip::FLobbyBinding ClientBinding;
         FString Descriptor;
         double HostedAt = 0.0;
+        bool SawClientJoining = false;
+        bool PublishedClientAddressWhileJoining = false;
 
         auto Tick() -> void
         {
             const auto Now = FPlatformTime::Seconds();
             Server.Tick(Now);
             Client.Tick(Now);
+            const auto ClientSnapshot = Client.Snapshot();
+            if (ClientSnapshot.Get_State() == ECk_OnlineDirect_State::Joining)
+            {
+                SawClientJoining = true;
+                PublishedClientAddressWhileJoining |= !ClientSnapshot.Get_HostAddress().IsEmpty();
+            }
             WrongKey.Tick(Now);
             FullClient.Tick(Now);
             SamePort.Tick(Now);
@@ -181,7 +193,8 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
     using namespace ck_test_online_direct;
     auto Fixture = MakeShared<FFixture>();
     Fixture->Test = this;
-    if (!TestTrue(TEXT("host feature and ECS host start"), Fixture->Server.Start(TEXT("PrivateHostName"), 17888)) ||
+    if (!TestTrue(TEXT("host feature and ECS host start"),
+            Fixture->Server.Start(TEXT("PrivateHostName"), 17888, 30.0, -1.0, TEXT("127.0.0.2"))) ||
         !TestTrue(TEXT("client feature and ECS host start"), Fixture->Client.Start(TEXT("PrivateClientName"), 17889)) ||
         !TestTrue(TEXT("wrong-key peer starts"), Fixture->WrongKey.Start(TEXT("WrongKey"), 17890)) ||
         !TestTrue(TEXT("full-capacity peer starts"), Fixture->FullClient.Start(TEXT("Full"), 17891)) ||
@@ -190,6 +203,16 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
 
     const auto Baseline = Fixture->Server.Snapshot();
     TestEqual(TEXT("fresh server starts Offline"), Baseline.Get_State(), ECk_OnlineDirect_State::Offline);
+    TestEqual(TEXT("offline server publishes no host address"), Baseline.Get_HostAddress(), FString{});
+    for (const TCHAR* BadAddress : {TEXT(""), TEXT("localhost"), TEXT("0.0.0.0"),
+        TEXT("224.0.0.1"), TEXT("255.255.255.255"), TEXT("127.000.000.001"),
+        TEXT("127.0.0.1:7787"), TEXT(" 127.0.0.1"), TEXT("127.0.0.1?listen")})
+    {
+        TestFalse(*FString::Printf(TEXT("invalid advertised IPv4 rejects: '%s'"), BadAddress),
+            ck::direct::FTransport::ValidateHostAddress(BadAddress));
+    }
+    TestTrue(TEXT("canonical loopback IPv4 is valid"),
+        ck::direct::FTransport::ValidateHostAddress(TEXT("127.0.0.1")));
     TestTrue(TEXT("default request is rejected"),
         !UCk_Utils_OnlineDirect_UE::TryRequest(Fixture->Server.Handle, FCk_Request_OnlineDirect{}));
     auto BadText = FCk_Request_OnlineDirect{};
@@ -219,6 +242,8 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
             F.Descriptor = Snapshot.Get_JoinDescriptor();
             F.Epoch = Snapshot.Get_LobbyEpoch();
             F.HostId = Snapshot.Get_LocalMemberId();
+            TestEqual(TEXT("hosting publishes the configured address"), Snapshot.Get_HostAddress(),
+                FString(TEXT("127.0.0.2")));
             TestTrue(TEXT("descriptor is valid"), ck::direct::FTransport::ValidateDescriptor(F.Descriptor));
             TestTrue(TEXT("host epoch and member identity are valid"), F.Epoch.IsValid() && F.HostId.IsValid());
             TestEqual(TEXT("host has one local member"), Snapshot.Get_Members().Num(), 1);
@@ -230,6 +255,7 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         {
             F.SamePort.ExpectCompletion(*this, ECk_OnlineDirect_Result::TransportError);
             TestEqual(TEXT("same-port peer remains Offline"), F.SamePort.Snapshot().Get_State(), ECk_OnlineDirect_State::Offline);
+            TestEqual(TEXT("failed bind publishes no address"), F.SamePort.Snapshot().Get_HostAddress(), FString{});
             TestEqual(TEXT("original host remains active"), F.Server.Snapshot().Get_State(), ECk_OnlineDirect_State::Hosting);
             auto Parts = TArray<FString>{};
             F.Descriptor.ParseIntoArray(Parts, TEXT("|"), false);
@@ -245,6 +271,7 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         {
             F.WrongKey.ExpectCompletion(*this, ECk_OnlineDirect_Result::Unauthorized);
             TestEqual(TEXT("wrong-key peer has no member identity"), F.WrongKey.Snapshot().Get_LocalMemberId(), FGuid{});
+            TestEqual(TEXT("wrong-key peer publishes no host address"), F.WrongKey.Snapshot().Get_HostAddress(), FString{});
             TestEqual(TEXT("unauthorized peer did not change host roster"), F.Server.Snapshot().Get_Members().Num(), 1);
             TestTrue(TEXT("valid client join admitted"), F.Client.Request(ECk_OnlineDirect_Action::Join, F.Descriptor));
         }));
@@ -256,14 +283,27 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         }, [this](FFixture& F)
         {
             F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
+            TestTrue(TEXT("real join exposes a pre-admission Joining state"), F.SawClientJoining);
+            TestFalse(TEXT("pre-admission Joining never publishes host address"),
+                F.PublishedClientAddressWhileJoining);
             const auto Host = F.Server.Snapshot();
             const auto Client = F.Client.Snapshot();
             F.FirstClientId = Client.Get_LocalMemberId();
             TestTrue(TEXT("admitted client has distinct valid identity"),
                 F.FirstClientId.IsValid() && F.FirstClientId != F.HostId);
             TestEqual(TEXT("peer epoch matches host"), Client.Get_LobbyEpoch(), F.Epoch);
+            TestEqual(TEXT("joined client learns host address from invite, not local spec"),
+                Client.Get_HostAddress(), FString(TEXT("127.0.0.2")));
             TestTrue(TEXT("host roster names admitted peer"), HasMember(Host, F.FirstClientId, TEXT("PrivateClientName"), false));
             TestTrue(TEXT("client roster names host"), HasMember(Client, F.HostId, TEXT("PrivateHostName"), false));
+            TestFalse(TEXT("unready host roster cannot bind gameplay"),
+                ck::test::ip::FLobbyBinding::TryCapture(Host, true, F.HostBinding));
+            TestFalse(TEXT("unready client roster cannot bind gameplay"),
+                ck::test::ip::FLobbyBinding::TryCapture(Client, false, F.ClientBinding));
+            TestFalse(TEXT("rejected host binding clears generation"), F.HostBinding.Generation.IsValid());
+            TestFalse(TEXT("rejected client binding clears generation"), F.ClientBinding.Generation.IsValid());
+            TestEqual(TEXT("rejected host binding has no roster"), F.HostBinding.Members.Num(), 0);
+            TestEqual(TEXT("rejected client binding has no roster"), F.ClientBinding.Members.Num(), 0);
             const auto JoinedLine = ck::test::direct::FormatCheckpoint(Client, false, 1);
             TestTrue(TEXT("joined checkpoint has schema and Lobby view"),
                 JoinedLine.StartsWith(TEXT("[OnlineCheckpoint] schema=1 view=Lobby ordinal=1 ")));
@@ -302,6 +342,7 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         [](FFixture& F) { return F.FullClient.Completed(); }, [this](FFixture& F)
         {
             F.FullClient.ExpectCompletion(*this, ECk_OnlineDirect_Result::Full);
+            TestEqual(TEXT("full peer publishes no host address"), F.FullClient.Snapshot().Get_HostAddress(), FString{});
             TestEqual(TEXT("host roster remains capacity two"), F.Server.Snapshot().Get_Members().Num(), 2);
             TestTrue(TEXT("host ready request admitted"), F.Server.Request(ECk_OnlineDirect_Action::SetReady, {}, true));
         }));
@@ -321,7 +362,129 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         }, [this](FFixture& F)
         {
             F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
-            const auto ReadyLine = ck::test::direct::FormatCheckpoint(F.Client.Snapshot(), false, 2);
+            const auto Host = F.Server.Snapshot();
+            const auto Client = F.Client.Snapshot();
+            TestTrue(TEXT("ready host snapshot binds gameplay roster"),
+                ck::test::ip::FLobbyBinding::TryCapture(Host, true, F.HostBinding));
+            TestTrue(TEXT("ready client snapshot binds gameplay roster"),
+                ck::test::ip::FLobbyBinding::TryCapture(Client, false, F.ClientBinding));
+            TestEqual(TEXT("host binding retains host service generation"),
+                F.HostBinding.Generation, Host.Get_ServiceGeneration());
+            TestEqual(TEXT("client binding retains client service generation"),
+                F.ClientBinding.Generation, Client.Get_ServiceGeneration());
+            TestTrue(TEXT("host and client services have distinct generations"),
+                F.HostBinding.Generation.IsValid() && F.ClientBinding.Generation.IsValid() &&
+                F.HostBinding.Generation != F.ClientBinding.Generation);
+            TestEqual(TEXT("host binding retains host local member"), F.HostBinding.LocalMemberId, F.HostId);
+            TestEqual(TEXT("client binding retains client local member"), F.ClientBinding.LocalMemberId, F.FirstClientId);
+            TestEqual(TEXT("host and client bindings share the lobby epoch"), F.HostBinding.Epoch, F.ClientBinding.Epoch);
+            TestEqual(TEXT("binding epoch comes from live host"), F.HostBinding.Epoch, F.Epoch);
+            TestTrue(TEXT("binding roles are host and client"), F.HostBinding.Hosting && !F.ClientBinding.Hosting);
+            TestEqual(TEXT("host binding captures admitted host address"), F.HostBinding.HostAddress,
+                Host.Get_HostAddress());
+            TestEqual(TEXT("client binding captures invite host address"), F.ClientBinding.HostAddress,
+                Client.Get_HostAddress());
+            TestEqual(TEXT("both bindings correlate the same host address"),
+                F.HostBinding.HostAddress, F.ClientBinding.HostAddress);
+            FString Canonical;
+            TestTrue(TEXT("lobby endpoint accepts admitted address on gym port"),
+                UCkOnlineDirectIpTest_Subsystem::TryParseLobbyEndpoint(
+                    TEXT("127.0.0.2:7787"), F.ClientBinding, Canonical));
+            TestEqual(TEXT("gym endpoint stays canonical"), Canonical, FString(TEXT("127.0.0.2:7787")));
+            TestTrue(TEXT("lobby endpoint accepts another valid gameplay port"),
+                UCkOnlineDirectIpTest_Subsystem::TryParseLobbyEndpoint(
+                    TEXT("127.0.0.2:23456"), F.ClientBinding, Canonical));
+            TestEqual(TEXT("custom gameplay port stays canonical"), Canonical,
+                FString(TEXT("127.0.0.2:23456")));
+            const auto RejectEndpoint = [this, &F, &Canonical](const TCHAR* Label, const TCHAR* Endpoint)
+            {
+                Canonical = TEXT("sentinel");
+                TestFalse(Label, UCkOnlineDirectIpTest_Subsystem::TryParseLobbyEndpoint(
+                    Endpoint, F.ClientBinding, Canonical));
+                TestTrue(*FString::Printf(TEXT("%s clears canonical output"), Label), Canonical.IsEmpty());
+            };
+            RejectEndpoint(TEXT("different literal address rejects"), TEXT("127.0.0.1:7787"));
+            RejectEndpoint(TEXT("DNS endpoint rejects"), TEXT("localhost:7787"));
+            RejectEndpoint(TEXT("travel options reject"), TEXT("127.0.0.2:7787?listen"));
+            RejectEndpoint(TEXT("missing port rejects"), TEXT("127.0.0.2"));
+            RejectEndpoint(TEXT("out-of-range port rejects"), TEXT("127.0.0.2:65536"));
+            auto InvalidBinding = F.ClientBinding;
+            InvalidBinding.HostAddress = TEXT("localhost");
+            Canonical = TEXT("sentinel");
+            TestFalse(TEXT("invalid binding address rejects endpoint"),
+                UCkOnlineDirectIpTest_Subsystem::TryParseLobbyEndpoint(
+                    TEXT("127.0.0.2:7787"), InvalidBinding, Canonical));
+            TestTrue(TEXT("invalid binding clears endpoint output"), Canonical.IsEmpty());
+            auto ExpectedMembers = TArray<FGuid>{F.HostId, F.FirstClientId};
+            ExpectedMembers.Sort([](const FGuid& A, const FGuid& B)
+            { return A.ToString(EGuidFormats::Digits) < B.ToString(EGuidFormats::Digits); });
+            TestTrue(TEXT("both bindings retain the same sorted two-peer roster"),
+                F.HostBinding.Members == ExpectedMembers && F.ClientBinding.Members == ExpectedMembers);
+            TestTrue(TEXT("fresh host and client bindings match their source snapshots"),
+                F.HostBinding.Matches(Host) && F.ClientBinding.Matches(Client));
+            const auto HostCompletions = UCk_Utils_OnlineDirect_UE::Get_CompletedCount(F.Server.Handle);
+            const auto ClientCompletions = UCk_Utils_OnlineDirect_UE::Get_CompletedCount(F.Client.Handle);
+            const auto Reject = [this, &F](const TCHAR* Label, const FCk_OnlineDirect_Snapshot& Candidate,
+                bool Hosting)
+            {
+                auto Out = F.ClientBinding;
+                TestFalse(Label, ck::test::ip::FLobbyBinding::TryCapture(Candidate, Hosting, Out));
+                TestTrue(*FString::Printf(TEXT("%s clears prior binding"), Label),
+                    !Out.Generation.IsValid() && !Out.Epoch.IsValid() && !Out.LocalMemberId.IsValid() &&
+                    Out.HostAddress.IsEmpty() && Out.Members.IsEmpty() && !Out.Hosting);
+            };
+            Reject(TEXT("default snapshot rejects"), FCk_OnlineDirect_Snapshot{}, false);
+            auto Invalid = Client;
+            Invalid.Set_HostAddress(TEXT(""));
+            Reject(TEXT("missing admitted host address rejects"), Invalid, false);
+            Invalid = Client;
+            Invalid.Set_HostAddress(TEXT("localhost"));
+            Reject(TEXT("malformed admitted host address rejects"), Invalid, false);
+            Reject(TEXT("host snapshot rejects client role"), Host, false);
+            Reject(TEXT("client snapshot rejects host role"), Client, true);
+            Invalid = Client;
+            Invalid.Set_ServiceGeneration(FGuid{});
+            Reject(TEXT("invalid generation rejects"), Invalid, false);
+            Invalid = Client;
+            Invalid.Set_LobbyEpoch(FGuid{});
+            Reject(TEXT("invalid epoch rejects"), Invalid, false);
+            Invalid = Client;
+            Invalid.Set_LocalMemberId(FGuid{});
+            Reject(TEXT("invalid local ID rejects"), Invalid, false);
+            Invalid = Client;
+            auto ForeignId = FGuid::NewGuid();
+            while (ForeignId == F.HostId || ForeignId == F.FirstClientId) { ForeignId = FGuid::NewGuid(); }
+            Invalid.Set_LocalMemberId(ForeignId);
+            Reject(TEXT("nonmember local ID rejects"), Invalid, false);
+            Invalid = Client;
+            auto Members = Client.Get_Members();
+            Members[1].Set_Id(Members[0].Get_Id());
+            Invalid.Set_Members(Members);
+            Reject(TEXT("duplicate member ID rejects"), Invalid, false);
+            Invalid = Client;
+            Members = Client.Get_Members();
+            Members[0].Set_Ready(false);
+            Invalid.Set_Members(Members);
+            Reject(TEXT("unready member rejects"), Invalid, false);
+            Invalid = Client;
+            Members = Client.Get_Members();
+            Members.RemoveAt(1);
+            Invalid.Set_Members(Members);
+            Reject(TEXT("missing member rejects"), Invalid, false);
+            Invalid = Client;
+            Members = Client.Get_Members();
+            Members.Add(FCk_OnlineDirect_Member{}.Set_Id(ForeignId).Set_Ready(true));
+            Invalid.Set_Members(Members);
+            Reject(TEXT("additional member rejects"), Invalid, false);
+            TestTrue(TEXT("guard probes do not mutate live host or client binding"),
+                F.HostBinding.Matches(F.Server.Snapshot()) && F.ClientBinding.Matches(F.Client.Snapshot()));
+            TestTrue(TEXT("guard probes do not change live snapshot revisions"),
+                F.Server.Snapshot().Get_Revision() == Host.Get_Revision() &&
+                F.Client.Snapshot().Get_Revision() == Client.Get_Revision());
+            TestTrue(TEXT("guard probes dispatch no service completions"),
+                UCk_Utils_OnlineDirect_UE::Get_CompletedCount(F.Server.Handle) == HostCompletions &&
+                UCk_Utils_OnlineDirect_UE::Get_CompletedCount(F.Client.Handle) == ClientCompletions);
+            const auto ReadyLine = ck::test::direct::FormatCheckpoint(Client, false, 2);
             TestTrue(TEXT("ready checkpoint has both actual ready IDs"),
                 ReadyLine.Contains(TEXT("ordinal=2")) &&
                 ReadyLine.Contains(F.HostId.ToString(EGuidFormats::Digits) + TEXT(":1")) &&
@@ -350,6 +513,34 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         {
             F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
             const auto Sample = F.Client.Snapshot();
+            TestTrue(TEXT("ready host binding survives transcript changes"),
+                F.HostBinding.Matches(F.Server.Snapshot()));
+            TestTrue(TEXT("ready client binding survives transcript changes"),
+                F.ClientBinding.Matches(Sample));
+            auto Changed = Sample;
+            Changed.Set_LobbyEpoch(FGuid::NewGuid());
+            TestFalse(TEXT("changed epoch breaks client binding"), F.ClientBinding.Matches(Changed));
+            Changed = Sample;
+            Changed.Set_ServiceGeneration(FGuid::NewGuid());
+            TestFalse(TEXT("changed generation breaks client binding"), F.ClientBinding.Matches(Changed));
+            Changed = Sample;
+            Changed.Set_HostAddress(TEXT("127.0.0.1"));
+            TestFalse(TEXT("changed admitted host address breaks client binding"),
+                F.ClientBinding.Matches(Changed));
+            Changed = Sample;
+            auto ChangedMembers = Sample.Get_Members();
+            auto ForeignId = FGuid::NewGuid();
+            while (ForeignId == F.HostId || ForeignId == F.FirstClientId) { ForeignId = FGuid::NewGuid(); }
+            ChangedMembers[0].Set_Id(ForeignId);
+            Changed.Set_Members(ChangedMembers);
+            TestFalse(TEXT("changed member breaks client binding"), F.ClientBinding.Matches(Changed));
+            Changed = Sample;
+            ChangedMembers = Sample.Get_Members();
+            ChangedMembers[0].Set_Ready(false);
+            Changed.Set_Members(ChangedMembers);
+            TestFalse(TEXT("unready member breaks client binding"), F.ClientBinding.Matches(Changed));
+            TestTrue(TEXT("copied snapshot probes preserve both live bindings"),
+                F.HostBinding.Matches(F.Server.Snapshot()) && F.ClientBinding.Matches(F.Client.Snapshot()));
             const auto LobbyLine = ck::test::direct::FormatCheckpoint(Sample, false, 3);
             const auto ChatLine = ck::test::direct::FormatCheckpoint(Sample, true, 3);
             TestEqual(TEXT("same sample formats stably as Lobby"),
@@ -390,6 +581,8 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         }, [this](FFixture& F)
         {
             F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
+            TestEqual(TEXT("leaving client clears published host address"),
+                F.Client.Snapshot().Get_HostAddress(), FString{});
             TestFalse(TEXT("old peer is absent from host roster"),
                 HasMember(F.Server.Snapshot(), F.FirstClientId, TEXT("PrivateClientName"), true));
             TestTrue(TEXT("same descriptor rejoin admitted"), F.Client.Request(ECk_OnlineDirect_Action::Join, F.Descriptor));
@@ -406,6 +599,8 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
             TestTrue(TEXT("rejoin receives fresh member identity"),
                 F.RejoinedClientId.IsValid() && F.RejoinedClientId != F.FirstClientId);
             TestEqual(TEXT("rejoin remains in same host epoch"), F.Client.Snapshot().Get_LobbyEpoch(), F.Epoch);
+            TestEqual(TEXT("rejoin republishes invite host address"), F.Client.Snapshot().Get_HostAddress(),
+                FString(TEXT("127.0.0.2")));
             TestTrue(TEXT("new member appears on host"),
                 HasMember(F.Server.Snapshot(), F.RejoinedClientId, TEXT("PrivateClientName"), false));
             F.Server.Stop();
@@ -416,6 +611,7 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         {
             TestEqual(TEXT("lost host clears client roster"), F.Client.Snapshot().Get_Members().Num(), 0);
             TestEqual(TEXT("lost host clears client join descriptor"), F.Client.Snapshot().Get_JoinDescriptor(), FString{});
+            TestEqual(TEXT("lost host clears client host address"), F.Client.Snapshot().Get_HostAddress(), FString{});
             TestFalse(TEXT("stopped server handle rejects new work"),
                 UCk_Utils_OnlineDirect_UE::TryRequest(F.Server.Handle, FCk_Request_OnlineDirect{}
                     .Set_OperationId(FGuid::NewGuid()).Set_Action(ECk_OnlineDirect_Action::Host)));
@@ -443,6 +639,8 @@ bool FCkTest_OnlineDirect_ExpiryAndAdmission::RunTest(const FString& Parameters)
         UCk_Utils_OnlineDirect_UE::TryRequest(Fixture->Client.Handle, BadJoin));
     TestEqual(TEXT("invalid invite leaves state Offline"), Fixture->Client.Snapshot().Get_State(),
         ECk_OnlineDirect_State::Offline);
+    TestEqual(TEXT("invalid invite publishes no host address"),
+        Fixture->Client.Snapshot().Get_HostAddress(), FString{});
     TestEqual(TEXT("invalid invite has no completion"),
         UCk_Utils_OnlineDirect_UE::Get_CompletedCount(Fixture->Client.Handle), 0);
 
@@ -455,6 +653,8 @@ bool FCkTest_OnlineDirect_ExpiryAndAdmission::RunTest(const FString& Parameters)
             F.Server.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
             F.Descriptor = F.Server.Snapshot().Get_JoinDescriptor();
             F.Epoch = F.Server.Snapshot().Get_LobbyEpoch();
+            TestEqual(TEXT("short-lived host publishes its address"),
+                F.Server.Snapshot().Get_HostAddress(), FString(TEXT("127.0.0.1")));
             F.HostedAt = FPlatformTime::Seconds();
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("invite lifetime elapses without a join"),
@@ -470,6 +670,8 @@ bool FCkTest_OnlineDirect_ExpiryAndAdmission::RunTest(const FString& Parameters)
         [](FFixture& F) { return F.Client.Completed(); }, [this](FFixture& F)
         {
             F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Expired);
+            TestEqual(TEXT("expired join publishes no host address"),
+                F.Client.Snapshot().Get_HostAddress(), FString{});
             TestEqual(TEXT("expired join has no local member ID"), F.Client.Snapshot().Get_LocalMemberId(), FGuid{});
             TestEqual(TEXT("expired join preserves one-member host roster"), F.Server.Snapshot().Get_Members().Num(), 1);
             TestEqual(TEXT("expired invite does not rotate host epoch"), F.Server.Snapshot().Get_LobbyEpoch(), F.Epoch);
