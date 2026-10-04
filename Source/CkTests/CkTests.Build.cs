@@ -28,6 +28,8 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("CkSlateLayout");
         PrivateDependencyModuleNames.Add("AppFramework"); // Exercise native color-picker behavior through authored controls.
         PrivateDependencyModuleNames.Add("ImageCore");
+        // The Online Direct IP transport fixture verifies the actual stock driver and bound socket.
+        PrivateDependencyModuleNames.Add("OnlineSubsystemUtils");
         PrivateDependencyModuleNames.Add("Sockets");
 
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.html"), StagedFileType.NonUFS);

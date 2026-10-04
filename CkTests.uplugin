@@ -65,6 +65,10 @@
 			"Enabled": true
 		},
 		{
+			"Name": "OnlineSubsystemUtils",
+			"Enabled": true
+		},
+		{
 			"Name": "CkDebugger",
 			"Enabled": true,
 			"TargetAllowList": [
