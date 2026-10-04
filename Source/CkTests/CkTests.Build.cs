@@ -17,6 +17,7 @@ public class CkTests : CkModuleRules
             "CommonUI",
             "Text3D",
             "PhysicsCore",
+            "ApplicationCore",
         });
 
         // Direct C API integration coverage lives in this module's private unit-test source.
