@@ -90,6 +90,7 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Timer",              ACk_TimerGym_GameMode,                   "", "CkTimer");
         CkGym_Cycler::RegisterProjectGym("Transform",          ACk_TransformGym_GameMode,               "", "CkEcsExt");
         CkGym_Cycler::RegisterProjectGym("Tween",              ACk_TweenTest_GymGameMode,               "", "CkTween");
+        CkGym_Cycler::RegisterProjectGym("UI Authoring",       ACk_UiAuthoringGym_GameMode,             "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("USF Materials",      ACk_UsfGym_GameMode,                     "", "CkUsf");
         CkGym_Cycler::RegisterProjectGym("Vat",                ACk_VatGym_GameMode,                     "", "CkVat");
         CkGym_Cycler::RegisterProjectGym("VfxExamples",        ACk_VfxExamplesGym_GameMode,             "", "CkVfx");

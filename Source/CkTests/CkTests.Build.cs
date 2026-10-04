@@ -16,9 +16,6 @@ public class CkTests : CkModuleRules
 
         PrivateDependencyModuleNames.AddRange(new string[]
         {
-            // The layout lifecycle fixture creates and activates CommonUI widgets directly.
-            "UMG",
-            "CommonUI",
             "Text3D",
             "PhysicsCore",
             "ApplicationCore",
@@ -36,6 +33,14 @@ public class CkTests : CkModuleRules
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "CapabilityGallery", "CapabilityGallery.ui.css"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "CapabilityGallery", "Templates", "GalleryStarter.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "CapabilityGallery", "Templates", "GalleryStarter.ui.css"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PauseMenuProof", "PauseMenuProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PauseMenuProof", "PauseMenuProof.ui.css"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PauseMenuProof", "pause-menu-backdrop.png"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "SettingsMenuProof", "SettingsMenuProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "SettingsMenuProof", "SettingsMenuProof.ui.css"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "InventoryMenuProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "InventoryMenuProof.ui.css"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "inventory-item-atlas.png"), StagedFileType.NonUFS);
 
         PublicDependencyModuleNames.AddRange(new string[]
         {
@@ -43,6 +48,9 @@ public class CkTests : CkModuleRules
             "CoreUObject",
             "DeveloperSettings",
             "Engine",
+            // The public UI gym fixture derives from a CommonUI UWidget host.
+            "UMG",
+            "CommonUI",
             // Public fixture config derives from UNavigationSystemModuleConfig.
             "NavigationSystem",
             "Projects",

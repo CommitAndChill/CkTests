@@ -1,0 +1,420 @@
+#include "CkInventoryMenuProofModel.h"
+
+#include "Engine/Texture2D.h"
+#include "ImageUtils.h"
+#include "Styling/SlateBrush.h"
+
+namespace ck_inventory_menu_proof
+{
+    /** Records/widgets may keep a brush after the model is released. */
+    struct FInventoryBrush final : FSlateBrush
+    {
+        TSharedPtr<TStrongObjectPtr<UTexture2D>> TextureRoot;
+    };
+
+    enum class ECategory : uint8 { Equipment, Supplies, Materials };
+
+    struct FDefinition
+    {
+        const TCHAR* Key;
+        const TCHAR* Name;
+        ECategory Category;
+        int32 InitialQuantity;
+        const TCHAR* Meta;
+        const TCHAR* Description;
+        const TCHAR* Stats;
+    };
+
+    constexpr FDefinition Definitions[] = {
+        {TEXT("iron-longsword"), TEXT("Iron Longsword"), ECategory::Equipment, 1, TEXT("Melee weapon"),
+            TEXT("A dependable blade with a balanced grip."), TEXT("Damage 28  /  Weight 3.5")},
+        {TEXT("oak-bow"), TEXT("Oak Bow"), ECategory::Equipment, 1, TEXT("Ranged weapon"),
+            TEXT("A sturdy hunting bow carved from seasoned oak."), TEXT("Damage 19  /  Weight 2.0")},
+        {TEXT("steel-shield"), TEXT("Steel Shield"), ECategory::Equipment, 1, TEXT("Shield"),
+            TEXT("A reinforced shield for the road ahead."), TEXT("Defense 24  /  Weight 5.0")},
+        {TEXT("trail-hood"), TEXT("Trail Hood"), ECategory::Equipment, 1, TEXT("Head armor"),
+            TEXT("A light hood that keeps the weather off."), TEXT("Defense 7  /  Weight 0.8")},
+        {TEXT("leather-boots"), TEXT("Leather Boots"), ECategory::Equipment, 1, TEXT("Foot armor"),
+            TEXT("Soft leather boots made for long journeys."), TEXT("Defense 9  /  Weight 1.2")},
+        {TEXT("scout-vest"), TEXT("Scout Vest"), ECategory::Equipment, 1, TEXT("Body armor"),
+            TEXT("Flexible protection for a quick moving scout."), TEXT("Defense 16  /  Weight 2.5")},
+        {TEXT("health-tonic"), TEXT("Health Tonic"), ECategory::Supplies, 3, TEXT("Restorative"),
+            TEXT("A bright tonic that restores vitality."), TEXT("Restores 40 health")},
+        {TEXT("focus-draught"), TEXT("Focus Draught"), ECategory::Supplies, 2, TEXT("Restorative"),
+            TEXT("A calming draught that clears the mind."), TEXT("Restores 30 focus")},
+        {TEXT("travel-rations"), TEXT("Travel Rations"), ECategory::Supplies, 5, TEXT("Food"),
+            TEXT("Packed provisions for a day on the trail."), TEXT("Restores 15 stamina")},
+        {TEXT("bandages"), TEXT("Bandages"), ECategory::Supplies, 4, TEXT("Medical"),
+            TEXT("Clean wraps for tending minor wounds."), TEXT("Restores 12 health")},
+        {TEXT("iron-ore"), TEXT("Iron Ore"), ECategory::Materials, 8, TEXT("Crafting material"),
+            TEXT("Raw ore ready for the forge."), TEXT("Material  /  Common")},
+        {TEXT("moonstone"), TEXT("Moonstone"), ECategory::Materials, 2, TEXT("Crafting material"),
+            TEXT("A pale mineral with a faint inner glow."), TEXT("Material  /  Rare")},
+    };
+
+    auto FindIndex(const FString& InKey) -> int32
+    {
+        for (auto Index = 0; Index < UE_ARRAY_COUNT(Definitions); ++Index)
+        { if (InKey == Definitions[Index].Key) { return Index; } }
+        return INDEX_NONE;
+    }
+
+    auto CategoryName(ECategory InCategory) -> FString
+    {
+        switch (InCategory)
+        {
+        case ECategory::Equipment: return TEXT("Equipment");
+        case ECategory::Supplies: return TEXT("Supplies");
+        case ECategory::Materials: return TEXT("Materials");
+        }
+        return {};
+    }
+
+    auto IsCategory(const FString& InCategory) -> bool
+    { return InCategory == TEXT("All") || InCategory == TEXT("Equipment")
+        || InCategory == TEXT("Supplies") || InCategory == TEXT("Materials"); }
+
+    auto ValidateState(const FCk_UiAuthoringProof_InventoryState& InState, FString& OutError) -> bool
+    {
+        const auto& Quantities = InState.Get_ItemQuantities();
+        if (Quantities.IsEmpty())
+        {
+            if (InState.Get_EquippedKey().IsEmpty()) { return true; }
+            OutError = TEXT("An equipped item requires a complete inventory snapshot.");
+            return false;
+        }
+        if (Quantities.Num() != UE_ARRAY_COUNT(Definitions))
+        {
+            OutError = TEXT("Inventory snapshot must contain exactly the twelve fixture keys.");
+            return false;
+        }
+        for (const auto& Definition : Definitions)
+        {
+            const auto* Quantity = Quantities.Find(Definition.Key);
+            if (Quantity == nullptr || *Quantity < 0 || *Quantity > Definition.InitialQuantity)
+            {
+                OutError = FString::Printf(TEXT("Invalid quantity for %s."), Definition.Key);
+                return false;
+            }
+        }
+        const auto& Equipped = InState.Get_EquippedKey();
+        if (Equipped.IsEmpty()) { return true; }
+        const auto Index = FindIndex(Equipped);
+        if (Index == INDEX_NONE || Definitions[Index].Category != ECategory::Equipment
+            || Quantities.FindRef(Equipped) == 0)
+        {
+            OutError = TEXT("Equipped key must name owned equipment.");
+            return false;
+        }
+        return true;
+    }
+
+    auto Text(FString InValue) -> FCkUiFieldValue
+    { return FCkUiFieldValue{.Kind = ECkUiFieldKind::Text, .Text = FText::FromString(MoveTemp(InValue))}; }
+
+    auto Bool(bool InValue) -> FCkUiFieldValue
+    { return FCkUiFieldValue{.Kind = ECkUiFieldKind::Bool, .Bool = InValue}; }
+}
+
+auto FCkInventoryMenuProofModel::TryValidateState(const FCk_UiAuthoringProof_InventoryState& InState,
+    FString& OutError) -> bool
+{
+    OutError.Reset();
+    return ck_inventory_menu_proof::ValidateState(InState, OutError);
+}
+
+auto FCkInventoryMenuProofModel::TryCreate(const FCk_UiAuthoringProof_InventoryState& InState,
+    const FString& InAtlasPath, TSharedPtr<FCkInventoryMenuProofModel>& OutModel, FString& OutError) -> bool
+{
+    OutError.Reset();
+    if (NOT TryValidateState(InState, OutError)) { return false; }
+    auto* Texture = FImageUtils::ImportFileAsTexture2D(InAtlasPath);
+    if (NOT IsValid(Texture) || Texture->GetSizeX() != 1448 || Texture->GetSizeY() != 1086)
+    {
+        OutError = TEXT("Inventory icon atlas must be the shipped 1448 x 1086 image.");
+        return false;
+    }
+    auto Candidate = MakeShared<FCkInventoryMenuProofModel>();
+    Candidate->_AtlasRoot = MakeShared<TStrongObjectPtr<UTexture2D>>(Texture);
+    constexpr float RowEdges[] = {0.0f, 394.0f / 1086.0f, 741.0f / 1086.0f, 1.0f};
+    for (auto Index = 0; Index < UE_ARRAY_COUNT(ck_inventory_menu_proof::Definitions); ++Index)
+    {
+        auto Brush = MakeShared<ck_inventory_menu_proof::FInventoryBrush>();
+        Brush->TextureRoot = Candidate->_AtlasRoot;
+        Brush->DrawAs = ESlateBrushDrawType::Image;
+        Brush->ImageSize = FVector2D{96.0f, 96.0f};
+        Brush->SetResourceObject(Texture);
+        const auto Column = Index % 4;
+        const auto Row = Index / 4;
+        Brush->SetUVRegion(FBox2f{FVector2f{Column / 4.0f, RowEdges[Row]},
+            FVector2f{(Column + 1) / 4.0f, RowEdges[Row + 1]}});
+        Candidate->_Brushes.Add(MoveTemp(Brush));
+    }
+    auto Schema = TArray<FCkUiFieldSchema>{
+        {TEXT("image"), ECkUiFieldKind::Image, true},
+        {TEXT("title"), ECkUiFieldKind::Text, true},
+        {TEXT("meta"), ECkUiFieldKind::Text, true},
+        {TEXT("selected"), ECkUiFieldKind::Bool, true},
+        {TEXT("equipped"), ECkUiFieldKind::Bool, true},
+    };
+    if (NOT FCkUiCollection::TryCreate(MoveTemp(Schema), Candidate->_Items).Succeeded)
+    {
+        OutError = TEXT("Could not create the inventory collection.");
+        return false;
+    }
+    auto Initial = InState;
+    if (Initial.Get_ItemQuantities().IsEmpty())
+    {
+        auto Quantities = TMap<FString, int32>{};
+        for (const auto& Definition : ck_inventory_menu_proof::Definitions)
+        { Quantities.Add(Definition.Key, Definition.InitialQuantity); }
+        Initial.Set_ItemQuantities(MoveTemp(Quantities));
+    }
+    if (NOT Candidate->TryCommit(Initial, TEXT("All"), FText::GetEmpty(), TEXT("iron-longsword")))
+    {
+        OutError = TEXT("Could not publish the initial inventory.");
+        return false;
+    }
+    OutModel = MoveTemp(Candidate);
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::CanDispatch() const -> bool
+{ return NOT _DispatchGate.IsSet() || _DispatchGate.Get(true); }
+
+auto FCkInventoryMenuProofModel::TryProject(const FCk_UiAuthoringProof_InventoryState& InState,
+    const FString& InCategory, const FText& InSearch, const FString& InPreferredSelection,
+    TArray<FCkUiRecordData>& OutRecords, TArray<FString>& OutKeys, FString& OutSelection) const -> bool
+{
+    auto Error = FString{};
+    if (NOT ck_inventory_menu_proof::ValidateState(InState, Error) || NOT ck_inventory_menu_proof::IsCategory(InCategory)
+        || NOT _Items.IsValid() || _Brushes.Num() != UE_ARRAY_COUNT(ck_inventory_menu_proof::Definitions))
+    { return false; }
+    const auto Needle = InSearch.ToString().TrimStartAndEnd();
+    for (auto Index = 0; Index < UE_ARRAY_COUNT(ck_inventory_menu_proof::Definitions); ++Index)
+    {
+        const auto& Definition = ck_inventory_menu_proof::Definitions[Index];
+        const auto Key = FString{Definition.Key};
+        const auto Quantity = InState.Get_ItemQuantities().FindRef(Key);
+        if (Quantity <= 0 || (InCategory != TEXT("All")
+            && InCategory != ck_inventory_menu_proof::CategoryName(Definition.Category))
+            || (NOT Needle.IsEmpty() && NOT FString{Definition.Name}.Contains(Needle, ESearchCase::IgnoreCase)))
+        { continue; }
+        auto Record = FCkUiRecordData{};
+        Record.Key = Key;
+        Record.Fields.Add(TEXT("image"), FCkUiFieldValue{.Kind = ECkUiFieldKind::Image, .Image = _Brushes[Index]});
+        Record.Fields.Add(TEXT("title"), ck_inventory_menu_proof::Text(Definition.Name));
+        Record.Fields.Add(TEXT("meta"), ck_inventory_menu_proof::Text(FString::Printf(TEXT("x%d  %s"), Quantity, Definition.Meta)));
+        Record.Fields.Add(TEXT("selected"), ck_inventory_menu_proof::Bool(Key == InPreferredSelection));
+        Record.Fields.Add(TEXT("equipped"), ck_inventory_menu_proof::Bool(Key == InState.Get_EquippedKey()));
+        OutRecords.Add(MoveTemp(Record));
+        OutKeys.Add(Key);
+    }
+    OutSelection = OutKeys.Contains(InPreferredSelection) ? InPreferredSelection
+        : (OutKeys.IsEmpty() ? FString{} : OutKeys[0]);
+    for (auto& Record : OutRecords)
+    { Record.Fields.FindChecked(TEXT("selected")).Bool = Record.Key == OutSelection; }
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::TryCommit(const FCk_UiAuthoringProof_InventoryState& InState,
+    const FString& InCategory, const FText& InSearch, const FString& InPreferredSelection) -> bool
+{
+    auto Records = TArray<FCkUiRecordData>{};
+    auto Keys = TArray<FString>{};
+    auto Selection = FString{};
+    if (NOT TryProject(InState, InCategory, InSearch, InPreferredSelection, Records, Keys, Selection))
+    { return false; }
+    const auto OldState = _State;
+    const auto OldCategory = _Category;
+    const auto OldSearch = _SearchText;
+    const auto OldKeys = _VisibleKeys;
+    const auto OldSelection = _SelectedKey;
+    _State = InState;
+    _Category = InCategory;
+    _SearchText = InSearch;
+    _VisibleKeys = MoveTemp(Keys);
+    _SelectedKey = MoveTemp(Selection);
+    if (NOT _Items->TrySetRecords(MoveTemp(Records)).Succeeded)
+    {
+        _State = OldState;
+        _Category = OldCategory;
+        _SearchText = OldSearch;
+        _VisibleKeys = OldKeys;
+        _SelectedKey = OldSelection;
+        return false;
+    }
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::Request_Select(const FString& InKey) -> bool
+{
+    if (NOT CanDispatch() || InKey == _SelectedKey || NOT _VisibleKeys.Contains(InKey)) { return false; }
+    if (NOT TryCommit(_State, _Category, _SearchText, InKey)) { return false; }
+    ++_ActionCounts.FindOrAdd(TEXT("SelectInventoryItem"));
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::Request_Filter(const FString& InCategory) -> bool
+{
+    if (NOT CanDispatch() || NOT ck_inventory_menu_proof::IsCategory(InCategory) || InCategory == _Category)
+    { return false; }
+    if (NOT TryCommit(_State, InCategory, _SearchText, _SelectedKey)) { return false; }
+    ++_ActionCounts.FindOrAdd(FName{*FString::Printf(TEXT("InventoryFilter%s"), *InCategory)});
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::Request_Search(FText InSearch) -> bool
+{
+    if (NOT CanDispatch() || InSearch.EqualTo(_SearchText)) { return false; }
+    if (NOT TryCommit(_State, _Category, InSearch, _SelectedKey)) { return false; }
+    ++_ActionCounts.FindOrAdd(TEXT("InventorySearch"));
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::Request_PrimaryAction() -> bool
+{
+    if (NOT CanDispatch() || NOT HasPrimaryAction()) { return false; }
+    const auto Index = SelectedIndex();
+    if (Index == INDEX_NONE) { return false; }
+    auto Candidate = _State;
+    const auto Key = _SelectedKey;
+    const auto& Definition = ck_inventory_menu_proof::Definitions[Index];
+    if (Definition.Category == ck_inventory_menu_proof::ECategory::Equipment)
+    { Candidate.Set_EquippedKey(_State.Get_EquippedKey() == Key ? FString{} : Key); }
+    else if (Definition.Category == ck_inventory_menu_proof::ECategory::Supplies)
+    {
+        auto Quantities = Candidate.Get_ItemQuantities();
+        auto* Quantity = Quantities.Find(Key);
+        if (Quantity == nullptr || *Quantity <= 0) { return false; }
+        --*Quantity;
+        Candidate.Set_ItemQuantities(MoveTemp(Quantities));
+    }
+    else { return false; }
+    if (NOT TryCommit(Candidate, _Category, _SearchText, Key)) { return false; }
+    ++_ActionCounts.FindOrAdd(TEXT("InventoryPrimaryAction"));
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::SelectedIndex() const -> int32
+{
+    if (_SelectedKey.IsEmpty() || NOT _VisibleKeys.Contains(_SelectedKey)
+        || _State.Get_ItemQuantities().FindRef(_SelectedKey) <= 0)
+    { return INDEX_NONE; }
+    return ck_inventory_menu_proof::FindIndex(_SelectedKey);
+}
+
+auto FCkInventoryMenuProofModel::SelectedBrush() const -> const FSlateBrush*
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? nullptr : _Brushes[Index].Get(); }
+
+auto FCkInventoryMenuProofModel::SelectedName() const -> FText
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+    : FText::FromString(ck_inventory_menu_proof::Definitions[Index].Name); }
+
+auto FCkInventoryMenuProofModel::SelectedCategory() const -> FText
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+    : FText::FromString(ck_inventory_menu_proof::CategoryName(ck_inventory_menu_proof::Definitions[Index].Category)); }
+
+auto FCkInventoryMenuProofModel::SelectedDescription() const -> FText
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+    : FText::FromString(ck_inventory_menu_proof::Definitions[Index].Description); }
+
+auto FCkInventoryMenuProofModel::SelectedStats() const -> FText
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+    : FText::FromString(ck_inventory_menu_proof::Definitions[Index].Stats); }
+
+auto FCkInventoryMenuProofModel::SelectedOwned() const -> FText
+{
+    if (SelectedIndex() == INDEX_NONE) { return FText::GetEmpty(); }
+    return FText::FromString(FString::Printf(TEXT("Owned  %d%s"), _State.Get_ItemQuantities().FindRef(_SelectedKey),
+        _State.Get_EquippedKey() == _SelectedKey ? TEXT("  /  Equipped") : TEXT("")));
+}
+
+auto FCkInventoryMenuProofModel::PrimaryLabel() const -> FText
+{
+    const auto Index = SelectedIndex();
+    if (Index == INDEX_NONE) { return FText::FromString(TEXT("Select an item")); }
+    switch (ck_inventory_menu_proof::Definitions[Index].Category)
+    {
+    case ck_inventory_menu_proof::ECategory::Equipment:
+        return FText::FromString(_State.Get_EquippedKey() == _SelectedKey ? TEXT("Unequip") : TEXT("Equip"));
+    case ck_inventory_menu_proof::ECategory::Supplies: return FText::FromString(TEXT("Use"));
+    case ck_inventory_menu_proof::ECategory::Materials: return FText::FromString(TEXT("Inspect"));
+    }
+    return FText::GetEmpty();
+}
+
+auto FCkInventoryMenuProofModel::HasPrimaryAction() const -> bool
+{
+    const auto Index = SelectedIndex();
+    return Index != INDEX_NONE && ck_inventory_menu_proof::Definitions[Index].Category
+        != ck_inventory_menu_proof::ECategory::Materials;
+}
+
+auto FCkInventoryMenuProofModel::Get_Summary() const -> FString
+{
+    auto OwnedTypes = 0;
+    for (const auto& Definition : ck_inventory_menu_proof::Definitions)
+    { if (_State.Get_ItemQuantities().FindRef(Definition.Key) > 0) { ++OwnedTypes; } }
+    return FString::Printf(TEXT("%d items  /  %d shown  /  %s"), OwnedTypes, _VisibleKeys.Num(), *_Category);
+}
+
+auto FCkInventoryMenuProofModel::PopulateBindings(FCkUiView::FDataBindings& InOutData,
+    FCkUiView::FActions& InOutActions, FSimpleDelegate InClose) -> void
+{
+    _DispatchGate = InOutData.CanDispatchEvents;
+    const auto Weak = TWeakPtr<FCkInventoryMenuProofModel>{AsShared()};
+    InOutData.Collections.Add(TEXT("InventoryItems"), _Items);
+    InOutData.Text.Add(TEXT("InventoryTitle"), FText::FromString(TEXT("INVENTORY")));
+    InOutData.Text.Add(TEXT("InventorySubtitle"), FText::FromString(TEXT("Ready for the next run.")));
+    InOutData.Text.Add(TEXT("InventoryCount"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? FText::FromString(FString::Printf(TEXT("%d items"), Self->_VisibleKeys.Num())) : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryDetailName"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedName() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryDetailCategory"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedCategory() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryDetailDescription"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedDescription() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryDetailStats"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedStats() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryDetailOwned"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedOwned() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryPrimaryLabel"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->PrimaryLabel() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryFeedback"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? FText::FromString(Self->Get_Summary()) : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryEmpty"), FText::FromString(TEXT("No items match your search.")));
+    InOutData.Text.Add(TEXT("InventorySearch"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->_SearchText : FText::GetEmpty(); }));
+    InOutData.TextChanged.Add(TEXT("InventorySearch"), FOnTextChanged::CreateLambda([Weak](const FText& InText)
+    { if (const auto Self = Weak.Pin(); Self.IsValid()) { Self->Request_Search(InText); } }));
+    InOutData.Images.Add(TEXT("InventoryDetailImage"), TAttribute<const FSlateBrush*>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedBrush() : nullptr; }));
+    InOutData.Visibility.Add(TEXT("InventoryHasSelection"), TAttribute<bool>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() && Self->SelectedIndex() != INDEX_NONE; }));
+    InOutData.Visibility.Add(TEXT("InventoryIsEmpty"), TAttribute<bool>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() && Self->_VisibleKeys.IsEmpty(); }));
+    InOutData.Visibility.Add(TEXT("InventoryPrimaryEnabled"), TAttribute<bool>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() && Self->HasPrimaryAction(); }));
+    for (const auto* Category : {TEXT("All"), TEXT("Equipment"), TEXT("Supplies"), TEXT("Materials")})
+    {
+        const auto CategoryString = FString{Category};
+        InOutData.Visibility.Add(FString::Printf(TEXT("InventoryFilter%sSelected"), Category),
+            TAttribute<bool>::CreateLambda([Weak, CategoryString]()
+            { const auto Self = Weak.Pin(); return Self.IsValid() && Self->_Category == CategoryString; }));
+        InOutActions.Add(FString::Printf(TEXT("InventoryFilter%s"), Category), FSimpleDelegate::CreateLambda([Weak, CategoryString]()
+        { if (const auto Self = Weak.Pin(); Self.IsValid()) { Self->Request_Filter(CategoryString); } }));
+    }
+    InOutData.ItemActions.Add(TEXT("SelectInventoryItem"), FCkUiOnItemAction::CreateLambda([Weak](FString InKey)
+    { if (const auto Self = Weak.Pin(); Self.IsValid()) { Self->Request_Select(InKey); } }));
+    InOutActions.Add(TEXT("InventoryPrimaryAction"), FSimpleDelegate::CreateLambda([Weak]()
+    { if (const auto Self = Weak.Pin(); Self.IsValid()) { Self->Request_PrimaryAction(); } }));
+    InOutActions.Add(TEXT("InventoryClose"), FSimpleDelegate::CreateLambda([Weak, InClose]()
+    {
+        if (const auto Self = Weak.Pin(); Self.IsValid() && Self->CanDispatch() && InClose.IsBound())
+        {
+            ++Self->_ActionCounts.FindOrAdd(TEXT("InventoryClose"));
+            InClose.Execute();
+        }
+    }));
+}

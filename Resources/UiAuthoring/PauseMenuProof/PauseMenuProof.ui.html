@@ -1,0 +1,34 @@
+<ui version="1">
+  <region name="main">
+    <column id="pause-composition">
+      <column id="pause-top-space" class="top-space" />
+      <column id="pause-panel" class="panel">
+        <column id="pause-mark-top-space" class="mark-top-space" />
+        <row id="pause-mark" class="pause-mark">
+          <column id="pause-bar-left" class="pause-bar" />
+          <column id="pause-bar-right" class="pause-bar" />
+        </row>
+        <column id="pause-title-space" class="title-space" />
+        <text id="pause-title" bind="PauseTitle" class="title" />
+        <column id="pause-subtitle-space" class="subtitle-space" />
+        <text id="pause-subtitle" bind="PauseSubtitle" class="subtitle" />
+        <column id="pause-divider-space" class="divider-space" />
+        <column id="pause-divider" class="divider" />
+        <column id="pause-actions-space" class="actions-space" />
+        <column id="pause-actions" class="actions">
+          <button id="resume-button" action="ResumeRequested" enabled-bind="ResumeEnabled" bind="PauseResume" class="game-button" />
+          <button id="settings-button" action="SettingsRequested" enabled-bind="SettingsEnabled" bind="PauseSettings" class="game-button" />
+          <button id="return-button" action="ReturnToTitleRequested" enabled-bind="ReturnEnabled" bind="PauseReturnToTitle" class="game-button" />
+        </column>
+      </column>
+      <column id="pause-hint-space" class="hint-space" />
+      <row id="pause-input-hint" class="input-hint">
+        <column id="resume-keycap" class="keycap">
+          <text id="resume-key" bind="InputResumeKey" class="key-label" />
+        </column>
+        <text id="resume-hint-label" bind="InputResumeHint" class="hint-label" />
+      </row>
+      <column id="pause-bottom-space" class="bottom-space" />
+    </column>
+  </region>
+</ui>

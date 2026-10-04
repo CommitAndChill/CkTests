@@ -1,0 +1,55 @@
+<ui version="1">
+  <region name="main">
+    <column id="settings-composition">
+      <column id="settings-top-space" class="top-space" />
+      <column id="settings-panel" class="panel">
+        <text id="settings-title" bind="SettingsTitle" class="title" />
+        <text id="settings-subtitle" bind="SettingsSubtitle" class="subtitle" />
+        <column id="settings-header-divider-space" class="header-divider-space" />
+        <column id="settings-header-divider" class="divider" />
+
+        <column id="settings-volume-space" class="volume-space" />
+        <row id="settings-volume-header" class="volume-header">
+          <text id="settings-volume-label" bind="VolumeLabel" class="field-label" />
+          <text id="settings-volume-value" bind="VolumeValue" class="field-value" />
+        </row>
+        <column id="settings-volume-slider-space" class="volume-slider-space" />
+        <slider id="settings-volume" value-bind="SettingsVolume" interaction="EditVolume" changed="PreviewVolume" min="0" max="100" step="1" class="volume-slider" />
+
+        <column id="settings-subtitles-space" class="subtitles-space" />
+        <row id="settings-subtitles-row" class="setting-row">
+          <column id="settings-subtitles-copy" class="subtitles-copy">
+            <text id="settings-subtitles-label" bind="SubtitlesLabel" class="field-label" />
+            <text id="settings-subtitles-helper" bind="SubtitlesHelper" class="field-helper" />
+          </column>
+          <checkbox id="settings-subtitles" value-bind="SettingsSubtitles" changed="EditSubtitles" class="subtitles-checkbox" />
+        </row>
+
+        <column id="settings-display-space" class="display-space" />
+        <row id="settings-display-row" class="setting-row">
+          <text id="settings-display-label" bind="DisplayModeLabel" class="field-label" />
+          <select id="settings-display-mode" value-bind="SettingsDisplayMode" options-bind="DisplayModes" changed="EditDisplayMode" class="display-select" />
+        </row>
+
+        <column id="settings-footer-space" class="footer-space" />
+        <column id="settings-footer-divider" class="divider" />
+        <column id="settings-footer-row-space" class="footer-row-space" />
+        <row id="settings-footer-row" class="footer-row">
+          <text id="settings-dirty-status" bind="DirtyStatus" class="dirty-status" />
+          <row id="settings-actions" class="actions">
+            <button id="settings-cancel" action="CancelSettingsRequested" enabled-bind="SettingsCancelEnabled" bind="SettingsCancel" class="game-button" />
+            <button id="settings-apply" action="ApplySettingsRequested" enabled-bind="SettingsDirty" bind="SettingsApply" class="game-button" />
+          </row>
+        </row>
+      </column>
+      <column id="settings-hint-space" class="hint-space" />
+      <row id="settings-input-hint" class="input-hint">
+        <column id="settings-keycap" class="keycap">
+          <text id="settings-key" bind="InputSettingsKey" class="key-label" />
+        </column>
+        <text id="settings-hint-label" bind="InputSettingsHint" class="hint-label" />
+      </row>
+      <column id="settings-bottom-space" class="bottom-space" />
+    </column>
+  </region>
+</ui>
