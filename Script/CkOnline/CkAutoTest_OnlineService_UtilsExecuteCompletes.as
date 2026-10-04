@@ -14,6 +14,7 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
     private FGuid _DirectGeneration;
     private int32 _DirectCompletionBefore = 0;
     private FCk_OnlineDirect_Snapshot _BeforeRenewal;
+    private FCk_OnlineDirect_ReadyLobbyBinding _BeforeRenewalBinding;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
@@ -236,6 +237,11 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         }
         Assert_True(Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
             "reflected Host has one terminal completion");
+        FCk_OnlineDirect_ReadyLobbyBinding NotReady;
+        Assert_False(utils_online_direct::TryCaptureReadyLobby(Direct.Get_Snapshot(), true, 1, NotReady),
+            "public binding rejects the actual unready host");
+        Assert_True(!NotReady.Get_Generation().IsValid() && NotReady.Get_Members().Num() == 0,
+            "unready capture publishes no partial binding");
         _DirectCompletionBefore = Direct.Get_CompletedCount();
         if (!Direct.Request(ECk_OnlineDirect_Action::SetReady, "", true))
         {
@@ -266,6 +272,35 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         }
         Assert_True(Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
             "reflected SetReady has one terminal completion");
+        if (!utils_online_direct::TryCaptureReadyLobby(_BeforeRenewal, true, 1, _BeforeRenewalBinding))
+        {
+            DoCleanup();
+            FinishFailure("public binding could not capture the actual single ready host");
+            return;
+        }
+        Assert_True(utils_online_direct::MatchesReadyLobby(_BeforeRenewalBinding, _BeforeRenewal),
+            "reflected binding matches its live source");
+        auto Rejected = _BeforeRenewalBinding;
+        Assert_False(utils_online_direct::TryCaptureReadyLobby(_BeforeRenewal, true, 2, Rejected),
+            "caller-selected two-member policy rejects the actual single host");
+        Assert_True(!Rejected.Get_Generation().IsValid() && !Rejected.Get_Epoch().IsValid()
+            && !Rejected.Get_LocalMemberId().IsValid() && Rejected.Get_HostAddress().Len() == 0
+            && Rejected.Get_Members().Num() == 0 && !Rejected.Get_Hosting(),
+            "rejected reflected capture clears the entire prior binding");
+        FString Canonical = "sentinel";
+        FString Endpoint = f"{_BeforeRenewalBinding.Get_HostAddress()}:23456";
+        Assert_True(utils_online_direct::TryParseGameplayEndpoint(Endpoint, Canonical) && Canonical == Endpoint,
+            "reflected gameplay parser returns the actual canonical target");
+        Assert_True(utils_online_direct::TryParseReadyLobbyEndpoint(Endpoint, _BeforeRenewalBinding, Canonical)
+            && Canonical == Endpoint,
+            "reflected ready binding admits a caller-selected gameplay port");
+        Assert_False(utils_online_direct::TryParseReadyLobbyEndpoint("127.0.0.2:23456", _BeforeRenewalBinding, Canonical),
+            "reflected ready binding rejects a different gameplay host");
+        Assert_True(Canonical.Len() == 0, "rejected endpoint clears prior output");
+        Assert_False(utils_online_direct::TryParseReadyLobbyEndpoint(Endpoint, Rejected, Canonical),
+            "default binding rejects a gameplay endpoint");
+        Assert_True(Canonical.Len() == 0 && Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
+            "pure public guards neither retain partial output nor enqueue an operation");
         _DirectCompletionBefore = Direct.Get_CompletedCount();
         if (!Direct.Request(ECk_OnlineDirect_Action::RenewInvite, "", false))
         {
@@ -286,6 +321,8 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
             return;
         }
         auto After = Direct.Get_Snapshot();
+        Assert_True(utils_online_direct::MatchesReadyLobby(_BeforeRenewalBinding, After),
+            "public ready binding survives actual invite renewal");
         Assert_True(Direct.Get_LastCompletion().Get_Result() == ECk_OnlineDirect_Result::Succeeded
             && Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
             "reflected RenewInvite succeeds with one terminal completion");

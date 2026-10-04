@@ -117,7 +117,7 @@ public:
     bool Get_IsLobbyBridge() const { return _BridgeActive; }
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
-    bool Get_HasLobbyBridgeContext() const { return _BridgeActive || _BridgeLastBinding.Epoch.IsValid(); }
+    bool Get_HasLobbyBridgeContext() const { return _BridgeActive || _BridgeLastBinding.Get_Epoch().IsValid(); }
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     bool Get_CanRejoin() const;

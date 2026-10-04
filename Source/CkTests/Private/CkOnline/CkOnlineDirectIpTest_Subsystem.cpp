@@ -1,6 +1,7 @@
 #include "CkOnline/CkOnlineDirectIpTest_Subsystem.h"
 #include "CkOnline/CkOnlineDirectGym_Subsystem.h"
 #include "CkOnline/Direct/CkOnlineDirect_Subsystem.h"
+#include "CkOnline/Direct/CkOnlineDirect_Utils.h"
 
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -98,7 +99,7 @@ auto ACkOnlineDirectIpTest_GameState::Request_RecordProof(APlayerState* InPlayer
         auto* World = GetWorld();
         auto* Instance = IsValid(World) ? World->GetGameInstance() : nullptr;
         auto* Bridge = IsValid(Instance) ? Instance->GetSubsystem<UCkOnlineDirectIpTest_Subsystem>() : nullptr;
-        if (!IsValid(Bridge) || !Bridge->_BridgeActive || Bridge->_BridgeBinding.Epoch != LobbyEpoch ||
+        if (!IsValid(Bridge) || !Bridge->_BridgeActive || Bridge->_BridgeBinding.Get_Epoch() != LobbyEpoch ||
             !Bridge->Get_IsHosting()) { return false; }
     }
     ++ProofSequence;
@@ -180,16 +181,16 @@ auto UCkOnlineDirectIpTest_Subsystem::TryCaptureOwnedLobby(bool InHosting,
     auto* Gym = Instance->GetSubsystem<UCkOnlineDirectGym_Subsystem>();
     auto* Direct = Instance->GetSubsystem<UCk_OnlineDirect_Subsystem_UE>();
     if (!IsValid(Gym) || !IsValid(Direct) || !Gym->Get_IsOwnedProfile() || !Direct->Get_IsStarted()) { return false; }
-    return ck::test::ip::FLobbyBinding::TryCapture(Direct->Get_Snapshot(), InHosting, Out);
+    return ck::test::ip::FLobbyBinding::TryCapture(Direct->Get_Snapshot(), InHosting, 2, Out);
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_BridgeStillValid() const -> bool
 {
     ck::test::ip::FLobbyBinding Current;
-    return _BridgeActive && TryCaptureOwnedLobby(_BridgeBinding.Hosting, Current) &&
-        Current.Generation == _BridgeBinding.Generation && Current.Epoch == _BridgeBinding.Epoch &&
-        Current.LocalMemberId == _BridgeBinding.LocalMemberId && Current.HostAddress == _BridgeBinding.HostAddress &&
-        Current.Members == _BridgeBinding.Members;
+    return _BridgeActive && TryCaptureOwnedLobby(_BridgeBinding.Get_Hosting(), Current) &&
+        Current.Get_Generation() == _BridgeBinding.Get_Generation() && Current.Get_Epoch() == _BridgeBinding.Get_Epoch() &&
+        Current.Get_LocalMemberId() == _BridgeBinding.Get_LocalMemberId() && Current.Get_HostAddress() == _BridgeBinding.Get_HostAddress() &&
+        Current.Get_Members() == _BridgeBinding.Get_Members();
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::TryGetTestControlService(
@@ -205,10 +206,10 @@ auto UCkOnlineDirectIpTest_Subsystem::TryGetTestControlService(
     { return DoReject(TEXT("The owned ready control lobby no longer matches this gameplay bridge.")); }
     auto* State = Get_ProofState();
     if (!IsValid(State) || !State->SessionMarker.IsValid() || !State->LobbyEpoch.IsValid() ||
-        State->LobbyEpoch != _BridgeBinding.Epoch)
+        State->LobbyEpoch != _BridgeBinding.Get_Epoch())
     { return DoReject(TEXT("Gameplay session or replicated lobby epoch is unavailable.")); }
-    if ((_BridgeBinding.Hosting && !Get_IsHosting()) ||
-        (!_BridgeBinding.Hosting && !Get_IsConnected()))
+    if ((_BridgeBinding.Get_Hosting() && !Get_IsHosting()) ||
+        (!_BridgeBinding.Get_Hosting() && !Get_IsConnected()))
     { return DoReject(TEXT("Established gameplay IP state does not match the control role.")); }
     auto* Instance = GetGameInstance();
     if (!IsValid(Instance)) { return DoReject(TEXT("Game instance is unavailable.")); }
@@ -217,7 +218,7 @@ auto UCkOnlineDirectIpTest_Subsystem::TryGetTestControlService(
     if (!IsValid(Gym) || !IsValid(Direct) || !Gym->Get_IsOwnedProfile() || !Direct->Get_IsStarted())
     { return DoReject(TEXT("The active Direct control profile is not owned by this gym.")); }
     const auto Snapshot = Direct->Get_Snapshot();
-    if (Snapshot.Get_ServiceGeneration() != _BridgeBinding.Generation ||
+    if (Snapshot.Get_ServiceGeneration() != _BridgeBinding.Get_Generation() ||
         !_BridgeBinding.Matches(Snapshot))
     { return DoReject(TEXT("The Direct control generation or ready roster changed.")); }
     OutService = Direct;
@@ -226,46 +227,13 @@ auto UCkOnlineDirectIpTest_Subsystem::TryGetTestControlService(
 
 auto UCkOnlineDirectIpTest_Subsystem::TryParseEndpoint(const FString& InEndpoint, FString& OutCanonical) -> bool
 {
-    // Literal IPv4 and a port only: no options, map paths, DNS, whitespace or arbitrary travel URLs.
-    FString Address;
-    FString PortText;
-    if (InEndpoint.Len() > 21 || !InEndpoint.Split(TEXT(":"), &Address, &PortText)) { return false; }
-    auto IsDecimal = [](const FString& InText)
-    {
-        if (InText.IsEmpty()) { return false; }
-        for (const auto Character : InText)
-        { if (Character < TEXT('0') || Character > TEXT('9')) { return false; } }
-        return true;
-    };
-    TArray<FString> Parts;
-    Address.ParseIntoArray(Parts, TEXT("."), false);
-    if (Parts.Num() != 4 || PortText.Len() > 5 || !IsDecimal(PortText)) { return false; }
-    const auto Port = FCString::Atoi(*PortText);
-    if (Port < 1 || Port > 65535) { return false; }
-    int32 Octets[4];
-    for (auto Index = 0; Index < 4; ++Index)
-    {
-        if (Parts[Index].Len() > 3 || !IsDecimal(Parts[Index])) { return false; }
-        Octets[Index] = FCString::Atoi(*Parts[Index]);
-        if (Octets[Index] > 255) { return false; }
-    }
-    if (Octets[0] == 0 || Octets[0] >= 224) { return false; }
-    OutCanonical = FString::Printf(TEXT("%d.%d.%d.%d:%d"), Octets[0], Octets[1], Octets[2], Octets[3], Port);
-    return true;
+    return UCk_Utils_OnlineDirect_UE::TryParseGameplayEndpoint(InEndpoint, OutCanonical);
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::TryParseLobbyEndpoint(const FString& InEndpoint,
     const ck::test::ip::FLobbyBinding& InBinding, FString& OutCanonical) -> bool
 {
-    OutCanonical.Empty();
-    if (!ck::direct::FTransport::ValidateHostAddress(InBinding.HostAddress)) { return false; }
-    FString Canonical;
-    if (!TryParseEndpoint(InEndpoint, Canonical)) { return false; }
-    FString Address;
-    FString Port;
-    if (!Canonical.Split(TEXT(":"), &Address, &Port) || Address != InBinding.HostAddress) { return false; }
-    OutCanonical = MoveTemp(Canonical);
-    return true;
+    return UCk_Utils_OnlineDirect_UE::TryParseReadyLobbyEndpoint(InEndpoint, InBinding, OutCanonical);
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Request_Host(int32 InPort) -> bool
@@ -297,9 +265,9 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     if (Bridged)
     {
         ck::test::ip::FLobbyBinding Current;
-        if (!TryCaptureOwnedLobby(true, Current) || Current.Generation != InBinding->Generation ||
-            Current.Epoch != InBinding->Epoch || Current.LocalMemberId != InBinding->LocalMemberId ||
-            Current.HostAddress != InBinding->HostAddress || Current.Members != InBinding->Members || !InBinding->Hosting)
+        if (!TryCaptureOwnedLobby(true, Current) || Current.Get_Generation() != InBinding->Get_Generation() ||
+            Current.Get_Epoch() != InBinding->Get_Epoch() || Current.Get_LocalMemberId() != InBinding->Get_LocalMemberId() ||
+            Current.Get_HostAddress() != InBinding->Get_HostAddress() || Current.Get_Members() != InBinding->Get_Members() || !InBinding->Get_Hosting())
         { return DoReject(TEXT("The ready hosting lobby changed before travel.")); }
     }
     if (InPort < 1 || InPort > 65535) { return DoReject(TEXT("Port must be 1..65535.")); }
@@ -328,7 +296,7 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     _ReturnMap = ReturnMap;
     _RequestedHostPort = InPort;
     _HostingDepartureWorld = World;
-    _Endpoint = FString::Printf(TEXT("%s:%d"), Bridged ? *InBinding->HostAddress : TEXT("127.0.0.1"), InPort);
+    _Endpoint = FString::Printf(TEXT("%s:%d"), Bridged ? *InBinding->Get_HostAddress() : TEXT("127.0.0.1"), InPort);
     _LastError.Empty();
     _State = EState::StartingHost;
     _Deadline = FPlatformTime::Seconds() + JoinTimeoutSeconds;
@@ -373,9 +341,9 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     if (Bridged)
     {
         ck::test::ip::FLobbyBinding Current;
-        if (!TryCaptureOwnedLobby(false, Current) || Current.Generation != InBinding->Generation ||
-            Current.Epoch != InBinding->Epoch || Current.LocalMemberId != InBinding->LocalMemberId ||
-            Current.HostAddress != InBinding->HostAddress || Current.Members != InBinding->Members || InBinding->Hosting)
+        if (!TryCaptureOwnedLobby(false, Current) || Current.Get_Generation() != InBinding->Get_Generation() ||
+            Current.Get_Epoch() != InBinding->Get_Epoch() || Current.Get_LocalMemberId() != InBinding->Get_LocalMemberId() ||
+            Current.Get_HostAddress() != InBinding->Get_HostAddress() || Current.Get_Members() != InBinding->Get_Members() || InBinding->Get_Hosting())
         { return DoReject(TEXT("The ready joined lobby changed before travel.")); }
     }
     auto* PlayerController = GetGameInstance()->GetFirstLocalPlayerController();
@@ -440,7 +408,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_Disconnect() -> bool
 auto UCkOnlineDirectIpTest_Subsystem::Request_Rejoin() -> bool
 {
     if (!_HasJoinEndpoint) { return DoReject(TEXT("Join once with K before using Rejoin.")); }
-    if (_BridgeActive || _BridgeLastBinding.Epoch.IsValid())
+    if (_BridgeActive || _BridgeLastBinding.Get_Epoch().IsValid())
     { return DoReject(TEXT("Use the ready-lobby gameplay action for a new correlated session.")); }
     return Request_Join(_Endpoint);
 }
@@ -590,7 +558,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
                 _Deadline = FPlatformTime::Seconds() + JoinTimeoutSeconds;
             }
             else if (State->PlayerArray.Num() == 1 &&
-                State->Request_BeginHosting(_BridgeActive ? _BridgeBinding.Epoch : FGuid{}))
+                State->Request_BeginHosting(_BridgeActive ? _BridgeBinding.Get_Epoch() : FGuid{}))
             {
                 _State = EState::Hosting;
                 _HostingDepartureWorld.Reset();
@@ -613,14 +581,14 @@ auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
         if (World->GetNetMode() == NM_Client && HasOpenClientConnection(World) && IsValid(State)
             && State->SessionMarker.IsValid() && IsValid(PlayerController) && IsValid(PlayerController->PlayerState)
             && State->PlayerArray.Contains(PlayerController->PlayerState) &&
-            (!_BridgeActive || State->LobbyEpoch == _BridgeBinding.Epoch))
+            (!_BridgeActive || State->LobbyEpoch == _BridgeBinding.Get_Epoch()))
         {
             _State = EState::Connected;
             UE_LOG(LogCkOnlineDirectIpTest, Display, TEXT("Connected %s; admitted peer %d; session %s"),
                 *_Endpoint, PlayerController->PlayerState->GetPlayerId(), *State->SessionMarker.ToString());
         }
         else if (_BridgeActive && IsValid(State) && State->LobbyEpoch.IsValid() &&
-            State->LobbyEpoch != _BridgeBinding.Epoch)
+            State->LobbyEpoch != _BridgeBinding.Get_Epoch())
         {
             _State = EState::Failed;
             _LastError = TEXT("Gameplay lobby epoch does not match the ready control lobby.");
@@ -697,10 +665,10 @@ auto UCkOnlineDirectIpTest_Subsystem::GetTickableGameObjectWorld() const -> UWor
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_LobbyBridgeText() const -> FString
 {
-    if (!_BridgeLastBinding.Epoch.IsValid()) { return TEXT("none"); }
+    if (!_BridgeLastBinding.Get_Epoch().IsValid()) { return TEXT("none"); }
     return FString::Printf(TEXT("%s / captured %s / %s"),
         _BridgeActive ? TEXT("active") : TEXT("inactive"),
-        *_BridgeLastBinding.Epoch.ToString(EGuidFormats::Digits), *_BridgeReadback);
+        *_BridgeLastBinding.Get_Epoch().ToString(EGuidFormats::Digits), *_BridgeReadback);
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_LobbyEpochText() const -> FString
@@ -718,15 +686,15 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_LogCheckpoint() -> bool
     if (!Hosting && !Connected) { return false; }
     auto* State = Get_ProofState();
     if (!IsValid(State) || !State->SessionMarker.IsValid() ||
-        State->LobbyEpoch != _BridgeBinding.Epoch) { return false; }
+        State->LobbyEpoch != _BridgeBinding.Get_Epoch()) { return false; }
     const TCHAR* Role = Hosting ? TEXT("Host") : TEXT("Client");
     const TCHAR* IpState = Hosting ? TEXT("Hosting") : TEXT("Connected");
     UE_LOG(LogCkOnlineDirectIpTest, Display,
         TEXT("[OnlineGameplayCheckpoint] schema=1 pid=%u generation=%s epoch=%s local=%s role=%s ipState=%s session=%s replicatedEpoch=%s peers=%d proofSequence=%d proofPlayerId=%d"),
         FPlatformProcess::GetCurrentProcessId(),
-        *_BridgeBinding.Generation.ToString(EGuidFormats::Digits),
-        *_BridgeBinding.Epoch.ToString(EGuidFormats::Digits),
-        *_BridgeBinding.LocalMemberId.ToString(EGuidFormats::Digits), Role, IpState,
+        *_BridgeBinding.Get_Generation().ToString(EGuidFormats::Digits),
+        *_BridgeBinding.Get_Epoch().ToString(EGuidFormats::Digits),
+        *_BridgeBinding.Get_LocalMemberId().ToString(EGuidFormats::Digits), Role, IpState,
         *State->SessionMarker.ToString(EGuidFormats::Digits),
         *State->LobbyEpoch.ToString(EGuidFormats::Digits), Get_PeerCount(),
         State->ProofSequence, State->LastProofPlayerId);
@@ -757,7 +725,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Get_IsHosting() const -> bool
     return _State == EState::Hosting && World != nullptr && World->GetNetMode() == NM_ListenServer
         && IsValid(Driver) && Address.IsValid() && Address->GetPort() == _RequestedHostPort
         && IsValid(State) && State->SessionMarker.IsValid() &&
-        (!_BridgeActive || (Get_BridgeStillValid() && State->LobbyEpoch == _BridgeBinding.Epoch));
+        (!_BridgeActive || (Get_BridgeStillValid() && State->LobbyEpoch == _BridgeBinding.Get_Epoch()));
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_IsConnected() const -> bool
@@ -766,7 +734,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Get_IsConnected() const -> bool
     auto* State = Get_ProofState();
     return _State == EState::Connected && World != nullptr && World->GetNetMode() == NM_Client
         && HasOpenClientConnection(World) && IsValid(State) && State->SessionMarker.IsValid() &&
-        (!_BridgeActive || (Get_BridgeStillValid() && State->LobbyEpoch == _BridgeBinding.Epoch));
+        (!_BridgeActive || (Get_BridgeStillValid() && State->LobbyEpoch == _BridgeBinding.Get_Epoch()));
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_IsOffline() const -> bool

@@ -508,18 +508,18 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
             const auto Joined = F.Direct()->Get_Snapshot();
             ck::test::ip::FLobbyBinding HostBinding;
             ck::test::ip::FLobbyBinding ClientBinding;
-            return ck::test::ip::FLobbyBinding::TryCapture(Hosted, true, HostBinding) &&
-                ck::test::ip::FLobbyBinding::TryCapture(Joined, false, ClientBinding) &&
-                HostBinding.Epoch == ClientBinding.Epoch && HostBinding.Members == ClientBinding.Members;
+            return ck::test::ip::FLobbyBinding::TryCapture(Hosted, true, 2, HostBinding) &&
+                ck::test::ip::FLobbyBinding::TryCapture(Joined, false, 2, ClientBinding) &&
+                HostBinding.Get_Epoch() == ClientBinding.Get_Epoch() && HostBinding.Get_Members() == ClientBinding.Get_Members();
         }, [this](FFixture& F)
         {
             F.HostedBeforeTravel = F.HostSnapshot();
             F.JoinedBeforeTravel = F.Direct()->Get_Snapshot();
             TestTrue(TEXT("client binding captures live two-ready-member lobby"),
-                ck::test::ip::FLobbyBinding::TryCapture(F.JoinedBeforeTravel, false, F.Binding));
+                ck::test::ip::FLobbyBinding::TryCapture(F.JoinedBeforeTravel, false, 2, F.Binding));
             TestTrue(TEXT("host and client address and epoch agree"),
-                F.HostedBeforeTravel.Get_HostAddress() == F.Binding.HostAddress &&
-                F.HostedBeforeTravel.Get_LobbyEpoch() == F.Binding.Epoch);
+                F.HostedBeforeTravel.Get_HostAddress() == F.Binding.Get_HostAddress() &&
+                F.HostedBeforeTravel.Get_LobbyEpoch() == F.Binding.Get_Epoch());
             if (!TestTrue(TEXT("silent UDP reservation binds a real local gameplay port"),
                 F.ReserveSilentUdp()))
             { F.Aborted = true; return; }
@@ -576,9 +576,9 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
                 F.HostSnapshot().Get_Members().Num() == 2);
             ck::test::ip::FLobbyBinding HostBinding;
             TestTrue(TEXT("native host retains the same ready roster and address"),
-                ck::test::ip::FLobbyBinding::TryCapture(F.HostSnapshot(), true, HostBinding) &&
-                HostBinding.Epoch == F.Binding.Epoch && HostBinding.Members == F.Binding.Members &&
-                HostBinding.HostAddress == F.Binding.HostAddress);
+                ck::test::ip::FLobbyBinding::TryCapture(F.HostSnapshot(), true, 2, HostBinding) &&
+                HostBinding.Get_Epoch() == F.Binding.Get_Epoch() && HostBinding.Get_Members() == F.Binding.Get_Members() &&
+                HostBinding.Get_HostAddress() == F.Binding.Get_HostAddress());
             TestTrue(TEXT("return keeps immutable lobby identity and address"),
                 F.Direct()->Get_Snapshot().Get_LobbyEpoch() == F.JoinedBeforeTravel.Get_LobbyEpoch() &&
                 F.Direct()->Get_Snapshot().Get_LocalMemberId() == F.JoinedBeforeTravel.Get_LocalMemberId() &&
