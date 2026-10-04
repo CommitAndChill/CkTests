@@ -27,6 +27,7 @@ class UCk_AutoTest_GymControlPanel_NumberedShiftShortcuts : UCk_AutoTest_Base
         DoAssert_InvalidIndicesAreKeyless();
         DoAssert_LegacyAndNonDispatchRows();
         DoAssert_FirstMatchingRowWins();
+        DoAssert_ToneAndDetailsBuilders();
 
         FinishSuccess();
     }
@@ -51,6 +52,27 @@ class UCk_AutoTest_GymControlPanel_NumberedShiftShortcuts : UCk_AutoTest_Base
                 f"the {ShiftName} top-row digit resolves Numbered({Index})");
         }
 
+    }
+
+    private void DoAssert_ToneAndDetailsBuilders()
+    {
+        auto Row = CkGym_Control::StatusTone("Connection", "Joined", ECkGym_ControlTone::Success);
+        Assert_True(Row.Kind == ECkGym_ControlKind::Status && Row.Tone == ECkGym_ControlTone::Success,
+            "toned status retains its native kind and reflected semantic color");
+        Assert_True(Row.ShowInCompact && Row.WrapInCompact,
+            "guided status opts into readable compact display");
+        auto Detail = CkGym_Control::Details(Row);
+        Assert_True(Detail.DetailsOnly && Row.DetailsOnly == false,
+            "details decorator changes only its copy");
+        auto Action = CkGym_Control::Action(EKeys::F2, "F2", "Details");
+        auto TonedAction = CkGym_Control::WithTone(Action, ECkGym_ControlTone::Info);
+        Assert_True(Action.Tone == ECkGym_ControlTone::Neutral && TonedAction.Tone == ECkGym_ControlTone::Info,
+            "tone decorator preserves its source row");
+        auto Rows = TArray<FCkGym_ControlRow>();
+        Rows.Add(Row);
+        Rows.Add(TonedAction);
+        Assert_Equals_Int(CkGym_Control::Get_PressedRow(Rows, EKeys::F2, false), 1,
+            "toned details action preserves key dispatch and original row index");
     }
 
     private void DoAssert_NumpadAndModifierBoundaries(const TArray<FCkGym_ControlRow>&in InRows)

@@ -47,6 +47,18 @@ enum class ECkGym_ControlShift : uint8
 
 // --------------------------------------------------------------------------------------------------------------------
 
+UENUM(BlueprintType)
+enum class ECkGym_ControlTone : uint8
+{
+    Neutral,
+    Info,
+    Success,
+    Warning,
+    Error
+};
+
+// --------------------------------------------------------------------------------------------------------------------
+
 // How much of the panel draws. H cycles it; UCkGym_StartupSettings persists the choice per user.
 // Rows keep firing in every mode - this is a drawing concern only.
 UENUM(BlueprintType)
@@ -104,6 +116,22 @@ struct CKTESTS_API FCkGym_ControlRow
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     bool Warn = false;
 
+    // Semantic status color. Neutral preserves the established rendering for existing rows.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    ECkGym_ControlTone Tone = ECkGym_ControlTone::Neutral;
+
+    // Opt a quiet Status row into Compact without changing legacy compact behavior.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool ShowInCompact = false;
+
+    // Keep important compact readbacks legible by wrapping their value instead of ellipsizing it.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool WrapInCompact = false;
+
+    // Hide explanatory rows in Compact; critical warning/error statuses remain visible.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool DetailsOnly = false;
+
     // Disabled rows remain visible as an explanation of the unavailable action, but never dispatch.
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     bool Enabled = true;
@@ -118,7 +146,10 @@ struct CKTESTS_API FCkGym_ControlRow
         return Label == InOther.Label && Value == InOther.Value && Key == InOther.Key &&
                AltKey == InOther.AltKey && HasAltKey == InOther.HasAltKey &&
                KeyLabel == InOther.KeyLabel && Kind == InOther.Kind &&
-               Active == InOther.Active && Warn == InOther.Warn && Enabled == InOther.Enabled &&
+               Active == InOther.Active && Warn == InOther.Warn && Tone == InOther.Tone &&
+               ShowInCompact == InOther.ShowInCompact && WrapInCompact == InOther.WrapInCompact &&
+               DetailsOnly == InOther.DetailsOnly &&
+               Enabled == InOther.Enabled &&
                ShiftRequirement == InOther.ShiftRequirement;
     }
 };

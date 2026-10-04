@@ -73,6 +73,30 @@ namespace CkGym_Control
         return Row;
     }
 
+    FCkGym_ControlRow StatusTone(FString InLabel, FString InValue,
+        ECkGym_ControlTone InTone, bool InShowInCompact = true)
+    {
+        auto Row = Status(InLabel, InValue);
+        Row.Tone = InTone;
+        Row.ShowInCompact = InShowInCompact;
+        Row.WrapInCompact = true;
+        return Row;
+    }
+
+    FCkGym_ControlRow Details(FCkGym_ControlRow InRow)
+    {
+        auto Row = InRow;
+        Row.DetailsOnly = true;
+        return Row;
+    }
+
+    FCkGym_ControlRow WithTone(FCkGym_ControlRow InRow, ECkGym_ControlTone InTone)
+    {
+        auto Row = InRow;
+        Row.Tone = InTone;
+        return Row;
+    }
+
     FCkGym_ControlRow Action(FKey InKey, FString InKeyLabel, FString InLabel, bool InEnabled = true)
     {
         auto Row = FCkGym_ControlRow();

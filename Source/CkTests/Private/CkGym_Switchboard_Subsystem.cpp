@@ -513,8 +513,12 @@ auto
     for (const auto& Row : InRows)
     {
         const auto IsKeyed = NOT Row.KeyLabel.IsEmpty();
+        const auto IsCriticalStatus = Row.Kind == ECkGym_ControlKind::Status &&
+            (Row.Warn || Row.Tone == ECkGym_ControlTone::Warning || Row.Tone == ECkGym_ControlTone::Error);
+        if (Row.DetailsOnly && NOT IsCriticalStatus)
+        { continue; }
         const auto IsLoudStatus = Row.Kind == ECkGym_ControlKind::Status &&
-                                  (Row.Label == VerdictLabel || Row.Warn);
+                                  (Row.Label == VerdictLabel || Row.ShowInCompact || IsCriticalStatus);
 
         if (Row.Kind == ECkGym_ControlKind::Header || IsKeyed || IsLoudStatus)
         { Result.Add(Row); }

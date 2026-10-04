@@ -43,6 +43,19 @@ namespace ck_gym_control_panel_widget
         Dimmed.A *= DisabledAlpha;
         return Dimmed;
     }
+
+    auto Get_ToneColor(ECkGym_ControlTone InTone, const FLinearColor& InNeutral) -> FLinearColor
+    {
+        switch (InTone)
+        {
+            case ECkGym_ControlTone::Info: return CkStyle::Info();
+            case ECkGym_ControlTone::Success: return CkStyle::Ok();
+            case ECkGym_ControlTone::Warning: return CkStyle::Warn();
+            case ECkGym_ControlTone::Error: return CkStyle::Err();
+            case ECkGym_ControlTone::Neutral: return InNeutral;
+        }
+        return InNeutral;
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -205,7 +218,7 @@ auto
             .Text(FText::FromString(InRow.Label))
             .WrapTextAt(InWidths.Content)
             .Font(CkStyle::BoldFont(CkStyle::FontSizeMicro()))
-            .ColorAndOpacity(CkStyle::AccentDim());
+            .ColorAndOpacity(Get_Dimmed(Get_ToneColor(InRow.Tone, CkStyle::AccentDim()), InRow.Enabled));
     }
 
     auto Content = SNew(SHorizontalBox);
@@ -225,6 +238,7 @@ auto
         ];
 
     const auto IsActiveChoice = InRow.Kind == ECkGym_ControlKind::Choice && InRow.Active;
+    const auto IsAction = InRow.Kind == ECkGym_ControlKind::Action;
 
     Content->AddSlot()
         .FillWidth(1.0f)
@@ -233,26 +247,28 @@ auto
             SNew(STextBlock)
             .Text(FText::FromString(InRow.Label))
             .WrapTextAt(InWidths.Label)
-            .Font(IsActiveChoice ? CkStyle::BoldFont(CkStyle::FontSizeSmall()) : CkStyle::RegularFont(CkStyle::FontSizeSmall()))
+            .Font(IsActiveChoice || IsAction ? CkStyle::BoldFont(CkStyle::FontSizeSmall()) : CkStyle::RegularFont(CkStyle::FontSizeSmall()))
             .ColorAndOpacity(Get_Dimmed(
-                InRow.Kind == ECkGym_ControlKind::Status ? CkStyle::TextDim()
-                    : IsActiveChoice ? CkStyle::TextStrong() : CkStyle::Text(),
+                Get_ToneColor(InRow.Tone,
+                    InRow.Kind == ECkGym_ControlKind::Status ? CkStyle::TextDim()
+                        : IsActiveChoice || IsAction ? CkStyle::TextStrong() : CkStyle::Text()),
                 InRow.Enabled))
         ];
 
     if (NOT InRow.Value.IsEmpty())
     {
-        const auto ValueColor =
+        const auto NeutralValueColor =
             InRow.Warn ? CkStyle::Warn()
             : InRow.Kind == ECkGym_ControlKind::Toggle ? (InRow.Active ? CkStyle::Ok() : CkStyle::TextMute())
             : CkStyle::Accent();
+        const auto ValueColor = Get_ToneColor(InRow.Tone, NeutralValueColor);
 
         auto ValueWidget = TSharedPtr<SWidget>{};
 
-        if (InCompact)
+        if (InCompact && NOT InRow.WrapInCompact)
         {
-            // Compact is one line per row - the clipping is what makes the mode scannable - so the
-            // value ellipsizes inside a hard ceiling rather than wrapping and growing the row tall.
+            // Legacy compact values stay on one line. Rows opting into wrapping use the Full
+            // fixed-width value path below so critical readbacks remain legible.
             // The ceiling is the SMALLER of the mode's own cap and the column the card actually has:
             // the cap is absolute, so on any card narrower than it the value would push the row past
             // the panel's edge.

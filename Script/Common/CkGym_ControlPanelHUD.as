@@ -33,11 +33,16 @@ class ACkGym_ControlPanelHUD : AHUD
         return ControlPanelStyle;
     }
 
+    ECkGym_ControlPanel_Mode Get_InitialPanelMode()
+    {
+        return UCk_Utils_GymStartup_UE::Get_ControlPanelMode();
+    }
+
     private ECkGym_ControlPanel_Mode _PanelMode = ECkGym_ControlPanel_Mode::Full;
 
     // The persisted mode is read once, on the first draw. Reading it per frame would fight an edit
-    // made in Editor Preferences while a gym is running, and there is nothing to reconcile: H is
-    // the only other writer.
+    // made in Editor Preferences while a gym is running; H and Request_ToggleDetails are the
+    // only other writers.
     private bool _ModeLoaded = false;
 
     ECkGym_ControlPanel_Mode Get_EffectivePanelMode(ACk_Gym_Base_PlayerController InPC)
@@ -86,7 +91,7 @@ class ACkGym_ControlPanelHUD : AHUD
         if (!_ModeLoaded)
         {
             _ModeLoaded = true;
-            _PanelMode = UCk_Utils_GymStartup_UE::Get_ControlPanelMode();
+            _PanelMode = Get_InitialPanelMode();
         }
 
         auto Switchboard = UCkGym_Switchboard_Subsystem::Get(PC);
@@ -238,6 +243,27 @@ class ACkGym_ControlPanelHUD : AHUD
     bool Get_PanelKeysSuspended()
     {
         return false;
+    }
+
+    // A gym-specific key may call this after its own input layer routes the press. Respect the
+    // same suspension and switchboard gates as the panel's H capture.
+    void Request_ToggleDetails()
+    {
+        if (!_ModeLoaded || Get_PanelKeysSuspended() ||
+            UCk_Utils_GymRegistry_UE::Get_SuppressHUDDuringStartup())
+        { return; }
+
+        auto PC = Cast<ACk_Gym_Base_PlayerController>(GetOwningPlayerController());
+        if (ck::Is_NOT_Valid(PC))
+        { return; }
+
+        auto Switchboard = UCkGym_Switchboard_Subsystem::Get(PC);
+        if (ck::Is_NOT_Valid(Switchboard) || Switchboard.Get_IsOpen())
+        { return; }
+
+        _PanelMode = _PanelMode == ECkGym_ControlPanel_Mode::Full
+            ? ECkGym_ControlPanel_Mode::Compact : ECkGym_ControlPanel_Mode::Full;
+        UCk_Utils_GymStartup_UE::Request_Set_ControlPanelMode(_PanelMode);
     }
 
     UFUNCTION()
