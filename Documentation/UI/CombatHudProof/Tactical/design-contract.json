@@ -1,0 +1,1124 @@
+{
+  "schemaVersion": 1,
+  "status": "scoped-native-verified",
+  "date": "2026-10-04",
+  "theme": "Tactical",
+  "gameReference": "Battlefield 4",
+  "gymStation": "UI HUD: Battlefield 4",
+  "sourceOfTruth": "current CombatHudProof.ui.html and CombatHudProof.ui.css; source consistency here is not native runtime acceptance",
+  "pathsBase": "Plugins/CkTests",
+  "paths": {
+    "markup": "Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.html",
+    "stylesheet": "Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.css",
+    "replicaContract": "Documentation/UI/CombatHudProof/Tactical/replica-contract.md"
+  },
+  "architecture": {
+    "host": "code-created passive UCk_CombatHudProof_UE UMG wrapper",
+    "nativeWrapper": "UOverlay > USafeZone > UScaleBox ScaleToFit > USizeBox 1920x1080 > authored surface",
+    "region": "main",
+    "rootId": "hud-root",
+    "geometry": "fixed logical 1920x1080; ultrawide uses letterboxing rather than stretching the frame",
+    "input": "gym controls own keys and player keeps gameplay focus; HUD is passive",
+    "model": "shared deterministic in-memory CkTests fixture, not entire source-game gameplay simulation"
+  },
+  "fixture": {
+    "ammo": 31,
+    "reserve": 97,
+    "weaponCapacity": 31,
+    "context": "Key 9 cycles baseline → capture prompt → kill feed. Capture and kill-feed nodes collapse outside their respective states.",
+    "commands": {
+      "1": "Damage",
+      "2": "Sprint",
+      "3": "Fire / arrow",
+      "4": "Reload / replenish",
+      "5": "Power / capture / spell",
+      "6": "Restore",
+      "7": "Reset",
+      "8": "Low health",
+      "9": "Context cycle"
+    }
+  },
+  "presentation": {
+    "topology": "PC Normal Conquest topology: lower-left flags, team tickets, timer, map and squad list; lower-right weapon/ammunition, grenade and health; sparse central objective/capture cues and optional upper-right kill feed.",
+    "visual": "White/grey readouts with friendly cyan, opposing orange and squad green; no permanent health or reload progress panel.",
+    "runtimeArt": "The minimap is a deterministic native vector street grid, not Battlefield 4 terrain or live level data. All graphics are native replica-art vectors; old atlas/reference/capture files remain historical.",
+    "fidelityLimit": "Fonts substituted, icons and engraving recreated; no pixel-perfect source-game claim."
+  },
+  "bindings": {
+    "number": [
+      "DamageOpacity",
+      "MapPhase"
+    ],
+    "text": [
+      "AmmoText",
+      "CaptureText",
+      "EnemyTickets",
+      "FlagText",
+      "FriendlyTickets",
+      "HealthText",
+      "KillFeedText",
+      "ReloadText",
+      "ReserveText"
+    ],
+    "visibility": [
+      "ShowCapture",
+      "ShowKillFeed",
+      "ShowReload"
+    ],
+    "image": []
+  },
+  "verification": {
+    "staticContract": "passed: XML structure, unique IDs, CSS class declarations and schemaVersion 1 node identity",
+    "runtime": "passed: focused CombatHudReplica-Gate-02, 41/41 selected tests, 0 failed/skipped/contaminated, D3D12/SM6",
+    "historicalCaptureNote": "prior native-*.png and native-captures.json belong to retired shared layouts; only replica-native gallery/manifest are current replica evidence",
+    "notCovered": [
+      "physical gamepad input",
+      "real gameplay state integration",
+      "packaged build"
+    ],
+    "buildLog": "Saved/Logs/CombatHudReplica-Build-03.log",
+    "gateLog": "Saved/Logs/CombatHudReplica-Gate-02.log",
+    "scope": "real RHI native replica/compatible UI focused gate and final pixel review at three viewport sizes; not a full repository suite",
+    "replicaGallery": "replica-native-gallery.md",
+    "replicaCaptureManifest": "replica-native-captures.json",
+    "verificationReceipt": "../replica-verification.md",
+    "captureSettings": "capture-only debug/logging settings transient and restored; no persistent project or engine change"
+  },
+  "nodeCount": 61,
+  "nodes": [
+    {
+      "id": "hud-root",
+      "tag": "overlay",
+      "parentId": null,
+      "scope": "main-region",
+      "classes": [
+        "hud-root"
+      ],
+      "nativeWidget": "Yoga-backed Slate overlay",
+      "properties": {},
+      "computedStyle": {
+        "padding": "0px"
+      }
+    },
+    {
+      "id": "damage-overlay",
+      "tag": "replica-art",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "damage-overlay"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "damage",
+        "value-bind": "DamageOpacity"
+      },
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      }
+    },
+    {
+      "id": "hud-layout",
+      "tag": "column",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "hud-layout"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px",
+        "padding": "40px 80px 40px 80px"
+      }
+    },
+    {
+      "id": "upper-hud",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "upper-hud"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "76px"
+      }
+    },
+    {
+      "id": "upper-space",
+      "tag": "column",
+      "parentId": "upper-hud",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "kill-feed",
+      "tag": "column",
+      "parentId": "upper-hud",
+      "scope": "main-region",
+      "classes": [
+        "kill-feed"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {
+        "visible": "ShowKillFeed"
+      },
+      "computedStyle": {
+        "width": "310px",
+        "height": "76px",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "kill-feed-text",
+      "tag": "text",
+      "parentId": "kill-feed",
+      "scope": "main-region",
+      "classes": [
+        "kill-feed-text"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "KillFeedText"
+      },
+      "computedStyle": {
+        "font-size": "16",
+        "color": "#E7ECEC",
+        "horizontal-align": "right",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "pre-objective-space",
+      "tag": "column",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "pre-objective-space"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "180px"
+      }
+    },
+    {
+      "id": "objective-row",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "objective-row"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "88px"
+      }
+    },
+    {
+      "id": "objective-left-space",
+      "tag": "column",
+      "parentId": "objective-row",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "objective-marker",
+      "tag": "column",
+      "parentId": "objective-row",
+      "scope": "main-region",
+      "classes": [
+        "objective-marker"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "110px",
+        "height": "88px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "objective-icon",
+      "tag": "replica-art",
+      "parentId": "objective-marker",
+      "scope": "main-region",
+      "classes": [
+        "objective-icon"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "bf-objective"
+      },
+      "computedStyle": {
+        "width": "52px",
+        "height": "52px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "objective-distance",
+      "tag": "text",
+      "parentId": "objective-marker",
+      "scope": "main-region",
+      "classes": [
+        "objective-distance"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "30px",
+        "font-size": "18",
+        "font-weight": "bold",
+        "color": "#F4F5F2",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "C / 35 m"
+    },
+    {
+      "id": "objective-right-space",
+      "tag": "column",
+      "parentId": "objective-row",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "central-world-space",
+      "tag": "column",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "pre-bottom-space",
+      "tag": "column",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "pre-bottom-space"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "80px"
+      }
+    },
+    {
+      "id": "bottom-hud",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "bottom-hud"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "322px"
+      }
+    },
+    {
+      "id": "conquest-cluster",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region",
+      "classes": [
+        "conquest-cluster"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "450px",
+        "height": "322px"
+      }
+    },
+    {
+      "id": "flag-row",
+      "tag": "row",
+      "parentId": "conquest-cluster",
+      "scope": "main-region",
+      "classes": [
+        "flag-row"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "28px"
+      }
+    },
+    {
+      "id": "conquest-flags",
+      "tag": "text",
+      "parentId": "flag-row",
+      "scope": "main-region",
+      "classes": [
+        "conquest-flags"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "FlagText"
+      },
+      "computedStyle": {
+        "width": "450px",
+        "height": "28px",
+        "font-size": "18",
+        "font-weight": "bold",
+        "color": "#DDE5E6",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "ticket-row",
+      "tag": "row",
+      "parentId": "conquest-cluster",
+      "scope": "main-region",
+      "classes": [
+        "ticket-row"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "width": "280px",
+        "height": "40px",
+        "gap": "5px"
+      }
+    },
+    {
+      "id": "friendly-side",
+      "tag": "text",
+      "parentId": "ticket-row",
+      "scope": "main-region",
+      "classes": [
+        "friendly-side"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "34px",
+        "font-size": "16",
+        "font-weight": "bold",
+        "color": "#65D6E6",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "RU"
+    },
+    {
+      "id": "tickets-friendly",
+      "tag": "text",
+      "parentId": "ticket-row",
+      "scope": "main-region",
+      "classes": [
+        "tickets-friendly"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "FriendlyTickets"
+      },
+      "computedStyle": {
+        "width": "50px",
+        "font-size": "20",
+        "font-weight": "bold",
+        "color": "#65D6E6",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "ticket-divider",
+      "tag": "text",
+      "parentId": "ticket-row",
+      "scope": "main-region",
+      "classes": [
+        "ticket-divider"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "12px",
+        "font-size": "18",
+        "color": "#DDE5E6",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "/"
+    },
+    {
+      "id": "enemy-side",
+      "tag": "text",
+      "parentId": "ticket-row",
+      "scope": "main-region",
+      "classes": [
+        "enemy-side"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "34px",
+        "font-size": "16",
+        "font-weight": "bold",
+        "color": "#EFAB67",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "CN"
+    },
+    {
+      "id": "tickets-enemy",
+      "tag": "text",
+      "parentId": "ticket-row",
+      "scope": "main-region",
+      "classes": [
+        "tickets-enemy"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "EnemyTickets"
+      },
+      "computedStyle": {
+        "width": "50px",
+        "font-size": "20",
+        "font-weight": "bold",
+        "color": "#EFAB67",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "timer-space",
+      "tag": "column",
+      "parentId": "ticket-row",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "round-timer",
+      "tag": "text",
+      "parentId": "ticket-row",
+      "scope": "main-region",
+      "classes": [
+        "round-timer"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "60px",
+        "font-size": "16",
+        "color": "#E8EBEB",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "09:23"
+    },
+    {
+      "id": "map-top-space",
+      "tag": "column",
+      "parentId": "conquest-cluster",
+      "scope": "main-region",
+      "classes": [
+        "map-top-space"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "14px"
+      }
+    },
+    {
+      "id": "map-and-squad",
+      "tag": "row",
+      "parentId": "conquest-cluster",
+      "scope": "main-region",
+      "classes": [
+        "map-and-squad"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "width": "450px",
+        "height": "240px",
+        "gap": "16px"
+      }
+    },
+    {
+      "id": "minimap",
+      "tag": "replica-art",
+      "parentId": "map-and-squad",
+      "scope": "main-region",
+      "classes": [
+        "minimap"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "bf-map",
+        "value-bind": "MapPhase"
+      },
+      "computedStyle": {
+        "width": "240px",
+        "height": "240px"
+      }
+    },
+    {
+      "id": "squad-list",
+      "tag": "column",
+      "parentId": "map-and-squad",
+      "scope": "main-region",
+      "classes": [
+        "squad-list"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "194px",
+        "height": "240px",
+        "gap": "5px",
+        "padding": "6px 0px"
+      }
+    },
+    {
+      "id": "squad-one",
+      "tag": "text",
+      "parentId": "squad-list",
+      "scope": "main-region",
+      "classes": [
+        "squad-member"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "194px",
+        "height": "34px",
+        "font-size": "16",
+        "font-weight": "bold",
+        "color": "#7FCB78",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "A  ALPHA LEAD"
+    },
+    {
+      "id": "squad-two",
+      "tag": "text",
+      "parentId": "squad-list",
+      "scope": "main-region",
+      "classes": [
+        "squad-member"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "194px",
+        "height": "34px",
+        "font-size": "16",
+        "font-weight": "bold",
+        "color": "#7FCB78",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "B  RIFLEMAN"
+    },
+    {
+      "id": "squad-three",
+      "tag": "text",
+      "parentId": "squad-list",
+      "scope": "main-region",
+      "classes": [
+        "squad-member"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "194px",
+        "height": "34px",
+        "font-size": "16",
+        "font-weight": "bold",
+        "color": "#7FCB78",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "C  SUPPORT"
+    },
+    {
+      "id": "squad-four",
+      "tag": "text",
+      "parentId": "squad-list",
+      "scope": "main-region",
+      "classes": [
+        "squad-member"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "194px",
+        "height": "34px",
+        "font-size": "16",
+        "font-weight": "bold",
+        "color": "#7FCB78",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "D  RECON"
+    },
+    {
+      "id": "bottom-center-space",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "weapon-cluster",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region",
+      "classes": [
+        "weapon-cluster"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "230px",
+        "height": "322px"
+      }
+    },
+    {
+      "id": "weapon-top-space",
+      "tag": "column",
+      "parentId": "weapon-cluster",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "ammunition",
+      "tag": "row",
+      "parentId": "weapon-cluster",
+      "scope": "main-region",
+      "classes": [
+        "ammunition"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "58px",
+        "gap": "6px"
+      }
+    },
+    {
+      "id": "ammo-value",
+      "tag": "text",
+      "parentId": "ammunition",
+      "scope": "main-region",
+      "classes": [
+        "ammo-value"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "AmmoText"
+      },
+      "computedStyle": {
+        "width": "76px",
+        "font-size": "48",
+        "font-weight": "bold",
+        "color": "#F5F5F1",
+        "vertical-align": "bottom",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "ammo-divider",
+      "tag": "text",
+      "parentId": "ammunition",
+      "scope": "main-region",
+      "classes": [
+        "ammo-divider"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "16px",
+        "font-size": "27",
+        "color": "#F0F1EE",
+        "vertical-align": "bottom",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "/"
+    },
+    {
+      "id": "reserve-value",
+      "tag": "text",
+      "parentId": "ammunition",
+      "scope": "main-region",
+      "classes": [
+        "reserve-value"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "ReserveText"
+      },
+      "computedStyle": {
+        "width": "70px",
+        "font-size": "30",
+        "color": "#E7E9E6",
+        "vertical-align": "bottom",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "weapon-mode-row",
+      "tag": "row",
+      "parentId": "weapon-cluster",
+      "scope": "main-region",
+      "classes": [
+        "weapon-mode-row"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "24px"
+      }
+    },
+    {
+      "id": "fire-mode",
+      "tag": "text",
+      "parentId": "weapon-mode-row",
+      "scope": "main-region",
+      "classes": [
+        "fire-mode"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "64px",
+        "font-size": "18",
+        "font-weight": "bold",
+        "color": "#EDEDEA",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "AUTO"
+    },
+    {
+      "id": "reload-space",
+      "tag": "column",
+      "parentId": "weapon-mode-row",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "reload-status",
+      "tag": "text",
+      "parentId": "weapon-mode-row",
+      "scope": "main-region",
+      "classes": [
+        "reload-status"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "ReloadText",
+        "visible": "ShowReload"
+      },
+      "computedStyle": {
+        "width": "150px",
+        "font-size": "16",
+        "font-weight": "bold",
+        "color": "#F0F1EE",
+        "horizontal-align": "right",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "equipment-row",
+      "tag": "row",
+      "parentId": "weapon-cluster",
+      "scope": "main-region",
+      "classes": [
+        "equipment-row"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "36px",
+        "gap": "4px"
+      }
+    },
+    {
+      "id": "grenade-icon",
+      "tag": "replica-art",
+      "parentId": "equipment-row",
+      "scope": "main-region",
+      "classes": [
+        "grenade-icon"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "bf-grenade"
+      },
+      "computedStyle": {
+        "width": "28px",
+        "height": "28px",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "grenade-count",
+      "tag": "text",
+      "parentId": "equipment-row",
+      "scope": "main-region",
+      "classes": [
+        "grenade-count"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "20px",
+        "font-size": "18",
+        "color": "#EEEEEA",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "1"
+    },
+    {
+      "id": "equipment-space",
+      "tag": "column",
+      "parentId": "equipment-row",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "health-plus",
+      "tag": "text",
+      "parentId": "equipment-row",
+      "scope": "main-region",
+      "classes": [
+        "health-plus"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "14px",
+        "font-size": "18",
+        "font-weight": "bold",
+        "color": "#F4F4F0",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "+"
+    },
+    {
+      "id": "health-value",
+      "tag": "text",
+      "parentId": "equipment-row",
+      "scope": "main-region",
+      "classes": [
+        "health-value"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "HealthText"
+      },
+      "computedStyle": {
+        "width": "44px",
+        "font-size": "20",
+        "font-weight": "bold",
+        "color": "#F4F4F0",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "capture-layer",
+      "tag": "column",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "capture-layer"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      }
+    },
+    {
+      "id": "capture-offset",
+      "tag": "column",
+      "parentId": "capture-layer",
+      "scope": "main-region",
+      "classes": [
+        "capture-offset"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "738px"
+      }
+    },
+    {
+      "id": "capture-row",
+      "tag": "row",
+      "parentId": "capture-layer",
+      "scope": "main-region",
+      "classes": [
+        "capture-row"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {
+        "visible": "ShowCapture"
+      },
+      "computedStyle": {
+        "height": "54px"
+      }
+    },
+    {
+      "id": "capture-left-space",
+      "tag": "column",
+      "parentId": "capture-row",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "capture-copy",
+      "tag": "column",
+      "parentId": "capture-row",
+      "scope": "main-region",
+      "classes": [
+        "capture-copy"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "420px",
+        "height": "54px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "capture-status",
+      "tag": "text",
+      "parentId": "capture-copy",
+      "scope": "main-region",
+      "classes": [
+        "capture-status"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "CaptureText",
+        "visible": "ShowCapture"
+      },
+      "computedStyle": {
+        "height": "54px",
+        "font-size": "20",
+        "font-weight": "bold",
+        "color": "#F0F1EB",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "capture-right-space",
+      "tag": "column",
+      "parentId": "capture-row",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "aim-reticle",
+      "tag": "replica-art",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "aim-reticle"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "crosshair"
+      },
+      "computedStyle": {
+        "width": "44px",
+        "height": "44px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    }
+  ]
+}
