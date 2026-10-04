@@ -1,0 +1,1615 @@
+{
+  "schemaVersion": 1,
+  "name": "Mass Effect 3 squad power wheel",
+  "status": "focused-native-verified",
+  "reference": {
+    "visual": "https://cdn.shazoo.ru/31253_M1WMOW2NSS_pgw_omega_205_1.jpg",
+    "publication": "https://shazoo.ru/2012/11/07/11047/mass-effect-3-omega-dlc-pervye-skrinshoty",
+    "controls": "https://eaassets-a.akamaihd.net/eahelp/manuals/mass-effect-3-manuals_Microsoft%20XBOX360.pdf",
+    "scope": "Original ME3 console radial power layout, adapted to Windows mouse/keyboard. Recreated geometry/glyphs and substituted typeface; deterministic mixed-class Shepard powers for authoring coverage."
+  },
+  "referenceViewport": [
+    1920,
+    1080
+  ],
+  "umg": [
+    {
+      "name": "PowerWheelOverlay",
+      "type": "UOverlay",
+      "role": "Code-created full-screen root"
+    },
+    {
+      "name": "CombatDimmer",
+      "type": "UBorder",
+      "role": "Tint the live paused gym scene; hit-test invisible"
+    },
+    {
+      "name": "SafeZone",
+      "type": "USafeZone",
+      "role": "Device-safe layout"
+    },
+    {
+      "name": "ReferenceScale",
+      "type": "UScaleBox",
+      "role": "ScaleToFit; preserve wheel shape at 720p, 1080p and ultrawide"
+    },
+    {
+      "name": "ReferenceViewport",
+      "type": "USizeBox",
+      "role": "1920x1080 authored coordinate space"
+    },
+    {
+      "name": "AuthoredWheel",
+      "type": "UCk_UI_AuthoredSurface_UE",
+      "role": "Admit committed main region, revoke owner interactions on close"
+    }
+  ],
+  "nativeParts": [
+    {
+      "part": "radial-selector",
+      "role": "Retained native interaction and broken circular frame; each item owns a framed vector power glyph"
+    },
+    {
+      "part": "selection",
+      "role": "Cyan hover/keyboard selection; blocked items remain inspectable"
+    },
+    {
+      "part": "queue",
+      "role": "Amber ring marks one queued power per actor"
+    },
+    {
+      "part": "cooldown",
+      "role": "Gray progress veil from the typed shared actor cooldown; frozen while wheel is open"
+    },
+    {
+      "part": "availability",
+      "role": "Red glyph when blocked/unavailable, no activation callback"
+    },
+    {
+      "part": "content-slot",
+      "role": "Authored title and reticle centered within the transparent circle"
+    },
+    {
+      "part": "squad-portraits",
+      "role": "Reuse Garrus/Liara two-part atlas; authored image leaves sit in bordered portrait-frame columns with queue readouts"
+    },
+    {
+      "part": "vitals",
+      "role": "Native curved shield/health art below wheel; fixture values"
+    },
+    {
+      "part": "fade",
+      "role": "UMG opacity rises over 0.14 real seconds independently of world pause"
+    },
+    {
+      "part": "focus",
+      "role": "Native radial selector suppresses the default full-widget Slate focus rectangle; its selected glyph frame remains visible focus feedback."
+    }
+  ],
+  "data": {
+    "actors": [
+      "Shepard",
+      "Garrus",
+      "Liara"
+    ],
+    "powers": 16,
+    "fields": {
+      "actor": "Text",
+      "glyph": "Text",
+      "label": "Text",
+      "angle": "Number degrees clockwise",
+      "cooldown": "Number normalized 0..1",
+      "enabled": "Bool",
+      "queued": "Bool"
+    },
+    "selectionBinding": "Selection",
+    "selectionEvent": "SelectPower",
+    "queueEvent": "QueuePower",
+    "deployment": "Release revalidates the entire queue before returning any commands; no gameplay callbacks in this deterministic fixture"
+  },
+  "ownership": {
+    "pause": "Acquire only if world unpaused; release only owned pause",
+    "input": "Scoped Slate user; Shift hold/release and native tile hover/click or arrow/Enter; cancel on Escape, Tab, app deactivation, shutdown",
+    "reload": "Typed parse and source topology validation before retained reload; rejection keeps accepted view and queue",
+    "resources": "Loose HTML/CSS staged NonUFS; shared portraits are already staged; no Widget Blueprint"
+  },
+  "nodeCount": 53,
+  "nodes": [
+    {
+      "id": "wheel-region",
+      "tag": "column",
+      "parentId": null,
+      "scope": "main-region",
+      "attributes": {
+        "id": "wheel-region"
+      },
+      "text": "",
+      "classes": [],
+      "computedStyle": {},
+      "sizingPolicy": "no explicit width/height; parent flow and content determine bounds",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {},
+      "role": "Unsized main-region mount root; fixed logical dimensions belong to wheel-layout child"
+    },
+    {
+      "id": "wheel-layout",
+      "tag": "column",
+      "parentId": "wheel-region",
+      "scope": "main-region",
+      "attributes": {
+        "id": "wheel-layout",
+        "class": "wheel-layout"
+      },
+      "text": "",
+      "classes": [
+        "wheel-layout"
+      ],
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Logical composition root",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "target-row-1",
+      "tag": "column",
+      "parentId": "wheel-layout",
+      "scope": "main-region",
+      "attributes": {
+        "class": "target-row",
+        "id": "target-row-1"
+      },
+      "text": "",
+      "classes": [
+        "target-row"
+      ],
+      "computedStyle": {
+        "width": "1920px",
+        "height": "106px",
+        "padding": "24px 600px 0px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Target identity and protection strips",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "target-state",
+      "tag": "text",
+      "parentId": "target-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "target-state",
+        "bind": "TargetState",
+        "class": "target-state"
+      },
+      "text": "",
+      "classes": [
+        "target-state"
+      ],
+      "computedStyle": {
+        "height": "36px",
+        "font-size": "20",
+        "color": "#BCEFFF",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Live target name/protection",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "TargetState"
+      }
+    },
+    {
+      "id": "target-bars-1",
+      "tag": "column",
+      "parentId": "target-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "target-bars",
+        "id": "target-bars-1"
+      },
+      "text": "",
+      "classes": [
+        "target-bars"
+      ],
+      "computedStyle": {
+        "width": "500px",
+        "height": "13px",
+        "horizontal-align": "center",
+        "gap": "3px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Stacked shield/armor strips",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "target-shield-1",
+      "tag": "column",
+      "parentId": "target-bars-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "target-shield",
+        "id": "target-shield-1",
+        "visible": "TargetShielded"
+      },
+      "text": "",
+      "classes": [
+        "target-shield"
+      ],
+      "computedStyle": {
+        "width": "500px",
+        "height": "5px",
+        "background-color": "#65C8EC"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Conditional shield strip",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {
+        "visible": "TargetShielded"
+      }
+    },
+    {
+      "id": "target-armor-1",
+      "tag": "column",
+      "parentId": "target-bars-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "target-armor",
+        "id": "target-armor-1"
+      },
+      "text": "",
+      "classes": [
+        "target-armor"
+      ],
+      "computedStyle": {
+        "width": "500px",
+        "height": "5px",
+        "background-color": "#C68F64"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Armor strip",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "wheel-row-1",
+      "tag": "row",
+      "parentId": "wheel-layout",
+      "scope": "main-region",
+      "attributes": {
+        "class": "wheel-row",
+        "id": "wheel-row-1"
+      },
+      "text": "",
+      "classes": [
+        "wheel-row"
+      ],
+      "computedStyle": {
+        "width": "1920px",
+        "height": "808px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Description, selector, instruction body",
+      "nativeWidget": "Yoga-backed Slate row",
+      "bindings": {}
+    },
+    {
+      "id": "description-column-1",
+      "tag": "column",
+      "parentId": "wheel-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "description-column",
+        "id": "description-column-1"
+      },
+      "text": "",
+      "classes": [
+        "description-column"
+      ],
+      "computedStyle": {
+        "width": "560px",
+        "height": "808px",
+        "padding": "0px 32px 0px 112px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Selected-power details",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "grow-1",
+      "tag": "column",
+      "parentId": "description-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "grow",
+        "id": "grow-1"
+      },
+      "text": "",
+      "classes": [
+        "grow"
+      ],
+      "computedStyle": {
+        "flex-grow": "1"
+      },
+      "sizingPolicy": "flex-grow without explicit width/height",
+      "role": "Flexible spacer",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "actor-name",
+      "tag": "text",
+      "parentId": "description-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "actor-name",
+        "bind": "ActorName",
+        "class": "actor-name"
+      },
+      "text": "",
+      "classes": [
+        "actor-name"
+      ],
+      "computedStyle": {
+        "height": "34px",
+        "font-size": "18",
+        "color": "#D5F6FF",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Selected actor",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "ActorName"
+      }
+    },
+    {
+      "id": "power-description",
+      "tag": "text",
+      "parentId": "description-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "power-description",
+        "bind": "PowerDescription",
+        "class": "power-description"
+      },
+      "text": "",
+      "classes": [
+        "power-description"
+      ],
+      "computedStyle": {
+        "width": "416px",
+        "height": "124px",
+        "font-size": "23",
+        "color": "#80E9FF",
+        "text-wrap": "wrap"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Selected power description",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "PowerDescription"
+      }
+    },
+    {
+      "id": "power-state",
+      "tag": "text",
+      "parentId": "description-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "power-state",
+        "bind": "PowerState",
+        "class": "power-state"
+      },
+      "text": "",
+      "classes": [
+        "power-state"
+      ],
+      "computedStyle": {
+        "width": "416px",
+        "height": "68px",
+        "font-size": "17",
+        "color": "#DAF5FF",
+        "text-wrap": "wrap"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Ready, queued or blocked reason",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "PowerState"
+      }
+    },
+    {
+      "id": "description-bottom-1",
+      "tag": "column",
+      "parentId": "description-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "description-bottom",
+        "id": "description-bottom-1"
+      },
+      "text": "",
+      "classes": [
+        "description-bottom"
+      ],
+      "computedStyle": {
+        "height": "112px"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Detail-area spacer",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "wheel-column-1",
+      "tag": "column",
+      "parentId": "wheel-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "wheel-column",
+        "id": "wheel-column-1"
+      },
+      "text": "",
+      "classes": [
+        "wheel-column"
+      ],
+      "computedStyle": {
+        "width": "800px",
+        "height": "808px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Squad portraits and selector",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "squad-row-1",
+      "tag": "row",
+      "parentId": "wheel-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "squad-row",
+        "id": "squad-row-1"
+      },
+      "text": "",
+      "classes": [
+        "squad-row"
+      ],
+      "computedStyle": {
+        "width": "800px",
+        "height": "88px",
+        "padding": "0px 6px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Two squadmate summaries",
+      "nativeWidget": "Yoga-backed Slate row",
+      "bindings": {}
+    },
+    {
+      "id": "squad-member-1",
+      "tag": "column",
+      "parentId": "squad-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "squad-member",
+        "id": "squad-member-1"
+      },
+      "text": "",
+      "classes": [
+        "squad-member"
+      ],
+      "computedStyle": {
+        "width": "350px",
+        "height": "86px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Squadmate summary",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "portrait-row-1",
+      "tag": "row",
+      "parentId": "squad-member-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "portrait-row",
+        "id": "portrait-row-1"
+      },
+      "text": "",
+      "classes": [
+        "portrait-row"
+      ],
+      "computedStyle": {
+        "width": "350px",
+        "height": "76px",
+        "gap": "12px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Portrait and labels",
+      "nativeWidget": "Yoga-backed Slate row",
+      "bindings": {}
+    },
+    {
+      "id": "garrus-portrait-frame",
+      "tag": "column",
+      "parentId": "portrait-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "garrus-portrait-frame",
+        "class": "portrait-frame"
+      },
+      "text": "",
+      "classes": [
+        "portrait-frame"
+      ],
+      "computedStyle": {
+        "width": "70px",
+        "height": "70px",
+        "padding": "2px",
+        "background-color": "#09232B",
+        "border-color": "#64D4F1",
+        "border-width": "1px",
+        "border-radius": "9px"
+      },
+      "sizingPolicy": "authored width and height",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {},
+      "role": "Framed portrait container; owns border, background and inset"
+    },
+    {
+      "id": "garrus-portrait",
+      "tag": "image",
+      "parentId": "garrus-portrait-frame",
+      "scope": "main-region",
+      "attributes": {
+        "id": "garrus-portrait",
+        "bind": "GarrusPortrait",
+        "class": "portrait"
+      },
+      "text": "",
+      "classes": [
+        "portrait"
+      ],
+      "computedStyle": {
+        "width": "66px",
+        "height": "66px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Bound squadmate atlas image",
+      "nativeWidget": "Slate image",
+      "bindings": {
+        "bind": "GarrusPortrait"
+      }
+    },
+    {
+      "id": "portrait-label-1",
+      "tag": "column",
+      "parentId": "portrait-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "portrait-label",
+        "id": "portrait-label-1"
+      },
+      "text": "",
+      "classes": [
+        "portrait-label"
+      ],
+      "computedStyle": {
+        "width": "264px",
+        "height": "76px",
+        "padding": "6px 0px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Name and queue label",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "squad-name-1",
+      "tag": "text",
+      "parentId": "portrait-label-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "squad-name",
+        "id": "squad-name-1"
+      },
+      "text": "GARRUS",
+      "classes": [
+        "squad-name"
+      ],
+      "computedStyle": {
+        "height": "30px",
+        "font-size": "18",
+        "color": "#BAEDFA",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal squadmate name",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "queue-garrus",
+      "tag": "text",
+      "parentId": "portrait-label-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "queue-garrus",
+        "bind": "QueueGarrus",
+        "class": "queue-label"
+      },
+      "text": "",
+      "classes": [
+        "queue-label"
+      ],
+      "computedStyle": {
+        "height": "40px",
+        "font-size": "15",
+        "color": "#F1D385",
+        "text-wrap": "wrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Bound queued-power label",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "QueueGarrus"
+      }
+    },
+    {
+      "id": "squad-gap-1",
+      "tag": "column",
+      "parentId": "squad-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "squad-gap",
+        "id": "squad-gap-1"
+      },
+      "text": "",
+      "classes": [
+        "squad-gap"
+      ],
+      "computedStyle": {
+        "flex-grow": "1"
+      },
+      "sizingPolicy": "flex-grow without explicit width/height",
+      "role": "Flexible squad separation",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "squad-member-2",
+      "tag": "column",
+      "parentId": "squad-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "squad-member",
+        "id": "squad-member-2"
+      },
+      "text": "",
+      "classes": [
+        "squad-member"
+      ],
+      "computedStyle": {
+        "width": "350px",
+        "height": "86px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Squadmate summary",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "portrait-row-2",
+      "tag": "row",
+      "parentId": "squad-member-2",
+      "scope": "main-region",
+      "attributes": {
+        "class": "portrait-row",
+        "id": "portrait-row-2"
+      },
+      "text": "",
+      "classes": [
+        "portrait-row"
+      ],
+      "computedStyle": {
+        "width": "350px",
+        "height": "76px",
+        "gap": "12px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Portrait and labels",
+      "nativeWidget": "Yoga-backed Slate row",
+      "bindings": {}
+    },
+    {
+      "id": "portrait-label-2",
+      "tag": "column",
+      "parentId": "portrait-row-2",
+      "scope": "main-region",
+      "attributes": {
+        "class": "portrait-label",
+        "id": "portrait-label-2"
+      },
+      "text": "",
+      "classes": [
+        "portrait-label"
+      ],
+      "computedStyle": {
+        "width": "264px",
+        "height": "76px",
+        "padding": "6px 0px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Name and queue label",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "squad-name-2",
+      "tag": "text",
+      "parentId": "portrait-label-2",
+      "scope": "main-region",
+      "attributes": {
+        "class": "squad-name",
+        "id": "squad-name-2"
+      },
+      "text": "LIARA",
+      "classes": [
+        "squad-name"
+      ],
+      "computedStyle": {
+        "height": "30px",
+        "font-size": "18",
+        "color": "#BAEDFA",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal squadmate name",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "queue-liara",
+      "tag": "text",
+      "parentId": "portrait-label-2",
+      "scope": "main-region",
+      "attributes": {
+        "id": "queue-liara",
+        "bind": "QueueLiara",
+        "class": "queue-label"
+      },
+      "text": "",
+      "classes": [
+        "queue-label"
+      ],
+      "computedStyle": {
+        "height": "40px",
+        "font-size": "15",
+        "color": "#F1D385",
+        "text-wrap": "wrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Bound queued-power label",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "QueueLiara"
+      }
+    },
+    {
+      "id": "liara-portrait-frame",
+      "tag": "column",
+      "parentId": "portrait-row-2",
+      "scope": "main-region",
+      "attributes": {
+        "id": "liara-portrait-frame",
+        "class": "portrait-frame"
+      },
+      "text": "",
+      "classes": [
+        "portrait-frame"
+      ],
+      "computedStyle": {
+        "width": "70px",
+        "height": "70px",
+        "padding": "2px",
+        "background-color": "#09232B",
+        "border-color": "#64D4F1",
+        "border-width": "1px",
+        "border-radius": "9px"
+      },
+      "sizingPolicy": "authored width and height",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {},
+      "role": "Framed portrait container; owns border, background and inset"
+    },
+    {
+      "id": "liara-portrait",
+      "tag": "image",
+      "parentId": "liara-portrait-frame",
+      "scope": "main-region",
+      "attributes": {
+        "id": "liara-portrait",
+        "bind": "LiaraPortrait",
+        "class": "portrait"
+      },
+      "text": "",
+      "classes": [
+        "portrait"
+      ],
+      "computedStyle": {
+        "width": "66px",
+        "height": "66px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Bound squadmate atlas image",
+      "nativeWidget": "Slate image",
+      "bindings": {
+        "bind": "LiaraPortrait"
+      }
+    },
+    {
+      "id": "power-wheel",
+      "tag": "radial-selector",
+      "parentId": "wheel-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "power-wheel",
+        "items-bind": "Powers",
+        "selection-bind": "Selection",
+        "select": "SelectPower",
+        "activate": "QueuePower",
+        "class": "power-wheel"
+      },
+      "text": "",
+      "classes": [
+        "power-wheel"
+      ],
+      "computedStyle": {
+        "width": "800px",
+        "height": "720px",
+        "-ck-radial-tile-size": "56px",
+        "-ck-radial-ring": "#48BEDB",
+        "-ck-radial-selected": "#C5F9FF",
+        "-ck-radial-queued": "#FFCC66",
+        "-ck-radial-disabled": "#E65B58"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Native radial selection and activation",
+      "nativeWidget": "SCkUiRadialSelector retained native control",
+      "bindings": {
+        "items-bind": "Powers",
+        "selection-bind": "Selection",
+        "select": "SelectPower",
+        "activate": "QueuePower"
+      }
+    },
+    {
+      "id": "wheel-center-1",
+      "tag": "column",
+      "parentId": "power-wheel",
+      "scope": "main-region",
+      "attributes": {
+        "class": "wheel-center",
+        "id": "wheel-center-1"
+      },
+      "text": "",
+      "classes": [
+        "wheel-center"
+      ],
+      "computedStyle": {
+        "width": "360px",
+        "height": "640px",
+        "horizontal-align": "center"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Content slot within ring",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "grow-2",
+      "tag": "column",
+      "parentId": "wheel-center-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "grow",
+        "id": "grow-2"
+      },
+      "text": "",
+      "classes": [
+        "grow"
+      ],
+      "computedStyle": {
+        "flex-grow": "1"
+      },
+      "sizingPolicy": "flex-grow without explicit width/height",
+      "role": "Flexible spacer",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "target-reticle",
+      "tag": "replica-art",
+      "parentId": "wheel-center-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "target-reticle",
+        "piece": "me-reticle",
+        "class": "reticle"
+      },
+      "text": "",
+      "classes": [
+        "reticle"
+      ],
+      "computedStyle": {
+        "width": "84px",
+        "height": "48px",
+        "horizontal-align": "center"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Native center reticle",
+      "nativeWidget": "retained native vector leaf",
+      "bindings": {}
+    },
+    {
+      "id": "power-name",
+      "tag": "text",
+      "parentId": "wheel-center-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "power-name",
+        "bind": "PowerName",
+        "class": "power-name"
+      },
+      "text": "",
+      "classes": [
+        "power-name"
+      ],
+      "computedStyle": {
+        "max-width": "360px",
+        "height": "96px",
+        "font-size": "24",
+        "color": "#90EDFF",
+        "horizontal-align": "center",
+        "vertical-align": "center",
+        "text-wrap": "wrap"
+      },
+      "sizingPolicy": "authored height and max-width; natural text width capped at 360px",
+      "role": "Bound selected power label",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "PowerName"
+      }
+    },
+    {
+      "id": "center-hint-1",
+      "tag": "text",
+      "parentId": "wheel-center-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "center-hint",
+        "id": "center-hint-1"
+      },
+      "text": "CLICK / ENTER TO QUEUE",
+      "classes": [
+        "center-hint"
+      ],
+      "computedStyle": {
+        "max-width": "360px",
+        "height": "28px",
+        "font-size": "14",
+        "color": "#A5DCE8",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height and max-width; natural text width capped at 360px",
+      "role": "Literal queue hint",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "grow-3",
+      "tag": "column",
+      "parentId": "wheel-center-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "grow",
+        "id": "grow-3"
+      },
+      "text": "",
+      "classes": [
+        "grow"
+      ],
+      "computedStyle": {
+        "flex-grow": "1"
+      },
+      "sizingPolicy": "flex-grow without explicit width/height",
+      "role": "Flexible spacer",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "instruction-column-1",
+      "tag": "column",
+      "parentId": "wheel-row-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "instruction-column",
+        "id": "instruction-column-1"
+      },
+      "text": "",
+      "classes": [
+        "instruction-column"
+      ],
+      "computedStyle": {
+        "width": "560px",
+        "height": "808px",
+        "padding": "0px 112px 0px 96px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Input help",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "grow-4",
+      "tag": "column",
+      "parentId": "instruction-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "grow",
+        "id": "grow-4"
+      },
+      "text": "",
+      "classes": [
+        "grow"
+      ],
+      "computedStyle": {
+        "flex-grow": "1"
+      },
+      "sizingPolicy": "flex-grow without explicit width/height",
+      "role": "Flexible spacer",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "input-label-1",
+      "tag": "text",
+      "parentId": "instruction-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "input-label",
+        "id": "input-label-1"
+      },
+      "text": "RELEASE SHIFT",
+      "classes": [
+        "input-label"
+      ],
+      "computedStyle": {
+        "height": "32px",
+        "font-size": "18",
+        "color": "#CFEEF8",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal input key",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "input-help-1",
+      "tag": "text",
+      "parentId": "instruction-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "input-help",
+        "id": "input-help-1"
+      },
+      "text": "Deploy queued powers",
+      "classes": [
+        "input-help"
+      ],
+      "computedStyle": {
+        "height": "46px",
+        "font-size": "17",
+        "color": "#73CBE0",
+        "text-wrap": "wrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal input explanation",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "input-label-2",
+      "tag": "text",
+      "parentId": "instruction-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "input-label",
+        "id": "input-label-2"
+      },
+      "text": "ESC",
+      "classes": [
+        "input-label"
+      ],
+      "computedStyle": {
+        "height": "32px",
+        "font-size": "18",
+        "color": "#CFEEF8",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal input key",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "input-help-2",
+      "tag": "text",
+      "parentId": "instruction-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "input-help",
+        "id": "input-help-2"
+      },
+      "text": "Cancel selection",
+      "classes": [
+        "input-help"
+      ],
+      "computedStyle": {
+        "height": "46px",
+        "font-size": "17",
+        "color": "#73CBE0",
+        "text-wrap": "wrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal input explanation",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "input-label-3",
+      "tag": "text",
+      "parentId": "instruction-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "input-label",
+        "id": "input-label-3"
+      },
+      "text": "2",
+      "classes": [
+        "input-label"
+      ],
+      "computedStyle": {
+        "height": "32px",
+        "font-size": "18",
+        "color": "#CFEEF8",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal input key",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "input-help-3",
+      "tag": "text",
+      "parentId": "instruction-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "input-help",
+        "id": "input-help-3"
+      },
+      "text": "Toggle target protection",
+      "classes": [
+        "input-help"
+      ],
+      "computedStyle": {
+        "height": "46px",
+        "font-size": "17",
+        "color": "#73CBE0",
+        "text-wrap": "wrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal input explanation",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "instruction-bottom-1",
+      "tag": "column",
+      "parentId": "instruction-column-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "instruction-bottom",
+        "id": "instruction-bottom-1"
+      },
+      "text": "",
+      "classes": [
+        "instruction-bottom"
+      ],
+      "computedStyle": {
+        "height": "92px"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Help-area spacer",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "shepard-status-1",
+      "tag": "column",
+      "parentId": "wheel-layout",
+      "scope": "main-region",
+      "attributes": {
+        "class": "shepard-status",
+        "id": "shepard-status-1"
+      },
+      "text": "",
+      "classes": [
+        "shepard-status"
+      ],
+      "computedStyle": {
+        "width": "1920px",
+        "height": "112px"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Shield, health and queue status",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {}
+    },
+    {
+      "id": "shield-meter",
+      "tag": "replica-art",
+      "parentId": "shepard-status-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "shield-meter",
+        "piece": "me-shield",
+        "class": "shield-meter"
+      },
+      "text": "",
+      "classes": [
+        "shield-meter"
+      ],
+      "computedStyle": {
+        "width": "360px",
+        "height": "28px",
+        "horizontal-align": "center"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Native shield art",
+      "nativeWidget": "retained native vector leaf",
+      "bindings": {}
+    },
+    {
+      "id": "health-meter",
+      "tag": "replica-art",
+      "parentId": "shepard-status-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "health-meter",
+        "piece": "me-health",
+        "class": "health-meter"
+      },
+      "text": "",
+      "classes": [
+        "health-meter"
+      ],
+      "computedStyle": {
+        "width": "314px",
+        "height": "20px",
+        "horizontal-align": "center"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Native health art",
+      "nativeWidget": "retained native vector leaf",
+      "bindings": {}
+    },
+    {
+      "id": "shepard-name-1",
+      "tag": "text",
+      "parentId": "shepard-status-1",
+      "scope": "main-region",
+      "attributes": {
+        "class": "shepard-name",
+        "id": "shepard-name-1"
+      },
+      "text": "SHEPARD",
+      "classes": [
+        "shepard-name"
+      ],
+      "computedStyle": {
+        "height": "30px",
+        "font-size": "16",
+        "color": "#9AEAFF",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Literal actor name",
+      "nativeWidget": "Slate text",
+      "bindings": {}
+    },
+    {
+      "id": "queue-shepard",
+      "tag": "text",
+      "parentId": "shepard-status-1",
+      "scope": "main-region",
+      "attributes": {
+        "id": "queue-shepard",
+        "bind": "QueueShepard",
+        "class": "queue-shepard"
+      },
+      "text": "",
+      "classes": [
+        "queue-shepard"
+      ],
+      "computedStyle": {
+        "height": "34px",
+        "font-size": "17",
+        "color": "#F1D385",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Bound Shepard queue label",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "QueueShepard"
+      }
+    },
+    {
+      "id": "status-text",
+      "tag": "text",
+      "parentId": "wheel-layout",
+      "scope": "main-region",
+      "attributes": {
+        "id": "status-text",
+        "bind": "StatusText",
+        "class": "status-text"
+      },
+      "text": "",
+      "classes": [
+        "status-text"
+      ],
+      "computedStyle": {
+        "height": "54px",
+        "font-size": "16",
+        "color": "#B6D4DC",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "sizingPolicy": "authored height",
+      "role": "Bound host feedback",
+      "nativeWidget": "Slate text",
+      "bindings": {
+        "bind": "StatusText"
+      }
+    }
+  ],
+  "nativeGeometry": {
+    "coordinateSystem": "unsized authored main-region root encloses fixed 1920x1080 wheel-layout child before UMG ScaleToFit/SafeZone; geometry is source-derived, not measured capture evidence",
+    "selector": {
+      "id": "power-wheel",
+      "authoredWidth": 800,
+      "authoredHeight": 720,
+      "localCenter": [
+        400,
+        360
+      ],
+      "radiusFormula": "0.39 * min(localWidth, localHeight)",
+      "sourceDerivedRadius": 280.8,
+      "tileSize": 56,
+      "angleConvention": "degrees clockwise from screen-right; positive Y points down",
+      "placementFormula": "[width/2 + radius*cos(angle), height/2 + radius*sin(angle)]",
+      "minimumWrappedAngularSeparationDegrees": 15
+    },
+    "drawing": {
+      "ring": "six broken 48-degree arcs with 12-degree gaps; 1.5-unit line",
+      "tileFrame": "nine-point chamfered 56-unit frame; 1.5-unit normal or 3-unit selected line",
+      "glyph": "token-specific native vector linework at tileHalf * 0.52 radius",
+      "cooldown": "dark overlay height 56 * normalized cooldown",
+      "queue": "amber queued rim, cyan selected rim, red blocked glyph, all from authored custom color properties",
+      "content": "authored content slot paints above native ring/tiles",
+      "focus": "OnQueryShowFocus returns false to suppress the default widget-wide Slate focus rectangle; the selected tile frame remains highlighted."
+    },
+    "glyphGeometry": {
+      "warp": "circular line glyph",
+      "throw": "diamond fallback with horizontal impulse line",
+      "overload": "lightning stroke",
+      "incinerate": "flame outline with inner stroke",
+      "singularity": "spiral",
+      "energy-drain": "loop with transfer stroke",
+      "concussive": "projectile with horizontal impulse line",
+      "adrenaline": "pulse-like stroke",
+      "ammo": "projectile",
+      "mine": "alternating-radius star",
+      "stasis": "paired brackets"
+    }
+  },
+  "fixturePowers": [
+    {
+      "key": "shepard-warp",
+      "actor": 0,
+      "label": "Warp",
+      "description": "Tears through armor and barriers.",
+      "glyph": "warp",
+      "angleDegrees": 25.0,
+      "baseCooldownSeconds": 5.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "shepard-throw",
+      "actor": 0,
+      "label": "Throw",
+      "description": "Hurls an exposed target.",
+      "glyph": "throw",
+      "angleDegrees": 44.0,
+      "baseCooldownSeconds": 4.0,
+      "requiresUnshieldedTarget": true
+    },
+    {
+      "key": "shepard-overload",
+      "actor": 0,
+      "label": "Overload",
+      "description": "Disrupts shields and electronics.",
+      "glyph": "overload",
+      "angleDegrees": 63.0,
+      "baseCooldownSeconds": 5.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "shepard-incinerate",
+      "actor": 0,
+      "label": "Incinerate",
+      "description": "Burns armor and exposed foes.",
+      "glyph": "incinerate",
+      "angleDegrees": 82.0,
+      "baseCooldownSeconds": 5.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "shepard-singularity",
+      "actor": 0,
+      "label": "Singularity",
+      "description": "Suspends nearby foes.",
+      "glyph": "singularity",
+      "angleDegrees": 101.0,
+      "baseCooldownSeconds": 7.0,
+      "requiresUnshieldedTarget": true
+    },
+    {
+      "key": "shepard-energy-drain",
+      "actor": 0,
+      "label": "Energy Drain",
+      "description": "Drains shields to restore protection.",
+      "glyph": "energy-drain",
+      "angleDegrees": 120.0,
+      "baseCooldownSeconds": 6.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "shepard-concussive-shot",
+      "actor": 0,
+      "label": "Concussive Shot",
+      "description": "Launches a heavy impact blast.",
+      "glyph": "concussive",
+      "angleDegrees": 139.0,
+      "baseCooldownSeconds": 4.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "shepard-adrenaline-rush",
+      "actor": 0,
+      "label": "Adrenaline Rush",
+      "description": "Briefly sharpens aim and reflexes.",
+      "glyph": "adrenaline",
+      "angleDegrees": 158.0,
+      "baseCooldownSeconds": 8.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "garrus-overload",
+      "actor": 1,
+      "label": "Overload",
+      "description": "Garrus strips enemy shields.",
+      "glyph": "overload",
+      "angleDegrees": -178.0,
+      "baseCooldownSeconds": 6.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "garrus-concussive-shot",
+      "actor": 1,
+      "label": "Concussive Shot",
+      "description": "Garrus staggers an exposed foe.",
+      "glyph": "concussive",
+      "angleDegrees": -158.0,
+      "baseCooldownSeconds": 5.0,
+      "requiresUnshieldedTarget": true
+    },
+    {
+      "key": "garrus-armor-piercing-ammo",
+      "actor": 1,
+      "label": "Armor-Piercing Ammo",
+      "description": "Garrus loads armor-piercing rounds.",
+      "glyph": "ammo",
+      "angleDegrees": -138.0,
+      "baseCooldownSeconds": 8.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "garrus-proximity-mine",
+      "actor": 1,
+      "label": "Proximity Mine",
+      "description": "Garrus deploys a proximity charge.",
+      "glyph": "mine",
+      "angleDegrees": -118.0,
+      "baseCooldownSeconds": 7.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "liara-singularity",
+      "actor": 2,
+      "label": "Singularity",
+      "description": "Liara suspends exposed enemies.",
+      "glyph": "singularity",
+      "angleDegrees": -62.0,
+      "baseCooldownSeconds": 7.0,
+      "requiresUnshieldedTarget": true
+    },
+    {
+      "key": "liara-warp",
+      "actor": 2,
+      "label": "Warp",
+      "description": "Liara weakens armor and barriers.",
+      "glyph": "warp",
+      "angleDegrees": -42.0,
+      "baseCooldownSeconds": 5.0,
+      "requiresUnshieldedTarget": false
+    },
+    {
+      "key": "liara-stasis",
+      "actor": 2,
+      "label": "Stasis",
+      "description": "Liara holds an exposed target.",
+      "glyph": "stasis",
+      "angleDegrees": -22.0,
+      "baseCooldownSeconds": 6.0,
+      "requiresUnshieldedTarget": true
+    },
+    {
+      "key": "liara-warp-ammo",
+      "actor": 2,
+      "label": "Warp Ammo",
+      "description": "Liara primes biotic ammunition.",
+      "glyph": "ammo",
+      "angleDegrees": -2.0,
+      "baseCooldownSeconds": 8.0,
+      "requiresUnshieldedTarget": false
+    }
+  ],
+  "stateExpectations": {
+    "opening": "Hold opens wheel; cooldown advancement freezes while open and the host pauses only a previously unpaused world.",
+    "hover": "Blocked powers remain selectable to show actor, description and block reason.",
+    "queue": "One queued power per actor; a new power replaces that actor's slot. Unavailable, cooling and shield-blocked powers cannot queue.",
+    "release": "Revalidate all queued slots before command publication; success returns actor-ordered commands and starts shared actor cooldown, while failure closes and discards without commands/cooldown mutation.",
+    "cooldown": "A dispatched actor's powers share the selected duration as remaining time and denominator; authored base durations return on expiry and published fraction stays within [0,1].",
+    "cancel": "Cancel closes and clears queue without deployment.",
+    "target": "Shield toggle changes target copy, shield-strip visibility and shield-sensitive usability.",
+    "sourceReload": "Rejected authored source retains last committed view and queue."
+  },
+  "verificationBoundary": "Windows Editor/PIE D3D12 SM6: final focused gate passed 10/10, with eight unedited native captures and visual review at 720p, 1080p and ultrawide. Authored logical geometry/CSS remains source-derived. Real gameplay dispatch, physical gamepad and packaged-game behavior are outside this proof.",
+  "styleSemantics": "Each node computedStyle is the merged explicit declaration of its authored CSS class tokens, in source order. It excludes defaults and inherited properties; sizingPolicy identifies absent explicit dimensions.",
+  "verificationReceipt": "verification-receipt.json"
+}
