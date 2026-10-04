@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "theme": "Tactical",
+  "status": "native-runtime-verified",
+  "verification": {
+    "date": "2026-10-04",
+    "log": "Saved/Logs/CombatHudProof-Gate-14.log",
+    "projectRelativeLog": true,
+    "selectedTests": 40,
+    "passed": 40,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0,
+    "rhi": "D3D12/SM6",
+    "method": "native Slate viewport screenshots from actual CkTests gym PIE"
+  },
+  "authoredSourceSha256": {
+    "CombatHudProof.ui.html": "2fd547bd274621317d85a6c4562dba114150aaadb2f86c577a57f504ded98044",
+    "CombatHudProof.ui.css": "a319214cb8018c05e50343c46a9b28c68f285505c0a79723cdfa728be8d67e2a"
+  },
+  "captures": [
+    {
+      "file": "native-initial-1280x720.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-initial-1280x720.png",
+      "state": "initial",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "cffa2b6e295e71944a14d8e5f67921f591a09385c9acd1858cabaf393e16371d",
+      "capturedUtc": "2026-10-04T07:19:44.110832+00:00",
+      "edited": false
+    },
+    {
+      "file": "native-initial-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-initial-1920x1080.png",
+      "state": "initial",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "580d87668af0b08f2b76839294bbbc4f68ebe1f3542c1e56e2d6d882e43e1a85",
+      "capturedUtc": "2026-10-04T07:19:43.931827+00:00",
+      "edited": false
+    },
+    {
+      "file": "native-initial-2560x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-initial-2560x1080.png",
+      "state": "initial",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "5d82500b30562663a446a4d07db59ab4f2d1e2ecbdbc1e17bf964a96b5b0951d",
+      "capturedUtc": "2026-10-04T07:19:44.405083+00:00",
+      "edited": false
+    },
+    {
+      "file": "native-reloading-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-reloading-1920x1080.png",
+      "state": "reloading",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "ec4401b28eb17ba782f2f0bac2924be942810a280ac60a457bf4a19bc3c1a832",
+      "capturedUtc": "2026-10-04T07:19:44.805088+00:00",
+      "edited": false
+    },
+    {
+      "file": "native-low-health-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-low-health-1920x1080.png",
+      "state": "low-health",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "bfdb504b2a1fdcb25c01ce84fe455d1e0f1afc4e3f70a480fb89968982066daa",
+      "capturedUtc": "2026-10-04T07:19:46.426586+00:00",
+      "edited": false
+    }
+  ],
+  "limitations": [
+    "Deterministic in-memory gameplay fixture",
+    "Gym info panel, input-history and performance overlays remain visible",
+    "Physical gamepad, gameplay integration and packaged execution not verified"
+  ]
+}

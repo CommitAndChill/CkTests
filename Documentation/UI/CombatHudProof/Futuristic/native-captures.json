@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "theme": "Futuristic",
+  "status": "native-runtime-verified",
+  "verification": {
+    "date": "2026-10-04",
+    "log": "Saved/Logs/CombatHudProof-Gate-14.log",
+    "projectRelativeLog": true,
+    "selectedTests": 40,
+    "passed": 40,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0,
+    "rhi": "D3D12/SM6",
+    "method": "native Slate viewport screenshots from actual CkTests gym PIE"
+  },
+  "authoredSourceSha256": {
+    "CombatHudProof.ui.html": "cdfd12c6b20aa614f58b727864a139b35ec2e1c8f030e8d2467f19bc267ca71a",
+    "CombatHudProof.ui.css": "2cad7c72f5b21f4ef128700d08cfc8ad8243389e9915f54c7dc672f002ecaa66"
+  },
+  "captures": [
+    {
+      "file": "native-initial-1280x720.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-initial-1280x720.png",
+      "state": "initial",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "d2eee5b1f1a6f2839ebcfaf24e16f6fd5aede71407865bdc5085afae48cfb121",
+      "capturedUtc": "2026-10-04T07:19:35.989710+00:00",
+      "edited": false
+    },
+    {
+      "file": "native-initial-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-initial-1920x1080.png",
+      "state": "initial",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "42eed050a2d00ed17379dfe43a4b6548304d8aad7a17e0ef43da25b84984a1ad",
+      "capturedUtc": "2026-10-04T07:19:35.773403+00:00",
+      "edited": false
+    },
+    {
+      "file": "native-initial-2560x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-initial-2560x1080.png",
+      "state": "initial",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "95707e3f82dfb69c3e4bb58e3daad9e9047c53ddc5a5a5a94623aca2f74472f0",
+      "capturedUtc": "2026-10-04T07:19:36.309925+00:00",
+      "edited": false
+    },
+    {
+      "file": "native-reloading-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-reloading-1920x1080.png",
+      "state": "reloading",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "55a2040206adcbd2ad753ea7da4f7fc0d45b94f57827be37c728eb548e9ed232",
+      "capturedUtc": "2026-10-04T07:19:36.742592+00:00",
+      "edited": false
+    },
+    {
+      "file": "native-low-health-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-low-health-1920x1080.png",
+      "state": "low-health",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "2e3563d608b8354d0c8aec926e0832bea347dccb6e8c973b066aa897c99cfc1f",
+      "capturedUtc": "2026-10-04T07:19:38.365956+00:00",
+      "edited": false
+    }
+  ],
+  "limitations": [
+    "Deterministic in-memory gameplay fixture",
+    "Gym info panel, input-history and performance overlays remain visible",
+    "Physical gamepad, gameplay integration and packaged execution not verified"
+  ]
+}

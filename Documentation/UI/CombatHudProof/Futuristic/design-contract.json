@@ -1,0 +1,1261 @@
+{
+  "schemaVersion": 1,
+  "status": "scoped-native-verified",
+  "date": "2026-10-04",
+  "theme": "Futuristic",
+  "gameReference": "Mass Effect 3",
+  "gymStation": "UI HUD: Mass Effect 3",
+  "sourceOfTruth": "current CombatHudProof.ui.html and CombatHudProof.ui.css; source consistency here is not native runtime acceptance",
+  "pathsBase": "Plugins/CkTests",
+  "paths": {
+    "markup": "Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.html",
+    "stylesheet": "Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.css",
+    "replicaContract": "Documentation/UI/CombatHudProof/Futuristic/replica-contract.md",
+    "runtimeBitmap": "Resources/UiAuthoring/CombatHudProof/Futuristic/squad-portraits.png"
+  },
+  "architecture": {
+    "host": "code-created passive UCk_CombatHudProof_UE UMG wrapper",
+    "nativeWrapper": "UOverlay > USafeZone > UScaleBox ScaleToFit > USizeBox 1920x1080 > authored surface",
+    "region": "main",
+    "rootId": "hud-root",
+    "geometry": "fixed logical 1920x1080; ultrawide uses letterboxing rather than stretching the frame",
+    "input": "gym controls own keys and player keeps gameplay focus; HUD is passive",
+    "model": "shared deterministic in-memory CkTests fixture, not entire source-game gameplay simulation"
+  },
+  "fixture": {
+    "ammo": 50,
+    "reserve": 383,
+    "weaponCapacity": 50,
+    "context": "Key 9 cycles baseline → objective prompt → baseline. The empty-ammo prompt follows its own ammunition state.",
+    "commands": {
+      "1": "Damage",
+      "2": "Sprint",
+      "3": "Fire / arrow",
+      "4": "Reload / replenish",
+      "5": "Power / capture / spell",
+      "6": "Restore",
+      "7": "Reset",
+      "8": "Low health",
+      "9": "Context cycle"
+    }
+  },
+  "presentation": {
+    "topology": "Original PC combat HUD topology: upper-left power quickslots, lower-left ammunition and weapon readout, lower-center curved shield/health and two squad portraits, centered reticle and contextual objective or empty-ammo copy.",
+    "visual": "Cyan holographic readouts, red weapon-ammunition accent, compact squad portrait strip and curved native vital arcs.",
+    "runtimeArt": "The only runtime bitmap is squad-portraits.png (1774 × 887, two 887 × 887 UV halves). Other art is native replica-art vector drawing. The generated hud-atlas.png and old reference/capture files are historical, not runtime authorities.",
+    "fidelityLimit": "Fonts substituted, icons and engraving recreated; no pixel-perfect source-game claim."
+  },
+  "bindings": {
+    "number": [
+      "AmmoFraction",
+      "CooldownProgress",
+      "DamageOpacity",
+      "HealthFraction",
+      "ShieldFraction"
+    ],
+    "text": [
+      "AmmoText",
+      "ReloadText",
+      "ReserveText"
+    ],
+    "visibility": [
+      "ShowNoAmmo",
+      "ShowObjective",
+      "ShowReload"
+    ],
+    "image": [
+      "SquadOnePortrait",
+      "SquadTwoPortrait"
+    ]
+  },
+  "verification": {
+    "staticContract": "passed: XML structure, unique IDs, CSS class declarations and schemaVersion 1 node identity",
+    "runtime": "passed: focused CombatHudReplica-Gate-02, 41/41 selected tests, 0 failed/skipped/contaminated, D3D12/SM6",
+    "historicalCaptureNote": "prior native-*.png and native-captures.json belong to retired shared layouts; only replica-native gallery/manifest are current replica evidence",
+    "notCovered": [
+      "physical gamepad input",
+      "real gameplay state integration",
+      "packaged build"
+    ],
+    "buildLog": "Saved/Logs/CombatHudReplica-Build-03.log",
+    "gateLog": "Saved/Logs/CombatHudReplica-Gate-02.log",
+    "scope": "real RHI native replica/compatible UI focused gate and final pixel review at three viewport sizes; not a full repository suite",
+    "replicaGallery": "replica-native-gallery.md",
+    "replicaCaptureManifest": "replica-native-captures.json",
+    "verificationReceipt": "../replica-verification.md",
+    "captureSettings": "capture-only debug/logging settings transient and restored; no persistent project or engine change"
+  },
+  "nodeCount": 65,
+  "nodes": [
+    {
+      "id": "hud-root",
+      "tag": "overlay",
+      "parentId": null,
+      "scope": "main-region",
+      "classes": [
+        "hud-root"
+      ],
+      "nativeWidget": "Yoga-backed Slate overlay",
+      "properties": {},
+      "computedStyle": {
+        "padding": "0px"
+      }
+    },
+    {
+      "id": "damage-overlay",
+      "tag": "replica-art",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "damage-overlay"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "damage",
+        "value-bind": "DamageOpacity"
+      },
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      }
+    },
+    {
+      "id": "hud-layout",
+      "tag": "column",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "hud-layout"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      }
+    },
+    {
+      "id": "quickslots-row",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "quickslots-row"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "100px",
+        "padding": "4px 104px 0px"
+      }
+    },
+    {
+      "id": "quickslots",
+      "tag": "row",
+      "parentId": "quickslots-row",
+      "scope": "main-region",
+      "classes": [
+        "quickslots"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "width": "470px",
+        "height": "84px",
+        "gap": "4px",
+        "padding": "0px 0px 12px",
+        "background-color": "#0B294366",
+        "border-radius": "20px"
+      }
+    },
+    {
+      "id": "quickslot-0",
+      "tag": "column",
+      "parentId": "quickslots",
+      "scope": "main-region",
+      "classes": [
+        "quickslot"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "54px",
+        "height": "64px",
+        "background-color": "#35566C66",
+        "border-color": "#6DB9D899",
+        "border-width": "1px",
+        "border-radius": "14px"
+      }
+    },
+    {
+      "id": "quickslot-0-key",
+      "tag": "text",
+      "parentId": "quickslot-0",
+      "scope": "main-region",
+      "classes": [
+        "quickslot-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px",
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#C3EDFF",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "1"
+    },
+    {
+      "id": "quickslot-0-glyph",
+      "tag": "replica-art",
+      "parentId": "quickslot-0",
+      "scope": "main-region",
+      "classes": [
+        "power-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "0"
+      },
+      "computedStyle": {
+        "width": "38px",
+        "height": "38px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "quickslot-1",
+      "tag": "column",
+      "parentId": "quickslots",
+      "scope": "main-region",
+      "classes": [
+        "quickslot"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "54px",
+        "height": "64px",
+        "background-color": "#35566C66",
+        "border-color": "#6DB9D899",
+        "border-width": "1px",
+        "border-radius": "14px"
+      }
+    },
+    {
+      "id": "quickslot-1-key",
+      "tag": "text",
+      "parentId": "quickslot-1",
+      "scope": "main-region",
+      "classes": [
+        "quickslot-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px",
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#C3EDFF",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "2"
+    },
+    {
+      "id": "quickslot-1-glyph",
+      "tag": "replica-art",
+      "parentId": "quickslot-1",
+      "scope": "main-region",
+      "classes": [
+        "power-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "1"
+      },
+      "computedStyle": {
+        "width": "38px",
+        "height": "38px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "quickslot-2",
+      "tag": "column",
+      "parentId": "quickslots",
+      "scope": "main-region",
+      "classes": [
+        "quickslot"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "54px",
+        "height": "64px",
+        "background-color": "#35566C66",
+        "border-color": "#6DB9D899",
+        "border-width": "1px",
+        "border-radius": "14px"
+      }
+    },
+    {
+      "id": "quickslot-2-key",
+      "tag": "text",
+      "parentId": "quickslot-2",
+      "scope": "main-region",
+      "classes": [
+        "quickslot-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px",
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#C3EDFF",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "3"
+    },
+    {
+      "id": "quickslot-2-glyph",
+      "tag": "replica-art",
+      "parentId": "quickslot-2",
+      "scope": "main-region",
+      "classes": [
+        "power-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "2"
+      },
+      "computedStyle": {
+        "width": "38px",
+        "height": "38px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "quickslot-3",
+      "tag": "column",
+      "parentId": "quickslots",
+      "scope": "main-region",
+      "classes": [
+        "quickslot"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "54px",
+        "height": "64px",
+        "background-color": "#35566C66",
+        "border-color": "#6DB9D899",
+        "border-width": "1px",
+        "border-radius": "14px"
+      }
+    },
+    {
+      "id": "quickslot-3-key",
+      "tag": "text",
+      "parentId": "quickslot-3",
+      "scope": "main-region",
+      "classes": [
+        "quickslot-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px",
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#C3EDFF",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "4"
+    },
+    {
+      "id": "quickslot-3-glyph",
+      "tag": "replica-art",
+      "parentId": "quickslot-3",
+      "scope": "main-region",
+      "classes": [
+        "power-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "3"
+      },
+      "computedStyle": {
+        "width": "38px",
+        "height": "38px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "quickslot-4",
+      "tag": "column",
+      "parentId": "quickslots",
+      "scope": "main-region",
+      "classes": [
+        "quickslot"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "54px",
+        "height": "64px",
+        "background-color": "#35566C66",
+        "border-color": "#6DB9D899",
+        "border-width": "1px",
+        "border-radius": "14px"
+      }
+    },
+    {
+      "id": "quickslot-4-key",
+      "tag": "text",
+      "parentId": "quickslot-4",
+      "scope": "main-region",
+      "classes": [
+        "quickslot-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px",
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#C3EDFF",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "5"
+    },
+    {
+      "id": "quickslot-4-glyph",
+      "tag": "replica-art",
+      "parentId": "quickslot-4",
+      "scope": "main-region",
+      "classes": [
+        "power-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "4"
+      },
+      "computedStyle": {
+        "width": "38px",
+        "height": "38px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "quickslot-5",
+      "tag": "column",
+      "parentId": "quickslots",
+      "scope": "main-region",
+      "classes": [
+        "quickslot"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "54px",
+        "height": "64px",
+        "background-color": "#35566C66",
+        "border-color": "#6DB9D899",
+        "border-width": "1px",
+        "border-radius": "14px"
+      }
+    },
+    {
+      "id": "quickslot-5-key",
+      "tag": "text",
+      "parentId": "quickslot-5",
+      "scope": "main-region",
+      "classes": [
+        "quickslot-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px",
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#C3EDFF",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "6"
+    },
+    {
+      "id": "quickslot-5-glyph",
+      "tag": "replica-art",
+      "parentId": "quickslot-5",
+      "scope": "main-region",
+      "classes": [
+        "power-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "5"
+      },
+      "computedStyle": {
+        "width": "38px",
+        "height": "38px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "quickslot-6",
+      "tag": "column",
+      "parentId": "quickslots",
+      "scope": "main-region",
+      "classes": [
+        "quickslot"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "54px",
+        "height": "64px",
+        "background-color": "#35566C66",
+        "border-color": "#6DB9D899",
+        "border-width": "1px",
+        "border-radius": "14px"
+      }
+    },
+    {
+      "id": "quickslot-6-key",
+      "tag": "text",
+      "parentId": "quickslot-6",
+      "scope": "main-region",
+      "classes": [
+        "quickslot-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px",
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#C3EDFF",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "7"
+    },
+    {
+      "id": "quickslot-6-glyph",
+      "tag": "replica-art",
+      "parentId": "quickslot-6",
+      "scope": "main-region",
+      "classes": [
+        "power-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "6"
+      },
+      "computedStyle": {
+        "width": "38px",
+        "height": "38px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "quickslot-7",
+      "tag": "column",
+      "parentId": "quickslots",
+      "scope": "main-region",
+      "classes": [
+        "quickslot"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "54px",
+        "height": "64px",
+        "background-color": "#35566C66",
+        "border-color": "#6DB9D899",
+        "border-width": "1px",
+        "border-radius": "14px"
+      }
+    },
+    {
+      "id": "quickslot-7-key",
+      "tag": "text",
+      "parentId": "quickslot-7",
+      "scope": "main-region",
+      "classes": [
+        "quickslot-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px",
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#C3EDFF",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "8"
+    },
+    {
+      "id": "quickslot-7-glyph",
+      "tag": "replica-art",
+      "parentId": "quickslot-7",
+      "scope": "main-region",
+      "classes": [
+        "power-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "7"
+      },
+      "computedStyle": {
+        "width": "38px",
+        "height": "38px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "world-space",
+      "tag": "column",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "objective-prompt",
+      "tag": "column",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "objective-prompt"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {
+        "visible": "ShowObjective"
+      },
+      "computedStyle": {
+        "width": "440px",
+        "height": "54px",
+        "horizontal-align": "center",
+        "padding": "10px 18px",
+        "background-color": "#07141ED0",
+        "border-color": "#61CEE8",
+        "border-width": "1px",
+        "border-radius": "16px"
+      }
+    },
+    {
+      "id": "objective-text",
+      "tag": "text",
+      "parentId": "objective-prompt",
+      "scope": "main-region",
+      "classes": [
+        "objective-text"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "horizontal-align": "center",
+        "vertical-align": "center",
+        "font-size": "22",
+        "color": "#AADEEE",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "Press (V) to display objectives"
+    },
+    {
+      "id": "bottom-hud",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "bottom-hud"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "174px",
+        "padding": "0px 104px 20px"
+      }
+    },
+    {
+      "id": "ammo-zone",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region",
+      "classes": [
+        "side-zone"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "606px",
+        "height": "154px"
+      }
+    },
+    {
+      "id": "ammo-zone-space",
+      "tag": "column",
+      "parentId": "ammo-zone",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "ammo-cluster",
+      "tag": "column",
+      "parentId": "ammo-zone",
+      "scope": "main-region",
+      "classes": [
+        "ammo-cluster"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "240px",
+        "height": "154px"
+      }
+    },
+    {
+      "id": "grenade-readout",
+      "tag": "row",
+      "parentId": "ammo-cluster",
+      "scope": "main-region",
+      "classes": [
+        "grenade-readout"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "28px",
+        "gap": "10px"
+      }
+    },
+    {
+      "id": "grenade-icon",
+      "tag": "replica-art",
+      "parentId": "grenade-readout",
+      "scope": "main-region",
+      "classes": [
+        "grenade-icon"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-grenade"
+      },
+      "computedStyle": {
+        "width": "22px",
+        "height": "22px"
+      }
+    },
+    {
+      "id": "grenade-count",
+      "tag": "text",
+      "parentId": "grenade-readout",
+      "scope": "main-region",
+      "classes": [
+        "grenade-count"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "40px",
+        "font-size": "18",
+        "font-weight": "bold",
+        "color": "#ADE6FC",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "2"
+    },
+    {
+      "id": "ammunition",
+      "tag": "row",
+      "parentId": "ammo-cluster",
+      "scope": "main-region",
+      "classes": [
+        "ammunition"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "height": "96px",
+        "gap": "16px"
+      }
+    },
+    {
+      "id": "ammo-counts",
+      "tag": "column",
+      "parentId": "ammunition",
+      "scope": "main-region",
+      "classes": [
+        "ammo-counts"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "76px",
+        "height": "96px"
+      }
+    },
+    {
+      "id": "reserve-value",
+      "tag": "text",
+      "parentId": "ammo-counts",
+      "scope": "main-region",
+      "classes": [
+        "reserve"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "ReserveText"
+      },
+      "computedStyle": {
+        "height": "28px",
+        "font-size": "18",
+        "color": "#95C4D8",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "ammo-value",
+      "tag": "text",
+      "parentId": "ammo-counts",
+      "scope": "main-region",
+      "classes": [
+        "ammo"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "AmmoText"
+      },
+      "computedStyle": {
+        "height": "68px",
+        "font-size": "40",
+        "color": "#A9D7EF",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "weapon-glyph-group",
+      "tag": "column",
+      "parentId": "ammunition",
+      "scope": "main-region",
+      "classes": [
+        "weapon-glyph-group"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "140px",
+        "height": "96px",
+        "padding": "30px 0px 0px",
+        "gap": "8px"
+      }
+    },
+    {
+      "id": "weapon-glyph",
+      "tag": "replica-art",
+      "parentId": "weapon-glyph-group",
+      "scope": "main-region",
+      "classes": [
+        "weapon-glyph"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-rifle"
+      },
+      "computedStyle": {
+        "width": "140px",
+        "height": "34px"
+      }
+    },
+    {
+      "id": "ammo-meter",
+      "tag": "hud-meter",
+      "parentId": "weapon-glyph-group",
+      "scope": "main-region",
+      "classes": [
+        "ammo-meter"
+      ],
+      "nativeWidget": "native retained Slate meter",
+      "properties": {
+        "value-bind": "AmmoFraction"
+      },
+      "computedStyle": {
+        "width": "100px",
+        "height": "5px",
+        "-ck-hud-meter-fill": "#B53235",
+        "-ck-hud-meter-background": "#45141E80",
+        "-ck-hud-meter-trail": "#DE6873",
+        "-ck-hud-meter-border-width": "0px",
+        "-ck-hud-meter-radius": "0px",
+        "-ck-hud-meter-response": "0.1",
+        "-ck-hud-meter-trail-delay": "0.1",
+        "-ck-hud-meter-low-threshold": "0"
+      }
+    },
+    {
+      "id": "reload-status",
+      "tag": "text",
+      "parentId": "ammo-cluster",
+      "scope": "main-region",
+      "classes": [
+        "reload-status"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "ReloadText",
+        "visible": "ShowReload"
+      },
+      "computedStyle": {
+        "height": "28px",
+        "font-size": "18",
+        "color": "#9BDBEF",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "squad-cluster",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region",
+      "classes": [
+        "squad-cluster"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "500px",
+        "height": "142px",
+        "vertical-align": "bottom",
+        "gap": "8px"
+      }
+    },
+    {
+      "id": "vitals-arcs",
+      "tag": "overlay",
+      "parentId": "squad-cluster",
+      "scope": "main-region",
+      "classes": [
+        "vitals-arcs"
+      ],
+      "nativeWidget": "Yoga-backed Slate overlay",
+      "properties": {},
+      "computedStyle": {
+        "width": "500px",
+        "height": "62px"
+      }
+    },
+    {
+      "id": "shield-meter",
+      "tag": "replica-art",
+      "parentId": "vitals-arcs",
+      "scope": "main-region",
+      "classes": [
+        "shield-meter"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-shield",
+        "value-bind": "ShieldFraction"
+      },
+      "computedStyle": {
+        "width": "500px",
+        "height": "48px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "health-meter",
+      "tag": "replica-art",
+      "parentId": "vitals-arcs",
+      "scope": "main-region",
+      "classes": [
+        "health-meter"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-health",
+        "value-bind": "HealthFraction"
+      },
+      "computedStyle": {
+        "width": "460px",
+        "height": "30px",
+        "horizontal-align": "center",
+        "vertical-align": "bottom"
+      }
+    },
+    {
+      "id": "squad-portraits",
+      "tag": "row",
+      "parentId": "squad-cluster",
+      "scope": "main-region",
+      "classes": [
+        "squad-portraits"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "width": "236px",
+        "height": "62px",
+        "horizontal-align": "center",
+        "gap": "12px"
+      }
+    },
+    {
+      "id": "squad-one-power",
+      "tag": "replica-art",
+      "parentId": "squad-portraits",
+      "scope": "main-region",
+      "classes": [
+        "squad-power"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "1"
+      },
+      "computedStyle": {
+        "width": "42px",
+        "height": "42px",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "squad-one-frame",
+      "tag": "column",
+      "parentId": "squad-portraits",
+      "scope": "main-region",
+      "classes": [
+        "portrait-frame"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "58px",
+        "height": "58px",
+        "padding": "2px",
+        "border-width": "1px",
+        "border-color": "#71C4EA",
+        "background-color": "#12355ACC"
+      }
+    },
+    {
+      "id": "squad-one-portrait",
+      "tag": "image",
+      "parentId": "squad-one-frame",
+      "scope": "main-region",
+      "classes": [
+        "portrait"
+      ],
+      "nativeWidget": "native Slate image",
+      "properties": {
+        "bind": "SquadOnePortrait"
+      },
+      "computedStyle": {
+        "width": "52px",
+        "height": "52px"
+      }
+    },
+    {
+      "id": "squad-two-frame",
+      "tag": "column",
+      "parentId": "squad-portraits",
+      "scope": "main-region",
+      "classes": [
+        "portrait-frame"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "58px",
+        "height": "58px",
+        "padding": "2px",
+        "border-width": "1px",
+        "border-color": "#71C4EA",
+        "background-color": "#12355ACC"
+      }
+    },
+    {
+      "id": "squad-two-portrait",
+      "tag": "image",
+      "parentId": "squad-two-frame",
+      "scope": "main-region",
+      "classes": [
+        "portrait"
+      ],
+      "nativeWidget": "native Slate image",
+      "properties": {
+        "bind": "SquadTwoPortrait"
+      },
+      "computedStyle": {
+        "width": "52px",
+        "height": "52px"
+      }
+    },
+    {
+      "id": "squad-two-power",
+      "tag": "replica-art",
+      "parentId": "squad-portraits",
+      "scope": "main-region",
+      "classes": [
+        "squad-power"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-power",
+        "variant": "4"
+      },
+      "computedStyle": {
+        "width": "42px",
+        "height": "42px",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "right-balance-zone",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region",
+      "classes": [
+        "side-zone"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "606px",
+        "height": "154px"
+      }
+    },
+    {
+      "id": "reticle-cluster",
+      "tag": "overlay",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "reticle-cluster"
+      ],
+      "nativeWidget": "Yoga-backed Slate overlay",
+      "properties": {},
+      "computedStyle": {
+        "width": "140px",
+        "height": "140px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "aim-reticle",
+      "tag": "replica-art",
+      "parentId": "reticle-cluster",
+      "scope": "main-region",
+      "classes": [
+        "aim-reticle"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-reticle"
+      },
+      "computedStyle": {
+        "width": "36px",
+        "height": "26px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "cooldown-meter",
+      "tag": "replica-art",
+      "parentId": "reticle-cluster",
+      "scope": "main-region",
+      "classes": [
+        "cooldown-meter"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "me-cooldown",
+        "value-bind": "CooldownProgress"
+      },
+      "computedStyle": {
+        "width": "140px",
+        "height": "140px"
+      }
+    },
+    {
+      "id": "empty-ammo-prompt",
+      "tag": "column",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "empty-ammo-prompt"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {
+        "visible": "ShowNoAmmo"
+      },
+      "computedStyle": {
+        "width": "240px",
+        "height": "90px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "empty-ammo-offset",
+      "tag": "column",
+      "parentId": "empty-ammo-prompt",
+      "scope": "main-region",
+      "classes": [
+        "empty-ammo-offset"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "55px"
+      }
+    },
+    {
+      "id": "no-ammo",
+      "tag": "text",
+      "parentId": "empty-ammo-prompt",
+      "scope": "main-region",
+      "classes": [
+        "no-ammo"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "horizontal-align": "center",
+        "font-size": "18",
+        "color": "#D14949",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "NO AMMO"
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "theme": "Tactical",
+  "gameReference": "Battlefield 4",
+  "status": "native-runtime-verified",
+  "verification": {
+    "date": "2026-10-04",
+    "log": "Saved/Logs/UiTypography-Gate-03.log",
+    "buildLog": "Saved/Logs/UiTypography-Build-02.log",
+    "selectedTests": 41,
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0,
+    "rhi": "D3D12/SM6",
+    "method": "Actual CkTests gym PIE native Slate viewport screenshots; source frozen; no image editing",
+    "settings": "Watermark, input history and gym hint hidden transiently; original CVar values/flags and gym startup preferences restored by asserted cleanup",
+    "nativeTextFit": "Unconstrained SCkFlexText measurement versus valid cached local geometry for Mass Effect loaded ammo and six Battlefield ticket-row labels in each captured state/resolution",
+    "regression": "Former loaded ammo typography reproduced through live Request_ApplySource: required 80x83 versus allocated 76x58; corrected source restored before captures"
+  },
+  "authoredSourceSha256": {
+    "CombatHudProof.ui.css": "19c06a499f531305ca1fe24e5320029bb53d875a3dcfb4ace1d0cb71762a878d",
+    "CombatHudProof.ui.html": "34b3668c06d1d7ce5f995dff77b3af81ed59211d539b0f2f205a60eb516d0c76"
+  },
+  "runtimeSourceSha256": {
+    "Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.css": "83a0255d3ca7278340a6424c15a8b7581b380c687b18c65b5bd2c1eb89b78f81",
+    "Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.html": "269f97740b5f772b257a64e5cd3c6f902904dd086b398623055cbdc1fe1d0a40",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.css": "1913da83dbf5450f622e68a623e84176f0337fd173c57f943484fe95115dae05",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.html": "16479086ef57269cc60b08147ddb192300df60f9d92a9ac5b79d0769e73dc7bd",
+    "Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.css": "19c06a499f531305ca1fe24e5320029bb53d875a3dcfb4ace1d0cb71762a878d",
+    "Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.html": "34b3668c06d1d7ce5f995dff77b3af81ed59211d539b0f2f205a60eb516d0c76",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/squad-portraits.png": "d2d06856d85d570154bdc322674eae4d693d374770336e9ce096760d6fd3f391",
+    "Source/CkTests/Private/UI/CkCombatHudProof.cpp": "1cd3008a24e46773e64b3a3edca23f0b84a3d60c48f9690c57f90dcefa083d3c",
+    "Source/CkTests/Private/UI/CkCombatHudProofModel.cpp": "d789686da83546efa32ba294cc602d7434f0f6a9e77c3f50624c588e19cf4fbb",
+    "Source/CkTests/Private/UI/CkCombatHudReplicaArt.cpp": "daadb6875f0e692b37c18719dda7b56920a61a76f8a4e11b6afd93460f6a752f",
+    "Source/CkTests/Private/UI/CkCombatHudProofModel.h": "b6060ad9cb54d9ea6a201cb92498b0c8d466198c26e4206c68e1f3c55aa58e7c",
+    "Source/CkTests/Private/UI/CkCombatHudReplicaArt.h": "2d79cc344cf90794f9092ae21163a7d474e49fbaf76c210e056e7994f0fc8684",
+    "Source/CkTests/Public/CkTests/UI/CkCombatHudProof.h": "82beff11b0222611b2fc28b18402520d592ed7bb6cf5862a3ee013e069610e79",
+    "Source/CkTests/Public/CkTests/UI/CkCombatHudProofData.h": "085ce8ce9f4a62669c0e9416f459fc836e659f350bca4415c749d9d78afb2b04",
+    "Source/CkTests/Private/UnitTests/CkYoga/Test_CombatHudProof.cpp": "9eba974512af53a19eec20ba7a26cde9ab11d7252b097d17fcb395db19638b3e",
+    "Source/CkTests/Private/UnitTests/CkYoga/Test_CombatHudReplicaArt.cpp": "d02692c808f5af0137dfeadd1ee30162549caeef2d791a5787a371b2e5accd3a",
+    "Script/CkUiAuthoring/CkCombatHud_Gym.as": "1739ad24e97c8ec9405e831de1e84146ba7a1f915d0402b323638916bf8acefa",
+    "Script/Common/CkTests_GymRegistry.as": "ca4377d6862e286bf10508b4a6238aaea49a89ee66c63e5d579a7d18686ea3ce",
+    "Source/CkTests/CkTests.Build.cs": "9b8880b74355fb8e215cfd62a2224d9686d13873e5131e81e482153c6de5f11a"
+  },
+  "captures": [
+    {
+      "file": "replica-native-initial-1280x720.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-initial-1280x720.png",
+      "state": "initial",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "39600a3b41f6d32a90d8b9a8a9a4705d3289b430f401f9c299f89435d7041429",
+      "capturedUtc": "2026-10-04T10:53:49.585615+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-initial-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-initial-1920x1080.png",
+      "state": "initial",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "c55ee3b7718c9330cd0beef1860c281059cc365c0fc87078eeffebe8944a1e5a",
+      "capturedUtc": "2026-10-04T10:53:49.361337+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-initial-2560x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-initial-2560x1080.png",
+      "state": "initial",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "1f94bb36daec521757b5ed38ae1dfe55752f574a8b1babaaee938c32a3bc07a3",
+      "capturedUtc": "2026-10-04T10:53:49.914567+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-reloading-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-reloading-1920x1080.png",
+      "state": "reloading",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "5757ec9be3390a767141213c8144018fefe9b5697285765291fe9e958bf7c37d",
+      "capturedUtc": "2026-10-04T10:53:50.393318+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-ability-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-ability-1920x1080.png",
+      "state": "ability",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "f27d5e132e970aa1c5761ac022228934840bca5b969f73d245394938d1af8172",
+      "capturedUtc": "2026-10-04T10:53:50.627199+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-low-health-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-low-health-1920x1080.png",
+      "state": "low-health",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "1893a2b14bc10f15c152ea1d2e08fca56f326cc39f845a40b6bd9ab32e1786d8",
+      "capturedUtc": "2026-10-04T10:53:52.005782+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-context-one-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-context-one-1920x1080.png",
+      "state": "context-one",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "275903cb578a7c0a6884498b6eef05d2a9061decb4bd55b9adedd6300953f3b0",
+      "capturedUtc": "2026-10-04T10:53:52.545947+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-context-two-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-context-two-1920x1080.png",
+      "state": "context-two",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "d4b83438aed68609d075e04f9eb3aabaf90496a2a5334f1d149ce4af61e486ac",
+      "capturedUtc": "2026-10-04T10:53:53.005749+00:00",
+      "edited": false
+    }
+  ],
+  "limitations": [
+    "Recreated native glyphs, meter engraving and substituted fonts; no pixel-perfect claim",
+    "Deterministic in-memory fixture, not real gameplay integration",
+    "Underlying sky/world is the CkTests gym; no source-game scene reproduced",
+    "Procedural Battlefield minimap; no original terrain feed",
+    "Physical gamepad and packaged execution remain unverified"
+  ]
+}

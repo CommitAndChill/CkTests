@@ -1,0 +1,21 @@
+{
+  "theme": "Futuristic",
+  "atlas": "../../../../Resources/UiAuthoring/CombatHudProof/Futuristic/hud-atlas.png",
+  "width": 1448,
+  "height": 1086,
+  "bounds": "left, top inclusive; right, bottom exclusive",
+  "regions": {
+    "VitalsFrame": [27, 104, 467, 309],
+    "WeaponFrame": [472, 105, 842, 294],
+    "HealthGlyph": [865, 96, 1074, 301],
+    "WeaponGlyph": [1091, 126, 1426, 288],
+    "AbilityOne": [37, 397, 348, 693],
+    "AbilityTwo": [381, 372, 700, 684],
+    "AbilityThree": [756, 401, 1057, 679],
+    "SprintGlyph": [1101, 402, 1418, 695],
+    "CompassFrame": [27, 824, 460, 949],
+    "DamageOverlay": [475, 722, 797, 1031],
+    "SmallOrnament": [814, 835, 1163, 932],
+    "Reticle": [1246, 803, 1398, 954]
+  }
+}
