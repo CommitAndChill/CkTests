@@ -181,6 +181,9 @@ Host invite renewal has its own unchecked Gate11 manual check in
 `Script/CkOnline/INVITE_RENEWAL_EDITOR_TESTING.md`; the deferred-check index tracks
 it. Its guide repeats the two-Standalone-window setup and initial Host **J** >
 Hosting > **P** / Client **K** join sequence.
+The unchecked Gate12 public ready-lobby binding check is in
+`Script/CkOnline/PUBLIC_READY_LOBBY_EDITOR_TESTING.md`; the deferred-check index
+tracks it. It verifies readiness-gated gameplay travel and lobby identity after return.
 Declaring no rows draws no panel, which is why this
 costs nothing to gyms that have not adopted it. Deliberately NOT adopted: `CkInput`'s KeyBinding
 and Playground gyms and `CkVoiceChat` - the panel polls raw keys, which collides with a gym whose
