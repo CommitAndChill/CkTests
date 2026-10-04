@@ -1,0 +1,606 @@
+{
+  "schemaVersion": 1,
+  "status": "scoped-native-verified",
+  "verification": {
+    "date": "2026-10-04",
+    "log": "Saved/Logs/UiTypography-Gate-03.log",
+    "buildLog": "Saved/Logs/UiTypography-Build-02.log",
+    "selectedTests": 41,
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0,
+    "rhi": "D3D12/SM6",
+    "method": "Actual CkTests gym PIE native Slate viewport screenshots; source frozen; no image editing",
+    "settings": "Watermark, input history and gym hint hidden transiently; original CVar values/flags and gym startup preferences restored by asserted cleanup",
+    "nativeTextFit": "Unconstrained SCkFlexText measurement versus valid cached local geometry for Mass Effect loaded ammo and six Battlefield ticket-row labels in each captured state/resolution",
+    "regression": "Former loaded ammo typography reproduced through live Request_ApplySource: required 80x83 versus allocated 76x58; corrected source restored before captures"
+  },
+  "runtimeSourceSha256": {
+    "Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.css": "83a0255d3ca7278340a6424c15a8b7581b380c687b18c65b5bd2c1eb89b78f81",
+    "Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.html": "269f97740b5f772b257a64e5cd3c6f902904dd086b398623055cbdc1fe1d0a40",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.css": "1913da83dbf5450f622e68a623e84176f0337fd173c57f943484fe95115dae05",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.html": "16479086ef57269cc60b08147ddb192300df60f9d92a9ac5b79d0769e73dc7bd",
+    "Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.css": "19c06a499f531305ca1fe24e5320029bb53d875a3dcfb4ace1d0cb71762a878d",
+    "Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.html": "34b3668c06d1d7ce5f995dff77b3af81ed59211d539b0f2f205a60eb516d0c76",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/squad-portraits.png": "d2d06856d85d570154bdc322674eae4d693d374770336e9ce096760d6fd3f391",
+    "Source/CkTests/Private/UI/CkCombatHudProof.cpp": "1cd3008a24e46773e64b3a3edca23f0b84a3d60c48f9690c57f90dcefa083d3c",
+    "Source/CkTests/Private/UI/CkCombatHudProofModel.cpp": "d789686da83546efa32ba294cc602d7434f0f6a9e77c3f50624c588e19cf4fbb",
+    "Source/CkTests/Private/UI/CkCombatHudReplicaArt.cpp": "daadb6875f0e692b37c18719dda7b56920a61a76f8a4e11b6afd93460f6a752f",
+    "Source/CkTests/Private/UI/CkCombatHudProofModel.h": "b6060ad9cb54d9ea6a201cb92498b0c8d466198c26e4206c68e1f3c55aa58e7c",
+    "Source/CkTests/Private/UI/CkCombatHudReplicaArt.h": "2d79cc344cf90794f9092ae21163a7d474e49fbaf76c210e056e7994f0fc8684",
+    "Source/CkTests/Public/CkTests/UI/CkCombatHudProof.h": "82beff11b0222611b2fc28b18402520d592ed7bb6cf5862a3ee013e069610e79",
+    "Source/CkTests/Public/CkTests/UI/CkCombatHudProofData.h": "085ce8ce9f4a62669c0e9416f459fc836e659f350bca4415c749d9d78afb2b04",
+    "Source/CkTests/Private/UnitTests/CkYoga/Test_CombatHudProof.cpp": "9eba974512af53a19eec20ba7a26cde9ab11d7252b097d17fcb395db19638b3e",
+    "Source/CkTests/Private/UnitTests/CkYoga/Test_CombatHudReplicaArt.cpp": "d02692c808f5af0137dfeadd1ee30162549caeef2d791a5787a371b2e5accd3a",
+    "Script/CkUiAuthoring/CkCombatHud_Gym.as": "1739ad24e97c8ec9405e831de1e84146ba7a1f915d0402b323638916bf8acefa",
+    "Script/Common/CkTests_GymRegistry.as": "ca4377d6862e286bf10508b4a6238aaea49a89ee66c63e5d579a7d18686ea3ce",
+    "Source/CkTests/CkTests.Build.cs": "9b8880b74355fb8e215cfd62a2224d9686d13873e5131e81e482153c6de5f11a"
+  },
+  "captures": [
+    {
+      "proof": "Futuristic",
+      "file": "CombatHudProof/Futuristic/replica-native-initial-1280x720.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-initial-1280x720.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "a13e419ceaab0bd23323d75fca88ed5c300862653e27f2aca3b6cd31d82da502",
+      "capturedUtc": "2026-10-04T10:53:40.218494+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Futuristic",
+      "file": "CombatHudProof/Futuristic/replica-native-initial-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-initial-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "ebe675e9985b4779367bfe5e845a30bc46938d33171ff3544f15573db4e63b11",
+      "capturedUtc": "2026-10-04T10:53:40.012589+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Futuristic",
+      "file": "CombatHudProof/Futuristic/replica-native-initial-2560x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-initial-2560x1080.png",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "8bf134d6cffa658e1f78d6397ed6f2cb3375921a87dd0df16b373cd5a09c13c2",
+      "capturedUtc": "2026-10-04T10:53:40.570143+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Futuristic",
+      "file": "CombatHudProof/Futuristic/replica-native-reloading-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-reloading-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "1b933c0924e5d01f03a47d521ed4118b36dcd29386bc0b93e98af3204768fa8c",
+      "capturedUtc": "2026-10-04T10:53:41.060196+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Futuristic",
+      "file": "CombatHudProof/Futuristic/replica-native-ability-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-ability-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "07eb5966a0a9c26a71835df7bf9d51cb110ec9fe4430fcd4268b25f0c22343e3",
+      "capturedUtc": "2026-10-04T10:53:41.275814+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Futuristic",
+      "file": "CombatHudProof/Futuristic/replica-native-low-health-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-low-health-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "18e2f653de18f4d752beed41adb653a6ca755951f998a407a929c238fc73db6c",
+      "capturedUtc": "2026-10-04T10:53:42.676397+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Futuristic",
+      "file": "CombatHudProof/Futuristic/replica-native-context-one-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-context-one-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "e6a7ec404bb4916cd2c559f1af041c224881f5c8d27e71f4de33497b57b367fb",
+      "capturedUtc": "2026-10-04T10:53:43.206603+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Futuristic",
+      "file": "CombatHudProof/Futuristic/replica-native-context-two-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-context-two-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "3a902f59c6f03e2d83397285c539555125b3043f27acea5200da1294885a3c3c",
+      "capturedUtc": "2026-10-04T10:53:43.660299+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Tactical",
+      "file": "CombatHudProof/Tactical/replica-native-initial-1280x720.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-initial-1280x720.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "39600a3b41f6d32a90d8b9a8a9a4705d3289b430f401f9c299f89435d7041429",
+      "capturedUtc": "2026-10-04T10:53:49.585615+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Tactical",
+      "file": "CombatHudProof/Tactical/replica-native-initial-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-initial-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "c55ee3b7718c9330cd0beef1860c281059cc365c0fc87078eeffebe8944a1e5a",
+      "capturedUtc": "2026-10-04T10:53:49.361337+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Tactical",
+      "file": "CombatHudProof/Tactical/replica-native-initial-2560x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-initial-2560x1080.png",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "1f94bb36daec521757b5ed38ae1dfe55752f574a8b1babaaee938c32a3bc07a3",
+      "capturedUtc": "2026-10-04T10:53:49.914567+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Tactical",
+      "file": "CombatHudProof/Tactical/replica-native-reloading-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-reloading-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "5757ec9be3390a767141213c8144018fefe9b5697285765291fe9e958bf7c37d",
+      "capturedUtc": "2026-10-04T10:53:50.393318+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Tactical",
+      "file": "CombatHudProof/Tactical/replica-native-ability-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-ability-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "f27d5e132e970aa1c5761ac022228934840bca5b969f73d245394938d1af8172",
+      "capturedUtc": "2026-10-04T10:53:50.627199+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Tactical",
+      "file": "CombatHudProof/Tactical/replica-native-low-health-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-low-health-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "1893a2b14bc10f15c152ea1d2e08fca56f326cc39f845a40b6bd9ab32e1786d8",
+      "capturedUtc": "2026-10-04T10:53:52.005782+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Tactical",
+      "file": "CombatHudProof/Tactical/replica-native-context-one-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-context-one-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "275903cb578a7c0a6884498b6eef05d2a9061decb4bd55b9adedd6300953f3b0",
+      "capturedUtc": "2026-10-04T10:53:52.545947+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Tactical",
+      "file": "CombatHudProof/Tactical/replica-native-context-two-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Tactical-replica-context-two-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "d4b83438aed68609d075e04f9eb3aabaf90496a2a5334f1d149ce4af61e486ac",
+      "capturedUtc": "2026-10-04T10:53:53.005749+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Fantasy",
+      "file": "CombatHudProof/Fantasy/replica-native-initial-1280x720.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-1280x720.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "9aa52d24f6a51466f24d26471255a948108c1c4b93ecad780bd3a03eec969dfe",
+      "capturedUtc": "2026-10-04T10:53:58.916092+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Fantasy",
+      "file": "CombatHudProof/Fantasy/replica-native-initial-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "b4f39df4ba77ad0ba1a53053d1de4e7e30d4308056f00aca7b8dd50f6c8734d9",
+      "capturedUtc": "2026-10-04T10:53:58.696097+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Fantasy",
+      "file": "CombatHudProof/Fantasy/replica-native-initial-2560x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-2560x1080.png",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "35b240839cc3bec71aaa207964cdbb0c681d0ca1692d00594ad233d42e5294f9",
+      "capturedUtc": "2026-10-04T10:53:59.232173+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Fantasy",
+      "file": "CombatHudProof/Fantasy/replica-native-reloading-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-reloading-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "bd948f724acfedcedb6999fb599544ac6476a76d43ad0e08dccfc12c5e0121cb",
+      "capturedUtc": "2026-10-04T10:53:59.678227+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Fantasy",
+      "file": "CombatHudProof/Fantasy/replica-native-ability-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-ability-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "547282789a028a007517ee1f1db7daa91f7599898e873801552b0151be1d5c39",
+      "capturedUtc": "2026-10-04T10:53:59.899153+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Fantasy",
+      "file": "CombatHudProof/Fantasy/replica-native-low-health-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-low-health-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "101a77ab422a1d1f481574aaeee601cfcf5ee4b6c0e8e2f8003e531cc4e8c9b1",
+      "capturedUtc": "2026-10-04T10:54:01.299166+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Fantasy",
+      "file": "CombatHudProof/Fantasy/replica-native-context-one-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-context-one-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "e6ae8a7b16821f36d85d1c75c7a98436043fe2c718fbf859859df86976b95827",
+      "capturedUtc": "2026-10-04T10:54:01.857337+00:00",
+      "edited": false
+    },
+    {
+      "proof": "Fantasy",
+      "file": "CombatHudProof/Fantasy/replica-native-context-two-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-context-two-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "a5636c3ae2fddd4e5c5c5c58e06b10b2141401e31950286b34a512aaefd2d185",
+      "capturedUtc": "2026-10-04T10:54:02.302841+00:00",
+      "edited": false
+    },
+    {
+      "proof": "PauseMenuProof",
+      "file": "PauseMenuProof/native-1280x720-focused.png",
+      "source": "Saved/Automation/PauseMenuProof/1280x720-focused.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "dccbe599189d827abc3e76dae4def5b991d903be10f5bc64ea292aa8aaeb8fd8",
+      "capturedUtc": "2026-10-04T10:54:27.541051+00:00",
+      "edited": false
+    },
+    {
+      "proof": "PauseMenuProof",
+      "file": "PauseMenuProof/native-1920x1080-disabled.png",
+      "source": "Saved/Automation/PauseMenuProof/1920x1080-disabled.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "0270ca00bebb5ecbf73d7a77f1713a0da95053fc0b91c21c692661d178ce4154",
+      "capturedUtc": "2026-10-04T10:54:29.322540+00:00",
+      "edited": false
+    },
+    {
+      "proof": "PauseMenuProof",
+      "file": "PauseMenuProof/native-1920x1080-focused.png",
+      "source": "Saved/Automation/PauseMenuProof/1920x1080-focused.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "1a5aa195f51986ee0a4aef4327bd4e8022330149a62aac3740d148d94589bd76",
+      "capturedUtc": "2026-10-04T10:54:28.404130+00:00",
+      "edited": false
+    },
+    {
+      "proof": "PauseMenuProof",
+      "file": "PauseMenuProof/native-1920x1080-hover.png",
+      "source": "Saved/Automation/PauseMenuProof/1920x1080-hover.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "470c8698a9ca2f8253c8d8afecf72ed8cc58bb5dc3b02bf75350dcfeb83081d7",
+      "capturedUtc": "2026-10-04T10:54:28.670343+00:00",
+      "edited": false
+    },
+    {
+      "proof": "PauseMenuProof",
+      "file": "PauseMenuProof/native-1920x1080-long-label.png",
+      "source": "Saved/Automation/PauseMenuProof/1920x1080-long-label.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "9ed360274a2741cc95172cf7af6fbcf89afe02b6ff7ba3bf477bb02b0525e63b",
+      "capturedUtc": "2026-10-04T10:54:29.655555+00:00",
+      "edited": false
+    },
+    {
+      "proof": "PauseMenuProof",
+      "file": "PauseMenuProof/native-1920x1080-pressed.png",
+      "source": "Saved/Automation/PauseMenuProof/1920x1080-pressed.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "07f7c701074f73f5b9ac553a969dafde8395a310882387ba7db9628d7f282e97",
+      "capturedUtc": "2026-10-04T10:54:28.958460+00:00",
+      "edited": false
+    },
+    {
+      "proof": "PauseMenuProof",
+      "file": "PauseMenuProof/native-2560x1080-focused.png",
+      "source": "Saved/Automation/PauseMenuProof/2560x1080-focused.png",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "9892efd0833e3a8c3ec792f846888c0df88e70f73029502546f83799d212e4ea",
+      "capturedUtc": "2026-10-04T10:54:28.023772+00:00",
+      "edited": false
+    },
+    {
+      "proof": "SettingsMenuProof",
+      "file": "SettingsMenuProof/native-settings-clean-1280x720.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-clean-1280x720.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "17ef2eecab33ff693b1d56ca3aaaca905440745ddc7077348e706ac13fe32675",
+      "capturedUtc": "2026-10-04T10:54:41.269025+00:00",
+      "edited": false
+    },
+    {
+      "proof": "SettingsMenuProof",
+      "file": "SettingsMenuProof/native-settings-clean-1920x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-clean-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "da730ce2cb61f9e36f23c8263c8330d34a3530efc225b90ab4569af002344ffc",
+      "capturedUtc": "2026-10-04T10:54:42.034886+00:00",
+      "edited": false
+    },
+    {
+      "proof": "SettingsMenuProof",
+      "file": "SettingsMenuProof/native-settings-clean-2560x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-clean-2560x1080.png",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "4cb3a015282b056a6a5db1f23b7d2c4a02ab9d181fc7a26e0f901e46e5174c51",
+      "capturedUtc": "2026-10-04T10:54:41.677785+00:00",
+      "edited": false
+    },
+    {
+      "proof": "SettingsMenuProof",
+      "file": "SettingsMenuProof/native-settings-dirty-all-fields-1920x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-dirty-all-fields-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "83b2c47cefe9fa82fa2f070bc4f2f6efa29cb5337d7c82718c3ae26971616739",
+      "capturedUtc": "2026-10-04T10:54:43.623126+00:00",
+      "edited": false
+    },
+    {
+      "proof": "SettingsMenuProof",
+      "file": "SettingsMenuProof/native-settings-dirty-reference-1920x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-dirty-reference-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "1866f4218676c1d88dca9a29ef0acd45afcdd73ccc950a152c3022a687f83c09",
+      "capturedUtc": "2026-10-04T10:54:43.128688+00:00",
+      "edited": false
+    },
+    {
+      "proof": "SettingsMenuProof",
+      "file": "SettingsMenuProof/native-settings-popup-open-1920x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-popup-open-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "962fa73bde856a56d4bd4e5018b02dafe9a50c24ff503d9ee024b5e1278a7abc",
+      "capturedUtc": "2026-10-04T10:54:42.512023+00:00",
+      "edited": false
+    },
+    {
+      "proof": "SettingsMenuProof",
+      "file": "SettingsMenuProof/native-settings-popup-window.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-popup-window.png",
+      "dimensions": [
+        1926,
+        1118
+      ],
+      "sha256": "aef6aebc8ba9216656f26f9ecbd5f2583a4817dcb104d18d504a8f86e1e6ebb3",
+      "capturedUtc": "2026-10-04T10:54:42.745477+00:00",
+      "edited": false
+    },
+    {
+      "proof": "InventoryMenuProof",
+      "file": "InventoryMenuProof/native-inventory-all-1280x720.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-all-1280x720.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "014b63cb89bebae1bdcb41836a4840a79f7c3d42000a81e20e345951d5752696",
+      "capturedUtc": "2026-10-04T10:54:11.145363+00:00",
+      "edited": false
+    },
+    {
+      "proof": "InventoryMenuProof",
+      "file": "InventoryMenuProof/native-inventory-all-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-all-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "d266cf4b59e12d6dd4c8fbc1eaf2219d8428977962f7aed198dea125b6549588",
+      "capturedUtc": "2026-10-04T10:54:10.888852+00:00",
+      "edited": false
+    },
+    {
+      "proof": "InventoryMenuProof",
+      "file": "InventoryMenuProof/native-inventory-all-2560x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-all-2560x1080.png",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "116f7a5aa961a732fbe8ab476db66f557b7cadbcacc1b2eb0bc8e269c42c58be",
+      "capturedUtc": "2026-10-04T10:54:11.564419+00:00",
+      "edited": false
+    },
+    {
+      "proof": "InventoryMenuProof",
+      "file": "InventoryMenuProof/native-inventory-all-restored-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-all-restored-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "fc866a7a1fa1e26b8ec7626de85e857778045f3c1b80e6b738eeab44534d033f",
+      "capturedUtc": "2026-10-04T10:54:11.898677+00:00",
+      "edited": false
+    },
+    {
+      "proof": "InventoryMenuProof",
+      "file": "InventoryMenuProof/native-inventory-empty-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-empty-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "862cbd7c0ccd08b713fea70c385b477e8a32719287f0c8f441a33fb77463694a",
+      "capturedUtc": "2026-10-04T10:54:14.803974+00:00",
+      "edited": false
+    },
+    {
+      "proof": "InventoryMenuProof",
+      "file": "InventoryMenuProof/native-inventory-equipped-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-equipped-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "5696d11ae32696f37968a1a639f2f6747576fb48858cfe3da8b7faa7caaf8a46",
+      "capturedUtc": "2026-10-04T10:54:13.268454+00:00",
+      "edited": false
+    },
+    {
+      "proof": "InventoryMenuProof",
+      "file": "InventoryMenuProof/native-inventory-scrolled-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-scrolled-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "8e71bbc28c693bbd1edff24f9118664f5421c4ce52b6a3ed8a0824f7f1bf138c",
+      "capturedUtc": "2026-10-04T10:54:12.136346+00:00",
+      "edited": false
+    },
+    {
+      "proof": "InventoryMenuProof",
+      "file": "InventoryMenuProof/native-inventory-supplies-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-supplies-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "e65800e843f2c54d7223f38c614d077c85e24447862fe4ea7ba4f9d2f86afc6e",
+      "capturedUtc": "2026-10-04T10:54:13.765518+00:00",
+      "edited": false
+    }
+  ],
+  "postGateNormalization": {
+    "Script/CkUiAuthoring/CkCombatHud_Gym.as": {
+      "testedSha256": "1739ad24e97c8ec9405e831de1e84146ba7a1f915d0402b323638916bf8acefa",
+      "committedSha256": "e6e8adece9929b3de71f82c0f3f5aee51264c2fc6f6397a9ef43cd77d3005f22",
+      "change": "Removed redundant blank line at EOF after the native gate; no executable or authored-layout changes."
+    },
+    "Source/CkTests/Public/CkTests/UI/CkCombatHudProofData.h": {
+      "testedSha256": "085ce8ce9f4a62669c0e9416f459fc836e659f350bca4415c749d9d78afb2b04",
+      "committedSha256": "e7ac7024fd2f54fd0f7c6b6c821fc2564f9912606602b7ae310ae15a9ee55f19",
+      "change": "Removed redundant blank line at EOF after the native gate; no executable or authored-layout changes."
+    }
+  }
+}
