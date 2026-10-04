@@ -39,6 +39,9 @@ public:
     bool Request_Leave();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_StopOwnedProfile();
+    /** Writes one sanitized, manually triggered evidence sample; never declares a pass. */
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
+    bool Request_LogCheckpoint(bool InChat);
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online|Direct")
     bool Get_IsEditing() const { return _IsEditing; }
@@ -87,6 +90,7 @@ private:
     FString _LastQueuedAction = TEXT("none");
     FGuid _OwnedGeneration;
     int32 _AcceptedRequests = 0;
+    int32 _CheckpointOrdinal = 0;
     int32 _SlateUserIndex = 0;
     bool _OwnsProfile = false;
     bool _IsEditing = false;

@@ -3,6 +3,7 @@
 #include "CkOnline/Direct/CkOnlineDirect_Feature.h"
 #include "CkOnline/Direct/CkOnlineDirect_Utils.h"
 
+#include "CkOnline/CkOnlineDirectGym_Evidence.h"
 #include "CkTest_OnlineDirectListener.h"
 
 #include "Misc/AutomationTest.h"
@@ -180,8 +181,8 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
     using namespace ck_test_online_direct;
     auto Fixture = MakeShared<FFixture>();
     Fixture->Test = this;
-    if (!TestTrue(TEXT("host feature and ECS host start"), Fixture->Server.Start(TEXT("Host"), 17888)) ||
-        !TestTrue(TEXT("client feature and ECS host start"), Fixture->Client.Start(TEXT("Client"), 17889)) ||
+    if (!TestTrue(TEXT("host feature and ECS host start"), Fixture->Server.Start(TEXT("PrivateHostName"), 17888)) ||
+        !TestTrue(TEXT("client feature and ECS host start"), Fixture->Client.Start(TEXT("PrivateClientName"), 17889)) ||
         !TestTrue(TEXT("wrong-key peer starts"), Fixture->WrongKey.Start(TEXT("WrongKey"), 17890)) ||
         !TestTrue(TEXT("full-capacity peer starts"), Fixture->FullClient.Start(TEXT("Full"), 17891)) ||
         !TestTrue(TEXT("same-port peer starts"), Fixture->SamePort.Start(TEXT("SamePort"), 17888)))
@@ -221,7 +222,7 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
             TestTrue(TEXT("descriptor is valid"), ck::direct::FTransport::ValidateDescriptor(F.Descriptor));
             TestTrue(TEXT("host epoch and member identity are valid"), F.Epoch.IsValid() && F.HostId.IsValid());
             TestEqual(TEXT("host has one local member"), Snapshot.Get_Members().Num(), 1);
-            TestTrue(TEXT("host roster has named local member"), HasMember(Snapshot, F.HostId, TEXT("Host"), false));
+            TestTrue(TEXT("host roster has named local member"), HasMember(Snapshot, F.HostId, TEXT("PrivateHostName"), false));
             TestTrue(TEXT("same-port host request admitted for transport result"), F.SamePort.Request(ECk_OnlineDirect_Action::Host));
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("second bind to same port terminates without a lobby"),
@@ -261,8 +262,39 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
             TestTrue(TEXT("admitted client has distinct valid identity"),
                 F.FirstClientId.IsValid() && F.FirstClientId != F.HostId);
             TestEqual(TEXT("peer epoch matches host"), Client.Get_LobbyEpoch(), F.Epoch);
-            TestTrue(TEXT("host roster names admitted peer"), HasMember(Host, F.FirstClientId, TEXT("Client"), false));
-            TestTrue(TEXT("client roster names host"), HasMember(Client, F.HostId, TEXT("Host"), false));
+            TestTrue(TEXT("host roster names admitted peer"), HasMember(Host, F.FirstClientId, TEXT("PrivateClientName"), false));
+            TestTrue(TEXT("client roster names host"), HasMember(Client, F.HostId, TEXT("PrivateHostName"), false));
+            const auto JoinedLine = ck::test::direct::FormatCheckpoint(Client, false, 1);
+            TestTrue(TEXT("joined checkpoint has schema and Lobby view"),
+                JoinedLine.StartsWith(TEXT("[OnlineCheckpoint] schema=1 view=Lobby ordinal=1 ")));
+            TestTrue(TEXT("joined checkpoint identifies actual service generation"),
+                JoinedLine.Contains(FString::Printf(TEXT("generation=%s"),
+                    *Client.Get_ServiceGeneration().ToString(EGuidFormats::Digits))));
+            TestTrue(TEXT("joined checkpoint identifies shared epoch and local member"),
+                JoinedLine.Contains(FString::Printf(TEXT("epoch=%s local=%s"),
+                    *F.Epoch.ToString(EGuidFormats::Digits), *F.FirstClientId.ToString(EGuidFormats::Digits))));
+            TestTrue(TEXT("joined checkpoint records process and source revision"),
+                JoinedLine.Contains(FString::Printf(TEXT("pid=%u"), FPlatformProcess::GetCurrentProcessId())) &&
+                JoinedLine.Contains(FString::Printf(TEXT("revision=%d"), Client.Get_Revision())));
+            TestTrue(TEXT("joined checkpoint records two unready members"),
+                JoinedLine.Contains(TEXT("state=Joined rosterCount=2")) &&
+                JoinedLine.Contains(F.HostId.ToString(EGuidFormats::Digits) + TEXT(":0")) &&
+                JoinedLine.Contains(F.FirstClientId.ToString(EGuidFormats::Digits) + TEXT(":0")));
+            auto SortedIds = TArray<FString>{F.HostId.ToString(EGuidFormats::Digits),
+                F.FirstClientId.ToString(EGuidFormats::Digits)};
+            SortedIds.Sort();
+            TestTrue(TEXT("checkpoint roster is sorted by member ID"),
+                JoinedLine.Contains(FString::Printf(TEXT("roster=[%s:0,%s:0]"),
+                    *SortedIds[0], *SortedIds[1])));
+            TestFalse(TEXT("checkpoint omits private names and invite"),
+                JoinedLine.Contains(TEXT("PrivateHostName")) || JoinedLine.Contains(TEXT("PrivateClientName")) ||
+                JoinedLine.Contains(F.Descriptor));
+            auto InviteParts = TArray<FString>{};
+            F.Descriptor.ParseIntoArray(InviteParts, TEXT("|"), false);
+            if (InviteParts.Num() == 4)
+            {
+                TestFalse(TEXT("checkpoint omits invite capability"), JoinedLine.Contains(InviteParts[3]));
+            }
             TestTrue(TEXT("capacity contender join admitted for wire result"),
                 F.FullClient.Request(ECk_OnlineDirect_Action::Join, F.Descriptor));
         }));
@@ -275,7 +307,7 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("host ready propagates to client"),
         [](FFixture& F)
-        { return F.Server.Completed() && HasMember(F.Client.Snapshot(), F.HostId, TEXT("Host"), true); },
+        { return F.Server.Completed() && HasMember(F.Client.Snapshot(), F.HostId, TEXT("PrivateHostName"), true); },
         [this](FFixture& F)
         {
             F.Server.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
@@ -284,18 +316,23 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("client ready ACK and both rosters converge"),
         [](FFixture& F)
         {
-            return F.Client.Completed() && HasMember(F.Server.Snapshot(), F.FirstClientId, TEXT("Client"), true)
-                && HasMember(F.Client.Snapshot(), F.FirstClientId, TEXT("Client"), true);
+            return F.Client.Completed() && HasMember(F.Server.Snapshot(), F.FirstClientId, TEXT("PrivateClientName"), true)
+                && HasMember(F.Client.Snapshot(), F.FirstClientId, TEXT("PrivateClientName"), true);
         }, [this](FFixture& F)
         {
             F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
+            const auto ReadyLine = ck::test::direct::FormatCheckpoint(F.Client.Snapshot(), false, 2);
+            TestTrue(TEXT("ready checkpoint has both actual ready IDs"),
+                ReadyLine.Contains(TEXT("ordinal=2")) &&
+                ReadyLine.Contains(F.HostId.ToString(EGuidFormats::Digits) + TEXT(":1")) &&
+                ReadyLine.Contains(F.FirstClientId.ToString(EGuidFormats::Digits) + TEXT(":1")));
             TestTrue(TEXT("host text request admitted"), F.Server.Request(ECk_OnlineDirect_Action::SendText, TEXT("hello client")));
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("host text arrives once with sender and sequence"),
         [](FFixture& F)
         {
             return F.Server.Completed() && F.Client.Snapshot().Get_Messages().Num() == 1
-                && HasMessage(F.Client.Snapshot(), 1, F.HostId, TEXT("Host"), TEXT("hello client"));
+                && HasMessage(F.Client.Snapshot(), 1, F.HostId, TEXT("PrivateHostName"), TEXT("hello client"));
         }, [this](FFixture& F)
         {
             F.Server.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
@@ -307,11 +344,42 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         {
             return F.Client.Completed() && F.Server.Snapshot().Get_Messages().Num() == 2
                 && F.Client.Snapshot().Get_Messages().Num() == 2
-                && HasMessage(F.Server.Snapshot(), 2, F.FirstClientId, TEXT("Client"), TEXT("hello host"))
-                && HasMessage(F.Client.Snapshot(), 2, F.FirstClientId, TEXT("Client"), TEXT("hello host"));
+                && HasMessage(F.Server.Snapshot(), 2, F.FirstClientId, TEXT("PrivateClientName"), TEXT("hello host"))
+                && HasMessage(F.Client.Snapshot(), 2, F.FirstClientId, TEXT("PrivateClientName"), TEXT("hello host"));
         }, [this](FFixture& F)
         {
             F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
+            const auto Sample = F.Client.Snapshot();
+            const auto LobbyLine = ck::test::direct::FormatCheckpoint(Sample, false, 3);
+            const auto ChatLine = ck::test::direct::FormatCheckpoint(Sample, true, 3);
+            TestEqual(TEXT("same sample formats stably as Lobby"),
+                ck::test::direct::FormatCheckpoint(Sample, false, 3), LobbyLine);
+            TestEqual(TEXT("same sample formats stably as Chat"),
+                ck::test::direct::FormatCheckpoint(Sample, true, 3), ChatLine);
+            TestTrue(TEXT("checkpoint views identify the same sample revision"),
+                LobbyLine.Contains(TEXT("view=Lobby ordinal=3")) &&
+                ChatLine.Contains(TEXT("view=Chat ordinal=3")) &&
+                LobbyLine.Contains(FString::Printf(TEXT("revision=%d"), Sample.Get_Revision())) &&
+                ChatLine.Contains(FString::Printf(TEXT("revision=%d"), Sample.Get_Revision())));
+            const auto OrderedMessages = FString::Printf(TEXT("messages=[1:%s,2:%s]"),
+                *F.HostId.ToString(EGuidFormats::Digits), *F.FirstClientId.ToString(EGuidFormats::Digits));
+            TestTrue(TEXT("chat checkpoint records ordered sender IDs and retained count"),
+                ChatLine.Contains(TEXT("state=Joined rosterCount=2")) &&
+                ChatLine.Contains(TEXT("retained=2")) &&
+                ChatLine.Contains(OrderedMessages));
+            TestFalse(TEXT("checkpoint redacts names, chat text, and raw invite"),
+                LobbyLine.Contains(TEXT("PrivateHostName")) || LobbyLine.Contains(TEXT("PrivateClientName")) ||
+                LobbyLine.Contains(TEXT("hello client")) || LobbyLine.Contains(TEXT("hello host")) ||
+                LobbyLine.Contains(F.Descriptor) || ChatLine.Contains(TEXT("PrivateHostName")) ||
+                ChatLine.Contains(TEXT("PrivateClientName")) || ChatLine.Contains(TEXT("hello client")) ||
+                ChatLine.Contains(TEXT("hello host")) || ChatLine.Contains(F.Descriptor));
+            auto InviteParts = TArray<FString>{};
+            F.Descriptor.ParseIntoArray(InviteParts, TEXT("|"), false);
+            if (InviteParts.Num() == 4)
+            {
+                TestFalse(TEXT("Lobby and Chat checkpoints omit invite capability"),
+                    LobbyLine.Contains(InviteParts[3]) || ChatLine.Contains(InviteParts[3]));
+            }
             TestTrue(TEXT("client leave request admitted"), F.Client.Request(ECk_OnlineDirect_Action::Leave));
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("leave closes client and removes host roster member"),
@@ -323,7 +391,7 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
         {
             F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
             TestFalse(TEXT("old peer is absent from host roster"),
-                HasMember(F.Server.Snapshot(), F.FirstClientId, TEXT("Client"), true));
+                HasMember(F.Server.Snapshot(), F.FirstClientId, TEXT("PrivateClientName"), true));
             TestTrue(TEXT("same descriptor rejoin admitted"), F.Client.Request(ECk_OnlineDirect_Action::Join, F.Descriptor));
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("rejoin has new identity in same lobby epoch"),
@@ -339,7 +407,7 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
                 F.RejoinedClientId.IsValid() && F.RejoinedClientId != F.FirstClientId);
             TestEqual(TEXT("rejoin remains in same host epoch"), F.Client.Snapshot().Get_LobbyEpoch(), F.Epoch);
             TestTrue(TEXT("new member appears on host"),
-                HasMember(F.Server.Snapshot(), F.RejoinedClientId, TEXT("Client"), false));
+                HasMember(F.Server.Snapshot(), F.RejoinedClientId, TEXT("PrivateClientName"), false));
             F.Server.Stop();
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("host loss fails client and closes lobby resources"),

@@ -69,6 +69,7 @@ namespace CkOnlineDirectGym
         Rows.Add(CkGym_Control::Action(EKeys::I, "I", "Send chat draft", Active)); // 29
         Rows.Add(CkGym_Control::Action(EKeys::X, "X", "Leave / cancel join / recover failure", !Offline)); // 30
         Rows.Add(CkGym_Control::Action(EKeys::Z, "Z", "Stop this gym's owned profile", Probe.Get_IsOwnedProfile())); // 31
+        Rows.Add(CkGym_Control::Action(EKeys::V, "V", "Log sanitized evidence checkpoint", Active && Probe.Get_IsOwnedProfile())); // 32
 
         if (InChat)
         {
@@ -86,7 +87,7 @@ namespace CkOnlineDirectGym
         return Rows;
     }
 
-    void Activate(int32 InRowIndex)
+    void Activate(int32 InRowIndex, bool InChat)
     {
         auto Probe = Subsystem::GetGameInstanceSubsystem(UCkOnlineDirectGym_Subsystem);
         if (ck::Is_NOT_Valid(Probe)) { return; }
@@ -101,6 +102,7 @@ namespace CkOnlineDirectGym
         else if (InRowIndex == 29) { Probe.Request_SendChat(); }
         else if (InRowIndex == 30) { Probe.Request_Leave(); }
         else if (InRowIndex == 31) { Probe.Request_StopOwnedProfile(); }
+        else if (InRowIndex == 32) { Probe.Request_LogCheckpoint(InChat); }
     }
 }
 
@@ -115,5 +117,5 @@ class ACk_OnlineGym_DirectLobby_PlayerController : ACk_Gym_Base_PlayerController
 {
     FString Get_ControlPanelTitle() override { return "ONLINE LOBBY - NATIVE DIRECT TCP"; }
     TArray<FCkGym_ControlRow> Get_ControlRows() override { return CkOnlineDirectGym::BuildRows(false); }
-    void Request_ControlActivated(int32 InRowIndex) override { CkOnlineDirectGym::Activate(InRowIndex); }
+    void Request_ControlActivated(int32 InRowIndex) override { CkOnlineDirectGym::Activate(InRowIndex, false); }
 }

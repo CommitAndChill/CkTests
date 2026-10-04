@@ -13,5 +13,5 @@ class ACk_OnlineGym_DirectChat_PlayerController : ACk_Gym_Base_PlayerController
 {
     FString Get_ControlPanelTitle() override { return "ONLINE CHAT - NATIVE DIRECT TCP"; }
     TArray<FCkGym_ControlRow> Get_ControlRows() override { return CkOnlineDirectGym::BuildRows(true); }
-    void Request_ControlActivated(int32 InRowIndex) override { CkOnlineDirectGym::Activate(InRowIndex); }
+    void Request_ControlActivated(int32 InRowIndex) override { CkOnlineDirectGym::Activate(InRowIndex, true); }
 }

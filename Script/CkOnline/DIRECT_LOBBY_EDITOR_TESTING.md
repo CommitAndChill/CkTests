@@ -57,4 +57,4 @@ Wait for **Succeeded** and the expected readback at each step. The on-screen **H
 
 That's the first pass. Report the first failing step and visible error, or that all five passed.
 
-[Optional: rejoin, expiry and host-loss checks](DIRECT_LOBBY_EXTRA_CHECKS.md) · [Gameplay IP check](DIRECT_IP_EDITOR_TESTING.md)
+[Next: two log checkpoints](DIRECT_EVIDENCE_EDITOR_TESTING.md) · [Optional extra checks](DIRECT_LOBBY_EXTRA_CHECKS.md) · [Gameplay IP check](DIRECT_IP_EDITOR_TESTING.md)

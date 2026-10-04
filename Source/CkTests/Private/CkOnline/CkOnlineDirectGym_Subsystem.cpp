@@ -1,5 +1,7 @@
 #include "CkOnline/CkOnlineDirectGym_Subsystem.h"
+#include "CkOnlineDirectGym_Evidence.h"
 
+#include "CkOnline/CkOnline_Log.h"
 #include "CkOnline/Direct/CkOnlineDirect_Subsystem.h"
 #include "CkOnline/Subsystem/CkOnline_Subsystem.h"
 
@@ -165,6 +167,40 @@ auto UCkOnlineDirectGym_Subsystem::Request_StopOwnedProfile() -> bool
     _OwnedGeneration.Invalidate();
     _LastQueuedAction = TEXT("Stopped owned profile");
     _LastError.Empty();
+    return true;
+}
+
+auto UCkOnlineDirectGym_Subsystem::Request_LogCheckpoint(const bool InChat) -> bool
+{
+    if (!IsInGameThread())
+    {
+        UE_LOG(CkOnline, Display, TEXT("[OnlineCheckpoint] rejected=not-game-thread"));
+        return false;
+    }
+    auto* Service = GetService();
+    if (Service == nullptr || !_OwnsProfile || !_OwnedGeneration.IsValid() || !Service->Get_IsStarted())
+    {
+        UE_LOG(CkOnline, Display, TEXT("[OnlineCheckpoint] rejected=no-owned-active-profile"));
+        return false;
+    }
+    auto* Instance = GetGameInstance();
+    auto* BaseService = IsValid(Instance) ? Instance->GetSubsystem<UCk_Online_Subsystem_UE>() : nullptr;
+    if (!IsValid(BaseService) || BaseService->Get_Diagnostics().Get_Generation() != _OwnedGeneration)
+    {
+        UE_LOG(CkOnline, Display, TEXT("[OnlineCheckpoint] rejected=stale-owned-generation"));
+        return false;
+    }
+    const auto Snapshot = Service->Get_Snapshot();
+    const auto State = Snapshot.Get_State();
+    if (Snapshot.Get_ServiceGeneration() != _OwnedGeneration || !Snapshot.Get_LobbyEpoch().IsValid()
+        || !Snapshot.Get_LocalMemberId().IsValid()
+        || (State != ECk_OnlineDirect_State::Hosting && State != ECk_OnlineDirect_State::Joined))
+    {
+        UE_LOG(CkOnline, Display, TEXT("[OnlineCheckpoint] rejected=inactive-or-stale-snapshot"));
+        return false;
+    }
+    if (_CheckpointOrdinal < MAX_int32) { ++_CheckpointOrdinal; }
+    UE_LOG(CkOnline, Display, TEXT("%s"), *ck::test::direct::FormatCheckpoint(Snapshot, InChat, _CheckpointOrdinal));
     return true;
 }
 
