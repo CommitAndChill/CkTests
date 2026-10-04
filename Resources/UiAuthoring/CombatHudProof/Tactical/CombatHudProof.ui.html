@@ -1,0 +1,31 @@
+<ui version="1">
+ <region name="main">
+  <overlay id="hud-root" class="hud-root">
+   <replica-art id="damage-overlay" piece="damage" value-bind="DamageOpacity" class="damage-overlay" />
+   <column id="hud-layout" class="hud-layout">
+    <row id="upper-hud" class="upper-hud"><column id="upper-space" class="grow" /><column id="kill-feed" class="kill-feed" visible="ShowKillFeed"><text id="kill-feed-text" bind="KillFeedText" class="kill-feed-text" /></column></row>
+    <column id="pre-objective-space" class="pre-objective-space" />
+    <row id="objective-row" class="objective-row"><column id="objective-left-space" class="grow" /><column id="objective-marker" class="objective-marker"><replica-art id="objective-icon" piece="bf-objective" class="objective-icon" /><text id="objective-distance" class="objective-distance">C / 35 m</text></column><column id="objective-right-space" class="grow" /></row>
+    <column id="central-world-space" class="grow" />
+    <column id="pre-bottom-space" class="pre-bottom-space" />
+    <row id="bottom-hud" class="bottom-hud">
+     <column id="conquest-cluster" class="conquest-cluster">
+      <row id="flag-row" class="flag-row"><text id="conquest-flags" bind="FlagText" class="conquest-flags" /></row>
+      <row id="ticket-row" class="ticket-row"><text id="friendly-side" class="friendly-side">RU</text><text id="tickets-friendly" bind="FriendlyTickets" class="tickets-friendly" /><text id="ticket-divider" class="ticket-divider">/</text><text id="enemy-side" class="enemy-side">CN</text><text id="tickets-enemy" bind="EnemyTickets" class="tickets-enemy" /><column id="timer-space" class="grow" /><text id="round-timer" class="round-timer">09:23</text></row>
+      <column id="map-top-space" class="map-top-space" />
+      <row id="map-and-squad" class="map-and-squad"><replica-art id="minimap" piece="bf-map" value-bind="MapPhase" class="minimap" /><column id="squad-list" class="squad-list"><text id="squad-one" class="squad-member">A  ALPHA LEAD</text><text id="squad-two" class="squad-member">B  RIFLEMAN</text><text id="squad-three" class="squad-member">C  SUPPORT</text><text id="squad-four" class="squad-member">D  RECON</text></column></row>
+     </column>
+     <column id="bottom-center-space" class="grow" />
+     <column id="weapon-cluster" class="weapon-cluster">
+      <column id="weapon-top-space" class="grow" />
+      <row id="ammunition" class="ammunition"><text id="ammo-value" bind="AmmoText" class="ammo-value" /><text id="ammo-divider" class="ammo-divider">/</text><text id="reserve-value" bind="ReserveText" class="reserve-value" /></row>
+      <row id="weapon-mode-row" class="weapon-mode-row"><text id="fire-mode" class="fire-mode">AUTO</text><column id="reload-space" class="grow" /><text id="reload-status" bind="ReloadText" visible="ShowReload" class="reload-status" /></row>
+      <row id="equipment-row" class="equipment-row"><replica-art id="grenade-icon" piece="bf-grenade" class="grenade-icon" /><text id="grenade-count" class="grenade-count">1</text><column id="equipment-space" class="grow" /><text id="health-plus" class="health-plus">+</text><text id="health-value" bind="HealthText" class="health-value" /></row>
+     </column>
+    </row>
+   </column>
+   <column id="capture-layer" class="capture-layer"><column id="capture-offset" class="capture-offset" /><row id="capture-row" class="capture-row" visible="ShowCapture"><column id="capture-left-space" class="grow" /><column id="capture-copy" class="capture-copy"><text id="capture-status" bind="CaptureText" visible="ShowCapture" class="capture-status" /></column><column id="capture-right-space" class="grow" /></row></column>
+   <replica-art id="aim-reticle" piece="crosshair" class="aim-reticle" />
+  </overlay>
+ </region>
+</ui>

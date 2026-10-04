@@ -1,0 +1,54 @@
+<ui version="1">
+ <region name="main">
+  <overlay id="hud-root" class="hud-root">
+   <replica-art id="damage-overlay" piece="damage" value-bind="DamageOpacity" class="damage-overlay" />
+   <column id="hud-layout" class="hud-layout">
+    <column id="top-hud" class="top-hud">
+     <column id="top-offset" class="top-offset" />
+     <overlay id="compass-layer" class="compass-layer">
+      <replica-art id="compass-strip" piece="sk-compass" value-bind="MapPhase" class="compass-strip" />
+      <text id="compass-west" class="compass-direction compass-west">W</text>
+      <text id="compass-north" class="compass-direction compass-north">N</text>
+      <text id="compass-east" class="compass-direction compass-east">E</text>
+     </overlay>
+     <column id="target-gap" class="target-gap" />
+     <column id="target-group" visible="ShowTarget" class="target-group">
+      <replica-art id="target-health" piece="sk-meter" variant="1" value-bind="TargetHealthFraction" class="target-health" />
+      <text id="target-name" bind="TargetName" class="target-name" />
+     </column>
+    </column>
+    <column id="world-space" class="grow" />
+    <row id="bottom-bars" class="bottom-bars">
+     <replica-art id="magicka-meter" piece="sk-meter" variant="0" value-bind="MagickaFraction" opacity-bind="MagickaOpacity" class="vital-meter" />
+     <column id="bar-left-space" class="grow" />
+     <replica-art id="health-meter" piece="sk-meter" variant="1" value-bind="HealthFraction" opacity-bind="HealthOpacity" class="vital-meter" />
+     <column id="bar-right-space" class="grow" />
+     <replica-art id="stamina-meter" piece="sk-meter" variant="2" value-bind="StaminaFraction" opacity-bind="StaminaOpacity" class="vital-meter" />
+    </row>
+   </column>
+   <column id="reticle-cluster" class="reticle-cluster">
+    <column id="reticle-top-space" class="reticle-top-space" />
+    <overlay id="reticle-core" class="reticle-core">
+     <column id="reticle-bounds" class="reticle-bounds" />
+     <replica-art id="aim-reticle" piece="crosshair" class="aim-reticle" />
+     <replica-art id="sneak-eye" piece="sk-eye" value-bind="SneakFraction" visible="ShowSneak" class="sneak-eye" />
+    </overlay>
+    <text id="sneak-label" bind="SneakText" visible="ShowSneak" class="sneak-label" />
+   </column>
+   <column id="interaction-cluster" class="interaction-cluster">
+    <column id="interaction-offset" class="interaction-offset" />
+    <row id="interaction-row" visible="ShowInteraction" class="interaction-row">
+     <text id="interaction-key" class="interaction-key">[E] Talk</text>
+     <text id="interaction-target" class="interaction-target">Whiterun Guard</text>
+    </row>
+   </column>
+   <column id="arrows-layer" class="arrows-layer">
+    <column id="arrows-space" class="grow" />
+    <column id="arrow-readout" visible="ShowArrows" class="arrow-readout">
+     <text id="ammo-value" bind="AmmoText" class="ammo-value" />
+     <text id="ammo-label" class="ammo-label">Steel Arrow</text>
+    </column>
+   </column>
+  </overlay>
+ </region>
+</ui>

@@ -1,0 +1,34 @@
+.hud-root { padding: 0px; }
+.damage-overlay { width: 1920px; height: 1080px; }
+.hud-layout { width: 1920px; height: 1080px; }
+.top-hud { width: 1920px; height: 140px; }
+.top-offset { height: 28px; }
+.compass-layer { width: 600px; height: 28px; horizontal-align: center; }
+.compass-strip { width: 600px; height: 28px; }
+.compass-direction { height: 28px; vertical-align: center; font-family: sans-serif; font-size: 18; color: #E7E5DB; text-wrap: nowrap; }
+.compass-west { horizontal-align: left; }
+.compass-north { horizontal-align: center; }
+.compass-east { horizontal-align: right; }
+.target-gap { height: 20px; }
+.target-group { width: 400px; height: 48px; gap: 8px; horizontal-align: center; }
+.target-health { width: 400px; height: 16px; }
+.target-name { height: 24px; horizontal-align: center; font-family: sans-serif; font-size: 18; font-weight: bold; color: #F0ECE4; text-wrap: nowrap; }
+.grow { flex-grow: 1; }
+.bottom-bars { width: 1920px; height: 60px; padding: 0px 100px; }
+.vital-meter { width: 450px; height: 20px; vertical-align: top; }
+.reticle-cluster { width: 180px; height: 106px; horizontal-align: center; vertical-align: center; }
+.reticle-top-space { height: 29px; }
+.reticle-core { width: 180px; height: 48px; }
+.reticle-bounds { width: 180px; height: 48px; }
+.aim-reticle { width: 30px; height: 30px; horizontal-align: center; vertical-align: center; }
+.sneak-eye { width: 100px; height: 42px; horizontal-align: center; vertical-align: center; }
+.sneak-label { height: 28px; horizontal-align: center; font-family: sans-serif; font-size: 18; font-weight: bold; color: #F0ECE4; text-wrap: nowrap; }
+.interaction-cluster { width: 420px; height: 180px; horizontal-align: center; vertical-align: center; }
+.interaction-offset { height: 125px; }
+.interaction-row { width: 420px; height: 42px; gap: 8px; horizontal-align: center; }
+.interaction-key { width: 116px; height: 42px; horizontal-align: right; font-family: sans-serif; font-size: 20; color: #F0ECE4; text-wrap: nowrap; }
+.interaction-target { width: 250px; height: 42px; font-family: sans-serif; font-size: 20; color: #F0ECE4; text-wrap: nowrap; }
+.arrows-layer { width: 1920px; height: 1080px; padding: 0px 100px 100px 0px; }
+.arrow-readout { width: 180px; height: 50px; horizontal-align: right; }
+.ammo-value { height: 26px; horizontal-align: right; font-family: sans-serif; font-size: 20; color: #F0ECE4; text-wrap: nowrap; }
+.ammo-label { height: 24px; horizontal-align: right; font-family: sans-serif; font-size: 16; color: #F0ECE4; text-wrap: nowrap; }
