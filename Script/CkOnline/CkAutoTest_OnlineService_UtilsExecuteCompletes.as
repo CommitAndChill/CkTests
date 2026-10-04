@@ -117,7 +117,10 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
 
         auto Recovery = Subsystem::GetGameInstanceSubsystem(UCkOnlineDirectIpTest_Subsystem);
         auto Probe = Subsystem::GetGameInstanceSubsystem(UCkOnlineTest_Subsystem);
-        if (ck::Is_NOT_Valid(Recovery) || ck::Is_NOT_Valid(Probe))
+        auto Gym = Subsystem::GetGameInstanceSubsystem(UCkOnlineDirectGym_Subsystem);
+        auto Direct = Subsystem::GetGameInstanceSubsystem(UCk_OnlineDirect_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Recovery) || ck::Is_NOT_Valid(Probe) ||
+            ck::Is_NOT_Valid(Gym) || ck::Is_NOT_Valid(Direct))
         {
             DoCleanup();
             FinishFailure("Online recovery test subsystem unavailable");
@@ -127,6 +130,18 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         auto EndpointBefore = Recovery.Get_Endpoint();
         int32 ShutdownsBefore = Probe.Get_AdapterShutdowns();
         int32 CancelsBefore = Probe.Get_AdapterCancels();
+        auto DraftBefore = Gym.Get_JoinDescriptorDraft();
+        auto DirectBefore = Direct.Get_Snapshot();
+        // Syntactically valid local invite only; the active fake host must reject profile start
+        // before any Direct socket or Join request can be created.
+        FString SyntheticInvite = "ckd:1|127.0.0.1:17901|11111111111111111111111111111111|22222222222222222222222222222222";
+        Assert_False(Gym.Request_JoinInvite(SyntheticInvite),
+            "valid invite cannot replace a running foreign Online service");
+        Assert_False(Direct.Get_IsStarted() || Gym.Get_IsOwnedProfile(),
+            "foreign-service rejection creates no Direct profile or gym ownership");
+        Assert_True(Direct.Get_Snapshot().Get_Revision() == DirectBefore.Get_Revision() &&
+            Gym.Get_JoinDescriptorDraft() == DraftBefore,
+            "foreign-service rejection preserves Direct revision and saved invite draft");
         Assert_False(Recovery.Request_TestControlReadyLoss(),
             "ready-loss test rejects outside a bridged gameplay session");
         Assert_False(Recovery.Request_TestControlStop(),

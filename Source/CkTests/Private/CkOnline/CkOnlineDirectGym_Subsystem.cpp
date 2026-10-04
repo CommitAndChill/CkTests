@@ -139,12 +139,19 @@ auto UCkOnlineDirectGym_Subsystem::Request_Host() -> bool
 
 auto UCkOnlineDirectGym_Subsystem::Request_Join() -> bool
 {
-    if (_JoinDescriptor.IsEmpty()) { return Reject(TEXT("Enter or paste the host's join descriptor with O first.")); }
-    if (!EnsureOwnedStarted()) { return false; }
-    return Queue(ECk_OnlineDirect_Action::Join, _JoinDescriptor);
+    return Request_JoinInvite(_JoinDescriptor);
 }
 
 auto UCkOnlineDirectGym_Subsystem::Request_JoinCopiedInvite() -> bool
+{
+    if (!IsInGameThread() || _IsDeinitializing) { return Reject(TEXT("Join must run on the active game thread.")); }
+    if (_IsEditing) { return Reject(TEXT("Finish or cancel the current text edit first.")); }
+    FString Invite;
+    FPlatformApplicationMisc::ClipboardPaste(Invite);
+    return Request_JoinInvite(Invite);
+}
+
+auto UCkOnlineDirectGym_Subsystem::Request_JoinInvite(const FString& InDescriptor) -> bool
 {
     if (!IsInGameThread() || _IsDeinitializing) { return Reject(TEXT("Join must run on the active game thread.")); }
     if (_IsEditing) { return Reject(TEXT("Finish or cancel the current text edit first.")); }
@@ -157,10 +164,10 @@ auto UCkOnlineDirectGym_Subsystem::Request_JoinCopiedInvite() -> bool
         if (State != ECk_OnlineDirect_State::Offline && State != ECk_OnlineDirect_State::Failed)
         { return Reject(TEXT("Leave the current Direct lobby before joining another.")); }
     }
-    FString Invite;
-    FPlatformApplicationMisc::ClipboardPaste(Invite);
+    // Copy first: saved-draft callers can alias _JoinDescriptor, which changes only after the join request is queued.
+    FString Invite = InDescriptor;
     if (Invite.IsEmpty() || Invite.Len() > 512 || !ck::direct::FTransport::ValidateDescriptor(Invite))
-    { return Reject(TEXT("Clipboard does not contain a valid Direct join invite (512 characters maximum).")); }
+    { return Reject(TEXT("Use a valid Direct join invite (512 characters maximum); O edits the saved draft.")); }
     const bool WasStarted = Service->Get_IsStarted();
     if (!EnsureOwnedStarted()) { return false; }
     const auto StartedGeneration = _OwnedGeneration;

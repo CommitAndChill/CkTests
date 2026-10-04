@@ -33,6 +33,9 @@ public:
     bool Request_Join();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_JoinCopiedInvite();
+    /** Queues a copied, saved or programmatic invite for the gym's owned profile. */
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
+    bool Request_JoinInvite(const FString& InDescriptor);
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_ToggleReady();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
