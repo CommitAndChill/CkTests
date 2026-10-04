@@ -133,7 +133,7 @@ findable. A gym declares rows from `Get_ControlRows()` on its PlayerController a
 in `Request_ControlActivated()`; the HUD does all drawing and key polling, so every gym that adopts
 it looks and behaves the same. Rows are rebuilt each frame, so a Toggle's value column is live
 state - read it back from whatever owns it, and mirror it in a member only where there is genuinely
-no readback (say so in a comment when you do). Row builders: `Header`, `Status`, `Action`,
+no readback (say so in a comment when you do). Row builders: `Header`, `Status`, `StatusTone`, `Action`,
 `Toggle`, `ToggleNamed`, `Cycle`, `Choice`, `Numbered` (indices 0-9: 1-9 then 0, number row + numpad;
 indices 10-19: Shift+1 through Shift+0 on the number row, shown as `! @ # $ % ^ & * ( )`).
 `FCkGym_ControlRow.ShiftRequirement` defaults to `Any` for legacy controls; numbered rows require
@@ -145,9 +145,30 @@ so scenario readiness can change without reordering the panel or its activation 
 Reserved keys a row must never bind: **Tab** (cycler menu) and **H** (cycles the panel full ->
 compact -> hidden, persisted per user in `UCkGym_StartupSettings`; the keys keep firing in every
 mode). Compact keeps every Header, every keyed row, and the Status rows labelled `Verdict` or
-flagged `Warn`, with values clipped to one line. The card is bounded at
+flagged `Warn`, with values clipped to one line. `StatusTone` supplies explicit
+`ECkGym_ControlTone` feedback (Info/Success/Warning/Error), opts the status into Compact and
+wraps its value. `Details` marks rows hidden in Compact; warning/error statuses remain visible.
+`WithTone` colors a copy without changing its source. Legacy rows keep neutral tone and their
+existing filtering/clipping. These flags affect drawing; enabled keyed rows still dispatch in
+every mode. `Get_InitialPanelMode()` defaults to the saved preference and can be overridden by
+a gym HUD; `Request_ToggleDetails()` switches Full/Compact subject to menu/text-input guards.
+The Online Direct gyms start Compact and use **F2** for details; D remains reserved for movement.
+The card is bounded at
 `min(FCkGym_ControlPanel_Style::MaxWidth, 45% of viewport width)` and the value column wraps inside
 it, so a long value never widens the panel across the image it annotates.
+
+The Direct online test helper also exposes clipboard joining and chat composition:
+`Request_JoinCopiedInvite()` validates clipboard syntax and ownership before submitting the
+ordinary typed Join; `Request_EditChatAndSend()` sends the edited draft on Enter and cancels
+on Escape/window close. The existing save-only editor and saved-draft requests remain available.
+Lobby/Chat **K** joins a copied invite, **B/Enter** sends chat, and details **O/Enter/F3** joins
+a manually saved invite. Rendering/focus/two-process interaction require the human gate in
+`Script/CkOnline/ONLINE_PANEL_EDITOR_TESTING.md`.
+Bridged gameplay details expose **F6** (queue real local readiness loss) and **F7**
+(stop the matching owned TCP profile). They require an established, owned bridge,
+accept at most one fault request per gameplay entry, and leave the ordinary
+invalid-binding Tick path responsible for return. Manual recovery acceptance is
+separate: `Script/CkOnline/DIRECT_RECOVERY_EDITOR_TESTING.md`.
 Declaring no rows draws no panel, which is why this
 costs nothing to gyms that have not adopted it. Deliberately NOT adopted: `CkInput`'s KeyBinding
 and Playground gyms and `CkVoiceChat` - the panel polls raw keys, which collides with a gym whose

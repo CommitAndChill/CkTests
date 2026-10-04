@@ -15,7 +15,7 @@ In **Play > Advanced Settings > Multiplayer Options**:
 | Launch Separate Server | **Off** |
 | Run Under One Process | **Off** |
 
-Launch **New Editor Window (PIE)**. In both windows: **Tab > CkOnline > Online Direct IP**. **H** shows the panel. Both must start offline, with no remote peer or proof.
+Launch **New Editor Window (PIE)**. In both windows: **Tab > CkOnline > Online Direct IP**. **H** cycles the panel. Guided Compact is the default; **F2** shows full marker, peer ID and proof details. Both must start offline, with no remote peer or proof.
 
 ## Required checks
 
@@ -23,13 +23,13 @@ Launch **New Editor Window (PIE)**. In both windows: **Tab > CkOnline > Online D
 
    **Pass:** Hosting at `127.0.0.1:7787`, a nonempty session marker, one local peer; window 2 remains offline.
 
-2. **Join — window 2:** Press **K**.
+2. **Join — window 2:** After Host shows **Hosting**, press **K** on Client to connect to `127.0.0.1:7787`. Wait for **Connected**.
 
-   **Pass:** Connected, identical full markers, and the same two distinct peer IDs in both rosters; host join count rises.
+   **Pass:** Connected and two peers in both rosters. Press **F2** in both windows to compare the identical full markers, distinct peer IDs and increased host join count.
 
 3. **Remote proof — client:** Record its proof sequence, then press **P**.
 
-   **Pass:** Client `Network proof` becomes **OBSERVED** with a higher sequence and last-proof ID equal to the client's roster ID. Host shows that same sequence and ID.
+   **Pass:** Client `Network proof` becomes **OBSERVED**. Use **F2** to compare the higher sequence and last-proof ID with the client's roster ID; Host shows the same sequence and ID.
 
 4. **Leave/rejoin — client:** Press **X**, wait for offline, then press **R**. After rejoining press **P** again.
 
@@ -37,4 +37,4 @@ Launch **New Editor Window (PIE)**. In both windows: **Tab > CkOnline > Online D
 
 **Optional host-loss check:** Press host **X** and wait for client Offline. Client **R** with no listener must fail and return Offline with an error, no false peer/proof. Host **J** and client **R** must then produce a new matching marker, two peers, and fresh client **P** proof.
 
-Overall `Verdict` stays **PENDING** until both windows are compared. Record markers, peer IDs, counters, and transitions. **Any ensure, script error, or unexpected travel/network error in either Output Log fails this gate**, even if panels look correct.
+The panel's **Next step** is an instruction, not a pass result. Green means observed local connection/proof, blue means instruction/pending, amber means warning and red means an actual error; there is no automatic overall PASS. Record markers, peer IDs, counters, and transitions in full details. **Any ensure, script error, or unexpected travel/network error in either Output Log fails this gate**, even if panels look correct.

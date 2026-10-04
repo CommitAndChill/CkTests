@@ -3,7 +3,9 @@
 These two single-player gyms test the internal service host with a deliberately
 fake backend: completion, cancellation, timeout, stale callbacks, and lifetime
 across map travel. They send no network traffic. To test actual Host/Join between
-two instances, use [Online Direct IP](DIRECT_IP_EDITOR_TESTING.md).
+two instances, use the [Online panel guide](ONLINE_PANEL_EDITOR_TESTING.md).
+
+**Joining:** these fake-backend gyms use one player; there is no second-player join step.
 
 Status: **automated gate green; manual editor verification pending**. The 2026-10-02 local build and test run passed in `Saved/Logs/OnlineHostGate-05.log`; the final fresh test-only run after updating gym controls recorded 15 green tests (14 native and the AS smoke), zero failures, in `Saved/Logs/OnlineHostGate-06.log`. The steps below are expected results, not a record of a completed manual run.
 
