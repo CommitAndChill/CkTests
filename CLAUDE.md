@@ -177,6 +177,10 @@ copy invite / Client **K**; both **R** before gameplay. Direct IP **R** is
 standalone rejoin only; the panel
 uses the helper's bridge-context and rejoin readbacks to keep that distinction
 visible. Both-window TCP continuity and fresh gameplay proof remain manual checks.
+Host invite renewal has its own unchecked Gate11 manual check in
+`Script/CkOnline/INVITE_RENEWAL_EDITOR_TESTING.md`; the deferred-check index tracks
+it. Its guide repeats the two-Standalone-window setup and initial Host **J** >
+Hosting > **P** / Client **K** join sequence.
 Declaring no rows draws no panel, which is why this
 costs nothing to gyms that have not adopted it. Deliberately NOT adopted: `CkInput`'s KeyBinding
 and Playground gyms and `CkVoiceChat` - the panel polls raw keys, which collides with a gym whose
