@@ -47,6 +47,8 @@ public class CkTests : CkModuleRules
             RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", Theme, "CombatHudProof.ui.css"), StagedFileType.NonUFS);
         }
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", "Futuristic", "squad-portraits.png"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PowerWheelProof", "PowerWheelProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PowerWheelProof", "PowerWheelProof.ui.css"), StagedFileType.NonUFS);
 
         PublicDependencyModuleNames.AddRange(new string[]
         {
