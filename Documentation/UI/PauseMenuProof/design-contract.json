@@ -1,0 +1,529 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-cktests-gym-editor-verified-broader-iris-failure-unresolved",
+  "date": "2026-10-03",
+  "sourceOfTruth": "code-and-declarative-text",
+  "targetPlatform": "Windows",
+  "runtimeVerified": true,
+  "migration": {
+    "verificationStatus": "focused-editor-gate-passed",
+    "priorGateEvidenceScope": "original host before CkTests gym migration",
+    "plugin": "CkTests",
+    "screenHeader": "Source/CkTests/Public/CkTests/UI/CkPauseMenuProof.h",
+    "screenImplementation": "Source/CkTests/Private/UI/CkPauseMenuProof.cpp",
+    "nativeProof": "Source/CkTests/Private/UnitTests/CkYoga/Test_PauseMenuProof.cpp",
+    "nativeProofName": "Ck.UiAuthoring.PauseMenuProof.PIE",
+    "gymProof": "Source/CkTests/Private/UnitTests/CkTestsGym/Test_UiAuthoringGym.cpp",
+    "gymProofName": "Ck.UiAuthoring.PauseMenuProof.GymSelector.PIE",
+    "gymScripts": [
+      "Script/CkUiAuthoring/CkUiAuthoringGym_Assets.as",
+      "Script/CkUiAuthoring/CkUiAuthoringGym_GameMode.as",
+      "Script/CkUiAuthoring/CkUiAuthoringGym_PlayerController.as"
+    ],
+    "layoutAsset": "CkTests_PauseMenuProof_Layout",
+    "resourceDirectory": "Resources/UiAuthoring/PauseMenuProof",
+    "resourceLookup": "IPluginManager CkTests GetBaseDir; host-agnostic plugin-relative paths",
+    "resourceStaging": "Source/CkTests/CkTests.Build.cs NonUFS runtime dependencies",
+    "gymDisplayName": "UI Authoring",
+    "gymCategory": "CkUI",
+    "launchMap": "/CkTests/TestGyms/TestGyms_CkTests_Level",
+    "selectedCheckout": "D:/Repos/CkPlugins_2",
+    "selectorCoverage": "registry entry and real grouped selector model, followed by registry API travel; no physical selector click",
+    "gymInteractionCoverage": "routed [1] opens native menu; Resume focus; Tab navigates without selector opening; Esc unpauses; [1] reopens distinct menu",
+    "teardownCoverage": "actual EndPIE OnWorldCleanup observes inactive menu and released authored view; exact AngelScript close initiator not observed",
+    "preferencesRestored": "values captured at Gate 03 start only; pre-Gate-02-crash preferences not established",
+    "panelControl": "[1] Pause menu",
+    "panelVisibilityKey": "H",
+    "selectorKeyWhenMenuClosed": "Tab",
+    "menuNavigationKey": "Tab",
+    "menuClose": "Esc or Resume returns to gym",
+    "settingsAndReturn": "record-only actions"
+  },
+  "reference": {
+    "image": "pause-menu-reference.png",
+    "sourceSize": [
+      1672,
+      941
+    ],
+    "logicalViewport": [
+      1920,
+      1080
+    ],
+    "geometryIs": "normalized-design-target-not-extracted-pixel-measurement"
+  },
+  "background": {
+    "image": "../../../Resources/UiAuthoring/PauseMenuProof/pause-menu-backdrop.png",
+    "role": "fixture-art-only",
+    "fit": "aspect-fill",
+    "uiBakedIn": false
+  },
+  "architecture": {
+    "host": "CkTests code-created CommonUI activatable UUserWidget",
+    "adapter": "UCk_UI_AuthoredSurface_UE in CkWidgets wrapping an accepted FCkUiView region",
+    "authoredDescendants": "Slate controls; not individual UWidget objects",
+    "editorRole": "run-inspect-capture-validate",
+    "manualWidgetBlueprintLayout": false
+  },
+  "colors": {
+    "panel": "#182129",
+    "panelOpacity": 0.96,
+    "panelBorder": "#56616A",
+    "text": "#F4F0E6",
+    "muted": "#ADB4BA",
+    "accent": "#E7AD4A",
+    "focus": "#FFF6DF",
+    "scrim": "#060A10",
+    "scrimOpacity": 0.28
+  },
+  "geometry": {
+    "panel": {
+      "x": 620,
+      "y": 140,
+      "width": 680,
+      "height": 724,
+      "radius": 16,
+      "padding": 56
+    },
+    "icon": {
+      "x": 938,
+      "y": 214,
+      "width": 44,
+      "height": 54,
+      "barWidth": 14,
+      "gap": 16
+    },
+    "title": {
+      "x": 676,
+      "y": 300,
+      "width": 568,
+      "height": 88,
+      "fontPixelTarget": 72
+    },
+    "subtitle": {
+      "x": 676,
+      "y": 396,
+      "width": 568,
+      "height": 36,
+      "fontPixelTarget": 28
+    },
+    "divider": {
+      "x": 676,
+      "y": 458,
+      "width": 568,
+      "height": 2
+    },
+    "actions": {
+      "x": 676,
+      "y": 504,
+      "width": 568,
+      "buttonHeight": 88,
+      "gap": 16
+    },
+    "hint": {
+      "x": 864,
+      "y": 900,
+      "width": 192,
+      "height": 52
+    }
+  },
+  "labels": {
+    "pause-title": "PAUSED",
+    "pause-subtitle": "The game is paused.",
+    "resume-button": "Resume",
+    "settings-button": "Settings",
+    "return-button": "Return to title",
+    "resume-key": "Esc",
+    "resume-hint-label": "Resume"
+  },
+  "buttons": [
+    {
+      "id": "resume-button",
+      "action": "ResumeRequested",
+      "labelKey": "PauseResume",
+      "enabledBinding": "ResumeEnabled",
+      "referenceState": "focused"
+    },
+    {
+      "id": "settings-button",
+      "action": "SettingsRequested",
+      "labelKey": "PauseSettings",
+      "enabledBinding": "SettingsEnabled",
+      "referenceState": "normal",
+      "firstProofBehavior": "record-only"
+    },
+    {
+      "id": "return-button",
+      "action": "ReturnToTitleRequested",
+      "labelKey": "PauseReturnToTitle",
+      "enabledBinding": "ReturnEnabled",
+      "referenceState": "normal",
+      "firstProofBehavior": "record-only"
+    }
+  ],
+  "states": {
+    "normal": {
+      "fill": "#25333E",
+      "text": "#F4F0E6",
+      "border": "#62717B"
+    },
+    "hover": {
+      "fill": "#314453",
+      "text": "#F4F0E6",
+      "border": "#E7AD4A"
+    },
+    "focused": {
+      "fill": "#E7AD4A",
+      "text": "#101A22",
+      "outline": "#FFF6DF",
+      "outlineWidth": 2,
+      "outlineGap": 2
+    },
+    "pressed": {
+      "fill": "#B87929",
+      "text": "#101A22",
+      "retainFocusOutline": true
+    },
+    "disabled": {
+      "fill": "#1B2730",
+      "text": "#727F8A",
+      "border": "#36424A",
+      "dispatch": false,
+      "navigable": false
+    }
+  },
+  "input": {
+    "initialFocus": "resume-button",
+    "navigation": [
+      "Tab",
+      "Shift+Tab",
+      "Up",
+      "Down"
+    ],
+    "wrap": true,
+    "confirm": [
+      "Enter",
+      "Space"
+    ],
+    "resume": [
+      "Esc"
+    ],
+    "singlePlayerProof": true,
+    "promptPolicy": "Static FText fixture bindings InputResumeKey=Esc and InputResumeHint=Resume; dynamic input-method/key-map integration deferred"
+  },
+  "validation": {
+    "status": "focused-cktests-gym-editor-gate-passed-broader-Iris-failure-unresolved",
+    "build": {
+      "status": "passed",
+      "configuration": "Development",
+      "tool": "CkAuto/UnrealToolbox.exe",
+      "log": "Saved/Logs/UiAuthoringGym-Gate-03.log",
+      "successLine": 69
+    },
+    "priorBuild": {
+      "status": "passed",
+      "configuration": "DebugGame",
+      "tool": "CkAuto/UnrealToolbox.exe",
+      "log": "Saved/Logs/PauseMenu-Authoring-Gate-12.log",
+      "successLine": 70
+    },
+    "runtimeBlocker": {
+      "module": "OnlineSubsystemUtils",
+      "dependencyChain": [
+        "Voice",
+        "dsound.dll",
+        "ResampleDmo.dll"
+      ],
+      "missingSystemFile": "C:/Windows/System32/ResampleDmo.dll",
+      "directDsoundLoadError": 126,
+      "windowsEdition": "EducationN",
+      "windowsVersion": "25H2",
+      "windowsBuild": "26200",
+      "editorLog": "Saved/Logs/CkPlugins.log",
+      "testsExecuted": 0,
+      "screenshotsCaptured": 0,
+      "remediation": {
+        "status": "loader-dependency-verified-after-restart",
+        "capability": "Media.MediaFeaturePack~~~~0.0.1.0",
+        "dismExitCode": 3010,
+        "capabilityState": "InstallPending",
+        "automaticRestart": false,
+        "completedUtc": "2026-10-03T02:14:54.697101Z",
+        "resultLog": "Saved/Setup/MediaFeaturePack-result.json",
+        "resampleDmoPresentAfterRestart": true,
+        "dsoundLoadSucceededAfterRestart": true,
+        "rebootPendingAfterRestart": false
+      }
+    },
+    "engineStartupRemediation": {
+      "status": "runtime-selected-project-directories-verified",
+      "module": "CkUsfRenderer",
+      "dllExists": true,
+      "debugGameManifestContainsModule": true,
+      "selectedProject": "D:/Repos/CkPlugins_2/CkPlugins.uproject",
+      "inferredBinariesRoot": "D:/Repos/CkPlugins",
+      "candidateCause": "The project-specific DebugGame launcher can resolve the game-binaries root to an existing same-named sibling; source and prior DLL-search logs support this, but exact runtime manifest selection has not been captured",
+      "diagnosticConfidence": "selected-project-runtime-assertions-passed",
+      "log": "Saved/Logs/PauseMenu-Authoring-Gate-06.log",
+      "appliedEnginePatch": "D:/Repos/UnrealEngineAngelscript/Engine/Source/Runtime/Core/Private/GenericPlatform/GenericPlatformMisc.cpp",
+      "sharedEngineChangeApproved": true,
+      "approvalCondition": "user approved only if the engine is on latest main-ck",
+      "engineVerification": {
+        "localBranch": "main-ck",
+        "localCommit": "0b36f2621b910c50b541b22b0d0dfbe3fba60d89",
+        "trackedWorkingTreeCleanAtVerification": true,
+        "remoteName": "origin-ck",
+        "remoteRepository": "https://github.com/CommitAndChill/UnrealEngine-Angelscript",
+        "remoteTipVerified": true,
+        "remoteCommit": "0b36f2621b910c50b541b22b0d0dfbe3fba60d89"
+      }
+    },
+    "resolutions": [
+      [
+        1920,
+        1080
+      ],
+      [
+        1280,
+        720
+      ],
+      [
+        2560,
+        1080
+      ]
+    ],
+    "majorGeometryToleranceReferencePixels": 4,
+    "checks": [
+      "construction",
+      "visuals",
+      "states-and-input",
+      "reload-atomicity",
+      "lifecycle",
+      "packaged-Windows"
+    ],
+    "editorBootsPerformed": 31,
+    "preMigrationEditorBoots": 21,
+    "migrationEditorBoots": {
+      "gate01": 3,
+      "gate02": 4,
+      "gate03": 3
+    },
+    "bootstrap": {
+      "canonicalCkTestsFilePresent": true,
+      "temporaryStubRemoved": true,
+      "classesGenerated": 1601,
+      "log": "Saved/Logs/PauseMenu-Bootstrap-Editor.log",
+      "status": "completed-normal-editor-startup-and-graceful-close"
+    },
+    "priorCompletedGate": {
+      "scope": "pre-migration original host",
+      "log": "Saved/Logs/PauseMenu-Authoring-Gate-12.log",
+      "executed": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "contaminated": 0,
+      "failedTests": [],
+      "screenshotsCaptured": 7,
+      "pauseProofPassed": true,
+      "surfaceLifetimePassed": true,
+      "selectedProjectStartupPassed": true,
+      "runnerMode": "fresh-discovery-native-window-real-RHI",
+      "duration": "1m 34s",
+      "freshLogEnsures": 0,
+      "freshLogAngelScriptErrors": 0,
+      "freshLogCrashes": 0
+    },
+    "latestCompletedGate": {
+      "scope": "migrated CkTests gym, single-player Windows Editor keyboard and mouse",
+      "log": "Saved/Logs/UiAuthoringGym-Gate-03.log",
+      "executed": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "contaminated": 0,
+      "failedTests": [],
+      "screenshotsCaptured": 7,
+      "gymSelectorPassed": true,
+      "pauseProofPassed": true,
+      "surfaceLifetimePassed": true,
+      "selectedProjectStartupPassed": true,
+      "runnerMode": "fresh-discovery-native-window-real-RHI",
+      "duration": "47s",
+      "freshLogEnsures": 0,
+      "freshLogAngelScriptErrors": 0,
+      "freshLogCrashes": 0
+    },
+    "migrationGateHistory": {
+      "gate01": "selector fixture compared runtime GameMode/PlayerController names with incorrect A-prefixed source names; corrected",
+      "gate02": "test-root strong reference retained PIE GameInstance at GC; fatal GC assertion and automatic Toolbox resume; roots corrected before EndPIE",
+      "gate03": "clean focused migration gate, 4/4 passed"
+    },
+    "migratedCaptureCheck": {
+      "gate": "03",
+      "regeneratedPngs": 7,
+      "nativeThreeResolutionGeometryAndPixelAssertionsPassed": true,
+      "focused1920VisualSpotCheck": "readable text, intact focus outline, no clipping",
+      "newManualPixelCountsClaimed": false,
+      "detailedMeasuredGeometryRecordGate": "12"
+    },
+    "measuredGeometry": {
+      "iconBounds": [
+        [
+          938,
+          214,
+          44,
+          54
+        ],
+        [
+          625,
+          142,
+          30,
+          36
+        ],
+        [
+          1258,
+          214,
+          44,
+          54
+        ]
+      ],
+      "focusedRenderAccepted": true,
+      "reason": "Final native captures verify geometry, readable focus and pressed states, exact disabled text color and an unclipped bold long label",
+      "dividerBounds": [
+        [
+          676,
+          458,
+          568,
+          2
+        ],
+        [
+          450,
+          305,
+          380,
+          2
+        ],
+        [
+          996,
+          458,
+          568,
+          2
+        ]
+      ],
+      "gate": "12",
+      "panelBounds": [
+        [
+          620,
+          140,
+          680,
+          724
+        ],
+        [
+          413,
+          93,
+          454,
+          483
+        ],
+        [
+          940,
+          140,
+          680,
+          724
+        ]
+      ],
+      "status": "major-bounds-within-four-reference-pixels",
+      "statePixels": {
+        "focusFill": {
+          "color": "#E7AD4A",
+          "flatPixels": 46800
+        },
+        "focusOutline": {
+          "color": "#FFF6DF",
+          "flatPixels": 1300
+        },
+        "pressedFill": {
+          "color": "#B87929",
+          "flatPixels": 46593
+        },
+        "disabledFill": {
+          "color": "#1B2730",
+          "flatPixels": 46585
+        },
+        "disabledLabel": {
+          "color": "#727F8A",
+          "flatPixels": 1291
+        },
+        "hoverFill": {
+          "color": "#314453",
+          "flatPixels": 46561
+        }
+      },
+      "longLabel": {
+        "glyphBoundsXYXY": [
+          730,
+          719,
+          1192,
+          789
+        ],
+        "topClearancePixels": 7,
+        "bottomClearancePixels": 11,
+        "clipped": false
+      },
+      "watermarkVisible": false
+    },
+    "latestBroaderGate": {
+      "log": "Saved/Logs/PauseMenu-Authoring-Gate-10.log",
+      "executed": 213,
+      "passed": 211,
+      "failed": 2,
+      "skipped": 0,
+      "contaminated": 0,
+      "failedTests": [
+        "Ck.UiAuthoring.EcsDebugger.StateMachineInspector.AuthoredVariants",
+        "Ck.UiAuthoring.UMG.SurfaceLifetime"
+      ],
+      "surfaceFailureResolvedInGate": "12",
+      "unresolvedFailures": [
+        "Ck.UiAuthoring.EcsDebugger.StateMachineInspector.AuthoredVariants"
+      ],
+      "rerunAfterFinalFixes": false
+    },
+    "compatibleChecks": {
+      "log": "Saved/Logs/PauseMenu-Authoring-Gate-11.log",
+      "passedTests": [
+        "Ck.UiAuthoring.Button.EnabledBinding.ParserAndNativeGate",
+        "Ck.UiAuthoring.Button.FocusAndTargeting",
+        "Ck.UiAuthoring.Button.VisualStyle",
+        "Ck.UiAuthoring.Button.WrappingGeometryAndLifetime",
+        "Ck.UiAuthoring.DebuggerMigration.InputControls",
+        "Ck.UiAuthoring.TextWrapping.RuntimeAndTableReload",
+        "Ck.UiAuthoring.MultiUserFocus"
+      ],
+      "correspondingImplementationUnchangedAfterGate": true
+    },
+    "proofCoverage": {
+      "supportedStyleChangesMountedGeometry": true,
+      "unsupportedCssPreservesAcceptedView": true,
+      "heldPointerReleaseConsumed": true,
+      "heldKeyboardRepeatAndReleaseConsumed": true,
+      "pauseOwnershipPreserved": true,
+      "freshViewOnReopen": true,
+      "callbackReentrancyAndArgumentMutation": true,
+      "freshHostAfterSlateTeardown": true,
+      "retiredHostRemainsEmpty": true,
+      "watermarkValueAndPriorityRestored": true
+    },
+    "deferredChecks": [
+      "physical-gamepad",
+      "pause-screen-two-user-ownership",
+      "live-input-method-prompts",
+      "authored-image-bindings-and-collections",
+      "packaged-Windows"
+    ]
+  },
+  "generation": {
+    "toolMode": "built-in-image-generation",
+    "prompts": "generation-prompts.txt"
+  },
+  "runtimeVerificationScope": "migrated CkTests gym, single-player Windows Editor PIE keyboard and mouse; no physical selector click, physical gamepad, two-user pause ownership or packaged run",
+  "packagedVerified": false
+}

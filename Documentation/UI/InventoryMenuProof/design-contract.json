@@ -1,0 +1,1677 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-runtime-verified",
+  "date": "2026-10-03",
+  "sourceOfTruth": "code-and-authored-resources",
+  "pathsBase": "Plugins/CkTests",
+  "paths": {
+    "markup": "Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.html",
+    "stylesheet": "Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.css",
+    "atlas": "Resources/UiAuthoring/InventoryMenuProof/inventory-item-atlas.png",
+    "reference": "Documentation/UI/InventoryMenuProof/inventory-menu-reference.png",
+    "generationPrompts": "Documentation/UI/InventoryMenuProof/generation-prompts.txt",
+    "model": "Source/CkTests/Private/UI/CkInventoryMenuProofModel.cpp",
+    "host": "Source/CkTests/Private/UI/CkPauseMenuProof.cpp",
+    "gymController": "Script/CkUiAuthoring/CkUiAuthoringGym_PlayerController.as",
+    "focusedTest": "Source/CkTests/Private/UnitTests/CkYoga/Test_InventoryMenuProof.cpp"
+  },
+  "reference": {
+    "logicalViewport": [
+      1920,
+      1080
+    ],
+    "imageIsRuntimeTexture": false,
+    "geometryIs": "authored-CSS-design-target-not-image-measurement",
+    "generatedPictureIsIllustrative": true,
+    "fixtureSource": "CkInventoryMenuProofModel.cpp definitions and validated state"
+  },
+  "architecture": {
+    "host": "code-created CommonUI UCk_PauseMenuProof_UE UMG widget",
+    "surface": "UCk_UI_AuthoredSurface_UE",
+    "view": "FCkUiView",
+    "region": "main",
+    "rootId": "inventory-composition",
+    "registeredControl": "action-card",
+    "nativeWidgets": "Slate descendants under the authored UMG surface",
+    "sourceReload": "accepted candidate replaces the document atomically; rejected candidate retains the prior view and state",
+    "backend": "in-memory proof fixture; no real inventory or machine-setting writes"
+  },
+  "palette": {
+    "panel": "#182129F5",
+    "panelBorder": "#56616A",
+    "ivory": "#F4F0E6",
+    "muted": "#ADB4BA",
+    "amber": "#E7AD4A",
+    "focusOutline": "#FFF6DF"
+  },
+  "geometry": {
+    "panel": {
+      "x": 320,
+      "y": 120,
+      "width": 1280,
+      "height": 800,
+      "paddingTopBottom": 32,
+      "paddingLeftRight": 40,
+      "radius": 16,
+      "border": 1
+    },
+    "headerHeight": 90,
+    "dividerHeight": 2,
+    "afterHeaderGap": 18,
+    "body": {
+      "width": 1200,
+      "height": 578,
+      "browserWidth": 816,
+      "gap": 24,
+      "detailWidth": 360
+    },
+    "filters": {
+      "height": 48,
+      "groupWidth": 195,
+      "groupGap": 12,
+      "buttonHeight": 44,
+      "activeAccentHeight": 4
+    },
+    "search": {
+      "width": 816,
+      "height": 48,
+      "gapBefore": 16,
+      "gapAfter": 16
+    },
+    "scrollViewport": {
+      "width": 816,
+      "height": 450,
+      "direction": "vertical"
+    },
+    "cardGrid": {
+      "width": 792,
+      "direction": "horizontal",
+      "wrap": true,
+      "columns": 4,
+      "cardWidth": 186,
+      "cardHeight": 148,
+      "gap": 16,
+      "scrollbarReserve": 24
+    },
+    "detailImage": [
+      180,
+      180
+    ],
+    "detailButtons": {
+      "width": 324,
+      "height": 60,
+      "gap": 10
+    },
+    "feedback": {
+      "gap": 20,
+      "height": 26
+    },
+    "hint": {
+      "gapBelowPanel": 32,
+      "width": 226,
+      "height": 44
+    },
+    "intendedResponsiveViewports": [
+      [
+        1280,
+        720
+      ],
+      [
+        1920,
+        1080
+      ],
+      [
+        2560,
+        1080
+      ]
+    ]
+  },
+  "atlas": {
+    "width": 1448,
+    "height": 1086,
+    "format": "RGBA",
+    "columnEdgesPixels": [
+      0,
+      362,
+      724,
+      1086,
+      1448
+    ],
+    "rowEdgesPixels": [
+      0,
+      394,
+      741,
+      1086
+    ],
+    "brushImageSize": [
+      96,
+      96
+    ],
+    "brushOwnsTextureRoot": true,
+    "cellOrder": "fixture order, row-major"
+  },
+  "bindings": {
+    "text": [
+      "InventoryTitle",
+      "InventorySubtitle",
+      "InventoryCount",
+      "InventorySearch",
+      "InventoryDetailName",
+      "InventoryDetailCategory",
+      "InventoryDetailDescription",
+      "InventoryDetailStats",
+      "InventoryDetailOwned",
+      "InventoryPrimaryLabel",
+      "InventoryFeedback",
+      "InventoryEmpty"
+    ],
+    "image": [
+      "InventoryDetailImage"
+    ],
+    "visibility": [
+      "InventoryFilterAllSelected",
+      "InventoryFilterEquipmentSelected",
+      "InventoryFilterSuppliesSelected",
+      "InventoryFilterMaterialsSelected",
+      "InventoryIsEmpty",
+      "InventoryHasSelection",
+      "InventoryPrimaryEnabled"
+    ],
+    "collection": "InventoryItems",
+    "recordFields": {
+      "image": "Image",
+      "title": "Text",
+      "meta": "Text",
+      "selected": "Bool",
+      "equipped": "Bool"
+    },
+    "recordFieldsRequired": true,
+    "textChanged": "InventorySearch",
+    "itemAction": "SelectInventoryItem",
+    "actions": [
+      "InventoryFilterAll",
+      "InventoryFilterEquipment",
+      "InventoryFilterSupplies",
+      "InventoryFilterMaterials",
+      "InventoryPrimaryAction",
+      "InventoryClose"
+    ],
+    "dispatchGate": "active Inventory host, not switching screens"
+  },
+  "fixture": [
+    {
+      "order": 1,
+      "key": "iron-longsword",
+      "name": "Iron Longsword",
+      "category": "Equipment",
+      "initialQuantity": 1,
+      "atlasCell": [
+        1,
+        1
+      ],
+      "detailStats": "Damage 28 / Weight 3.5"
+    },
+    {
+      "order": 2,
+      "key": "oak-bow",
+      "name": "Oak Bow",
+      "category": "Equipment",
+      "initialQuantity": 1,
+      "atlasCell": [
+        1,
+        2
+      ],
+      "detailStats": "Damage 19 / Weight 2.0"
+    },
+    {
+      "order": 3,
+      "key": "steel-shield",
+      "name": "Steel Shield",
+      "category": "Equipment",
+      "initialQuantity": 1,
+      "atlasCell": [
+        1,
+        3
+      ],
+      "detailStats": "Defense 24 / Weight 5.0"
+    },
+    {
+      "order": 4,
+      "key": "trail-hood",
+      "name": "Trail Hood",
+      "category": "Equipment",
+      "initialQuantity": 1,
+      "atlasCell": [
+        1,
+        4
+      ],
+      "detailStats": "Defense 7 / Weight 0.8"
+    },
+    {
+      "order": 5,
+      "key": "leather-boots",
+      "name": "Leather Boots",
+      "category": "Equipment",
+      "initialQuantity": 1,
+      "atlasCell": [
+        2,
+        1
+      ],
+      "detailStats": "Defense 9 / Weight 1.2"
+    },
+    {
+      "order": 6,
+      "key": "scout-vest",
+      "name": "Scout Vest",
+      "category": "Equipment",
+      "initialQuantity": 1,
+      "atlasCell": [
+        2,
+        2
+      ],
+      "detailStats": "Defense 16 / Weight 2.5"
+    },
+    {
+      "order": 7,
+      "key": "health-tonic",
+      "name": "Health Tonic",
+      "category": "Supplies",
+      "initialQuantity": 3,
+      "atlasCell": [
+        2,
+        3
+      ],
+      "detailStats": "Restores 40 health"
+    },
+    {
+      "order": 8,
+      "key": "focus-draught",
+      "name": "Focus Draught",
+      "category": "Supplies",
+      "initialQuantity": 2,
+      "atlasCell": [
+        2,
+        4
+      ],
+      "detailStats": "Restores 30 focus"
+    },
+    {
+      "order": 9,
+      "key": "travel-rations",
+      "name": "Travel Rations",
+      "category": "Supplies",
+      "initialQuantity": 5,
+      "atlasCell": [
+        3,
+        1
+      ],
+      "detailStats": "Restores 15 stamina"
+    },
+    {
+      "order": 10,
+      "key": "bandages",
+      "name": "Bandages",
+      "category": "Supplies",
+      "initialQuantity": 4,
+      "atlasCell": [
+        3,
+        2
+      ],
+      "detailStats": "Restores 12 health"
+    },
+    {
+      "order": 11,
+      "key": "iron-ore",
+      "name": "Iron Ore",
+      "category": "Materials",
+      "initialQuantity": 8,
+      "atlasCell": [
+        3,
+        3
+      ],
+      "detailStats": "Material / Common"
+    },
+    {
+      "order": 12,
+      "key": "moonstone",
+      "name": "Moonstone",
+      "category": "Materials",
+      "initialQuantity": 2,
+      "atlasCell": [
+        3,
+        4
+      ],
+      "detailStats": "Material / Rare"
+    }
+  ],
+  "state": {
+    "struct": "FCk_UiAuthoringProof_InventoryState",
+    "properties": [
+      "ItemQuantities",
+      "EquippedKey"
+    ],
+    "defaultSeed": "empty quantity map and empty equipped key seed the twelve initial quantities for a new host",
+    "snapshotValidation": "nonempty map has all and only twelve keys; each count is 0..initial; equipped key is empty or owned equipment",
+    "invalidSeed": "rejected before active-host reuse or creation, without mutation",
+    "validSeedWithActiveHost": "reuse active host and accepted current state; do not reseed",
+    "freshHost": "gym PlayerController passes saved state copied from prior closed host",
+    "persistenceScope": "single gym PlayerController session",
+    "initialCategory": "All",
+    "initialSearch": "",
+    "initialSelectedKey": "iron-longsword",
+    "filters": [
+      "All",
+      "Equipment",
+      "Supplies",
+      "Materials"
+    ],
+    "search": "case-insensitive name substring intersected with category",
+    "selectionReconciliation": "keep visible selected key, otherwise first visible key in fixture order; clear when no result",
+    "equipment": "Equip or Unequip toggles one equipped key",
+    "supplies": "Use decrements by one and removes card at zero",
+    "materials": "Inspect label is disabled with no mutation",
+    "noMatch": "empty overlay visible, detail hidden, primary disabled",
+    "rejectedRequests": "unknown, stale, disabled or invalid actions leave state and collection unchanged"
+  },
+  "input": {
+    "gymShortcut": "3",
+    "tab": "traverse visible focusable controls",
+    "cardArrows": {
+      "left": -1,
+      "right": 1,
+      "up": -4,
+      "down": 4
+    },
+    "activate": [
+      "Enter",
+      "Space"
+    ],
+    "escape": "close Inventory and release view/pause ownership",
+    "close": "return focus to gym viewport"
+  },
+  "verification": {
+    "runtimeStatus": "37-of-37-focused-tests-passed",
+    "notVerified": [
+      "physical gamepad",
+      "real gameplay persistence",
+      "packaged execution"
+    ],
+    "focusedCoverage": [
+      "gym [3] entry",
+      "initial fixture and native controls",
+      "malformed seed rejection",
+      "valid active-host reuse",
+      "filter/search and empty state",
+      "keyboard focus/navigation",
+      "equip/unequip",
+      "supply depletion",
+      "stale card suppression",
+      "reload accept/reject",
+      "three viewport captures",
+      "close/reopen persistence",
+      "screen replacement",
+      "Escape",
+      "PIE EndPlay cleanup"
+    ],
+    "evidencePathsBase": "CkPlugins project root",
+    "buildLogs": [
+      "Saved/Logs/InventoryMenuProof-Build-04.log",
+      "Saved/Logs/InventoryMenuProof-Build-05.log"
+    ],
+    "gateLog": "Saved/Logs/InventoryMenuProof-Gate-04.log",
+    "gate": {
+      "total": 37,
+      "passed": 37,
+      "failed": 0,
+      "skipped": 0,
+      "contaminated": 0,
+      "renderer": "native RHI",
+      "freshTestBoot": true,
+      "durationSeconds": 438
+    },
+    "nativeCaptures": [
+      {
+        "path": "Documentation/UI/InventoryMenuProof/native-inventory-all-1280x720.png",
+        "resolution": [
+          1280,
+          720
+        ],
+        "sourceRun": "InventoryMenuProof-Gate-04"
+      },
+      {
+        "path": "Documentation/UI/InventoryMenuProof/native-inventory-all-1920x1080.png",
+        "resolution": [
+          1920,
+          1080
+        ],
+        "sourceRun": "InventoryMenuProof-Gate-04"
+      },
+      {
+        "path": "Documentation/UI/InventoryMenuProof/native-inventory-all-2560x1080.png",
+        "resolution": [
+          2560,
+          1080
+        ],
+        "sourceRun": "InventoryMenuProof-Gate-04"
+      },
+      {
+        "path": "Documentation/UI/InventoryMenuProof/native-inventory-scrolled-1920x1080.png",
+        "resolution": [
+          1920,
+          1080
+        ],
+        "sourceRun": "InventoryMenuProof-Gate-04"
+      },
+      {
+        "path": "Documentation/UI/InventoryMenuProof/native-inventory-empty-1920x1080.png",
+        "resolution": [
+          1920,
+          1080
+        ],
+        "sourceRun": "InventoryMenuProof-Gate-04"
+      }
+    ],
+    "reviewedResolutions": [
+      [
+        1280,
+        720
+      ],
+      [
+        1920,
+        1080
+      ],
+      [
+        2560,
+        1080
+      ]
+    ],
+    "sourcePreflight": {
+      "inventoryIds": 58,
+      "usedCssClasses": 47,
+      "declaredCssClasses": 47,
+      "contractNodes": 58,
+      "negativeFixturesRejected": [
+        "undefined class",
+        "duplicate ID",
+        "malformed contract JSON",
+        "contract node identity mismatch",
+        "missing source file"
+      ]
+    },
+    "visualLimits": [
+      "native search retains its default background and subdued placeholder skin",
+      "third card row intentionally requires scrolling; long metadata ellipsizes after the quantity",
+      "capture includes CkTests fixture debug/input overlays"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "inventory-composition",
+      "tag": "column",
+      "parentId": null,
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "composition",
+      "classes": [],
+      "attributes": {},
+      "resolvedStyle": {}
+    },
+    {
+      "id": "inventory-top-space",
+      "tag": "column",
+      "parentId": "inventory-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "top space",
+      "classes": [
+        "top-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "120px"
+      }
+    },
+    {
+      "id": "inventory-panel",
+      "tag": "column",
+      "parentId": "inventory-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "panel",
+      "classes": [
+        "panel"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "1280px",
+        "height": "800px",
+        "horizontal-align": "center",
+        "padding": "32px 40px",
+        "background-color": "#182129F5",
+        "border-color": "#56616A",
+        "border-width": "1px",
+        "border-radius": "16px"
+      }
+    },
+    {
+      "id": "inventory-header",
+      "tag": "row",
+      "parentId": "inventory-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "header",
+      "classes": [
+        "header"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "90px"
+      }
+    },
+    {
+      "id": "inventory-heading",
+      "tag": "column",
+      "parentId": "inventory-header",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "heading",
+      "classes": [
+        "heading"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "inventory-title",
+      "tag": "text",
+      "parentId": "inventory-heading",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "title",
+      "classes": [
+        "title"
+      ],
+      "attributes": {
+        "bind": "InventoryTitle"
+      },
+      "resolvedStyle": {
+        "height": "56px",
+        "font-size": "48",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "inventory-subtitle",
+      "tag": "text",
+      "parentId": "inventory-heading",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "subtitle",
+      "classes": [
+        "subtitle"
+      ],
+      "attributes": {
+        "bind": "InventorySubtitle"
+      },
+      "resolvedStyle": {
+        "height": "32px",
+        "font-size": "21",
+        "color": "#ADB4BA",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "inventory-count",
+      "tag": "text",
+      "parentId": "inventory-header",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "count",
+      "classes": [
+        "count"
+      ],
+      "attributes": {
+        "bind": "InventoryCount"
+      },
+      "resolvedStyle": {
+        "width": "160px",
+        "font-size": "20",
+        "color": "#E7AD4A",
+        "horizontal-align": "right",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "inventory-divider",
+      "tag": "column",
+      "parentId": "inventory-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "divider",
+      "classes": [
+        "divider"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "2px",
+        "background-color": "#56616A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "inventory-after-header",
+      "tag": "column",
+      "parentId": "inventory-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "after header",
+      "classes": [
+        "after-header"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "18px"
+      }
+    },
+    {
+      "id": "inventory-body",
+      "tag": "row",
+      "parentId": "inventory-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "body",
+      "classes": [
+        "body"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "1200px",
+        "height": "578px",
+        "gap": "24px"
+      }
+    },
+    {
+      "id": "inventory-browser",
+      "tag": "column",
+      "parentId": "inventory-body",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "browser",
+      "classes": [
+        "browser"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "816px",
+        "height": "578px"
+      }
+    },
+    {
+      "id": "inventory-filters",
+      "tag": "row",
+      "parentId": "inventory-browser",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "filters",
+      "classes": [
+        "filters"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "48px",
+        "gap": "12px"
+      }
+    },
+    {
+      "id": "inventory-filter-all-group",
+      "tag": "column",
+      "parentId": "inventory-filters",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter all group",
+      "classes": [
+        "filter-group"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "48px"
+      }
+    },
+    {
+      "id": "inventory-filter-all",
+      "tag": "button",
+      "parentId": "inventory-filter-all-group",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "filter all",
+      "classes": [
+        "filter-button"
+      ],
+      "attributes": {
+        "action": "InventoryFilterAll"
+      },
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "44px",
+        "font-size": "18",
+        "color": "#F4F0E6",
+        "text-wrap": "nowrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#56616A",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "15px"
+      },
+      "literalText": "All"
+    },
+    {
+      "id": "inventory-filter-all-accent",
+      "tag": "column",
+      "parentId": "inventory-filter-all-group",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter all accent",
+      "classes": [
+        "filter-accent"
+      ],
+      "attributes": {
+        "visible": "InventoryFilterAllSelected"
+      },
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "4px",
+        "background-color": "#E7AD4A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "inventory-filter-equipment-group",
+      "tag": "column",
+      "parentId": "inventory-filters",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter equipment group",
+      "classes": [
+        "filter-group"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "48px"
+      }
+    },
+    {
+      "id": "inventory-filter-equipment",
+      "tag": "button",
+      "parentId": "inventory-filter-equipment-group",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "filter equipment",
+      "classes": [
+        "filter-button"
+      ],
+      "attributes": {
+        "action": "InventoryFilterEquipment"
+      },
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "44px",
+        "font-size": "18",
+        "color": "#F4F0E6",
+        "text-wrap": "nowrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#56616A",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "15px"
+      },
+      "literalText": "Equipment"
+    },
+    {
+      "id": "inventory-filter-equipment-accent",
+      "tag": "column",
+      "parentId": "inventory-filter-equipment-group",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter equipment accent",
+      "classes": [
+        "filter-accent"
+      ],
+      "attributes": {
+        "visible": "InventoryFilterEquipmentSelected"
+      },
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "4px",
+        "background-color": "#E7AD4A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "inventory-filter-supplies-group",
+      "tag": "column",
+      "parentId": "inventory-filters",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter supplies group",
+      "classes": [
+        "filter-group"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "48px"
+      }
+    },
+    {
+      "id": "inventory-filter-supplies",
+      "tag": "button",
+      "parentId": "inventory-filter-supplies-group",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "filter supplies",
+      "classes": [
+        "filter-button"
+      ],
+      "attributes": {
+        "action": "InventoryFilterSupplies"
+      },
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "44px",
+        "font-size": "18",
+        "color": "#F4F0E6",
+        "text-wrap": "nowrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#56616A",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "15px"
+      },
+      "literalText": "Supplies"
+    },
+    {
+      "id": "inventory-filter-supplies-accent",
+      "tag": "column",
+      "parentId": "inventory-filter-supplies-group",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter supplies accent",
+      "classes": [
+        "filter-accent"
+      ],
+      "attributes": {
+        "visible": "InventoryFilterSuppliesSelected"
+      },
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "4px",
+        "background-color": "#E7AD4A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "inventory-filter-materials-group",
+      "tag": "column",
+      "parentId": "inventory-filters",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter materials group",
+      "classes": [
+        "filter-group"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "48px"
+      }
+    },
+    {
+      "id": "inventory-filter-materials",
+      "tag": "button",
+      "parentId": "inventory-filter-materials-group",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "filter materials",
+      "classes": [
+        "filter-button"
+      ],
+      "attributes": {
+        "action": "InventoryFilterMaterials"
+      },
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "44px",
+        "font-size": "18",
+        "color": "#F4F0E6",
+        "text-wrap": "nowrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#56616A",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "15px"
+      },
+      "literalText": "Materials"
+    },
+    {
+      "id": "inventory-filter-materials-accent",
+      "tag": "column",
+      "parentId": "inventory-filter-materials-group",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter materials accent",
+      "classes": [
+        "filter-accent"
+      ],
+      "attributes": {
+        "visible": "InventoryFilterMaterialsSelected"
+      },
+      "resolvedStyle": {
+        "width": "195px",
+        "height": "4px",
+        "background-color": "#E7AD4A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "inventory-filter-gap",
+      "tag": "column",
+      "parentId": "inventory-browser",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "filter gap",
+      "classes": [
+        "filter-gap"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "16px"
+      }
+    },
+    {
+      "id": "inventory-search",
+      "tag": "search",
+      "parentId": "inventory-browser",
+      "scope": "main-region",
+      "nativeWidget": "native Slate search box",
+      "role": "search",
+      "classes": [
+        "search"
+      ],
+      "attributes": {
+        "bind": "InventorySearch",
+        "placeholder": "Search inventory"
+      },
+      "resolvedStyle": {
+        "width": "816px",
+        "height": "48px",
+        "font-size": "18px",
+        "color": "#F4F0E6"
+      }
+    },
+    {
+      "id": "inventory-search-gap",
+      "tag": "column",
+      "parentId": "inventory-browser",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "search gap",
+      "classes": [
+        "search-gap"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "16px"
+      }
+    },
+    {
+      "id": "inventory-results",
+      "tag": "overlay",
+      "parentId": "inventory-browser",
+      "scope": "main-region",
+      "nativeWidget": "native Slate overlay",
+      "role": "results",
+      "classes": [
+        "results"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "816px",
+        "height": "450px"
+      }
+    },
+    {
+      "id": "inventory-scroll",
+      "tag": "scroll",
+      "parentId": "inventory-results",
+      "scope": "main-region",
+      "nativeWidget": "native Slate scroll box",
+      "role": "scroll",
+      "classes": [
+        "results"
+      ],
+      "attributes": {
+        "direction": "vertical"
+      },
+      "resolvedStyle": {
+        "width": "816px",
+        "height": "450px"
+      }
+    },
+    {
+      "id": "inventory-items",
+      "tag": "repeat",
+      "parentId": "inventory-scroll",
+      "scope": "main-region",
+      "nativeWidget": "native Slate repeater",
+      "role": "items",
+      "classes": [
+        "cards"
+      ],
+      "attributes": {
+        "bind": "InventoryItems",
+        "direction": "horizontal"
+      },
+      "resolvedStyle": {
+        "width": "792px",
+        "gap": "16px",
+        "flex-wrap": "wrap"
+      }
+    },
+    {
+      "id": "inventory-card",
+      "tag": "action-card",
+      "parentId": "inventory-items",
+      "scope": "repeat-item-local",
+      "nativeWidget": "registered native Slate action card",
+      "role": "card",
+      "classes": [
+        "card"
+      ],
+      "attributes": {
+        "item-action": "SelectInventoryItem",
+        "selected-field": "selected"
+      },
+      "resolvedStyle": {
+        "width": "186px",
+        "height": "148px",
+        "-ck-action-card-background": "#25333E",
+        "-ck-action-card-hover-background": "#314453",
+        "-ck-action-card-pressed-background": "#3E5260",
+        "-ck-action-card-disabled-background": "#1B2730",
+        "-ck-action-card-selected-background": "#3B3B34",
+        "-ck-action-card-border-color": "#56616A",
+        "-ck-action-card-selected-border-color": "#E7AD4A",
+        "-ck-action-card-focus-border-color": "#FFF6DF",
+        "-ck-action-card-radius": "9px",
+        "-ck-action-card-border-width": "1px",
+        "-ck-action-card-padding": "8px"
+      }
+    },
+    {
+      "id": "inventory-card-content",
+      "tag": "column",
+      "parentId": "inventory-card",
+      "scope": "repeat-item-local",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "card content",
+      "classes": [
+        "card-content"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "170px",
+        "height": "130px"
+      }
+    },
+    {
+      "id": "inventory-card-image",
+      "tag": "image",
+      "parentId": "inventory-card-content",
+      "scope": "repeat-item-local",
+      "nativeWidget": "native Slate image",
+      "role": "card image",
+      "classes": [
+        "card-image"
+      ],
+      "attributes": {
+        "bind-field": "image"
+      },
+      "resolvedStyle": {
+        "width": "78px",
+        "height": "78px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "inventory-card-title",
+      "tag": "text",
+      "parentId": "inventory-card-content",
+      "scope": "repeat-item-local",
+      "nativeWidget": "native Slate text",
+      "role": "card title",
+      "classes": [
+        "card-title"
+      ],
+      "attributes": {
+        "bind-field": "title"
+      },
+      "resolvedStyle": {
+        "height": "25px",
+        "font-size": "17",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap",
+        "text-overflow": "ellipsis"
+      }
+    },
+    {
+      "id": "inventory-card-meta",
+      "tag": "text",
+      "parentId": "inventory-card-content",
+      "scope": "repeat-item-local",
+      "nativeWidget": "native Slate text",
+      "role": "card meta",
+      "classes": [
+        "card-meta"
+      ],
+      "attributes": {
+        "bind-field": "meta"
+      },
+      "resolvedStyle": {
+        "height": "23px",
+        "font-size": "14",
+        "color": "#ADB4BA",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap",
+        "text-overflow": "ellipsis"
+      }
+    },
+    {
+      "id": "inventory-empty-state",
+      "tag": "column",
+      "parentId": "inventory-results",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "empty state",
+      "classes": [
+        "empty-state"
+      ],
+      "attributes": {
+        "visible": "InventoryIsEmpty"
+      },
+      "resolvedStyle": {
+        "width": "816px",
+        "height": "450px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "inventory-empty-label",
+      "tag": "text",
+      "parentId": "inventory-empty-state",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "empty label",
+      "classes": [
+        "empty-label"
+      ],
+      "attributes": {
+        "bind": "InventoryEmpty"
+      },
+      "resolvedStyle": {
+        "font-size": "22",
+        "color": "#ADB4BA",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "inventory-detail",
+      "tag": "column",
+      "parentId": "inventory-body",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "detail",
+      "classes": [
+        "detail"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "360px",
+        "height": "578px",
+        "padding": "18px",
+        "background-color": "#202C35",
+        "border-color": "#56616A",
+        "border-width": "1px",
+        "border-radius": "12px"
+      }
+    },
+    {
+      "id": "inventory-detail-content",
+      "tag": "column",
+      "parentId": "inventory-detail",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "detail content",
+      "classes": [
+        "detail-content"
+      ],
+      "attributes": {
+        "visible": "InventoryHasSelection"
+      },
+      "resolvedStyle": {
+        "width": "324px"
+      }
+    },
+    {
+      "id": "inventory-detail-image",
+      "tag": "image",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "native Slate image",
+      "role": "detail image",
+      "classes": [
+        "detail-image"
+      ],
+      "attributes": {
+        "bind": "InventoryDetailImage"
+      },
+      "resolvedStyle": {
+        "width": "180px",
+        "height": "180px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "inventory-detail-name",
+      "tag": "text",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail name",
+      "classes": [
+        "detail-name"
+      ],
+      "attributes": {
+        "bind": "InventoryDetailName"
+      },
+      "resolvedStyle": {
+        "height": "44px",
+        "font-size": "30",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "horizontal-align": "center",
+        "text-wrap": "nowrap",
+        "text-overflow": "ellipsis"
+      }
+    },
+    {
+      "id": "inventory-detail-category",
+      "tag": "text",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail category",
+      "classes": [
+        "detail-category"
+      ],
+      "attributes": {
+        "bind": "InventoryDetailCategory"
+      },
+      "resolvedStyle": {
+        "height": "28px",
+        "font-size": "17",
+        "color": "#E7AD4A",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "inventory-detail-description",
+      "tag": "text",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail description",
+      "classes": [
+        "detail-description"
+      ],
+      "attributes": {
+        "bind": "InventoryDetailDescription"
+      },
+      "resolvedStyle": {
+        "height": "92px",
+        "font-size": "19",
+        "color": "#D8DADD",
+        "text-wrap": "wrap"
+      }
+    },
+    {
+      "id": "inventory-detail-stats",
+      "tag": "text",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail stats",
+      "classes": [
+        "detail-stats"
+      ],
+      "attributes": {
+        "bind": "InventoryDetailStats"
+      },
+      "resolvedStyle": {
+        "height": "30px",
+        "font-size": "19",
+        "color": "#F4F0E6"
+      }
+    },
+    {
+      "id": "inventory-detail-owned",
+      "tag": "text",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail owned",
+      "classes": [
+        "detail-owned"
+      ],
+      "attributes": {
+        "bind": "InventoryDetailOwned"
+      },
+      "resolvedStyle": {
+        "height": "29px",
+        "font-size": "17",
+        "color": "#ADB4BA"
+      }
+    },
+    {
+      "id": "inventory-detail-fill",
+      "tag": "column",
+      "parentId": "inventory-detail",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "detail fill",
+      "classes": [
+        "detail-fill"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "inventory-primary-action",
+      "tag": "button",
+      "parentId": "inventory-detail",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "primary action",
+      "classes": [
+        "game-button"
+      ],
+      "attributes": {
+        "action": "InventoryPrimaryAction",
+        "enabled-bind": "InventoryPrimaryEnabled",
+        "bind": "InventoryPrimaryLabel"
+      },
+      "resolvedStyle": {
+        "width": "324px",
+        "height": "60px",
+        "font-size": "23",
+        "font-weight": "bold",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#E7AD4A",
+        "-ck-button-color": "#101A22",
+        "-ck-button-hover-background": "#F4C46C",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-disabled-background": "#36424A",
+        "-ck-button-disabled-color": "#727F8A",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px"
+      }
+    },
+    {
+      "id": "inventory-detail-button-gap",
+      "tag": "column",
+      "parentId": "inventory-detail",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "detail button gap",
+      "classes": [
+        "detail-button-gap"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "10px"
+      }
+    },
+    {
+      "id": "inventory-close",
+      "tag": "button",
+      "parentId": "inventory-detail",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "close",
+      "classes": [
+        "game-button",
+        "close-button"
+      ],
+      "attributes": {
+        "action": "InventoryClose"
+      },
+      "resolvedStyle": {
+        "width": "324px",
+        "height": "60px",
+        "font-size": "23",
+        "font-weight": "bold",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-hover-background": "#F4C46C",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-disabled-background": "#36424A",
+        "-ck-button-disabled-color": "#727F8A",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-border-color": "#56616A"
+      },
+      "literalText": "Close"
+    },
+    {
+      "id": "inventory-footer-gap",
+      "tag": "column",
+      "parentId": "inventory-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "footer gap",
+      "classes": [
+        "footer-gap"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "20px"
+      }
+    },
+    {
+      "id": "inventory-feedback",
+      "tag": "text",
+      "parentId": "inventory-panel",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "feedback",
+      "classes": [
+        "feedback"
+      ],
+      "attributes": {
+        "bind": "InventoryFeedback"
+      },
+      "resolvedStyle": {
+        "height": "26px",
+        "font-size": "17",
+        "color": "#ADB4BA"
+      }
+    },
+    {
+      "id": "inventory-hint-gap",
+      "tag": "column",
+      "parentId": "inventory-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "hint gap",
+      "classes": [
+        "hint-gap"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "32px"
+      }
+    },
+    {
+      "id": "inventory-input-hint",
+      "tag": "row",
+      "parentId": "inventory-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "input hint",
+      "classes": [
+        "input-hint"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "226px",
+        "height": "44px",
+        "gap": "12px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "inventory-keycap",
+      "tag": "column",
+      "parentId": "inventory-input-hint",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "keycap",
+      "classes": [
+        "keycap"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "62px",
+        "height": "42px",
+        "padding": "8px",
+        "background-color": "#182129",
+        "border-color": "#7B8790",
+        "border-width": "1px",
+        "border-radius": "8px"
+      }
+    },
+    {
+      "id": "inventory-key",
+      "tag": "text",
+      "parentId": "inventory-keycap",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "key",
+      "classes": [
+        "key-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-size": "17",
+        "color": "#F4F0E6",
+        "horizontal-align": "center",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "ESC"
+    },
+    {
+      "id": "inventory-hint-label",
+      "tag": "text",
+      "parentId": "inventory-input-hint",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "hint label",
+      "classes": [
+        "hint-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-size": "17",
+        "color": "#ADB4BA",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "Close inventory"
+    },
+    {
+      "id": "inventory-bottom-space",
+      "tag": "column",
+      "parentId": "inventory-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "bottom space",
+      "classes": [
+        "bottom-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1"
+      }
+    }
+  ],
+  "nodeCount": 58
+}
