@@ -1,0 +1,79 @@
+<ui version="1">
+ <region name="main">
+  <column id="wheel-region">
+   <column id="wheel-layout" class="wheel-layout">
+    <column class="target-row" id="target-row-1">
+     <text id="target-state" bind="TargetState" class="target-state" />
+     <column class="target-bars" id="target-bars-1">
+      <column class="target-shield" id="target-shield-1" visible="TargetShielded" />
+      <column class="target-armor" id="target-armor-1" />
+     </column>
+    </column>
+    <row class="wheel-row" id="wheel-row-1">
+     <column class="description-column" id="description-column-1">
+      <column class="grow" id="grow-1" />
+      <text id="actor-name" bind="ActorName" class="actor-name" />
+      <text id="power-description" bind="PowerDescription" class="power-description" />
+      <text id="power-state" bind="PowerState" class="power-state" />
+      <column class="description-bottom" id="description-bottom-1" />
+     </column>
+     <column class="wheel-column" id="wheel-column-1">
+      <row class="squad-row" id="squad-row-1">
+       <column class="squad-member" id="squad-member-1">
+        <row class="portrait-row" id="portrait-row-1">
+         <column id="garrus-portrait-frame" class="portrait-frame">
+          <image id="garrus-portrait" bind="GarrusPortrait" class="portrait" />
+         </column>
+         <column class="portrait-label" id="portrait-label-1">
+          <text class="squad-name" id="squad-name-1">GARRUS</text>
+          <text id="queue-garrus" bind="QueueGarrus" class="queue-label" />
+         </column>
+        </row>
+       </column>
+       <column class="squad-gap" id="squad-gap-1" />
+       <column class="squad-member" id="squad-member-2">
+        <row class="portrait-row" id="portrait-row-2">
+         <column class="portrait-label" id="portrait-label-2">
+          <text class="squad-name" id="squad-name-2">LIARA</text>
+          <text id="queue-liara" bind="QueueLiara" class="queue-label" />
+         </column>
+         <column id="liara-portrait-frame" class="portrait-frame">
+          <image id="liara-portrait" bind="LiaraPortrait" class="portrait" />
+         </column>
+        </row>
+       </column>
+      </row>
+      <radial-selector id="power-wheel" items-bind="Powers" selection-bind="Selection" select="SelectPower" activate="QueuePower" class="power-wheel">
+       <slot name="content">
+        <column class="wheel-center" id="wheel-center-1">
+         <column class="grow" id="grow-2" />
+         <replica-art id="target-reticle" piece="me-reticle" class="reticle" />
+         <text id="power-name" bind="PowerName" class="power-name" />
+         <text class="center-hint" id="center-hint-1">CLICK / ENTER TO QUEUE</text>
+         <column class="grow" id="grow-3" />
+        </column>
+       </slot>
+      </radial-selector>
+     </column>
+     <column class="instruction-column" id="instruction-column-1">
+      <column class="grow" id="grow-4" />
+      <text class="input-label" id="input-label-1">RELEASE SHIFT</text>
+      <text class="input-help" id="input-help-1">Deploy queued powers</text>
+      <text class="input-label" id="input-label-2">ESC</text>
+      <text class="input-help" id="input-help-2">Cancel selection</text>
+      <text class="input-label" id="input-label-3">2</text>
+      <text class="input-help" id="input-help-3">Toggle target protection</text>
+      <column class="instruction-bottom" id="instruction-bottom-1" />
+     </column>
+    </row>
+    <column class="shepard-status" id="shepard-status-1">
+     <replica-art id="shield-meter" piece="me-shield" class="shield-meter" />
+     <replica-art id="health-meter" piece="me-health" class="health-meter" />
+     <text class="shepard-name" id="shepard-name-1">SHEPARD</text>
+     <text id="queue-shepard" bind="QueueShepard" class="queue-shepard" />
+    </column>
+    <text id="status-text" bind="StatusText" class="status-text" />
+   </column>
+  </column>
+ </region>
+</ui>
