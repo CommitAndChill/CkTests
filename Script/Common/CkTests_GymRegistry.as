@@ -68,6 +68,8 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Minimap",            ACk_MinimapGym_GameMode,                 "", "CkMinimap");
         CkGym_Cycler::RegisterProjectGym("Net Two-Player",     ACk_NetGym_TwoPlayer_GameMode,           "", "CkEcs");
         CkGym_Cycler::RegisterProjectGym("Object Pooling Stress", ACk_ObjectPoolingGym_GameMode,        "", "CkCore");
+        CkGym_Cycler::RegisterProjectGym("Online Lifetime",     ACk_OnlineGym_Lifetime_GameMode,        "", "CkOnline");
+        CkGym_Cycler::RegisterProjectGym("Online Requests",     ACk_OnlineGym_Requests_GameMode,        "", "CkOnline");
         CkGym_Cycler::RegisterProjectGym("Particles",          ACk_ParticlesGym_GameMode,               "", "CkParticles");
         CkGym_Cycler::RegisterProjectGym("Path Network",       ACk_PathNetworkGym_Following_GameMode,   "", "CkPathNetwork");
         CkGym_Cycler::RegisterProjectGym("PMG Shapes",         ACk_PmgShapesGym_GameMode,               "", "CkPmg");

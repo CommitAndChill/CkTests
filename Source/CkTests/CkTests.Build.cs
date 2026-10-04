@@ -79,6 +79,7 @@ public class CkTests : CkModuleRules
             "CkSway",
             "CkRotateTowards",
             "CkCore",
+            "CkOnline",
             "CkCrowd",
             "CkCue",
             "CkCVar",
