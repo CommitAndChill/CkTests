@@ -22,6 +22,7 @@
 #include "SocketSubsystem.h"
 #include "Sockets.h"
 #include "UnrealEdGlobals.h"
+#include "UObject/ObjectKey.h"
 
 namespace ck_online_direct_recovery_test
 {
@@ -50,7 +51,7 @@ namespace ck_online_direct_recovery_test
         TWeakObjectPtr<UWorld> EditorWorldBefore;
         FString EditorPackageBefore;
         TWeakObjectPtr<UGameInstance> OwnedGameInstance;
-        UWorld* InitialLobbyWorld = nullptr; // Identity only; re-resolve across travel.
+        FObjectKey InitialLobbyWorldKey; // Object index/serial survives address reuse across travel.
         TSharedPtr<ck::direct::FFeature> Feature;
         TSharedPtr<ck::FOnlineServiceHost> Host;
         FCk_Handle_OnlineDirect HostHandle;
@@ -293,7 +294,7 @@ namespace ck_online_direct_recovery_test
                      "ip=%s error=%s bridge=%s directStarted=%d directState=%d"),
                 *Label,
                 IsValid(World) ? *UWorld::RemovePIEPrefix(World->GetPackage()->GetName()) : TEXT("unavailable"),
-                IsValid(World) && World->HasBegunPlay(), World == Fixture->InitialLobbyWorld,
+                IsValid(World) && World->HasBegunPlay(), IsValid(World) && FObjectKey(World) == Fixture->InitialLobbyWorldKey,
                 IsValid(Mode) ? *Mode->GetClass()->GetPathName() : TEXT("unavailable"),
                 IsValid(World) ? static_cast<int32>(World->GetNetMode()) : -1,
                 IsValid(World) && World->GetNetDriver() != nullptr, Fixture->HasPendingNetGame(),
@@ -380,7 +381,6 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
                 Ready->GetAuthGameMode()->GetClass()->GetPathName() != LobbyModePath)
             { return false; }
             F.PIEInstance = Found;
-            F.InitialLobbyWorld = Ready;
             F.OwnedGameInstance = Ready->GetGameInstance();
             auto* Gym = F.Gym();
             auto* Direct = F.Direct();
@@ -390,6 +390,7 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
         {
             auto* Gym = F.Gym();
             auto* Direct = F.Direct();
+            F.InitialLobbyWorldKey = FObjectKey(F.World());
             TestTrue(TEXT("single PIE world has same owning GameInstance"),
                 F.World()->GetGameInstance() == F.GameInstance());
             TestTrue(TEXT("PIE map override leaves resident editor map unchanged"),
@@ -526,7 +527,7 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
             const auto WrongEndpoint = FString::Printf(TEXT("127.0.0.2:%d"), F.SilentPort);
             TestFalse(TEXT("wrong-address gameplay target rejects before travel"),
                 F.Ip()->Request_JoinFromReadyLobby(WrongEndpoint));
-            TestTrue(TEXT("rejected target keeps original Lobby world"), F.World() == F.InitialLobbyWorld);
+            TestTrue(TEXT("rejected target keeps original Lobby world"), FObjectKey(F.World()) == F.InitialLobbyWorldKey);
             TestTrue(TEXT("rejected target leaves IP helper Offline without bridge"),
                 F.Ip()->Get_IsOffline() && !F.Ip()->Get_HasLobbyBridgeContext());
             TestTrue(TEXT("rejected target creates no driver or pending net game"),
@@ -548,7 +549,7 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
         {
             auto* World = F.World();
             auto* Ip = F.Ip();
-            if (!IsValid(World) || !World->HasBegunPlay() || World == F.InitialLobbyWorld ||
+            if (!IsValid(World) || !World->HasBegunPlay() || FObjectKey(World) == F.InitialLobbyWorldKey ||
                 World->GetNetMode() != NM_Standalone || World->GetNetDriver() != nullptr ||
                 F.HasPendingNetGame() || !IsValid(Ip) || !Ip->Get_IsOffline())
             { return false; }
