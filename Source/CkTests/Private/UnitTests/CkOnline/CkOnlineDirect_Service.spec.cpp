@@ -100,13 +100,15 @@ namespace ck_test_online_direct
         ck::test::ip::FLobbyBinding HostBinding;
         ck::test::ip::FLobbyBinding ClientBinding;
         FString Descriptor;
-        double HostedAt = 0.0;
+        FString OldDescriptor;
+        // Expiry uses controlled service time; latent timeouts retain the real clock.
+        double MonotonicNow = -1.0;
         bool SawClientJoining = false;
         bool PublishedClientAddressWhileJoining = false;
 
         auto Tick() -> void
         {
-            const auto Now = FPlatformTime::Seconds();
+            const auto Now = MonotonicNow >= 0.0 ? MonotonicNow : FPlatformTime::Seconds();
             Server.Tick(Now);
             Client.Tick(Now);
             const auto ClientSnapshot = Client.Snapshot();
@@ -182,6 +184,44 @@ namespace ck_test_online_direct
             return Message.Get_Sequence() == InSequence && Message.Get_SenderId() == InSenderId
                 && Message.Get_SenderName() == InSenderName && Message.Get_Text() == InText;
         });
+    }
+
+    auto ExpectLobbyContinuity(FAutomationTestBase& Test, const FCk_OnlineDirect_Snapshot& Before,
+        const FCk_OnlineDirect_Snapshot& After) -> void
+    {
+        Test.TestEqual(TEXT("lobby state is preserved"), After.Get_State(), Before.Get_State());
+        Test.TestEqual(TEXT("generation is preserved"), After.Get_ServiceGeneration(), Before.Get_ServiceGeneration());
+        Test.TestEqual(TEXT("epoch is preserved"), After.Get_LobbyEpoch(), Before.Get_LobbyEpoch());
+        Test.TestEqual(TEXT("local identity is preserved"), After.Get_LocalMemberId(), Before.Get_LocalMemberId());
+        Test.TestEqual(TEXT("host address is preserved"), After.Get_HostAddress(), Before.Get_HostAddress());
+        Test.TestEqual(TEXT("last error is preserved"), After.Get_LastError(), Before.Get_LastError());
+        Test.TestEqual(TEXT("roster count is preserved"), After.Get_Members().Num(), Before.Get_Members().Num());
+        for (int32 I = 0; I < FMath::Min(Before.Get_Members().Num(), After.Get_Members().Num()); ++I)
+        {
+            const auto& Expected = Before.Get_Members()[I];
+            const auto& Actual = After.Get_Members()[I];
+            Test.TestEqual(TEXT("ordered member ID is preserved"), Actual.Get_Id(), Expected.Get_Id());
+            Test.TestEqual(TEXT("ordered member name is preserved"), Actual.Get_Name(), Expected.Get_Name());
+            Test.TestEqual(TEXT("ordered readiness is preserved"), Actual.Get_Ready(), Expected.Get_Ready());
+        }
+        Test.TestEqual(TEXT("transcript count is preserved"), After.Get_Messages().Num(), Before.Get_Messages().Num());
+        for (int32 I = 0; I < FMath::Min(Before.Get_Messages().Num(), After.Get_Messages().Num()); ++I)
+        {
+            const auto& Expected = Before.Get_Messages()[I];
+            const auto& Actual = After.Get_Messages()[I];
+            Test.TestEqual(TEXT("ordered sequence is preserved"), Actual.Get_Sequence(), Expected.Get_Sequence());
+            Test.TestEqual(TEXT("ordered sender ID is preserved"), Actual.Get_SenderId(), Expected.Get_SenderId());
+            Test.TestEqual(TEXT("ordered sender name is preserved"), Actual.Get_SenderName(), Expected.Get_SenderName());
+            Test.TestEqual(TEXT("ordered text is preserved"), Actual.Get_Text(), Expected.Get_Text());
+        }
+    }
+
+    auto ExpectSnapshotUnchanged(FAutomationTestBase& Test, const FCk_OnlineDirect_Snapshot& Before,
+        const FCk_OnlineDirect_Snapshot& After) -> void
+    {
+        ExpectLobbyContinuity(Test, Before, After);
+        Test.TestTrue(TEXT("rejected renewal preserves invite"), After.Get_JoinDescriptor() == Before.Get_JoinDescriptor());
+        Test.TestEqual(TEXT("rejected renewal preserves revision"), After.Get_Revision(), Before.Get_Revision());
     }
 }
 
@@ -571,6 +611,31 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
                 TestFalse(TEXT("Lobby and Chat checkpoints omit invite capability"),
                     LobbyLine.Contains(InviteParts[3]) || ChatLine.Contains(InviteParts[3]));
             }
+            const auto HostBeforeRenewal = F.Server.Snapshot();
+            const auto ClientBeforeRenewal = F.Client.Snapshot();
+            F.OldDescriptor = F.Descriptor;
+            TestTrue(TEXT("host renewal queues with two ready members and two messages"),
+                F.Server.Request(ECk_OnlineDirect_Action::RenewInvite));
+            TestFalse(TEXT("renewal waits for scheduler"), F.Server.Completed());
+            F.Server.Tick(FPlatformTime::Seconds());
+            F.Server.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
+            const auto Renewed = F.Server.Snapshot();
+            F.Descriptor = Renewed.Get_JoinDescriptor();
+            TestTrue(TEXT("renewal rotates a valid invite"), F.Descriptor != F.OldDescriptor &&
+                ck::direct::FTransport::ValidateDescriptor(F.Descriptor));
+            TestEqual(TEXT("renewal publishes exactly one revision"), Renewed.Get_Revision(), HostBeforeRenewal.Get_Revision() + 1);
+            ExpectLobbyContinuity(*this, HostBeforeRenewal, Renewed);
+            F.Tick();
+            F.Server.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
+            TestEqual(TEXT("idle tick does not republish renewal"), F.Server.Snapshot().Get_Revision(), Renewed.Get_Revision());
+            ExpectSnapshotUnchanged(*this, ClientBeforeRenewal, F.Client.Snapshot());
+            TestTrue(TEXT("renewal preserves both live ready bindings"),
+                F.HostBinding.Matches(F.Server.Snapshot()) && F.ClientBinding.Matches(F.Client.Snapshot()));
+            TestTrue(TEXT("Joined renewal queues for terminal rejection"), F.Client.Request(ECk_OnlineDirect_Action::RenewInvite));
+            F.Client.Tick(FPlatformTime::Seconds());
+            F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::InvalidState);
+            ExpectSnapshotUnchanged(*this, ClientBeforeRenewal, F.Client.Snapshot());
+            ExpectSnapshotUnchanged(*this, Renewed, F.Server.Snapshot());
             TestTrue(TEXT("client leave request admitted"), F.Client.Request(ECk_OnlineDirect_Action::Leave));
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("leave closes client and removes host roster member"),
@@ -585,7 +650,23 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
                 F.Client.Snapshot().Get_HostAddress(), FString{});
             TestFalse(TEXT("old peer is absent from host roster"),
                 HasMember(F.Server.Snapshot(), F.FirstClientId, TEXT("PrivateClientName"), true));
-            TestTrue(TEXT("same descriptor rejoin admitted"), F.Client.Request(ECk_OnlineDirect_Action::Join, F.Descriptor));
+            const auto Offline = F.Client.Snapshot();
+            const auto HostAfterLeave = F.Server.Snapshot();
+            TestTrue(TEXT("Offline renewal queues for terminal rejection"), F.Client.Request(ECk_OnlineDirect_Action::RenewInvite));
+            F.Client.Tick(FPlatformTime::Seconds());
+            F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::InvalidState);
+            ExpectSnapshotUnchanged(*this, Offline, F.Client.Snapshot());
+            ExpectSnapshotUnchanged(*this, HostAfterLeave, F.Server.Snapshot());
+            TestTrue(TEXT("old invite join queues with available capacity"),
+                F.WrongKey.Request(ECk_OnlineDirect_Action::Join, F.OldDescriptor));
+        }));
+    ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("revoked invite rejects on TCP with room available"),
+        [](FFixture& F) { return F.WrongKey.Completed(); }, [this](FFixture& F)
+        {
+            F.WrongKey.ExpectCompletion(*this, ECk_OnlineDirect_Result::Unauthorized);
+            TestEqual(TEXT("revoked invite admits no member"), F.Server.Snapshot().Get_Members().Num(), 1);
+            TestEqual(TEXT("revoked invite preserves host epoch"), F.Server.Snapshot().Get_LobbyEpoch(), F.Epoch);
+            TestTrue(TEXT("renewed descriptor rejoin admitted"), F.Client.Request(ECk_OnlineDirect_Action::Join, F.Descriptor));
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("rejoin has new identity in same lobby epoch"),
         [](FFixture& F)
@@ -628,8 +709,9 @@ bool FCkTest_OnlineDirect_ExpiryAndAdmission::RunTest(const FString& Parameters)
     using namespace ck_test_online_direct;
     auto Fixture = MakeShared<FFixture>();
     Fixture->Test = this;
-    if (!TestTrue(TEXT("short-lived host starts"), Fixture->Server.Start(TEXT("ExpiryHost"), 17892, 0.1)) ||
-        !TestTrue(TEXT("late joiner starts"), Fixture->Client.Start(TEXT("Late"), 17893)))
+    Fixture->MonotonicNow = FPlatformTime::Seconds();
+    if (!TestTrue(TEXT("short-lived host starts"), Fixture->Server.Start(TEXT("ExpiryHost"), 17892, 0.1, Fixture->MonotonicNow)) ||
+        !TestTrue(TEXT("late joiner starts"), Fixture->Client.Start(TEXT("Late"), 17893, 30.0, Fixture->MonotonicNow)))
     { Fixture->Stop(); return false; }
 
     auto BadJoin = FCk_Request_OnlineDirect{};
@@ -655,12 +737,11 @@ bool FCkTest_OnlineDirect_ExpiryAndAdmission::RunTest(const FString& Parameters)
             F.Epoch = F.Server.Snapshot().Get_LobbyEpoch();
             TestEqual(TEXT("short-lived host publishes its address"),
                 F.Server.Snapshot().Get_HostAddress(), FString(TEXT("127.0.0.1")));
-            F.HostedAt = FPlatformTime::Seconds();
+            F.MonotonicNow += 0.12;
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("invite lifetime elapses without a join"),
         [](FFixture& F)
-        { return F.Server.Snapshot().Get_State() == ECk_OnlineDirect_State::Hosting &&
-            FPlatformTime::Seconds() - F.HostedAt >= 0.12; },
+        { return F.Server.Snapshot().Get_State() == ECk_OnlineDirect_State::Hosting; },
         [this](FFixture& F)
         {
             TestTrue(TEXT("late join request admitted for wire expiry result"),
@@ -675,6 +756,36 @@ bool FCkTest_OnlineDirect_ExpiryAndAdmission::RunTest(const FString& Parameters)
             TestEqual(TEXT("expired join has no local member ID"), F.Client.Snapshot().Get_LocalMemberId(), FGuid{});
             TestEqual(TEXT("expired join preserves one-member host roster"), F.Server.Snapshot().Get_Members().Num(), 1);
             TestEqual(TEXT("expired invite does not rotate host epoch"), F.Server.Snapshot().Get_LobbyEpoch(), F.Epoch);
+            const auto BeforeRenewal = F.Server.Snapshot();
+            F.OldDescriptor = F.Descriptor;
+            TestTrue(TEXT("expired host renewal queues"), F.Server.Request(ECk_OnlineDirect_Action::RenewInvite));
+            F.Tick();
+            F.Server.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
+            F.Descriptor = F.Server.Snapshot().Get_JoinDescriptor();
+            TestTrue(TEXT("expired renewal rotates valid invite"), F.Descriptor != F.OldDescriptor &&
+                ck::direct::FTransport::ValidateDescriptor(F.Descriptor));
+            TestEqual(TEXT("expired renewal publishes one revision"), F.Server.Snapshot().Get_Revision(), BeforeRenewal.Get_Revision() + 1);
+            ExpectLobbyContinuity(*this, BeforeRenewal, F.Server.Snapshot());
+            TestTrue(TEXT("old expired invite retry queues"), F.Client.Request(ECk_OnlineDirect_Action::Join, F.OldDescriptor));
+        }));
+    ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("expired old invite is revoked over TCP"),
+        [](FFixture& F) { return F.Client.Completed(); }, [this](FFixture& F)
+        {
+            F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Unauthorized);
+            TestEqual(TEXT("revoked expired invite admits no member"), F.Server.Snapshot().Get_Members().Num(), 1);
+            TestTrue(TEXT("fresh short-lived invite join queues"), F.Client.Request(ECk_OnlineDirect_Action::Join, F.Descriptor));
+        }));
+    ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("renewed short-lived invite joins over TCP in same epoch"),
+        [](FFixture& F)
+        {
+            return F.Client.Completed() && F.Client.Snapshot().Get_State() == ECk_OnlineDirect_State::Joined &&
+                F.Server.Snapshot().Get_Members().Num() == 2 && F.Client.Snapshot().Get_Members().Num() == 2;
+        }, [this](FFixture& F)
+        {
+            F.Client.ExpectCompletion(*this, ECk_OnlineDirect_Result::Succeeded);
+            TestEqual(TEXT("renewed expiry client retains host epoch"), F.Client.Snapshot().Get_LobbyEpoch(), F.Epoch);
+            TestEqual(TEXT("renewed expiry host retains epoch"), F.Server.Snapshot().Get_LobbyEpoch(), F.Epoch);
+            TestTrue(TEXT("renewed expiry join has valid identity"), F.Client.Snapshot().Get_LocalMemberId().IsValid());
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStop(Fixture));
 
@@ -874,6 +985,15 @@ bool FCkTest_OnlineDirect_ExtremeClock::RunTest(const FString& Parameters)
             TestTrue(TEXT("rejected ready never changed host roster"),
                 HasMember(F.Server.Snapshot(), ClientId, TEXT("ClockClient"), false));
             TestEqual(TEXT("rejected text never reached host transcript"), F.Server.Snapshot().Get_Messages().Num(), 0);
+
+            const auto BeforeRenewal = F.Server.Snapshot();
+            TestTrue(TEXT("host renewal queues before extreme monotonic tick"), F.Server.Request(ECk_OnlineDirect_Action::RenewInvite));
+            F.Server.Tick(ExtremeTime);
+            F.Server.ExpectCompletion(*this, ECk_OnlineDirect_Result::InvalidInput);
+            ExpectSnapshotUnchanged(*this, BeforeRenewal, F.Server.Snapshot());
+            F.Server.Tick(ExtremeTime);
+            F.Server.ExpectCompletion(*this, ECk_OnlineDirect_Result::InvalidInput);
+            ExpectSnapshotUnchanged(*this, BeforeRenewal, F.Server.Snapshot());
         }));
     ADD_LATENT_AUTOMATION_COMMAND(FStop(Fixture));
     return true;

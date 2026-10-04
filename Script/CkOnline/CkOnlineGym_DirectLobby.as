@@ -102,7 +102,7 @@ namespace CkOnlineDirectGym
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Service generation", Snapshot.Get_ServiceGeneration().ToString()))); // 4
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Lobby epoch", Snapshot.Get_LobbyEpoch().ToString()))); // 5
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Local member ID", Snapshot.Get_LocalMemberId().ToString()))); // 6
-        Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Capacity / invite expiry", "4 members / 300 seconds from host issue"))); // 7
+        Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Capacity / invite expiry", "4 members / 300 seconds from host J or completed Y"))); // 7
         FString HostAddress = Snapshot.Get_HostAddress();
         FString ControlEndpoint = Active
             ? (HostAddress.Len() > 0 ? f"{HostAddress}:7788" : "none (missing active host address)")
@@ -153,6 +153,9 @@ namespace CkOnlineDirectGym
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Full bridge error", BridgeError))); // 40
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Gameplay target",
             HostAddress.Len() > 0 ? f"{HostAddress}:7787" : "none (no active lobby host)"))); // 41
+        Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::Y, "Y", "Renew host invite",
+            Snapshot.Get_State() == ECk_OnlineDirect_State::Hosting && Probe.Get_IsOwnedProfile()
+                && Probe.Get_IsEditing() == false))); // 42
 
         if (InChat)
         {
@@ -207,6 +210,7 @@ namespace CkOnlineDirectGym
             else if (Snapshot.Get_State() == ECk_OnlineDirect_State::Joined)
             { Ip.Request_JoinFromReadyLobby(f"{Snapshot.Get_HostAddress()}:7787"); }
         }
+        else if (InRowIndex == 42) { Probe.Request_RenewInvite(); }
         else if (InRowIndex == 34)
         {
             if (ck::IsValid(InHud)) { InHud.Request_ToggleDetails(); }

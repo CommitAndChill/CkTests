@@ -10,6 +10,10 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
     private FGuid _StartedGeneration;
     private bool _OwnsTestService = false;
     private int32 _SignalCount = 0;
+    private bool _OwnsDirectTestProfile = false;
+    private FGuid _DirectGeneration;
+    private int32 _DirectCompletionBefore = 0;
+    private FCk_OnlineDirect_Snapshot _BeforeRenewal;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
@@ -17,6 +21,13 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         Add_Step("start native fake service", n"Step_Start");
         Add_Step_WaitUntil("service has completed the AS request", n"Check_Completed");
         Add_Step("verify reflected result", n"Step_Verify");
+        Add_Step("start real reflected Direct host", n"Step_StartDirect");
+        Add_Step_WaitUntil("Direct host completes", n"Check_DirectCompleted");
+        Add_Step("mark real Direct host ready", n"Step_ReadyDirect");
+        Add_Step_WaitUntil("Direct ready completes", n"Check_DirectCompleted");
+        Add_Step("renew invite through reflected action", n"Step_RenewDirect");
+        Add_Step_WaitUntil("Direct renewal completes", n"Check_DirectCompleted");
+        Add_Step("verify reflected invite renewal", n"Step_VerifyDirect");
         Run_Steps(InHandle);
     }
 
@@ -38,6 +49,11 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
             && Probe.Get_Diagnostics().Get_Generation() == _StartedGeneration)
         { Probe.Request_Stop(); }
         _OwnsTestService = false;
+        auto Direct = Subsystem::GetGameInstanceSubsystem(UCk_OnlineDirect_Subsystem_UE);
+        if (_OwnsDirectTestProfile && ck::IsValid(Direct) && Direct.Get_IsStarted()
+            && Direct.Get_Snapshot().Get_ServiceGeneration() == _DirectGeneration)
+        { Direct.Request_Stop(); }
+        _OwnsDirectTestProfile = false;
     }
 
     UFUNCTION()
@@ -137,6 +153,8 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         FString SyntheticInvite = "ckd:1|127.0.0.1:17901|11111111111111111111111111111111|22222222222222222222222222222222";
         Assert_False(Gym.Request_JoinInvite(SyntheticInvite),
             "valid invite cannot replace a running foreign Online service");
+        Assert_False(Gym.Request_RenewInvite(),
+            "invite renewal cannot replace or mutate a running foreign Online service");
         Assert_False(Direct.Get_IsStarted() || Gym.Get_IsOwnedProfile(),
             "foreign-service rejection creates no Direct profile or gym ownership");
         Assert_True(Direct.Get_Snapshot().Get_Revision() == DirectBefore.Get_Revision() &&
@@ -162,6 +180,134 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         Assert_True(Recovery.Get_LastError().Len() > 0,
             "rejected recovery actions expose their failure to the consumer");
 
+        DoCleanup();
+    }
+
+    UFUNCTION()
+    private void Step_StartDirect(FCk_Handle InHandle, FInstancedStruct InPayload)
+    {
+        auto Direct = Subsystem::GetGameInstanceSubsystem(UCk_OnlineDirect_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Direct) || Direct.Get_IsStarted())
+        {
+            FinishFailure("AS Direct renewal needs an unused Direct facade");
+            return;
+        }
+        auto Spec = FCk_OnlineDirect_Spec();
+        Spec.Set_Name("InviteAsHost");
+        Spec.Set_Port(17904);
+        if (!Direct.Request_Start(Spec))
+        {
+            FinishFailure("AS Direct profile could not start after owned fake cleanup");
+            return;
+        }
+        _DirectGeneration = Direct.Get_Snapshot().Get_ServiceGeneration();
+        _OwnsDirectTestProfile = true;
+        _DirectCompletionBefore = Direct.Get_CompletedCount();
+        if (!Direct.Request(ECk_OnlineDirect_Action::Host, "", false))
+        {
+            DoCleanup();
+            FinishFailure("AS Direct Host request was not admitted");
+        }
+    }
+
+    UFUNCTION()
+    private void Check_DirectCompleted(FCk_Handle InHandle, FCk_SharedBool OutResult,
+        FInstancedStruct InPayload)
+    {
+        auto Direct = Subsystem::GetGameInstanceSubsystem(UCk_OnlineDirect_Subsystem_UE);
+        auto Res = OutResult;
+        Res.Set(ck::IsValid(Direct) && Direct.Get_IsStarted()
+            && Direct.Get_Snapshot().Get_ServiceGeneration() == _DirectGeneration
+            && Direct.Get_CompletedCount() > _DirectCompletionBefore);
+    }
+
+    UFUNCTION()
+    private void Step_ReadyDirect(FCk_Handle InHandle, FInstancedStruct InPayload)
+    {
+        auto Direct = Subsystem::GetGameInstanceSubsystem(UCk_OnlineDirect_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Direct) || !Direct.Get_IsStarted()
+            || Direct.Get_Snapshot().Get_ServiceGeneration() != _DirectGeneration
+            || Direct.Get_LastCompletion().Get_Result() != ECk_OnlineDirect_Result::Succeeded
+            || Direct.Get_Snapshot().Get_State() != ECk_OnlineDirect_State::Hosting)
+        {
+            DoCleanup();
+            FinishFailure("AS Direct Host failed; verify port 17904 is available");
+            return;
+        }
+        Assert_True(Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
+            "reflected Host has one terminal completion");
+        _DirectCompletionBefore = Direct.Get_CompletedCount();
+        if (!Direct.Request(ECk_OnlineDirect_Action::SetReady, "", true))
+        {
+            DoCleanup();
+            FinishFailure("AS Direct SetReady request was not admitted");
+        }
+    }
+
+    UFUNCTION()
+    private void Step_RenewDirect(FCk_Handle InHandle, FInstancedStruct InPayload)
+    {
+        auto Direct = Subsystem::GetGameInstanceSubsystem(UCk_OnlineDirect_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Direct) || !Direct.Get_IsStarted()
+            || Direct.Get_Snapshot().Get_ServiceGeneration() != _DirectGeneration
+            || Direct.Get_LastCompletion().Get_Result() != ECk_OnlineDirect_Result::Succeeded)
+        {
+            DoCleanup();
+            FinishFailure("AS Direct SetReady failed before renewal");
+            return;
+        }
+        _BeforeRenewal = Direct.Get_Snapshot();
+        auto Members = _BeforeRenewal.Get_Members();
+        if (Members.Num() != 1 || !Members[0].Get_Ready())
+        {
+            DoCleanup();
+            FinishFailure("AS Direct host did not publish its actual ready member");
+            return;
+        }
+        Assert_True(Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
+            "reflected SetReady has one terminal completion");
+        _DirectCompletionBefore = Direct.Get_CompletedCount();
+        if (!Direct.Request(ECk_OnlineDirect_Action::RenewInvite, "", false))
+        {
+            DoCleanup();
+            FinishFailure("AS Direct RenewInvite request was not admitted");
+        }
+    }
+
+    UFUNCTION()
+    private void Step_VerifyDirect(FCk_Handle InHandle, FInstancedStruct InPayload)
+    {
+        auto Direct = Subsystem::GetGameInstanceSubsystem(UCk_OnlineDirect_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Direct) || !Direct.Get_IsStarted()
+            || Direct.Get_Snapshot().Get_ServiceGeneration() != _DirectGeneration)
+        {
+            DoCleanup();
+            FinishFailure("AS Direct ownership changed before renewal readback");
+            return;
+        }
+        auto After = Direct.Get_Snapshot();
+        Assert_True(Direct.Get_LastCompletion().Get_Result() == ECk_OnlineDirect_Result::Succeeded
+            && Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
+            "reflected RenewInvite succeeds with one terminal completion");
+        Assert_True(After.Get_JoinDescriptor().Len() > 0
+            && After.Get_JoinDescriptor() != _BeforeRenewal.Get_JoinDescriptor(),
+            "reflected renewal replaces the host invite without logging its secret");
+        Assert_True(After.Get_State() == ECk_OnlineDirect_State::Hosting
+            && After.Get_ServiceGeneration() == _BeforeRenewal.Get_ServiceGeneration()
+            && After.Get_LobbyEpoch() == _BeforeRenewal.Get_LobbyEpoch()
+            && After.Get_LocalMemberId() == _BeforeRenewal.Get_LocalMemberId()
+            && After.Get_HostAddress() == _BeforeRenewal.Get_HostAddress()
+            && After.Get_Revision() == _BeforeRenewal.Get_Revision() + 1,
+            "reflected renewal preserves the live lobby and publishes one revision");
+        auto Members = After.Get_Members();
+        Assert_True(Members.Num() == 1 && After.Get_Messages().Num() == 0,
+            "reflected renewal preserves roster and transcript counts");
+        if (Members.Num() == 1)
+        {
+            Assert_True(Members[0].Get_Id() == _BeforeRenewal.Get_LocalMemberId()
+                && Members[0].Get_Ready(),
+                "reflected renewal preserves the existing ready member");
+        }
         DoCleanup();
         FinishSuccess();
     }

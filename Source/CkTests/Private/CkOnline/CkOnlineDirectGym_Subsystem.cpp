@@ -34,6 +34,7 @@ auto ActionName(const ECk_OnlineDirect_Action InAction) -> const TCHAR*
     switch (InAction)
     {
         case ECk_OnlineDirect_Action::Host: return TEXT("Host");
+        case ECk_OnlineDirect_Action::RenewInvite: return TEXT("RenewInvite");
         case ECk_OnlineDirect_Action::Join: return TEXT("Join");
         case ECk_OnlineDirect_Action::Leave: return TEXT("Leave");
         case ECk_OnlineDirect_Action::SetReady: return TEXT("SetReady");
@@ -135,6 +136,18 @@ auto UCkOnlineDirectGym_Subsystem::Request_Host() -> bool
 {
     if (!EnsureOwnedStarted()) { return false; }
     return Queue(ECk_OnlineDirect_Action::Host);
+}
+
+auto UCkOnlineDirectGym_Subsystem::Request_RenewInvite() -> bool
+{
+    if (!IsInGameThread() || _IsDeinitializing) { return Reject(TEXT("Invite renewal must run on the active game thread.")); }
+    if (_IsEditing) { return Reject(TEXT("Finish or cancel the current text edit first.")); }
+    auto* Service = GetService();
+    if (!IsValid(Service) || !Get_IsOwnedProfile())
+    { return Reject(TEXT("This gym does not own an active Direct profile.")); }
+    if (Service->Get_Snapshot().Get_State() != ECk_OnlineDirect_State::Hosting)
+    { return Reject(TEXT("Only the host can renew the active lobby invite.")); }
+    return Queue(ECk_OnlineDirect_Action::RenewInvite);
 }
 
 auto UCkOnlineDirectGym_Subsystem::Request_Join() -> bool

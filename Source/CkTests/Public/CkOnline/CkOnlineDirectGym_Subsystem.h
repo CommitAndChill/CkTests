@@ -28,6 +28,8 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_CopyDescriptor();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
+    bool Request_RenewInvite();
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_Host();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_Join();
