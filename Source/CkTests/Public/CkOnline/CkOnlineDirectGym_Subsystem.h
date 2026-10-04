@@ -32,9 +32,13 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_Join();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
+    bool Request_JoinCopiedInvite();
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_ToggleReady();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_SendChat();
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
+    bool Request_EditChatAndSend();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_Leave();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
@@ -77,6 +81,7 @@ private:
     auto EnsureOwnedStarted() -> bool;
     auto Queue(ECk_OnlineDirect_Action InAction, const FString& InText = FString(), bool InReady = false) -> bool;
     auto Reject(const FString& InReason) -> bool;
+    auto OpenTextEditor(ECkOnlineDirectGym_TextField InField, bool InSendOnEnter) -> bool;
     auto CommitText(const FString& InText) -> void;
     auto CloseEditor() -> void;
     auto OnEditorClosed() -> void;
@@ -94,6 +99,7 @@ private:
     int32 _SlateUserIndex = 0;
     bool _OwnsProfile = false;
     bool _IsEditing = false;
+    bool _SendOnEnter = false;
     bool _IsDeinitializing = false;
     ECkOnlineDirectGym_TextField _EditingField = ECkOnlineDirectGym_TextField::Name;
     TWeakPtr<SWidget> _PreviousFocus;

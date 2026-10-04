@@ -3,6 +3,7 @@
 
 #include "CkOnline/CkOnline_Log.h"
 #include "CkOnline/Direct/CkOnlineDirect_Subsystem.h"
+#include "CkOnline/Direct/CkOnlineDirect_Transport.h"
 #include "CkOnline/Subsystem/CkOnline_Subsystem.h"
 
 #include "Engine/GameInstance.h"
@@ -143,6 +144,51 @@ auto UCkOnlineDirectGym_Subsystem::Request_Join() -> bool
     return Queue(ECk_OnlineDirect_Action::Join, _JoinDescriptor);
 }
 
+auto UCkOnlineDirectGym_Subsystem::Request_JoinCopiedInvite() -> bool
+{
+    if (!IsInGameThread() || _IsDeinitializing) { return Reject(TEXT("Join must run on the active game thread.")); }
+    if (_IsEditing) { return Reject(TEXT("Finish or cancel the current text edit first.")); }
+    auto* Service = GetService();
+    if (!IsValid(Service)) { return Reject(TEXT("Direct TCP service subsystem unavailable.")); }
+    if (Service->Get_IsStarted())
+    {
+        if (!Get_IsOwnedProfile()) { return Reject(TEXT("This gym does not own the active Direct profile.")); }
+        const auto State = Service->Get_Snapshot().Get_State();
+        if (State != ECk_OnlineDirect_State::Offline && State != ECk_OnlineDirect_State::Failed)
+        { return Reject(TEXT("Leave the current Direct lobby before joining another.")); }
+    }
+    FString Invite;
+    FPlatformApplicationMisc::ClipboardPaste(Invite);
+    if (Invite.IsEmpty() || Invite.Len() > 512 || !ck::direct::FTransport::ValidateDescriptor(Invite))
+    { return Reject(TEXT("Clipboard does not contain a valid Direct join invite (512 characters maximum).")); }
+    const bool WasStarted = Service->Get_IsStarted();
+    if (!EnsureOwnedStarted()) { return false; }
+    const auto StartedGeneration = _OwnedGeneration;
+    const auto RollbackNewProfile = [this, Service, WasStarted, StartedGeneration]()
+    {
+        if (WasStarted || _OwnedGeneration != StartedGeneration) { return; }
+        const auto Error = _LastError;
+        if (Get_IsOwnedProfile()) { Service->Request_Stop(); }
+        _OwnsProfile = false;
+        _OwnedGeneration.Invalidate();
+        _LastError = Error;
+    };
+    const auto State = Service->Get_Snapshot().Get_State();
+    if (State != ECk_OnlineDirect_State::Offline && State != ECk_OnlineDirect_State::Failed)
+    {
+        Reject(TEXT("Leave the current Direct lobby before joining another."));
+        RollbackNewProfile();
+        return false;
+    }
+    if (!Queue(ECk_OnlineDirect_Action::Join, Invite))
+    {
+        RollbackNewProfile();
+        return false;
+    }
+    _JoinDescriptor = MoveTemp(Invite);
+    return true;
+}
+
 auto UCkOnlineDirectGym_Subsystem::Request_ToggleReady() -> bool
 {
     return Queue(ECk_OnlineDirect_Action::SetReady, FString(), !Get_IsLocalReady());
@@ -152,6 +198,19 @@ auto UCkOnlineDirectGym_Subsystem::Request_SendChat() -> bool
 {
     if (_ChatDraft.IsEmpty()) { return Reject(TEXT("Type a chat draft with B first.")); }
     return Queue(ECk_OnlineDirect_Action::SendText, _ChatDraft);
+}
+
+auto UCkOnlineDirectGym_Subsystem::Request_EditChatAndSend() -> bool
+{
+    if (!IsInGameThread() || _IsDeinitializing) { return Reject(TEXT("Chat input requires the active game thread.")); }
+    if (_IsEditing) { return Reject(TEXT("Finish or cancel the current text edit first.")); }
+    auto* Service = GetService();
+    if (!IsValid(Service) || !Get_IsOwnedProfile())
+    { return Reject(TEXT("This gym does not own an active Direct profile.")); }
+    const auto State = Service->Get_Snapshot().Get_State();
+    if (State != ECk_OnlineDirect_State::Hosting && State != ECk_OnlineDirect_State::Joined)
+    { return Reject(TEXT("Join or host a Direct lobby before sending chat.")); }
+    return OpenTextEditor(ECkOnlineDirectGym_TextField::ChatDraft, true);
 }
 
 auto UCkOnlineDirectGym_Subsystem::Request_Leave() -> bool
@@ -286,9 +345,19 @@ auto UCkOnlineDirectGym_Subsystem::Request_CopyDescriptor() -> bool
 }
 
 auto UCkOnlineDirectGym_Subsystem::Request_EditText(const ECkOnlineDirectGym_TextField InField) -> bool
+{ return OpenTextEditor(InField, false); }
+
+auto UCkOnlineDirectGym_Subsystem::OpenTextEditor(const ECkOnlineDirectGym_TextField InField,
+    const bool InSendOnEnter) -> bool
 {
+    if (!IsInGameThread() || _IsDeinitializing) { return Reject(TEXT("Slate text input requires the active game thread.")); }
     if (_IsEditing) { return Reject(TEXT("Finish or cancel the current text edit first.")); }
     if (!FSlateApplication::IsInitialized()) { return Reject(TEXT("Slate text input is unavailable.")); }
+    if (InField != ECkOnlineDirectGym_TextField::Name &&
+        InField != ECkOnlineDirectGym_TextField::AdvertisedAddress &&
+        InField != ECkOnlineDirectGym_TextField::JoinDescriptor &&
+        InField != ECkOnlineDirectGym_TextField::ChatDraft)
+    { return Reject(TEXT("Unknown Direct text field.")); }
     _EditingField = InField;
     FString Initial;
     switch (InField)
@@ -306,7 +375,8 @@ auto UCkOnlineDirectGym_Subsystem::Request_EditText(const ECkOnlineDirectGym_Tex
     const TWeakObjectPtr<UCkOnlineDirectGym_Subsystem> WeakSelf(this);
     TSharedPtr<SEditableTextBox> NewBox;
     const TSharedRef<SWindow> NewWindow = SNew(SWindow)
-        .Title(FText::FromString(FString::Printf(TEXT("Online Direct: %s (Enter save, Esc cancel)"), FieldName(InField))))
+        .Title(FText::FromString(FString::Printf(TEXT("Online Direct: %s (%s, Esc cancel)"),
+            FieldName(InField), InSendOnEnter ? TEXT("Enter send") : TEXT("Enter save"))))
         .ClientSize(FVector2D(640.0, 80.0))
         .SupportsMaximize(false)
         .SupportsMinimize(false)
@@ -331,6 +401,7 @@ auto UCkOnlineDirectGym_Subsystem::Request_EditText(const ECkOnlineDirectGym_Tex
     }));
     _InputWindow = NewWindow;
     _InputBox = NewBox;
+    _SendOnEnter = InSendOnEnter;
     _IsEditing = true;
     Slate.AddWindow(NewWindow);
     Slate.SetUserFocus(_SlateUserIndex, NewBox.ToSharedRef(), EFocusCause::SetDirectly);
@@ -345,6 +416,13 @@ auto UCkOnlineDirectGym_Subsystem::CommitText(const FString& InText) -> void
         CloseEditor();
         return;
     }
+    const bool SendOnEnter = _SendOnEnter && _EditingField == ECkOnlineDirectGym_TextField::ChatDraft;
+    if (SendOnEnter && InText.IsEmpty())
+    {
+        _LastError = TEXT("Chat text is empty; the saved draft was kept.");
+        CloseEditor();
+        return;
+    }
     switch (_EditingField)
     {
         case ECkOnlineDirectGym_TextField::Name: _Name = InText; break;
@@ -354,6 +432,7 @@ auto UCkOnlineDirectGym_Subsystem::CommitText(const FString& InText) -> void
     }
     _LastError.Empty();
     CloseEditor();
+    if (SendOnEnter) { Request_SendChat(); }
 }
 
 auto UCkOnlineDirectGym_Subsystem::RestoreFocus() -> void
@@ -373,6 +452,7 @@ auto UCkOnlineDirectGym_Subsystem::CloseEditor() -> void
     const auto Window = MoveTemp(_InputWindow);
     _InputBox.Reset();
     _IsEditing = false;
+    _SendOnEnter = false;
     if (Window.IsValid() && FSlateApplication::IsInitialized()) { Window->RequestDestroyWindow(); }
     RestoreFocus();
 }
@@ -383,6 +463,7 @@ auto UCkOnlineDirectGym_Subsystem::OnEditorClosed() -> void
     _InputWindow.Reset();
     _InputBox.Reset();
     _IsEditing = false;
+    _SendOnEnter = false;
     RestoreFocus();
 }
 
