@@ -1,0 +1,96 @@
+<ui version="1">
+ <region name="main">
+  <overlay id="hud-root" class="hud-root">
+   <replica-art id="damage-overlay" piece="damage" value-bind="DamageOpacity" class="damage-overlay" />
+   <column id="hud-layout" class="hud-layout">
+    <row id="quickslots-row" class="quickslots-row">
+     <row id="quickslots" class="quickslots">
+      <column id="quickslot-0" class="quickslot">
+       <text id="quickslot-0-key" class="quickslot-key">1</text>
+       <replica-art id="quickslot-0-glyph" piece="me-power" variant="0" class="power-glyph" />
+      </column>
+      <column id="quickslot-1" class="quickslot">
+       <text id="quickslot-1-key" class="quickslot-key">2</text>
+       <replica-art id="quickslot-1-glyph" piece="me-power" variant="1" class="power-glyph" />
+      </column>
+      <column id="quickslot-2" class="quickslot">
+       <text id="quickslot-2-key" class="quickslot-key">3</text>
+       <replica-art id="quickslot-2-glyph" piece="me-power" variant="2" class="power-glyph" />
+      </column>
+      <column id="quickslot-3" class="quickslot">
+       <text id="quickslot-3-key" class="quickslot-key">4</text>
+       <replica-art id="quickslot-3-glyph" piece="me-power" variant="3" class="power-glyph" />
+      </column>
+      <column id="quickslot-4" class="quickslot">
+       <text id="quickslot-4-key" class="quickslot-key">5</text>
+       <replica-art id="quickslot-4-glyph" piece="me-power" variant="4" class="power-glyph" />
+      </column>
+      <column id="quickslot-5" class="quickslot">
+       <text id="quickslot-5-key" class="quickslot-key">6</text>
+       <replica-art id="quickslot-5-glyph" piece="me-power" variant="5" class="power-glyph" />
+      </column>
+      <column id="quickslot-6" class="quickslot">
+       <text id="quickslot-6-key" class="quickslot-key">7</text>
+       <replica-art id="quickslot-6-glyph" piece="me-power" variant="6" class="power-glyph" />
+      </column>
+      <column id="quickslot-7" class="quickslot">
+       <text id="quickslot-7-key" class="quickslot-key">8</text>
+       <replica-art id="quickslot-7-glyph" piece="me-power" variant="7" class="power-glyph" />
+      </column>
+     </row>
+    </row>
+    <column id="world-space" class="grow" />
+    <column id="objective-prompt" class="objective-prompt" visible="ShowObjective">
+     <text id="objective-text" class="objective-text">Press (V) to display objectives</text>
+    </column>
+    <row id="bottom-hud" class="bottom-hud">
+     <column id="ammo-zone" class="side-zone">
+      <column id="ammo-zone-space" class="grow" />
+      <column id="ammo-cluster" class="ammo-cluster">
+       <row id="grenade-readout" class="grenade-readout">
+        <replica-art id="grenade-icon" piece="me-grenade" class="grenade-icon" />
+        <text id="grenade-count" class="grenade-count">2</text>
+       </row>
+       <row id="ammunition" class="ammunition">
+        <column id="ammo-counts" class="ammo-counts">
+         <text id="reserve-value" bind="ReserveText" class="reserve" />
+         <text id="ammo-value" bind="AmmoText" class="ammo" />
+        </column>
+        <column id="weapon-glyph-group" class="weapon-glyph-group">
+         <replica-art id="weapon-glyph" piece="me-rifle" class="weapon-glyph" />
+         <hud-meter id="ammo-meter" value-bind="AmmoFraction" class="ammo-meter" />
+        </column>
+       </row>
+       <text id="reload-status" bind="ReloadText" visible="ShowReload" class="reload-status" />
+      </column>
+     </column>
+     <column id="squad-cluster" class="squad-cluster">
+      <overlay id="vitals-arcs" class="vitals-arcs">
+       <replica-art id="shield-meter" piece="me-shield" value-bind="ShieldFraction" class="shield-meter" />
+       <replica-art id="health-meter" piece="me-health" value-bind="HealthFraction" class="health-meter" />
+      </overlay>
+      <row id="squad-portraits" class="squad-portraits">
+       <replica-art id="squad-one-power" piece="me-power" variant="1" class="squad-power" />
+       <column id="squad-one-frame" class="portrait-frame">
+        <image id="squad-one-portrait" bind="SquadOnePortrait" class="portrait" />
+       </column>
+       <column id="squad-two-frame" class="portrait-frame">
+        <image id="squad-two-portrait" bind="SquadTwoPortrait" class="portrait" />
+       </column>
+       <replica-art id="squad-two-power" piece="me-power" variant="4" class="squad-power" />
+      </row>
+     </column>
+     <column id="right-balance-zone" class="side-zone" />
+    </row>
+   </column>
+   <overlay id="reticle-cluster" class="reticle-cluster">
+    <replica-art id="aim-reticle" piece="me-reticle" class="aim-reticle" />
+    <replica-art id="cooldown-meter" piece="me-cooldown" value-bind="CooldownProgress" class="cooldown-meter" />
+   </overlay>
+   <column id="empty-ammo-prompt" class="empty-ammo-prompt" visible="ShowNoAmmo">
+    <column id="empty-ammo-offset" class="empty-ammo-offset" />
+    <text id="no-ammo" class="no-ammo">NO AMMO</text>
+   </column>
+  </overlay>
+ </region>
+</ui>

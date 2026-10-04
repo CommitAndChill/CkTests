@@ -41,6 +41,12 @@ public class CkTests : CkModuleRules
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "InventoryMenuProof.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "InventoryMenuProof.ui.css"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "inventory-item-atlas.png"), StagedFileType.NonUFS);
+        foreach (var Theme in new[] { "Futuristic", "Tactical", "Fantasy" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", Theme, "CombatHudProof.ui.html"), StagedFileType.NonUFS);
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", Theme, "CombatHudProof.ui.css"), StagedFileType.NonUFS);
+        }
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", "Futuristic", "squad-portraits.png"), StagedFileType.NonUFS);
 
         PublicDependencyModuleNames.AddRange(new string[]
         {
