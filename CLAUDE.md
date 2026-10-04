@@ -169,6 +169,14 @@ Bridged gameplay details expose **F6** (queue real local readiness loss) and **F
 accept at most one fault request per gameplay entry, and leave the ordinary
 invalid-binding Tick path responsible for return. Manual recovery acceptance is
 separate: `Script/CkOnline/DIRECT_RECOVERY_EDITOR_TESTING.md`.
+The separate gameplay-entry/host-loss check is
+`Script/CkOnline/GAMEPLAY_RECOVERY_EDITOR_TESTING.md`. A failed bridged IP entry
+returns to Lobby when travel succeeds; retry there with Host **G** (wait for IP
+Hosting), then Client **G**. Initial joining is Host **J**, wait **Hosting**, **P**
+copy invite / Client **K**; both **R** before gameplay. Direct IP **R** is
+standalone rejoin only; the panel
+uses the helper's bridge-context and rejoin readbacks to keep that distinction
+visible. Both-window TCP continuity and fresh gameplay proof remain manual checks.
 Declaring no rows draws no panel, which is why this
 costs nothing to gyms that have not adopted it. Deliberately NOT adopted: `CkInput`'s KeyBinding
 and Playground gyms and `CkVoiceChat` - the panel polls raw keys, which collides with a gym whose
