@@ -46,6 +46,7 @@ class ACk_OnlineGym_DirectIp_PlayerController : ACk_Gym_Base_PlayerController
         bool IsConnected = Probe.Get_IsConnected();
         bool IsOffline = Probe.Get_IsOffline();
         bool IsFailed = Probe.Get_StateText().StartsWith("Failed");
+        bool HasLobbyBridgeContext = Probe.Get_HasLobbyBridgeContext();
         bool ClientProofObserved = !IsHosting && IsConnected && Probe.Get_PeerCount() >= 2
             && _ProofSequenceBeforePress >= 0
             && Probe.Get_SessionMarkerText() == _ProofRequestedSessionMarker
@@ -54,9 +55,13 @@ class ACk_OnlineGym_DirectIp_PlayerController : ACk_Gym_Base_PlayerController
         Rows.Add(CkGym_Control::Header("DIRECT GAMEPLAY IP"));
         FString NextStep;
         if (IsFailed)
-        { NextStep = "Read error below; X recovers, then retry explicitly."; }
+        { NextStep = HasLobbyBridgeContext
+            ? "Read error below. Return to Lobby, then Host G, wait for Hosting, Client G."
+            : "Read error below; X recovers, then retry explicitly."; }
         else if (IsOffline)
-        { NextStep = "Host: J, wait for Hosting. Client: K joins 127.0.0.1:7787."; }
+        { NextStep = HasLobbyBridgeContext
+            ? "Back in Lobby: Host G, wait for IP Hosting; Client G retries."
+            : "Host: J, wait for Hosting. Client: K joins 127.0.0.1:7787."; }
         else if (IsHosting)
         { NextStep = Probe.Get_IsLobbyBridge()
             ? "Wait for Client G from Lobby; then compare client P proof."
@@ -66,9 +71,11 @@ class ACk_OnlineGym_DirectIp_PlayerController : ACk_Gym_Base_PlayerController
         else if (IsConnected)
         { NextStep = "Proof observed here. X disconnects; compare both windows."; }
         else
-        { NextStep = "Wait for connection, or X to cancel / recover."; }
+        { NextStep = HasLobbyBridgeContext
+            ? "Wait for IP admission. Failed entry returns to Lobby; retry Host G then Client G."
+            : "Wait for connection, or X to cancel / recover."; }
         Rows.Add(CkGym_Control::StatusTone("Next step", NextStep, ECkGym_ControlTone::Info)); // 1
-        Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Human check", Probe.Get_IsLobbyBridge()
+        Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Human check", HasLobbyBridgeContext
             ? "Compare lobby continuity and gameplay in both windows; no automatic pass"
             : "Compare both windows and complete disconnect / rejoin; no automatic pass"))); // 2
         Rows.Add(CkGym_Control::StatusTone("Connection", Probe.Get_StateText(),
@@ -93,15 +100,15 @@ class ACk_OnlineGym_DirectIp_PlayerController : ACk_Gym_Base_PlayerController
         Rows.Add(CkGym_Control::Action(EKeys::J, "J", "Host on port 7787", IsOffline));
         Rows.Add(CkGym_Control::Action(EKeys::K, "K", "Join 127.0.0.1:7787", IsOffline));
         Rows.Add(CkGym_Control::Action(EKeys::P, "P", "Send client network proof", IsConnected && !IsHosting));
-        Rows.Add(CkGym_Control::Action(EKeys::X, "X", Probe.Get_IsLobbyBridge()
+        Rows.Add(CkGym_Control::Action(EKeys::X, "X", HasLobbyBridgeContext
             ? "Return to Online Lobby" : "Cancel join / disconnect / stop host", !IsOffline));
-        Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Rejoin last endpoint", IsOffline));
+        Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Rejoin standalone endpoint only", Probe.Get_CanRejoin()));
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Bridge context", Probe.Get_LobbyBridgeText()))); // 18
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Replicated lobby epoch", Probe.Get_LobbyEpochText()))); // 19
         Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::V, "V", "Log sanitized bridge checkpoint",
             Probe.Get_IsLobbyBridge() && (IsHosting || IsConnected)))); // 20
         Rows.Add(CkGym_Control::Action(EKeys::F2, "F2", "Show / hide details")); // 21
-        Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Purpose", Probe.Get_IsLobbyBridge()
+        Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Purpose", HasLobbyBridgeContext
             ? "Stock IP gameplay plus TCP control continuity; fixture, no member admission proof"
             : "Manual stock IP host, join, proof, disconnect and rejoin fixture"))); // 22
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Full error", LastError))); // 23

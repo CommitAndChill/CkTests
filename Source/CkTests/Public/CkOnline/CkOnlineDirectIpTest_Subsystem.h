@@ -117,6 +117,12 @@ public:
     bool Get_IsLobbyBridge() const { return _BridgeActive; }
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
+    bool Get_HasLobbyBridgeContext() const { return _BridgeActive || _BridgeLastBinding.Epoch.IsValid(); }
+
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
+    bool Get_CanRejoin() const;
+
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     FString Get_Endpoint() const { return _Endpoint; }
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
@@ -167,7 +173,7 @@ private:
     auto Get_ReadyWorld() const -> UWorld*;
     auto Get_ProofState() const -> ACkOnlineDirectIpTest_GameState*;
     auto DoReject(const FString& InReason) -> bool;
-    auto DoReturnToGym(bool InKeepFailure) -> void;
+    auto DoReturnToGym(bool InKeepFailure) -> bool;
     auto OnNetworkFailure(UWorld* InWorld, UNetDriver* InDriver,
         ENetworkFailure::Type InFailure, const FString& InError) -> void;
     auto OnTravelFailure(UWorld* InWorld, ETravelFailure::Type InFailure, const FString& InError) -> void;

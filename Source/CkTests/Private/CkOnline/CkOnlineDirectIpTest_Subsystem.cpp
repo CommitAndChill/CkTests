@@ -402,18 +402,31 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     return true;
 }
 
-auto UCkOnlineDirectIpTest_Subsystem::DoReturnToGym(bool InKeepFailure) -> void
+auto UCkOnlineDirectIpTest_Subsystem::DoReturnToGym(bool InKeepFailure) -> bool
 {
     auto* World = Get_ReadyWorld();
-    if (World == nullptr || _ReturnMap.IsEmpty()) { return; }
+    if (World == nullptr || _ReturnMap.IsEmpty()) { return false; }
+    auto* Context = GEngine != nullptr ? GEngine->GetWorldContextFromWorld(World) : nullptr;
+    if (Context == nullptr || Context->OwningGameInstance != GetGameInstance())
+    {
+        _State = EState::Failed;
+        _LastError = TEXT("The returning world has no owned travel context.");
+        _ReturnPending = false;
+        _FailureReturnPending = false;
+        return false;
+    }
     _DepartingWorld = World;
     _HostingDepartureWorld.Reset();
     _ReturnPending = true;
     _FailureReturnPending = false;
     if (!InKeepFailure) { _State = EState::Leaving; }
     _Deadline = FPlatformTime::Seconds() + JoinTimeoutSeconds;
+    // Local OpenLevel does not cancel an outstanding network browse. Let the engine
+    // tear down only this GameInstance's pending driver before queuing the return.
+    if (Context->PendingNetGame != nullptr) { GEngine->CancelPending(World); }
     UGameplayStatics::OpenLevel(World, FName(*_ReturnMap), true,
         _ReturnToLobby ? LobbyGameOption : GymGameOption);
+    return true;
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Request_Disconnect() -> bool
@@ -421,8 +434,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_Disconnect() -> bool
     if (_State == EState::Offline || _State == EState::Leaving) { return DoReject(TEXT("No active connection to leave.")); }
     if (Get_ReadyWorld() == nullptr || _ReturnMap.IsEmpty()) { return DoReject(TEXT("No return world available.")); }
     _LastError.Empty();
-    DoReturnToGym(false);
-    return true;
+    return DoReturnToGym(false);
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Request_Rejoin() -> bool
@@ -526,9 +538,12 @@ auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
     if (_ReturnPending)
     {
         const auto* ReturnMode = World->GetAuthGameMode();
+        const auto* ReturnContext = GEngine != nullptr ? GEngine->GetWorldContextFromWorld(World) : nullptr;
         const auto ReturnMap = UWorld::RemovePIEPrefix(World->GetPackage()->GetName());
         const auto ExpectedMode = _ReturnToLobby ? LobbyGameModePath : GymGameModePath;
-        if (World != _DepartingWorld.Get() && World->GetNetDriver() == nullptr &&
+        if (ReturnContext != nullptr && ReturnContext->OwningGameInstance == GetGameInstance() &&
+            ReturnContext->PendingNetGame == nullptr &&
+            World != _DepartingWorld.Get() && World->GetNetDriver() == nullptr &&
             World->GetNetMode() == NM_Standalone && ReturnMap == _ReturnMap &&
             IsValid(ReturnMode) && ReturnMode->GetClass()->GetPathName() == ExpectedMode)
         {
@@ -622,7 +637,9 @@ auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
     else if (_State == EState::Connected && !HasOpenClientConnection(World))
     {
         _State = EState::Failed;
-        _LastError = TEXT("The host connection closed. X returns to Offline; R reconnects after the host restarts.");
+        _LastError = _BridgeActive
+            ? TEXT("The host connection closed; returning to Online Lobby. Retry Host G, wait Hosting, then Client G.")
+            : TEXT("The host connection closed. X returns to Offline; R reconnects after the host restarts.");
         DoReturnToGym(true);
     }
     else if (_State == EState::Hosting && !IsValid(Cast<UIpNetDriver>(World->GetNetDriver())))
@@ -755,8 +772,16 @@ auto UCkOnlineDirectIpTest_Subsystem::Get_IsConnected() const -> bool
 auto UCkOnlineDirectIpTest_Subsystem::Get_IsOffline() const -> bool
 {
     auto* World = Get_ReadyWorld();
-    return _State == EState::Offline && World != nullptr && World->GetNetDriver() == nullptr
-        && World->GetNetMode() == NM_Standalone;
+    if (_State != EState::Offline || World == nullptr || World->GetNetDriver() != nullptr ||
+        World->GetNetMode() != NM_Standalone) { return false; }
+    const auto* Context = GEngine != nullptr ? GEngine->GetWorldContextFromWorld(World) : nullptr;
+    return Context != nullptr && Context->OwningGameInstance == GetGameInstance() &&
+        Context->PendingNetGame == nullptr;
+}
+
+auto UCkOnlineDirectIpTest_Subsystem::Get_CanRejoin() const -> bool
+{
+    return _HasJoinEndpoint && !Get_HasLobbyBridgeContext() && Get_IsOffline();
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_SessionMarkerText() const -> FString
