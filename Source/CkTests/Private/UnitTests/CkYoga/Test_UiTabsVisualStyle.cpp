@@ -24,14 +24,14 @@ namespace ck_tests_ui_tabs_visual_style
 
     auto Markup() -> FString
     {
-        return TEXT("<ui version=\"1\"><region name=\"main\"><tabs id=\"tabs\" class=\"tab-strip\" value-bind=\"active\" changed=\"activate\"><tab id=\"overview\" key=\"overview\" label=\"Overview\"><text id=\"overview-panel\">Overview panel</text></tab><tab id=\"properties\" key=\"properties\" label=\"Properties\" enabled-bind=\"properties-enabled\"><text id=\"properties-panel\">Properties panel</text></tab></tabs></region></ui>");
+        return TEXT("<ui version=\"1\"><region name=\"main\"><tabs id=\"tabs\" class=\"tab-strip\" value-bind=\"active\" changed=\"activate\"><tab id=\"overview\" key=\"overview\" label=\"Overview\"><text id=\"overview-panel\">Overview panel</text></tab><tab id=\"properties\" key=\"properties\" label=\"Properties\" enabled-bind=\"properties-enabled\"><text id=\"properties-panel\">Properties panel</text></tab><tab id=\"system\" key=\"system\" label=\"System\"><text id=\"system-panel\">System panel</text></tab></tabs></region></ui>");
     }
 
     auto Styles(const bool bReloaded = false) -> FString
     {
         return bReloaded
-            ? TEXT(".tab-strip { -ck-tabs-inactive-color: #c27745; -ck-tabs-active-color: #fac866; -ck-tabs-underline-color: #f0a23d; -ck-tabs-underline-height: 3px; -ck-tabs-font-size: 11px; -ck-tabs-font-weight: normal; -ck-tabs-header-padding-x: 9px; -ck-tabs-header-padding-y: 4px; }")
-            : TEXT(".tab-strip { -ck-tabs-inactive-color: #667385; -ck-tabs-active-color: #66dcfa; -ck-tabs-underline-color: #1fb8eb; -ck-tabs-underline-height: 2px; -ck-tabs-font-size: 10px; -ck-tabs-font-weight: bold; -ck-tabs-header-padding-x: 7px; -ck-tabs-header-padding-y: 3px; }");
+            ? TEXT(".tab-strip { -ck-tabs-inactive-color: #c27745; -ck-tabs-active-color: #fac866; -ck-tabs-underline-color: #f0a23d; -ck-tabs-underline-height: 3px; -ck-tabs-font-size: 11px; -ck-tabs-font-weight: normal; -ck-tabs-header-padding-x: 9px; -ck-tabs-header-padding-y: 4px; -ck-tabs-header-width: 90px; -ck-tabs-header-align: right; }")
+            : TEXT(".tab-strip { -ck-tabs-inactive-color: #667385; -ck-tabs-active-color: #66dcfa; -ck-tabs-underline-color: #1fb8eb; -ck-tabs-underline-height: 2px; -ck-tabs-font-size: 10px; -ck-tabs-font-weight: bold; -ck-tabs-header-padding-x: 7px; -ck-tabs-header-padding-y: 3px; -ck-tabs-header-width: 80px; -ck-tabs-header-align: center; }");
     }
 
     auto FindHeader(const TSharedRef<SWidget>& InRoot, const FString& InLabel) -> TSharedPtr<SButton>
@@ -138,12 +138,32 @@ auto FCkUiTabs_VisualStyle::RunTest(const FString&) -> bool
     const TSharedPtr<SCkUiTabs> Tabs = View->GetTabs(TEXT("tabs"));
     const TSharedPtr<SButton> Overview = FindHeader(Region, TEXT("Overview"));
     const TSharedPtr<SButton> Properties = FindHeader(Region, TEXT("Properties"));
+    const TSharedPtr<SButton> System = FindHeader(Region, TEXT("System"));
     const TSharedPtr<STextBlock> OverviewLabel = Overview.IsValid() ? FindLabel(Overview.ToSharedRef()) : nullptr;
     const TSharedPtr<STextBlock> PropertiesLabel = Properties.IsValid() ? FindLabel(Properties.ToSharedRef()) : nullptr;
     const TSharedPtr<SBox> OverviewUnderline = Overview.IsValid() ? FindUnderline(Overview.ToSharedRef()) : nullptr;
     const TSharedPtr<SBox> PropertiesUnderline = Properties.IsValid() ? FindUnderline(Properties.ToSharedRef()) : nullptr;
-    if (!TestTrue(TEXT("Styled tabs mount retained headers, labels, and underline presenters"), Tabs.IsValid() && Overview.IsValid() && Properties.IsValid()
+    if (!TestTrue(TEXT("Styled tabs mount retained headers, labels, and underline presenters"), Tabs.IsValid() && Overview.IsValid() && Properties.IsValid() && System.IsValid()
         && OverviewLabel.IsValid() && PropertiesLabel.IsValid() && OverviewUnderline.IsValid() && PropertiesUnderline.IsValid())) { return false; }
+    const auto HeaderX = [&Tabs](const TSharedRef<SWidget>& Header) -> double
+    { return Tabs->GetCachedGeometry().AbsoluteToLocal(Header->GetCachedGeometry().GetAbsolutePosition()).X; };
+    TestTrue(TEXT("Three equal-width authored headers form a centered rail"),
+        FMath::IsNearlyEqual(Overview->GetCachedGeometry().GetLocalSize().X, 80.0f, 1.0f)
+        && FMath::IsNearlyEqual(Properties->GetCachedGeometry().GetLocalSize().X, 80.0f, 1.0f)
+        && FMath::IsNearlyEqual(System->GetCachedGeometry().GetLocalSize().X, 80.0f, 1.0f)
+        && FMath::IsNearlyEqual(HeaderX(Overview.ToSharedRef()), 60.0, 2.0)
+        && FMath::IsNearlyEqual(HeaderX(Properties.ToSharedRef()), 140.0, 2.0)
+        && FMath::IsNearlyEqual(HeaderX(System.ToSharedRef()), 220.0, 2.0));
+    Scope.Window->Resize(FVector2D{170.0f, 240.0f});
+    for (int32 Frame = 0; Frame < 4; ++Frame) { Tick(Slate); }
+    TestTrue(TEXT("Fixed-width centered headers wrap in a narrow native viewport without full-width slots"),
+        FMath::IsNearlyEqual(Overview->GetCachedGeometry().GetLocalSize().X, 80.0f, 1.0f)
+        && FMath::IsNearlyEqual(Properties->GetCachedGeometry().GetLocalSize().X, 80.0f, 1.0f)
+        && FMath::IsNearlyEqual(HeaderX(Overview.ToSharedRef()), 5.0, 2.0)
+        && FMath::IsNearlyEqual(HeaderX(Properties.ToSharedRef()), 85.0, 2.0)
+        && System->GetCachedGeometry().GetAbsolutePosition().Y > Overview->GetCachedGeometry().GetAbsolutePosition().Y);
+    Scope.Window->Resize(FVector2D{360.0f, 180.0f});
+    for (int32 Frame = 0; Frame < 4; ++Frame) { Tick(Slate); }
     TestTrue(TEXT("Styled tab headers are flat presentations with authored active and inactive label colors"),
         OverviewLabel->GetColorAndOpacity().GetSpecifiedColor().Equals(InitialActive)
         && PropertiesLabel->GetColorAndOpacity().GetSpecifiedColor().Equals(InitialInactive)
@@ -172,7 +192,15 @@ auto FCkUiTabs_VisualStyle::RunTest(const FString&) -> bool
     if (!TestTrue(TEXT("Compatible styled tabs reload succeeds"), View->TryReload(Markup(), Styles(true), TEXT("UiTabsVisualStyleReload")).Succeeded)) { return false; }
     Tick(Slate);
     TestTrue(TEXT("Compatible style reload retains the native tabs and keyed header identities"), View->GetRevision() == AcceptedRevision + 1
-        && View->GetTabs(TEXT("tabs")) == Tabs && FindHeader(Region, TEXT("Overview")) == Overview && FindHeader(Region, TEXT("Properties")) == Properties);
+        && View->GetTabs(TEXT("tabs")) == Tabs && FindHeader(Region, TEXT("Overview")) == Overview && FindHeader(Region, TEXT("Properties")) == Properties
+        && FindHeader(Region, TEXT("System")) == System && Active == TEXT("properties") && ActivationCalls == CallsBeforeDisabledClick);
+    TestTrue(TEXT("Compatible style reload updates uniform width and right rail alignment in native geometry"),
+        FMath::IsNearlyEqual(Overview->GetCachedGeometry().GetLocalSize().X, 90.0f, 1.0f)
+        && FMath::IsNearlyEqual(Properties->GetCachedGeometry().GetLocalSize().X, 90.0f, 1.0f)
+        && FMath::IsNearlyEqual(System->GetCachedGeometry().GetLocalSize().X, 90.0f, 1.0f)
+        && FMath::IsNearlyEqual(HeaderX(Overview.ToSharedRef()), 90.0, 2.0)
+        && FMath::IsNearlyEqual(HeaderX(Properties.ToSharedRef()), 180.0, 2.0)
+        && FMath::IsNearlyEqual(HeaderX(System.ToSharedRef()), 270.0, 2.0));
     TestTrue(TEXT("Compatible style reload updates flat label colors and underline height in place"),
         OverviewLabel->GetColorAndOpacity().GetSpecifiedColor().Equals(ReloadInactive)
         && PropertiesLabel->GetColorAndOpacity().GetSpecifiedColor().Equals(ReloadActive)
@@ -182,18 +210,52 @@ auto FCkUiTabs_VisualStyle::RunTest(const FString&) -> bool
         && FMath::IsNearlyEqual(PropertiesUnderline->GetCachedGeometry().GetLocalSize().Y, 3.0f));
 
     const int64 StableRevision = View->GetRevision();
-    const auto ExpectRejected = [this, &View, &Tabs, &Region, &Overview, &Properties, StableRevision](const TCHAR* InName, const FString& InStyles)
+    const auto ExpectRejected = [this, &View, &Tabs, &Region, &Overview, &Properties, &System, &HeaderX, &Active, &ActivationCalls, StableRevision](const TCHAR* InName, const FString& InStyles)
     {
         const FCkUiLoadResult Rejected = View->TryReload(Markup(), InStyles, InName);
         TestFalse(TEXT("Malformed underline-tabs CSS rejects before publication"), Rejected.Succeeded);
         TestTrue(TEXT("Malformed underline-tabs CSS rejection is atomic"), View->GetRevision() == StableRevision && View->GetTabs(TEXT("tabs")) == Tabs
-            && FindHeader(Region, TEXT("Overview")) == Overview && FindHeader(Region, TEXT("Properties")) == Properties);
+            && FindHeader(Region, TEXT("Overview")) == Overview && FindHeader(Region, TEXT("Properties")) == Properties
+            && FindHeader(Region, TEXT("System")) == System && Active == TEXT("properties") && ActivationCalls == 1
+            && FMath::IsNearlyEqual(Overview->GetCachedGeometry().GetLocalSize().X, 90.0f, 1.0f)
+            && FMath::IsNearlyEqual(HeaderX(Overview.ToSharedRef()), 90.0, 2.0));
     };
     ExpectRejected(TEXT("UiTabsVisualStyleInvalidColor"), TEXT(".tab-strip { -ck-tabs-active-color: not-a-color; }"));
     ExpectRejected(TEXT("UiTabsVisualStyleNegativeUnderline"), TEXT(".tab-strip { -ck-tabs-underline-height: -1px; }"));
     ExpectRejected(TEXT("UiTabsVisualStyleZeroFont"), TEXT(".tab-strip { -ck-tabs-font-size: 0px; }"));
     ExpectRejected(TEXT("UiTabsVisualStyleInvalidWeight"), TEXT(".tab-strip { -ck-tabs-font-weight: heavy; }"));
-    ExpectRejected(TEXT("UiTabsVisualStyleWrongNode"), TEXT("tab { -ck-tabs-inactive-color: #ffffff; }"));
+    ExpectRejected(TEXT("UiTabsVisualStyleZeroWidth"), TEXT(".tab-strip { -ck-tabs-header-width: 0px; }"));
+    ExpectRejected(TEXT("UiTabsVisualStyleNegativeWidth"), TEXT(".tab-strip { -ck-tabs-header-width: -1px; }"));
+    ExpectRejected(TEXT("UiTabsVisualStyleOversizeWidth"), TEXT(".tab-strip { -ck-tabs-header-width: 4097px; }"));
+    ExpectRejected(TEXT("UiTabsVisualStyleNonFiniteWidth"), TEXT(".tab-strip { -ck-tabs-header-width: 1e999px; }"));
+    ExpectRejected(TEXT("UiTabsVisualStyleMissingToken"), TEXT(".tab-strip { -ck-tabs-header-width: var(--missing); }"));
+    ExpectRejected(TEXT("UiTabsVisualStyleInvalidAlignment"), TEXT(".tab-strip { -ck-tabs-header-align: middle; }"));
+    const auto WrongNode = View->TryReload(Markup().Replace(TEXT("id=\"overview\""),
+        TEXT("id=\"overview\" class=\"tab-entry\"")),
+        TEXT(".tab-strip { -ck-tabs-active-color: #fac866; } .tab-entry { -ck-tabs-header-width: 80px; }"),
+        TEXT("UiTabsVisualStyleWrongNode"));
+    TestFalse(TEXT("Header rail CSS on a tab panel rejects"), WrongNode.Succeeded);
+    TestTrue(TEXT("Wrong-node CSS preserves accepted native rail and selection"),
+        View->GetRevision() == StableRevision && View->GetTabs(TEXT("tabs")) == Tabs
+        && FindHeader(Region, TEXT("Overview")) == Overview && Active == TEXT("properties")
+        && ActivationCalls == 1);
+    const int64 BeforeDefault = View->GetRevision();
+    if (!TestTrue(TEXT("Omitted rail properties restore natural left-aligned headers"),
+        View->TryReload(Markup(), TEXT(".tab-strip { -ck-tabs-active-color: #fac866; }"), TEXT("UiTabsVisualStyleDefault")).Succeeded)) { return false; }
+    Tick(Slate);
+    TestTrue(TEXT("Default header widths are natural and begin at the left without replacing native headers"),
+        View->GetRevision() == BeforeDefault + 1 && View->GetTabs(TEXT("tabs")) == Tabs
+        && FindHeader(Region, TEXT("Overview")) == Overview && FindHeader(Region, TEXT("Properties")) == Properties
+        && FindHeader(Region, TEXT("System")) == System && Active == TEXT("properties") && ActivationCalls == 1
+        && FMath::IsNearlyEqual(HeaderX(Overview.ToSharedRef()), 0.0, 2.0)
+        && Overview->GetCachedGeometry().GetLocalSize().X != System->GetCachedGeometry().GetLocalSize().X);
+    Scope.Window->Resize(FVector2D{140.0f, 240.0f});
+    for (int32 Frame = 0; Frame < 4; ++Frame) { Tick(Slate); }
+    TestTrue(TEXT("Natural-width headers still wrap within a narrow viewport"),
+        Overview->GetCachedGeometry().GetLocalSize().X <= Tabs->GetCachedGeometry().GetLocalSize().X + 1.0f
+        && Properties->GetCachedGeometry().GetLocalSize().X <= Tabs->GetCachedGeometry().GetLocalSize().X + 1.0f
+        && System->GetCachedGeometry().GetLocalSize().X <= Tabs->GetCachedGeometry().GetLocalSize().X + 1.0f
+        && System->GetCachedGeometry().GetAbsolutePosition().Y > Overview->GetCachedGeometry().GetAbsolutePosition().Y);
     return true;
 }
 

@@ -1,0 +1,91 @@
+<ui version="1">
+ <region name="main">
+  <column id="journal-region">
+   <column id="journal-layout" class="journal-layout">
+    <column id="top-gap" class="top-gap" />
+    <row id="journal-stage-row" class="journal-stage-row">
+     <column id="stage-left-margin" class="stage-left-margin" />
+     <overlay id="journal-stage" class="journal-stage">
+      <column id="journal-art-stack" class="journal-art-stack">
+       <overlay id="header-art" class="header-art">
+        <journal-art id="tab-rail" piece="tab-rail" class="header-art-leaf" />
+        <journal-art id="tab-markers" piece="tab-markers" value-bind="JournalTabIndex" class="header-art-leaf" />
+       </overlay>
+       <column id="header-body-gap" class="header-body-gap" />
+       <journal-art id="journal-frame" piece="frame" class="journal-frame" />
+      </column>
+      <tabs id="journal-tabs" value-bind="JournalTab" changed="SelectJournalTab" class="journal-tabs">
+       <tab id="quests-tab" key="quests" label="QUESTS">
+        <column id="quests-panel" class="journal-tab-panel">
+         <column id="quests-panel-gap" class="header-body-gap" />
+         <row id="quests-body" class="journal-body">
+          <column id="quest-list-pane" class="quest-list-pane">
+           <column id="quest-list-top-gap" class="quest-list-top-gap" />
+           <tree id="quest-list" bind="Quests" selection-action="SelectQuest" row-height="52" class="quest-tree">
+            <row id="quest-row" class="quest-row">
+             <column id="quest-row-grow" class="row-grow" />
+             <text id="quest-row-name" bind-field="name" color-field="name-color" class="quest-row-name" />
+             <text id="quest-row-marker" bind-field="marker" class="quest-row-marker" />
+            </row>
+           </tree>
+          </column>
+          <column id="quest-details" class="quest-details">
+           <column id="details-top-gap" class="details-top-gap" />
+           <overlay id="quest-heading" class="quest-heading">
+            <journal-art id="quest-ornament" piece="title-ornament" class="quest-ornament" />
+            <text id="quest-title" bind="QuestTitle" class="quest-title" />
+           </overlay>
+           <text id="quest-summary" bind="QuestSummary" visible="QuestSummaryVisible" class="quest-summary" />
+           <column id="details-list-gap" class="details-list-gap" />
+           <tree id="objective-list" bind="Objectives" selection-action="SelectObjective" row-height="58" class="objective-tree">
+            <row id="objective-row" class="objective-row">
+             <text id="objective-row-marker" bind-field="marker" class="objective-row-marker" />
+             <text id="objective-row-name" bind-field="name" color-field="name-color" class="objective-row-name" />
+            </row>
+           </tree>
+           <text id="quest-state" bind="QuestState" class="quest-state" />
+          </column>
+         </row>
+        </column>
+       </tab>
+       <tab id="stats-tab" key="stats" label="GENERAL STATS">
+        <column id="stats-panel" class="journal-tab-panel">
+         <column id="stats-panel-gap" class="header-body-gap" />
+         <row id="stats-body" class="journal-body">
+          <column id="stats-left-pane" class="quest-list-pane" />
+          <column id="stats-details" class="simple-details">
+           <text id="stats-title" class="simple-title">GENERAL STATS</text>
+           <text id="stats-summary" bind="StatsSummary" class="simple-summary" />
+          </column>
+         </row>
+        </column>
+       </tab>
+       <tab id="system-tab" key="system" label="SYSTEM">
+        <column id="system-panel" class="journal-tab-panel">
+         <column id="system-panel-gap" class="header-body-gap" />
+         <row id="system-body" class="journal-body">
+          <column id="system-left-pane" class="quest-list-pane" />
+          <column id="system-details" class="simple-details">
+           <text id="system-title" class="simple-title">SYSTEM</text>
+           <text id="system-summary" bind="SystemSummary" class="simple-summary" />
+           <button id="journal-close" action="CloseJournal" class="journal-close">Close Journal</button>
+          </column>
+         </row>
+        </column>
+       </tab>
+      </tabs>
+     </overlay>
+    </row>
+    <column id="footer-top-gap" class="footer-top-gap" />
+    <journal-art id="footer-line" piece="footer-line" class="footer-line" />
+    <column id="footer-text-gap" class="footer-text-gap" />
+    <row id="journal-footer" class="journal-footer">
+     <text id="footer-keys" bind="FooterKeys" class="footer-keys" />
+     <text id="footer-status" bind="FooterStatus" class="footer-status" />
+     <column id="footer-grow" class="footer-grow" />
+     <text id="footer-date" bind="FooterDate" class="footer-date" />
+    </row>
+   </column>
+  </column>
+ </region>
+</ui>

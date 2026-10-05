@@ -1,0 +1,45 @@
+.board { padding: 64px 80px 40px 80px; background-color: #08121EB8; }
+.header { height: 140px; }
+.brand { flex-grow: 1; }
+.kicker { height: 34px; font-family: mission-ui; font-size: 22px; color: #6ECFE6; text-wrap: nowrap; }
+.title { height: 92px; font-family: mission-ui; font-size: 56px; font-weight: bold; color: #EDF5F8; text-wrap: nowrap; }
+.connection { width: 380px; padding: 18px 0px 0px 0px; }
+.online { height: 38px; horizontal-align: right; font-family: mission-ui; font-size: 22px; color: #79DDB8; text-wrap: nowrap; }
+.subtle { height: 38px; horizontal-align: right; font-family: mission-ui; font-size: 20px; color: #809AAD; text-wrap: nowrap; }
+.rule { height: 2px; background-color: #284353; }
+.body { height: 770px; padding: 34px 0px 0px 0px; gap: 36px; }
+.feed { width: 920px; }
+.feed-heading { height: 56px; }
+.section-label { flex-grow: 1; font-family: mission-ui; font-size: 24px; font-weight: bold; color: #D9E9EF; text-wrap: nowrap; }
+.count { width: 230px; horizontal-align: right; font-family: mission-ui; font-size: 21px; color: #6ECFE6; text-wrap: nowrap; }
+.mission-list { flex-grow: 1; gap: 16px; }
+.mission-row { height: 148px; padding: 12px 24px 12px 24px; background-color: #102332E8; border-color: #294454; border-width: 1px; border-radius: 6px; }
+.mission-select { height: 54px; font-family: mission-ui; font-size: 29px; font-weight: bold; -ck-button-text-align: left; -ck-button-content-vertical-align: center; -ck-button-background: #102332; -ck-button-border-color: #102332; -ck-button-color: #6ECFE6; -ck-button-hover-background: #1A384A; -ck-button-hover-border-color: #6ECFE6; -ck-button-focus-background: #1A384A; -ck-button-focus-outline-color: #6ECFE6; -ck-button-focus-outline-width: 2px; -ck-button-focus-outline-gap: 0px; -ck-button-pressed-background: #254B60; -ck-button-radius: 3px; -ck-button-outline-width: 1px; -ck-button-padding-x: 10px; -ck-button-padding-y: 0px; }
+.mission-route-wrap { height: 30px; padding: 0px 10px 0px 10px; }
+.mission-route { height: 30px; font-family: mission-ui; font-size: 19px; color: #9CB2C1; text-wrap: nowrap; }
+.mission-meta { height: 30px; padding: 0px 10px 0px 10px; }
+.mission-status { flex-grow: 1; font-family: mission-ui; font-size: 18px; color: #728E9F; text-wrap: nowrap; }
+.mission-done { width: 160px; horizontal-align: right; font-family: mission-ui; font-size: 18px; font-weight: bold; color: #79DDB8; text-wrap: nowrap; }
+.selected-panel { flex-grow: 1; flex-shrink: 1; padding: 32px; background-color: #132838EC; border-color: #A97D40; border-width: 1px; border-radius: 8px; }
+.selection-label { height: 34px; font-family: mission-ui; font-size: 21px; font-weight: bold; color: #F6B65E; text-wrap: nowrap; }
+.detail-title { height: 62px; font-family: mission-ui; font-size: 37px; font-weight: bold; color: #EDF5F8; text-wrap: nowrap; vertical-align: center; }
+.detail-route { height: 36px; font-family: mission-ui; font-size: 21px; color: #9CB2C1; text-wrap: nowrap; }
+.route-map { height: 96px; padding: 14px 18px 10px 18px; background-color: #0A1B28; }
+.route-nodes { height: 40px; padding: 0px 76px 0px 76px; }
+.route-node { width: 34px; height: 34px; vertical-align: center; background-color: #17374B; border-color: #6ECFE6; border-width: 2px; border-radius: 17px; }
+.route-objective { width: 38px; height: 38px; vertical-align: center; background-color: #755326; border-color: #F6B65E; border-width: 3px; border-radius: 19px; }
+.route-line { flex-grow: 1; height: 2px; vertical-align: center; background-color: #4C9BB5; }
+.route-labels { height: 32px; }
+.route-label { flex-grow: 1; horizontal-align: center; font-family: mission-ui; font-size: 17px; color: #6ECFE6; text-wrap: nowrap; }
+.briefing-label { height: 34px; vertical-align: center; font-family: mission-ui; font-size: 19px; color: #6ECFE6; text-wrap: nowrap; }
+.detail-brief { height: 90px; font-family: mission-ui; font-size: 25px; color: #CDDFE8; text-wrap: wrap; }
+.detail-spacer { flex-grow: 1; }
+.telemetry { height: 126px; padding: 10px 18px 10px 18px; background-color: #0A1B28; border-color: #294454; border-width: 1px; }
+.telemetry-label { height: 30px; font-family: mission-ui; font-size: 17px; color: #809AAD; text-wrap: nowrap; }
+.detail-progress { height: 40px; font-family: mission-ui; font-size: 24px; color: #D9E9EF; text-wrap: nowrap; }
+.detail-status { height: 36px; font-family: mission-ui; font-size: 20px; font-weight: bold; color: #F6B65E; text-wrap: nowrap; }
+.complete { height: 60px; font-family: mission-ui; font-size: 25px; font-weight: bold; -ck-button-text-align: center; -ck-button-content-vertical-align: center; -ck-button-background: #755326; -ck-button-border-color: #F6B65E; -ck-button-color: #FFF1D7; -ck-button-hover-background: #936A31; -ck-button-hover-border-color: #FFF1D7; -ck-button-focus-background: #936A31; -ck-button-focus-outline-color: #FFF1D7; -ck-button-focus-outline-width: 2px; -ck-button-focus-outline-gap: 2px; -ck-button-pressed-background: #A97D40; -ck-button-radius: 4px; -ck-button-outline-width: 1px; -ck-button-padding-x: 20px; -ck-button-padding-y: 0px; }
+.detail-hint { height: 30px; vertical-align: center; horizontal-align: center; font-family: mission-ui; font-size: 18px; color: #809AAD; text-wrap: nowrap; }
+.footer { height: 64px; vertical-align: center; }
+.footer-brand { flex-grow: 1; font-family: mission-ui; font-size: 18px; color: #678394; text-wrap: nowrap; }
+.footer-code { width: 380px; horizontal-align: right; font-family: mission-ui; font-size: 18px; color: #678394; text-wrap: nowrap; }

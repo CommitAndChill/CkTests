@@ -451,27 +451,58 @@ auto FCkUiRepeat_KeyedRetentionAndActions::RunTest(const FString&) -> bool
     if (!TestTrue(TEXT("Updated custom item remains mounted"), UpdatedAProbe.IsValid())) { return false; }
     TestEqual(TEXT("Custom field binding updates live scoped text"), UpdatedAProbe->GetText().ToString(), FString(TEXT("Alpha updated")));
 
+    const TSharedPtr<const FCkUiRecord> ARecordBeforeReorder = Collection->FindRecord(TEXT("a"));
+    const TSharedPtr<const FCkUiRecord> BRecordBeforeReorder = Collection->FindRecord(TEXT("b"));
+    if (!TestTrue(TEXT("Pure repeat order fixture retains both records"), ARecordBeforeReorder.IsValid() && BRecordBeforeReorder.IsValid())) { return false; }
+    const int64 ARevisionBeforeReorder = ARecordBeforeReorder->GetRevision();
+    const int64 BRevisionBeforeReorder = BRecordBeforeReorder->GetRevision();
+    if (!TestTrue(TEXT("Pure repeat order change publishes"), Collection->TrySetRecords({Record(TEXT("a"), TEXT("Alpha updated")), Record(TEXT("b"), TEXT("Bravo updated"), false)}).Succeeded)
+        || !TestTrue(TEXT("Collection notification refreshes pure repeat order"), Repeat->TryRefresh())) { return false; }
+    const FChildren* RepeatChildren = Repeat->GetChildren();
+    const FChildren* OrderedItems = RepeatChildren != nullptr && RepeatChildren->Num() == 1 ? ConstCastSharedRef<SWidget>(RepeatChildren->GetChildAt(0))->GetChildren() : nullptr;
+    TestTrue(TEXT("Pure reorder publishes retained item roots in requested child order"), OrderedItems != nullptr && OrderedItems->Num() == 2
+        && OrderedItems->GetChildAt(0) == AItem && OrderedItems->GetChildAt(1) == BItem);
+    TestTrue(TEXT("Pure reorder retains keyed item roots native search and custom widget identities"), Repeat->GetItemWidget(TEXT("a")) == AItem && Repeat->GetItemWidget(TEXT("b")) == BItem
+        && FindSearch(AItem.ToSharedRef(), TEXT("query")) == ASearch && FindText(AItem.ToSharedRef(), TEXT("repeat-probe")) == AProbe);
+    TestTrue(TEXT("Pure reorder preserves record identities and unchanged leaf revisions"), Collection->FindRecord(TEXT("a")) == ARecordBeforeReorder
+        && Collection->FindRecord(TEXT("b")) == BRecordBeforeReorder && ARecordBeforeReorder->GetRevision() == ARevisionBeforeReorder
+        && BRecordBeforeReorder->GetRevision() == BRevisionBeforeReorder);
+    const TSharedPtr<SButton> CurrentAButton = FindButton(AItem.ToSharedRef(), TEXT("toggle"));
+    const TSharedPtr<SButton> CurrentBButton = FindButton(BItem.ToSharedRef(), TEXT("toggle"));
+    if (!TestTrue(TEXT("Pure reordered items mount current action buttons"), CurrentAButton.IsValid() && CurrentBButton.IsValid())) { return false; }
+    const int32 ActionsBeforePureReorder = Actions.Num();
+    CurrentAButton->SimulateClick();
+    CurrentBButton->SimulateClick();
+    TestTrue(TEXT("Current item buttons dispatch active stable-key actions after pure reorder"), Actions.Num() == ActionsBeforePureReorder + 2
+        && Actions[ActionsBeforePureReorder] == TEXT("a") && Actions[ActionsBeforePureReorder + 1] == TEXT("b"));
+    TestEqual(TEXT("Pure reorder does not recreate custom widgets"), Probe->FactoryCalls, 2);
+
     const int64 BeforeReload = View->GetRevision();
     if (!TestSuccessfulLoad(*this, TEXT("Compatible parent reload succeeds"), View->TryReload(Markup(TEXT("<text id=\"compatible\">Reloaded</text>")), TEXT(""), TEXT("UiRepeatCompatible")))) { return false; }
     const TSharedPtr<SCkUiRepeat> ReloadedRepeat = View->GetRepeat(TEXT("rows"));
     TestEqual(TEXT("Compatible repeat reload advances parent revision once"), View->GetRevision(), BeforeReload + 1);
-    TestTrue(TEXT("Compatible reload retains per-key native and custom item identities"), ReloadedRepeat == Repeat
+    if (!TestTrue(TEXT("Compatible reload retains per-key native and custom item identities"), ReloadedRepeat == Repeat
         && ReloadedRepeat->GetItemWidget(TEXT("a")) == AItem && FindSearch(AItem.ToSharedRef(), TEXT("query")) == ASearch
-        && FindText(AItem.ToSharedRef(), TEXT("repeat-probe")) == AProbe);
+        && FindText(AItem.ToSharedRef(), TEXT("repeat-probe")) == AProbe)) { return false; }
     TestTrue(TEXT("Retained custom probes prepare and publish detached updates without recreation"), Probe->FactoryCalls == 2
         && Probe->PrepareCalls >= 2 && Probe->CommitCalls == Probe->PrepareCalls);
 
+    const TSharedPtr<SButton> BButtonBeforeRemoval = FindButton(BItem.ToSharedRef(), TEXT("toggle"));
+    if (!TestTrue(TEXT("Current B button is mounted before removal"), BButtonBeforeRemoval.IsValid())) { return false; }
+    const int32 ActionsBeforeRemoval = Actions.Num();
+    BButtonBeforeRemoval->SimulateClick();
+    if (!TestTrue(TEXT("Current B button is active immediately before removal"), Actions.Num() == ActionsBeforeRemoval + 1 && Actions.Last() == TEXT("b"))) { return false; }
     if (!TestTrue(TEXT("Removing key B publishes"), Collection->TrySetRecords({Record(TEXT("a"), TEXT("Alpha updated"))}).Succeeded)
         || !TestTrue(TEXT("Repeat removes B"), ReloadedRepeat->TryRefresh() && !ReloadedRepeat->GetItemWidget(TEXT("b")).IsValid())) { return false; }
     const int32 ActionsBeforeStale = Actions.Num();
-    BButton->SimulateClick();
+    BButtonBeforeRemoval->SimulateClick();
     TestEqual(TEXT("Held removed item button cannot dispatch"), Actions.Num(), ActionsBeforeStale);
     if (!TestTrue(TEXT("Reinserting B publishes"), Collection->TrySetRecords({Record(TEXT("a"), TEXT("Alpha updated")), Record(TEXT("b"), TEXT("Bravo reinserted"))}).Succeeded)
         || !TestTrue(TEXT("Repeat reinserts B"), ReloadedRepeat->TryRefresh())) { return false; }
     const TSharedPtr<SWidget> ReinsertedBItem = ReloadedRepeat->GetItemWidget(TEXT("b"));
     if (!TestTrue(TEXT("Reinserted item is mounted"), ReinsertedBItem.IsValid())) { return false; }
     const TSharedPtr<SButton> ReinsertedB = FindButton(ReinsertedBItem.ToSharedRef(), TEXT("toggle"));
-    if (!TestTrue(TEXT("Reinserted key gets a new native button"), ReinsertedB.IsValid() && ReinsertedB != BButton)) { return false; }
+    if (!TestTrue(TEXT("Reinserted key gets a new native button"), ReinsertedB.IsValid() && ReinsertedB != BButtonBeforeRemoval)) { return false; }
     ReinsertedB->SimulateClick();
     TestEqual(TEXT("Reinserted item action still targets its stable key"), Actions.Last(), FString(TEXT("b")));
     return true;

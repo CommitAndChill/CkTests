@@ -1,0 +1,51 @@
+.composition { }
+.outer-space { flex-grow: 1; }
+.panel {
+    width: 820px; height: 824px; horizontal-align: center;
+    padding: 42px; background-color: #101D2BF8;
+    border-color: #466277; border-width: 1px; border-radius: 12px;
+}
+.header { height: 30px; }
+.kicker { flex-grow: 1; font-size: 19px; font-weight: bold; color: #69D8F3; text-wrap: nowrap; }
+.unit { width: 120px; horizontal-align: right; font-size: 19px; color: #8DA4B4; text-wrap: nowrap; }
+.title { height: 80px; font-family: card-ui; font-size: 44px; font-weight: bold; color: #EDF5F9; vertical-align: center; text-wrap: nowrap; }
+.subtitle { height: 44px; font-family: card-ui; font-size: 21px; color: #8DA4B4; vertical-align: center; text-wrap: nowrap; }
+.divider { height: 2px; background-color: #466277; }
+.telemetry { height: 162px; padding: 26px 0px 12px 0px; }
+.readout { width: 252px; }
+.state-readout { flex-grow: 1; }
+.readout-label { height: 30px; font-size: 18px; color: #8DA4B4; text-wrap: nowrap; }
+.shot-value { height: 88px; font-size: 52px; font-weight: bold; color: #EDF5F9; text-wrap: nowrap; }
+.status { height: 64px; font-size: 31px; font-weight: bold; color: #69D8F3; vertical-align: center; text-wrap: nowrap; }
+.charge-header { height: 44px; }
+.field-label { flex-grow: 1; font-size: 21px; color: #EDF5F9; vertical-align: center; text-wrap: nowrap; }
+.field-value { width: 112px; horizontal-align: right; font-size: 24px; color: #69D8F3; vertical-align: center; text-wrap: nowrap; }
+.charge-slider {
+    height: 42px; width: 736px;
+    -ck-slider-bar-color: #375468; -ck-slider-bar-hover-color: #466277;
+    -ck-slider-bar-disabled-color: #263744;
+    -ck-slider-thumb-color: #69D8F3; -ck-slider-thumb-hover-color: #EDF5F9;
+    -ck-slider-thumb-disabled-color: #526878;
+    -ck-slider-thumb-width: 24px; -ck-slider-thumb-height: 28px; -ck-slider-bar-thickness: 6px;
+}
+.safety-row { height: 102px; padding: 20px 0px 16px 0px; }
+.safety-copy { flex-grow: 1; }
+.helper { height: 30px; font-size: 18px; color: #8DA4B4; vertical-align: center; text-wrap: nowrap; }
+.safety-checkbox {
+    width: 44px; height: 44px; vertical-align: center;
+    -ck-checkbox-size: 40px; -ck-checkbox-color: #466277;
+    -ck-checkbox-background-color: #69D8F3; -ck-checkbox-checked-color: #EDF5F9;
+    -ck-checkbox-label-color: #EDF5F9;
+}
+.fire-button {
+    height: 72px; font-size: 25px; font-weight: bold;
+    -ck-button-text-align: center; -ck-button-content-vertical-align: center;
+    -ck-button-background: #244458; -ck-button-border-color: #69D8F3; -ck-button-color: #EDF5F9;
+    -ck-button-hover-background: #315D74; -ck-button-hover-border-color: #EDF5F9;
+    -ck-button-focus-background: #69D8F3; -ck-button-focus-border-color: #69D8F3; -ck-button-focus-color: #101D2B;
+    -ck-button-focus-outline-color: #EDF5F9; -ck-button-focus-outline-width: 2px; -ck-button-focus-outline-gap: 2px;
+    -ck-button-pressed-background: #3889A5; -ck-button-pressed-border-color: #3889A5; -ck-button-pressed-color: #EDF5F9;
+    -ck-button-disabled-background: #263744; -ck-button-disabled-border-color: #375468; -ck-button-disabled-color: #526878;
+    -ck-button-radius: 6px; -ck-button-outline-width: 1px; -ck-button-padding-x: 24px; -ck-button-padding-y: 0px;
+}
+.footer { height: 56px; font-size: 16px; color: #8DA4B4; vertical-align: center; horizontal-align: center; text-wrap: nowrap; }

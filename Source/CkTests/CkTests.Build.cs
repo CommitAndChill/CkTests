@@ -26,6 +26,8 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("CkSlateLayout");
         PrivateDependencyModuleNames.Add("AppFramework"); // Exercise native color-picker behavior through authored controls.
         PrivateDependencyModuleNames.Add("ImageCore");
+        // The nonzero-player UI proof temporarily overlays player widget layers without a second scene view.
+        PrivateDependencyModuleNames.Add("EngineSettings");
 
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.css"), StagedFileType.NonUFS);
@@ -49,6 +51,18 @@ public class CkTests : CkModuleRules
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", "Futuristic", "squad-portraits.png"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PowerWheelProof", "PowerWheelProof.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PowerWheelProof", "PowerWheelProof.ui.css"), StagedFileType.NonUFS);
+        foreach (var Resource in new[] { "SkyrimJournalProof.ui.html", "SkyrimJournalProof.ui.css", "RobotoCondensed.ttf", "OFL.txt" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "SkyrimJournalProof", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Resource in new[] { "ScriptingCardProof.ui.html", "ScriptingCardProof.ui.css" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ScriptingCardProof", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Resource in new[] { "ScriptedCollectionProof.ui.html", "ScriptedCollectionProof.ui.css", "mission-board-backdrop.png" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ScriptedCollectionProof", Resource), StagedFileType.NonUFS);
+        }
 
         PublicDependencyModuleNames.AddRange(new string[]
         {

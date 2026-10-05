@@ -12,6 +12,7 @@
 #include "CkUI/Layout/CkUI_Layout_Subsystem.h"
 #include "CkUI/Layout/CkUI_LayerStack.h"
 #include "CkUI/Layout/CkUI_PrimaryGameLayout.h"
+#include "CkUI/Layout/CkUI_LayerMembership.h"
 #include "CkWidgets/Authoring/CkAuthoredSurface_Widget.h"
 
 #include <Blueprint/WidgetTree.h>
@@ -43,6 +44,7 @@
 #include <Layout/Children.h>
 #include <Layout/WidgetPath.h>
 #include <Widgets/SNullWidget.h>
+#include <UObject/StrongObjectPtr.h>
 
 #define LOCTEXT_NAMESPACE "CkTestsPauseMenu"
 
@@ -359,6 +361,231 @@ auto
 }
 
 auto
+    UCk_PauseMenuProof_UE::TryPrepareSettingsChild(APlayerController* InController,
+        UCommonActivatableWidget* InParent, const FCk_UiAuthoringProof_Settings& InSettings,
+        TArray<FString>& OutErrors)
+    -> UCk_PauseMenuProof_UE*
+{
+    OutErrors.Reset();
+    const auto Reject = [&OutErrors](const TCHAR* InError) -> UCk_PauseMenuProof_UE*
+    { OutErrors.Add(InError); return nullptr; };
+    if (NOT IsInGameThread() || NOT FSlateApplication::IsInitialized())
+    { return Reject(TEXT("Settings child preparation requires the game thread and initialized Slate.")); }
+    if (NOT IsValid(InController) || NOT InController->IsLocalController())
+    { return Reject(TEXT("Settings child requires a valid local controller.")); }
+    if (NOT IsValid(InParent) || InParent->GetOwningPlayer() != InController)
+    { return Reject(TEXT("Settings child requires the exact parent's controller.")); }
+    auto* Player = InController->GetLocalPlayer();
+    if (NOT IsValid(Player) || InParent->GetOwningLocalPlayer() != Player)
+    { return Reject(TEXT("Settings child requires the exact parent's local player.")); }
+    auto* World = InController->GetWorld();
+    if (NOT IsValid(World) || World->bIsTearingDown)
+    { return Reject(TEXT("Settings child requires a live world.")); }
+    if (InParent->GetWorld() != World || Player->GetWorld() != World || Player->GetPlayerController(World) != InController)
+    { return Reject(TEXT("Settings child requires a consistent current player/controller/world.")); }
+    if (NOT World->IsPaused())
+    { return Reject(TEXT("Settings child requires its parent's already paused world.")); }
+    const auto Settings = InSettings;
+    if (NOT FMath::IsFinite(Settings.Get_Volume()) || Settings.Get_Volume() < 0.0f || Settings.Get_Volume() > 100.0f
+        || NOT ck_pause_menu_proof::ValidDisplayMode(Settings.Get_DisplayMode()))
+    { return Reject(TEXT("Settings child requires finite volume in range and a supported display mode.")); }
+    auto* Subsystem = Player->GetSubsystem<UCk_UI_Layout_Subsystem_UE>();
+    if (NOT IsValid(Subsystem))
+    { return Reject(TEXT("Settings child requires the player's layout subsystem.")); }
+    auto* Layout = Subsystem->Get_Layout();
+    if (NOT IsValid(Layout) || Layout->GetOwningLocalPlayer() != Player || Layout->GetWorld() != World)
+    { return Reject(TEXT("Settings child requires the player's current layout.")); }
+    auto* Layer = Layout->Get_Layer(ck_pause_menu_proof::LayerTag);
+    if (NOT IsValid(Layer) || Layer->Get_LayerTag() != ck_pause_menu_proof::LayerTag || Layer->GetWorld() != World)
+    { return Reject(TEXT("Settings child requires the existing Pause proof layer.")); }
+    if (Layer->GetActiveWidget() != InParent || NOT InParent->IsActivated())
+    { return Reject(TEXT("Settings child requires its exact parent to be active on that layer.")); }
+
+    const TStrongObjectPtr<UCk_PauseMenuProof_UE> Candidate{CreateWidget<UCk_PauseMenuProof_UE>(InController)};
+    if (NOT IsValid(Candidate.Get()))
+    { return Reject(TEXT("Settings child widget creation failed.")); }
+    Candidate->_IsSettingsChild = true;
+    Candidate->_Screen = ECk_UiAuthoringProof_Screen::Settings;
+    Candidate->_AppliedSettings = Settings;
+    Candidate->_DraftSettings = Settings;
+    Candidate->_SettingsParent = InParent;
+    Candidate->_SettingsController = InController;
+    Candidate->_SettingsPlayer = Player;
+    Candidate->_SettingsWorld = World;
+    Candidate->_SettingsSubsystem = Subsystem;
+    Candidate->_SettingsLayout = Layout;
+    Candidate->_SettingsLayer = Layer;
+    Candidate->_SettingsParentMembership = NewObject<UCk_UI_LayerMembership_UE>(Candidate.Get());
+    if (NOT IsValid(Candidate->_SettingsParentMembership)
+        || NOT Candidate->_SettingsParentMembership->TryObserve(InParent, ck_pause_menu_proof::LayerTag, OutErrors))
+    {
+        Candidate->DoRelease();
+        if (OutErrors.IsEmpty()) { OutErrors.Add(TEXT("Settings child could not observe its parent's admission.")); }
+        return nullptr;
+    }
+    Candidate->_SettingsParentMembership->OnRetired.AddDynamic(Candidate.Get(), &ThisClass::HandleSettingsParentRetired);
+    if (NOT Candidate->DoPrepare())
+    {
+        OutErrors.Add(Candidate->_SourceError.IsEmpty() ? TEXT("Settings child source or artwork preparation failed.") : Candidate->_SourceError);
+        Candidate->DoRelease();
+        return nullptr;
+    }
+    Candidate->_PreparedSettingsRoot = Candidate->TakeWidget();
+    const bool Ready = NOT Candidate->_SettingsChildReleased && Candidate->DoHasChildContext(true)
+        && Candidate->_PreparedSettingsRoot.IsValid() && Candidate->GetCachedWidget() == Candidate->_PreparedSettingsRoot
+        && Candidate->_View.IsValid() && NOT Candidate->_View->IsOwnerReleased() && IsValid(Candidate->_Surface)
+        && Candidate->_Surface->IsConfiguredWith(Candidate->_View) && Candidate->_Surface->GetCachedWidget().IsValid();
+    if (NOT Ready)
+    {
+        Candidate->DoRelease();
+        return Reject(TEXT("Settings child lost its parent admission or could not mount its prepared surface."));
+    }
+    Candidate->_PreviousFocus.Reset();
+    const TWeakObjectPtr<ThisClass> WeakCandidate{Candidate.Get()};
+    Candidate->_SettingsPreparationExpiryHandle = FTSTicker::GetCoreTicker().AddTicker(
+        FTickerDelegate::CreateWeakLambda(Candidate.Get(), [WeakCandidate](float)
+        {
+            if (auto* Pending = WeakCandidate.Get())
+            {
+                const TStrongObjectPtr<ThisClass> KeepAlive{Pending};
+                Pending->_SettingsPreparationExpiryHandle.Reset();
+                if (NOT Pending->_SettingsChildCommitted && NOT Pending->_SettingsChildReleased)
+                { Pending->Request_Close(); }
+            }
+            return false;
+        }));
+    if (NOT Candidate->_SettingsPreparationExpiryHandle.IsValid())
+    {
+        Candidate->DoRelease();
+        return Reject(TEXT("Settings child could not register bounded preparation expiry."));
+    }
+    return Candidate.Get();
+}
+
+auto
+    UCk_PauseMenuProof_UE::DoCancelSettingsPreparationExpiry()
+    -> void
+{
+    const auto Handle = MoveTemp(_SettingsPreparationExpiryHandle);
+    _SettingsPreparationExpiryHandle.Reset();
+    if (Handle.IsValid()) { FTSTicker::RemoveTicker(Handle); }
+}
+
+auto
+    UCk_PauseMenuProof_UE::DoHasChildContext(bool InRequireActiveParent) const
+    -> bool
+{
+    if (NOT IsInGameThread() || NOT FSlateApplication::IsInitialized() || NOT _IsSettingsChild
+        || _SettingsChildReleased || NOT IsValid(_SettingsParentMembership) || NOT _SettingsParentMembership->Get_IsCurrent())
+    { return false; }
+    auto* Parent = _SettingsParent.Get();
+    auto* Controller = _SettingsController.Get();
+    auto* Player = _SettingsPlayer.Get();
+    auto* World = _SettingsWorld.Get();
+    auto* Subsystem = _SettingsSubsystem.Get();
+    auto* Layout = _SettingsLayout.Get();
+    auto* Layer = _SettingsLayer.Get();
+    if (Parent == nullptr || Controller == nullptr || Player == nullptr || World == nullptr
+        || Subsystem == nullptr || Layout == nullptr || Layer == nullptr || World->bIsTearingDown || NOT World->IsPaused())
+    { return false; }
+    if (GetOwningPlayer() != Controller || Parent->GetOwningPlayer() != Controller || NOT Controller->IsLocalController()
+        || Controller->GetLocalPlayer() != Player || Player->GetPlayerController(World) != Controller
+        || GetOwningLocalPlayer() != Player || Parent->GetOwningLocalPlayer() != Player
+        || GetWorld() != World || Controller->GetWorld() != World || Player->GetWorld() != World || Parent->GetWorld() != World
+        || Player->GetSubsystem<UCk_UI_Layout_Subsystem_UE>() != Subsystem || Subsystem->Get_Layout() != Layout
+        || Layout->GetOwningLocalPlayer() != Player || Layout->GetWorld() != World
+        || Layout->Get_Layer(ck_pause_menu_proof::LayerTag) != Layer
+        || Layer->Get_LayerTag() != ck_pause_menu_proof::LayerTag || Layer->GetWorld() != World)
+    { return false; }
+    return NOT InRequireActiveParent || (Parent->IsActivated() && Layer->GetActiveWidget() == Parent);
+}
+
+auto
+    UCk_PauseMenuProof_UE::TryPushPreparedSettingsChild(TArray<FString>& OutErrors)
+    -> bool
+{
+    OutErrors.Reset();
+    const auto Reject = [&OutErrors](const TCHAR* InError) -> bool
+    { OutErrors.Add(InError); return false; };
+    if (NOT IsInGameThread() || NOT FSlateApplication::IsInitialized())
+    { return Reject(TEXT("Settings child push requires the game thread and initialized Slate.")); }
+    if (NOT _IsSettingsChild || _SettingsChildReleased || _SettingsChildPushStarted)
+    { return Reject(TEXT("Settings child push requires a fresh prepared candidate and is one-shot.")); }
+    if (NOT DoHasChildContext(true) || NOT _PreparedSettingsRoot.IsValid() || GetCachedWidget() != _PreparedSettingsRoot || NOT _View.IsValid()
+        || _View->IsOwnerReleased() || NOT IsValid(_Surface) || NOT _Surface->IsConfiguredWith(_View))
+    {
+        Request_Close();
+        return Reject(TEXT("Settings child preparation or exact active parent is no longer current."));
+    }
+    if (_SettingsLayer->ContainsWidget(this))
+    {
+        Request_Close();
+        return Reject(TEXT("Settings child candidate was already admitted outside its prepared commit."));
+    }
+    const TStrongObjectPtr<ThisClass> KeepAlive{this};
+    const TStrongObjectPtr<UCk_UI_LayerStack_UE> Layer{_SettingsLayer.Get()};
+    auto* Subsystem = _SettingsSubsystem.Get();
+    _SettingsChildPushStarted = true;
+    auto* Pushed = Subsystem->PushWidgetToLayer_Instance(ck_pause_menu_proof::LayerTag, this);
+    const uint64 Generation = Layer->Get_WidgetAdmissionGeneration(this);
+    const auto Rollback = [&]()
+    {
+        DoRelease();
+        if (Generation != 0 && Layer->Get_WidgetAdmissionGeneration(this) == Generation)
+        { Layer->PopSpecificWidget(this); }
+    };
+    const bool Accepted = Pushed == this && NOT _SettingsChildReleased && DoHasChildContext(false)
+        && Layer->GetActiveWidget() == this && IsActivated() && Generation != 0
+        && GetCachedWidget() == _PreparedSettingsRoot && _View.IsValid() && NOT _View->IsOwnerReleased()
+        && IsValid(_Surface) && _Surface->IsConfiguredWith(_View);
+    if (NOT Accepted)
+    {
+        Rollback();
+        return Reject(TEXT("Settings child push was rejected or its admission changed during activation."));
+    }
+    _SettingsChildGeneration = Generation;
+    _SettingsChildCommitted = true;
+    DoCancelSettingsPreparationExpiry();
+    const bool Focused = DoFocus(0);
+    if (NOT Focused || NOT DoCanDispatch() || Layer->GetActiveWidget() != this
+        || Layer->Get_WidgetAdmissionGeneration(this) != Generation)
+    {
+        Rollback();
+        return Reject(TEXT("Settings child initial focus was redirected or its admission changed."));
+    }
+    _NeedsInitialFocus = false;
+    _InputReleaseGuard = MakeShared<FCkPauseMenuInputReleaseGuard>(_SlateUserIndex, GetWorld());
+    const bool InputRegistered = FSlateApplication::Get().RegisterInputPreProcessor(_InputReleaseGuard, 0);
+    _PollHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &ThisClass::DoPoll));
+    if (NOT InputRegistered || NOT _PollHandle.IsValid() || NOT DoCanDispatch()
+        || Layer->Get_WidgetAdmissionGeneration(this) != Generation)
+    {
+        Rollback();
+        return Reject(TEXT("Settings child could not register input monitoring for its accepted admission."));
+    }
+    _PreparedSettingsRoot.Reset();
+    return true;
+}
+
+auto
+    UCk_PauseMenuProof_UE::DoCanDispatch() const
+    -> bool
+{
+    if (NOT IsActivated() || _SwitchingScreen) { return false; }
+    if (NOT _IsSettingsChild) { return true; }
+    if (NOT _SettingsChildCommitted || NOT DoHasChildContext(false)) { return false; }
+    const auto* Layer = _SettingsLayer.Get();
+    return Layer != nullptr && Layer->GetActiveWidget() == this && _SettingsChildGeneration != 0
+        && Layer->Get_WidgetAdmissionGeneration(const_cast<ThisClass*>(this)) == _SettingsChildGeneration;
+}
+
+void UCk_PauseMenuProof_UE::HandleSettingsParentRetired(UCk_UI_LayerMembership_UE* InMembership)
+{
+    if (_IsSettingsChild && NOT _SettingsChildReleased && InMembership == _SettingsParentMembership)
+    { Request_Close(); }
+}
+
+auto
     UCk_PauseMenuProof_UE::DoPrepare()
     -> bool
 {
@@ -390,15 +617,21 @@ auto
     const auto Select = FCkUiSelect::Register(Registry);
     if (NOT Select.Succeeded)
     { _SourceError = FString::Join(Select.Errors, TEXT("\n")); return false; }
-    const auto ActionCard = FCkUiActionCard::Register(Registry);
-    if (NOT ActionCard.Succeeded)
-    { _SourceError = FString::Join(ActionCard.Errors, TEXT("\n")); return false; }
+    if (NOT _IsSettingsChild)
+    {
+        const auto ActionCard = FCkUiActionCard::Register(Registry);
+        if (NOT ActionCard.Succeeded)
+        { _SourceError = FString::Join(ActionCard.Errors, TEXT("\n")); return false; }
+    }
     _ControlRegistry = Registry.CreateSnapshot();
-    const auto InventoryReady = FCkInventoryMenuProofModel::TryCreate(_InventoryInitialState,
-        FPaths::Combine(Plugin->GetBaseDir(), TEXT("Resources/UiAuthoring/InventoryMenuProof/inventory-item-atlas.png")),
-        _InventoryModel, _SourceError);
-    if (NOT InventoryReady)
-    { return false; }
+    if (NOT _IsSettingsChild)
+    {
+        const auto InventoryReady = FCkInventoryMenuProofModel::TryCreate(_InventoryInitialState,
+            FPaths::Combine(Plugin->GetBaseDir(), TEXT("Resources/UiAuthoring/InventoryMenuProof/inventory-item-atlas.png")),
+            _InventoryModel, _SourceError);
+        if (NOT InventoryReady)
+        { return false; }
+    }
     const auto Collection = FCkUiCollection::TryCreate({{TEXT("label"), ECkUiFieldKind::Text}}, _DisplayModes);
     if (NOT Collection.Succeeded)
     { _SourceError = FString::Join(Collection.Errors, TEXT("\n")); return false; }
@@ -424,7 +657,8 @@ auto
     const auto Loaded = _View.IsValid() && DoReloadFiles();
     if (NOT Loaded)
     {
-        CK_ENSURE_IF_NOT(Loaded, TEXT("UI authoring layout rejected: {}"), _SourceError) {}
+        if (NOT _IsSettingsChild)
+        { CK_ENSURE_IF_NOT(Loaded, TEXT("UI authoring layout rejected: {}"), _SourceError) {} }
         DoRelease();
         return false;
     }
@@ -435,7 +669,8 @@ auto
     UCk_PauseMenuProof_UE::DoCreateView(ECk_UiAuthoringProof_Screen InScreen)
     -> TSharedPtr<FCkUiView>
 {
-    if (NOT _ControlRegistry.IsValid() || NOT _DisplayModes.IsValid() || NOT _InventoryModel.IsValid())
+    if (NOT _ControlRegistry.IsValid() || NOT _DisplayModes.IsValid()
+        || (InScreen == ECk_UiAuthoringProof_Screen::Inventory && NOT _InventoryModel.IsValid()))
     { return nullptr; }
     auto Data = FCkUiView::FDataBindings{};
     auto Actions = FCkUiView::FActions{};
@@ -443,7 +678,7 @@ auto
     Data.SlateUserIndex = _SlateUserIndex;
     Data.RestoreButtonFocusOnReload = true;
     Data.CanDispatchEvents = TAttribute<bool>::CreateLambda([WeakOwner]()
-    { return WeakOwner.IsValid() && WeakOwner->IsActivated() && NOT WeakOwner->_SwitchingScreen; });
+    { return WeakOwner.IsValid() && WeakOwner->DoCanDispatch(); });
     for (const auto& [Binding, Text] : _Labels)
     {
         Data.Text.Add(Binding.ToString(), TAttribute<FText>::CreateLambda([WeakOwner, Binding]()
@@ -495,14 +730,14 @@ auto
         Data.NumberChanged.Add(TEXT("PreviewVolume"), FCkUiOnNumberChanged::CreateWeakLambda(this,
             [this](float InValue)
             {
-                if (_Screen == ECk_UiAuthoringProof_Screen::Settings && IsActivated()
+                if (_Screen == ECk_UiAuthoringProof_Screen::Settings && DoCanDispatch()
                     && FMath::IsFinite(InValue) && InValue >= 0.0f && InValue <= 100.0f)
                 { _VolumePreview = InValue; }
             }));
         Data.NumberInteraction.Add(TEXT("EditVolume"), FCkUiOnNumberInteraction::CreateWeakLambda(this,
             [this](const FCkUiNumberInteraction& InInteraction)
             {
-                if (_Screen != ECk_UiAuthoringProof_Screen::Settings || NOT IsActivated())
+                if (_Screen != ECk_UiAuthoringProof_Screen::Settings || NOT DoCanDispatch())
                 { return; }
                 if (InInteraction.Phase == ECkUiInteractionPhase::Commit && FMath::IsFinite(InInteraction.Value)
                     && InInteraction.Value >= 0.0f && InInteraction.Value <= 100.0f)
@@ -513,13 +748,13 @@ auto
         Data.BoolChanged.Add(TEXT("EditSubtitles"), FCkUiOnBoolChanged::CreateWeakLambda(this,
             [this](bool InValue)
             {
-                if (_Screen == ECk_UiAuthoringProof_Screen::Settings && IsActivated())
+                if (_Screen == ECk_UiAuthoringProof_Screen::Settings && DoCanDispatch())
                 { _DraftSettings.Set_Subtitles(InValue); }
             }));
         Data.StringChanged.Add(TEXT("EditDisplayMode"), FCkUiOnStringChanged::CreateWeakLambda(this,
             [this](const FString& InValue)
             {
-                if (_Screen == ECk_UiAuthoringProof_Screen::Settings && IsActivated()
+                if (_Screen == ECk_UiAuthoringProof_Screen::Settings && DoCanDispatch()
                     && ck_pause_menu_proof::ValidDisplayMode(InValue))
                 { _DraftSettings.Set_DisplayMode(InValue); }
             }));
@@ -701,7 +936,7 @@ auto
     UCk_PauseMenuProof_UE::Request_ShowScreen(ECk_UiAuthoringProof_Screen InScreen, bool InReturnToPause)
     -> bool
 {
-    if (_SwitchingScreen || NOT ck_pause_menu_proof::ValidScreen(InScreen) || NOT IsActivated()
+    if (_IsSettingsChild || _SwitchingScreen || NOT ck_pause_menu_proof::ValidScreen(InScreen) || NOT IsActivated()
         || NOT _View.IsValid() || _View->IsOwnerReleased() || NOT IsValid(_Surface))
     { return false; }
     if (_Screen == InScreen)
@@ -868,7 +1103,8 @@ auto
         Reference->AddChild(_Surface);
     }
     const auto Configured = IsValid(_Surface) && _Surface->TryConfigure(_View, TEXT("main"));
-    CK_ENSURE_IF_NOT(Configured, TEXT("Pause menu could not mount its accepted authored view")) {}
+    if (NOT _IsSettingsChild)
+    { CK_ENSURE_IF_NOT(Configured, TEXT("Pause menu could not mount its accepted authored view")) {} }
     if (NOT Configured)
     { return SNullWidget::NullWidget; }
     return Super::RebuildWidget();
@@ -879,7 +1115,10 @@ auto
     -> void
 {
     Super::NativeOnActivated();
-    _NeedsInitialFocus = NOT DoFocus(0);
+    // Child activation occurs inside the push; only an accepted commit may attempt authored focus.
+    if (_IsSettingsChild) { return; }
+    const bool Focused = DoFocus(0);
+    _NeedsInitialFocus = NOT Focused;
     if (NOT _InputReleaseGuard.IsValid())
     {
         _InputReleaseGuard = MakeShared<FCkPauseMenuInputReleaseGuard>(_SlateUserIndex, GetWorld());
@@ -893,10 +1132,16 @@ auto
     UCk_PauseMenuProof_UE::DoPoll(float InDeltaTime)
     -> bool
 {
+    if (_IsSettingsChild && NOT DoHasChildContext(false))
+    { Request_Close(); return false; }
+    if (_IsSettingsChild && NOT _SettingsChildCommitted)
+    { return true; }
     if (NOT IsActivated() || NOT _View.IsValid())
     { return true; }
-    if (_NeedsInitialFocus)
+    if (NOT _IsSettingsChild && _NeedsInitialFocus)
     { _NeedsInitialFocus = NOT DoFocus(0); }
+    if (_IsSettingsChild && (_SettingsChildReleased || NOT DoCanDispatch()))
+    { return false; }
     _PollElapsed = FCk_Time{_PollElapsed.Get_Seconds() + InDeltaTime};
     constexpr auto PollInterval = FCk_Time{0.5};
     if (_PollElapsed.Get_Seconds() >= PollInterval.Get_Seconds())
@@ -911,6 +1156,29 @@ auto
     UCk_PauseMenuProof_UE::DoRelease()
     -> void
 {
+    if (_IsSettingsChild)
+    {
+        if (_SettingsChildReleased) { return; }
+        _SettingsChildReleased = true;
+        _SettingsChildCommitted = false;
+        _SettingsChildGeneration = 0;
+        DoCancelSettingsPreparationExpiry();
+        const auto Membership = _SettingsParentMembership;
+        _SettingsParentMembership = nullptr;
+        if (IsValid(Membership))
+        {
+            Membership->OnRetired.RemoveDynamic(this, &ThisClass::HandleSettingsParentRetired);
+            Membership->Request_Stop();
+        }
+        _SettingsParent.Reset();
+        _SettingsController.Reset();
+        _SettingsPlayer.Reset();
+        _SettingsWorld.Reset();
+        _SettingsSubsystem.Reset();
+        _SettingsLayout.Reset();
+        _SettingsLayer.Reset();
+    }
+    const auto PreparedRoot = MoveTemp(_PreparedSettingsRoot);
     if (_PollHandle.IsValid())
     {
         FTSTicker::GetCoreTicker().RemoveTicker(_PollHandle);
@@ -964,7 +1232,7 @@ auto
     UCk_PauseMenuProof_UE::NativeOnFocusReceived(const FGeometry& InGeometry, const FFocusEvent& InEvent)
     -> FReply
 {
-    if (IsActivated() && _View.IsValid() && InEvent.GetUser() == _SlateUserIndex)
+    if (NOT _IsSettingsChild && IsActivated() && _View.IsValid() && InEvent.GetUser() == _SlateUserIndex)
     {
         const auto Count = DoGetFocusIds().Num();
         for (auto Index = 0; Index < Count; ++Index)
@@ -984,6 +1252,19 @@ auto
     UCk_PauseMenuProof_UE::Request_Close()
     -> void
 {
+    if (_IsSettingsChild)
+    {
+        if (NOT IsInGameThread() || _SettingsChildClosing) { return; }
+        const TStrongObjectPtr<ThisClass> KeepAlive{this};
+        const TStrongObjectPtr<UCk_UI_LayerStack_UE> Layer{_SettingsLayer.Get()};
+        const uint64 Generation = Layer.IsValid() ? Layer->Get_WidgetAdmissionGeneration(this) : 0;
+        _SettingsChildClosing = true;
+        _DraftSettings = _AppliedSettings;
+        DoRelease();
+        if (Layer.IsValid() && Generation != 0 && Layer->Get_WidgetAdmissionGeneration(this) == Generation)
+        { Layer->PopSpecificWidget(this); }
+        return;
+    }
     const auto PreviousFocus = _PreviousFocus.Pin();
     DoRelease();
     DeactivateWidget();
@@ -1000,7 +1281,7 @@ auto
     UCk_PauseMenuProof_UE::DoAction(FName InAction)
     -> void
 {
-    if (NOT IsActivated() || _SwitchingScreen)
+    if (NOT DoCanDispatch())
     { return; }
     if (_Screen == ECk_UiAuthoringProof_Screen::Settings)
     {
@@ -1014,7 +1295,13 @@ auto
         }
         else if (InAction == ck_pause_menu_proof::SettingsActions[0])
         {
-            if (_SettingsReturnToPause)
+            if (_IsSettingsChild)
+            {
+                ++_ActionCounts.FindOrAdd(InAction);
+                _DraftSettings = _AppliedSettings;
+                Request_Close();
+            }
+            else if (_SettingsReturnToPause)
             {
                 if (Request_ShowScreen(ECk_UiAuthoringProof_Screen::Pause))
                 { ++_ActionCounts.FindOrAdd(InAction); }

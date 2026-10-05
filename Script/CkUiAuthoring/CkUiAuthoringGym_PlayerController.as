@@ -6,6 +6,9 @@ class ACk_UiAuthoringGym_PlayerController : ACk_Gym_Base_PlayerController
     private UCk_PauseMenuProof_UE _PauseMenu;
 
     UPROPERTY()
+    private UCk_ScriptedPause_Widget _ScriptPause;
+
+    UPROPERTY()
     private FCk_UiAuthoringProof_Settings _SavedSettings;
 
     UPROPERTY()
@@ -19,14 +22,24 @@ class ACk_UiAuthoringGym_PlayerController : ACk_Gym_Base_PlayerController
     UFUNCTION(BlueprintPure)
     bool Get_IsPreviewActive() const
     {
-        return ck::IsValid(_PauseMenu) && _PauseMenu.IsActivated();
+        return (ck::IsValid(_ScriptPause) && _ScriptPause.Get_IsCurrent())
+            || (ck::IsValid(_PauseMenu) && _PauseMenu.IsActivated());
     }
 
     UFUNCTION(BlueprintPure)
     UCk_PauseMenuProof_UE Get_ActivePauseMenu() const
     {
-        return Get_IsPreviewActive() ? _PauseMenu : nullptr;
+        if (ck::IsValid(_ScriptPause) && _ScriptPause.Get_IsCurrent())
+        {
+            auto Child = _ScriptPause.Get_SettingsChild();
+            return ck::IsValid(Child) && Child.IsActivated() ? Child : nullptr;
+        }
+        return ck::IsValid(_PauseMenu) && _PauseMenu.IsActivated() ? _PauseMenu : nullptr;
     }
+
+    UFUNCTION(BlueprintPure)
+    UCk_ScriptedPause_Widget Get_ActiveScriptPause() const
+    { return ck::IsValid(_ScriptPause) && _ScriptPause.Get_IsCurrent() ? _ScriptPause : nullptr; }
 
     UFUNCTION(BlueprintCallable)
     void Request_ShowPauseMenu()
@@ -48,17 +61,40 @@ class ACk_UiAuthoringGym_PlayerController : ACk_Gym_Base_PlayerController
 
     private void Request_ShowUi(ECk_UiAuthoringProof_Screen InScreen)
     {
-        if (Get_IsPreviewActive())
+        if (ck::IsValid(_ScriptPause) && _ScriptPause.Get_IsCurrent())
+        {
+            if (InScreen == ECk_UiAuthoringProof_Screen::Settings)
+            {
+                if (_ScriptPause.IsActivated()) { _ScriptPause.Request_ShowSettings(); }
+                return;
+            }
+            if (InScreen == ECk_UiAuthoringProof_Screen::Pause) { return; }
+            _SavedSettings = _ScriptPause.Get_AppliedSettings();
+            _ScriptPause.Request_Close();
+        }
+        if (ck::IsValid(_PauseMenu) && _PauseMenu.IsActivated()
+            && InScreen != ECk_UiAuthoringProof_Screen::Pause)
         {
             _PauseMenu.Request_ShowScreen(InScreen);
             return;
         }
+        if (ck::IsValid(_ScriptPause))
+        { _SavedSettings = _ScriptPause.Get_AppliedSettings(); }
         if (ck::IsValid(_PauseMenu))
         {
             _SavedSettings = _PauseMenu.Get_AppliedSettings();
             _SavedInventory = _PauseMenu.Get_InventoryState();
+            _PauseMenu.Request_Close();
+            _PauseMenu = nullptr;
         }
-        _PauseMenu = UCk_PauseMenuProof_UE::OpenWithProofState(this, InScreen, _SavedSettings, _SavedInventory);
+        if (InScreen == ECk_UiAuthoringProof_Screen::Pause)
+        {
+            _ScriptPause = Cast<UCk_ScriptedPause_Widget>(WidgetBlueprint::CreateWidget(UCk_ScriptedPause_Widget, this));
+            if (ck::IsValid(_ScriptPause) && !_ScriptPause.TryOpenWithSettings(_SavedSettings))
+            { _ScriptPause.Request_Close(); }
+        }
+        else
+        { _PauseMenu = UCk_PauseMenuProof_UE::OpenWithProofState(this, InScreen, _SavedSettings, _SavedInventory); }
         if (Get_IsPreviewActive())
         {
             // Hide the gym hint immediately: the world pauses in Open, so do not
@@ -83,32 +119,41 @@ class ACk_UiAuthoringGym_PlayerController : ACk_Gym_Base_PlayerController
     {
         auto Rows = TArray<FCkGym_ControlRow>();
         const bool MenuActive = Get_IsPreviewActive();
+        auto NativeMenu = Get_ActivePauseMenu();
+        const bool ScriptActive = ck::IsValid(Get_ActiveScriptPause());
 
         Rows.Add(CkGym_Control::Header("SOURCE-AUTHORED UI"));
-        const bool SettingsActive = MenuActive && _PauseMenu.Get_Screen() == ECk_UiAuthoringProof_Screen::Settings;
-        const bool InventoryActive = MenuActive && _PauseMenu.Get_Screen() == ECk_UiAuthoringProof_Screen::Inventory;
+        const bool SettingsActive = ck::IsValid(NativeMenu) && NativeMenu.Get_Screen() == ECk_UiAuthoringProof_Screen::Settings;
+        const bool InventoryActive = ck::IsValid(NativeMenu) && NativeMenu.Get_Screen() == ECk_UiAuthoringProof_Screen::Inventory;
         Rows.Add(CkGym_Control::Numbered(0, "Pause menu", MenuActive && !SettingsActive && !InventoryActive));
         Rows.Add(CkGym_Control::Numbered(1, "Settings", SettingsActive));
         Rows.Add(CkGym_Control::Numbered(2, "Inventory", InventoryActive));
         Rows.Add(CkGym_Control::Status("Screen", MenuActive ? "OPEN / PAUSED" : "closed"));
 
-        if (ck::IsValid(_PauseMenu))
+        if (ScriptActive)
         {
-            const int32 Resume = _PauseMenu.Get_ActionCount(n"ResumeRequested");
-            const int32 Settings = _PauseMenu.Get_ActionCount(n"SettingsRequested");
-            const int32 ReturnToTitle = _PauseMenu.Get_ActionCount(n"ReturnToTitleRequested");
+            const int32 Resume = _ScriptPause.Get_ActionCount(n"ResumeRequested");
+            const int32 Settings = _ScriptPause.Get_ActionCount(n"SettingsRequested");
+            const int32 ReturnToTitle = _ScriptPause.Get_ActionCount(n"ReturnToTitleRequested");
+            Rows.Add(CkGym_Control::Status("Authoring", "AngelScript + HTML/CSS"));
             Rows.Add(CkGym_Control::Status("Actions", f"Resume {Resume}  Settings {Settings}  Title {ReturnToTitle}"));
-            const int32 Apply = _PauseMenu.Get_ActionCount(n"ApplySettingsRequested");
-            const int32 Cancel = _PauseMenu.Get_ActionCount(n"CancelSettingsRequested");
-            Rows.Add(CkGym_Control::Status("Settings actions", f"Apply {Apply}  Cancel {Cancel}"));
-            Rows.Add(CkGym_Control::Status("Applied", _PauseMenu.Get_SettingsSummary()));
-            Rows.Add(CkGym_Control::Status("Inventory", _PauseMenu.Get_InventorySummary()));
-
-            const FString SourceError = _PauseMenu.Get_SourceError();
+            const FString SourceError = _ScriptPause.Get_SourceError();
             Rows.Add(CkGym_Control::Status("Source", SourceError.IsEmpty() ? "valid" : SourceError,
                 !SourceError.IsEmpty()));
         }
-        else
+        if (ck::IsValid(NativeMenu))
+        {
+            const int32 Apply = NativeMenu.Get_ActionCount(n"ApplySettingsRequested");
+            const int32 Cancel = NativeMenu.Get_ActionCount(n"CancelSettingsRequested");
+            Rows.Add(CkGym_Control::Status("Settings actions", f"Apply {Apply}  Cancel {Cancel}"));
+            Rows.Add(CkGym_Control::Status("Applied", NativeMenu.Get_SettingsSummary()));
+            if (InventoryActive) { Rows.Add(CkGym_Control::Status("Inventory", NativeMenu.Get_InventorySummary())); }
+
+            const FString SourceError = NativeMenu.Get_SourceError();
+            Rows.Add(CkGym_Control::Status("Source", SourceError.IsEmpty() ? "valid" : SourceError,
+                !SourceError.IsEmpty()));
+        }
+        else if (!ScriptActive)
         {
             Rows.Add(CkGym_Control::Status("Actions", "Open the menu to exercise its actions"));
             Rows.Add(CkGym_Control::Status("Source", "not loaded"));
@@ -134,8 +179,9 @@ class ACk_UiAuthoringGym_PlayerController : ACk_Gym_Base_PlayerController
     UFUNCTION(BlueprintOverride)
     void EndPlay(EEndPlayReason InReason)
     {
-        if (Get_IsPreviewActive())
-        { _PauseMenu.Request_Close(); }
+        if (ck::IsValid(_ScriptPause)) { _ScriptPause.Request_Close(); }
+        if (ck::IsValid(_PauseMenu)) { _PauseMenu.Request_Close(); }
+        _ScriptPause = nullptr;
         _PauseMenu = nullptr;
     }
 }

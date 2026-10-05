@@ -15,6 +15,11 @@ class FCkInventoryMenuProofModel;
 class SButton;
 class UCk_UI_AuthoredSurface_UE;
 class UTexture2D;
+class UCk_UI_LayerMembership_UE;
+class UCk_UI_Layout_Subsystem_UE;
+class UCk_UI_PrimaryGameLayout_UE;
+class UCk_UI_LayerStack_UE;
+class ULocalPlayer;
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -80,6 +85,17 @@ public:
     static UCk_PauseMenuProof_UE*
     OpenWithProofState(APlayerController* InPlayerController, ECk_UiAuthoringProof_Screen InScreen,
         const FCk_UiAuthoringProof_Settings& InSettings, const FCk_UiAuthoringProof_InventoryState& InInventory);
+
+    /** Prepare without changing stack/input/pause. Commit or close before the next CoreTicker pump, or preparation expires. */
+    UFUNCTION(BlueprintCallable, Category = "Ck|UI|Authoring Proof")
+    static UCk_PauseMenuProof_UE*
+    TryPrepareSettingsChild(APlayerController* InController, UCommonActivatableWidget* InParent,
+        const FCk_UiAuthoringProof_Settings& InSettings, TArray<FString>& OutErrors);
+
+    /** One-shot commit over the exact admitted parent. A failed fresh commit retires only this candidate. */
+    UFUNCTION(BlueprintCallable, Category = "Ck|UI|Authoring Proof")
+    bool
+    TryPushPreparedSettingsChild(TArray<FString>& OutErrors);
 
     UFUNCTION(BlueprintPure, Category = "Ck|UI|Authoring Proof")
     FCk_UiAuthoringProof_InventoryState
@@ -169,12 +185,37 @@ private:
     auto DoFocus(int32 InIndex) -> bool;
     auto DoPoll(float InDeltaTime) -> bool;
     auto DoReloadFiles() -> bool;
+    auto DoHasChildContext(bool InRequireActiveParent) const -> bool;
+    auto DoCanDispatch() const -> bool;
+    auto DoCancelSettingsPreparationExpiry() -> void;
+
+    UFUNCTION()
+    void HandleSettingsParentRetired(UCk_UI_LayerMembership_UE* InMembership);
 
     UPROPERTY(Transient)
     TObjectPtr<UCk_UI_AuthoredSurface_UE> _Surface;
 
     UPROPERTY(Transient)
     TObjectPtr<UTexture2D> _Backdrop;
+
+    UPROPERTY(Transient)
+    TObjectPtr<UCk_UI_LayerMembership_UE> _SettingsParentMembership;
+
+    TWeakObjectPtr<UCommonActivatableWidget> _SettingsParent;
+    TWeakObjectPtr<APlayerController> _SettingsController;
+    TWeakObjectPtr<ULocalPlayer> _SettingsPlayer;
+    TWeakObjectPtr<UWorld> _SettingsWorld;
+    TWeakObjectPtr<UCk_UI_Layout_Subsystem_UE> _SettingsSubsystem;
+    TWeakObjectPtr<UCk_UI_PrimaryGameLayout_UE> _SettingsLayout;
+    TWeakObjectPtr<UCk_UI_LayerStack_UE> _SettingsLayer;
+    TSharedPtr<SWidget> _PreparedSettingsRoot;
+    FTSTicker::FDelegateHandle _SettingsPreparationExpiryHandle;
+    uint64 _SettingsChildGeneration = 0;
+    bool _IsSettingsChild = false;
+    bool _SettingsChildPushStarted = false;
+    bool _SettingsChildCommitted = false;
+    bool _SettingsChildReleased = false;
+    bool _SettingsChildClosing = false;
 
     UPROPERTY(Transient)
     TMap<FName, FText> _Labels;
