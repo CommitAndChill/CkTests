@@ -73,6 +73,7 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Online Lifetime",     ACk_OnlineGym_Lifetime_GameMode,        "", "CkOnline");
         CkGym_Cycler::RegisterProjectGym("Online Lobby",        ACk_OnlineGym_DirectLobby_GameMode,     "", "CkOnline");
         CkGym_Cycler::RegisterProjectGym("Online Requests",     ACk_OnlineGym_Requests_GameMode,        "", "CkOnline");
+        CkGym_Cycler::RegisterProjectGym("Steam Lobby",         ACk_OnlineGym_SteamLobby_GameMode,      "", "CkOnline");
         CkGym_Cycler::RegisterProjectGym("Particles",          ACk_ParticlesGym_GameMode,               "", "CkParticles");
         CkGym_Cycler::RegisterProjectGym("Path Network",       ACk_PathNetworkGym_Following_GameMode,   "", "CkPathNetwork");
         CkGym_Cycler::RegisterProjectGym("PMG Shapes",         ACk_PmgShapesGym_GameMode,               "", "CkPmg");
