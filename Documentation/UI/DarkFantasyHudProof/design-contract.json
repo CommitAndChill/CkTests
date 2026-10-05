@@ -1,0 +1,734 @@
+{
+  "version": 1,
+  "proof": "DarkFantasyHudProof",
+  "gym": "UI: Dark Fantasy HUD",
+  "gameMode": "ACk_DarkFantasyHud_GameMode",
+  "widget": "UCk_DarkFantasyHud_Widget",
+  "reference": "User-supplied dark fantasy action RPG HUD; composition and control types",
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "fit": "ScaleToFit",
+    "targetResolutions": [
+      [
+        1280,
+        720
+      ],
+      [
+        1920,
+        1080
+      ],
+      [
+        2560,
+        1440
+      ]
+    ]
+  },
+  "regions": [
+    "main"
+  ],
+  "scalars": {
+    "Text": [
+      "Selection",
+      "SelectionLabel",
+      "HealthText",
+      "ManaText",
+      "ActionStatus"
+    ],
+    "Number": [
+      "HealthFraction",
+      "ManaFraction"
+    ],
+    "Bool": [
+      "WheelOpen"
+    ],
+    "Image": [
+      "Minimap",
+      "HudFrame"
+    ]
+  },
+  "actions": [
+    "OpenWheel",
+    "CloseWheel",
+    "ActivateSelection"
+  ],
+  "itemActions": [
+    "SelectInteraction",
+    "ActivateInteraction"
+  ],
+  "collections": {
+    "Interactions": {
+      "schema": {
+        "actor": "Text",
+        "glyph": "Text",
+        "angle": "Number",
+        "cooldown": "Number",
+        "enabled": "Bool",
+        "queued": "Bool"
+      },
+      "keys": [
+        "greet",
+        "thanks",
+        "follow",
+        "wait",
+        "help",
+        "trade",
+        "inspect",
+        "leave"
+      ],
+      "angles": [
+        0,
+        45,
+        90,
+        135,
+        180,
+        225,
+        270,
+        315
+      ],
+      "minimumAngularSeparation": 15,
+      "initialCooldown": 0,
+      "initialEnabled": true,
+      "initialQueued": false
+    }
+  },
+  "requiredRegistrations": [
+    "HudControls",
+    "RadialControls"
+  ],
+  "art": {
+    "dungeon-backdrop.png": {
+      "owner": "UMG Image",
+      "purpose": "Scenery only"
+    },
+    "sewer-minimap.png": {
+      "binding": "Minimap",
+      "widget": "minimap",
+      "size": [
+        280,
+        280
+      ],
+      "purpose": "Illustrative map only"
+    },
+    "ornamental-hud-frame.png": {
+      "binding": "HudFrame",
+      "widget": "ornamental-frame",
+      "size": [
+        960,
+        347
+      ],
+      "purpose": "Transparent decoration only"
+    }
+  },
+  "ownership": {
+    "html": "Widget tree, labels and hints",
+    "css": "Layout and appearance",
+    "script": "State, keyed interaction records, actions, requests and lifecycle",
+    "native": "Generic reflected session, HUD and radial controls"
+  },
+  "verification": "100-node source contract, Development build, 35/35 DX11 UiAuthoring compatibility tests, and native 720p/1080p/1440p captures; DX12 and cooked packaging open",
+  "schemaVersion": 1,
+  "nodeCount": 100,
+  "nodes": [
+    {
+      "id": "fantasy-root",
+      "tag": "overlay",
+      "parentId": null,
+      "scope": "main-region"
+    },
+    {
+      "id": "ornamental-frame",
+      "tag": "hud-graphic",
+      "parentId": "fantasy-root",
+      "scope": "main-region"
+    },
+    {
+      "id": "hud-layout",
+      "tag": "column",
+      "parentId": "fantasy-root",
+      "scope": "main-region"
+    },
+    {
+      "id": "header",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region"
+    },
+    {
+      "id": "player-header",
+      "tag": "column",
+      "parentId": "header",
+      "scope": "main-region"
+    },
+    {
+      "id": "player-name",
+      "tag": "text",
+      "parentId": "player-header",
+      "scope": "main-region"
+    },
+    {
+      "id": "player-class",
+      "tag": "text",
+      "parentId": "player-header",
+      "scope": "main-region"
+    },
+    {
+      "id": "quest",
+      "tag": "column",
+      "parentId": "header",
+      "scope": "main-region"
+    },
+    {
+      "id": "quest-title",
+      "tag": "text",
+      "parentId": "quest",
+      "scope": "main-region"
+    },
+    {
+      "id": "quest-objective",
+      "tag": "text",
+      "parentId": "quest",
+      "scope": "main-region"
+    },
+    {
+      "id": "quest-progress",
+      "tag": "text",
+      "parentId": "quest",
+      "scope": "main-region"
+    },
+    {
+      "id": "map-panel",
+      "tag": "column",
+      "parentId": "header",
+      "scope": "main-region"
+    },
+    {
+      "id": "map-title",
+      "tag": "text",
+      "parentId": "map-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "minimap",
+      "tag": "hud-graphic",
+      "parentId": "map-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "map-meta",
+      "tag": "row",
+      "parentId": "map-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "map-danger",
+      "tag": "text",
+      "parentId": "map-meta",
+      "scope": "main-region"
+    },
+    {
+      "id": "map-time",
+      "tag": "text",
+      "parentId": "map-meta",
+      "scope": "main-region"
+    },
+    {
+      "id": "playfield",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region"
+    },
+    {
+      "id": "party",
+      "tag": "column",
+      "parentId": "playfield",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-title",
+      "tag": "text",
+      "parentId": "party",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-lyra",
+      "tag": "column",
+      "parentId": "party",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-lyra-name",
+      "tag": "text",
+      "parentId": "party-lyra",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-lyra-vitals",
+      "tag": "column",
+      "parentId": "party-lyra",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-lyra-class",
+      "tag": "text",
+      "parentId": "party-lyra",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-orin",
+      "tag": "column",
+      "parentId": "party",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-orin-name",
+      "tag": "text",
+      "parentId": "party-orin",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-orin-vitals",
+      "tag": "column",
+      "parentId": "party-orin",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-orin-class",
+      "tag": "text",
+      "parentId": "party-orin",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-mira",
+      "tag": "column",
+      "parentId": "party",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-mira-name",
+      "tag": "text",
+      "parentId": "party-mira",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-mira-vitals",
+      "tag": "column",
+      "parentId": "party-mira",
+      "scope": "main-region"
+    },
+    {
+      "id": "party-mira-class",
+      "tag": "text",
+      "parentId": "party-mira",
+      "scope": "main-region"
+    },
+    {
+      "id": "playfield-spacer",
+      "tag": "column",
+      "parentId": "playfield",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-zone",
+      "tag": "column",
+      "parentId": "fantasy-root",
+      "scope": "main-region"
+    },
+    {
+      "id": "interaction-wheel",
+      "tag": "radial-selector",
+      "parentId": "wheel-zone",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-center",
+      "tag": "column",
+      "parentId": "interaction-wheel",
+      "scope": "main-region"
+    },
+    {
+      "id": "center-top-space",
+      "tag": "column",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-heading",
+      "tag": "text",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-selection",
+      "tag": "text",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "activate-selection",
+      "tag": "button",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "close-wheel",
+      "tag": "button",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "center-bottom-space",
+      "tag": "column",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "chat-zone",
+      "tag": "column",
+      "parentId": "playfield",
+      "scope": "main-region"
+    },
+    {
+      "id": "chat-top-space",
+      "tag": "column",
+      "parentId": "chat-zone",
+      "scope": "main-region"
+    },
+    {
+      "id": "chat",
+      "tag": "column",
+      "parentId": "chat-zone",
+      "scope": "main-region"
+    },
+    {
+      "id": "chat-channel",
+      "tag": "text",
+      "parentId": "chat",
+      "scope": "main-region"
+    },
+    {
+      "id": "chat-orin",
+      "tag": "text",
+      "parentId": "chat",
+      "scope": "main-region"
+    },
+    {
+      "id": "chat-mira",
+      "tag": "text",
+      "parentId": "chat",
+      "scope": "main-region"
+    },
+    {
+      "id": "chat-action",
+      "tag": "text",
+      "parentId": "chat",
+      "scope": "main-region"
+    },
+    {
+      "id": "chat-hint",
+      "tag": "text",
+      "parentId": "chat",
+      "scope": "main-region"
+    },
+    {
+      "id": "bottom-hud",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region"
+    },
+    {
+      "id": "health-panel",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region"
+    },
+    {
+      "id": "health-orb",
+      "tag": "overlay",
+      "parentId": "health-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "health-meter",
+      "tag": "hud-meter",
+      "parentId": "health-orb",
+      "scope": "main-region"
+    },
+    {
+      "id": "health-labels",
+      "tag": "column",
+      "parentId": "health-orb",
+      "scope": "main-region"
+    },
+    {
+      "id": "health-top-space",
+      "tag": "column",
+      "parentId": "health-labels",
+      "scope": "main-region"
+    },
+    {
+      "id": "health-title",
+      "tag": "text",
+      "parentId": "health-labels",
+      "scope": "main-region"
+    },
+    {
+      "id": "health-value",
+      "tag": "text",
+      "parentId": "health-labels",
+      "scope": "main-region"
+    },
+    {
+      "id": "health-bottom-space",
+      "tag": "column",
+      "parentId": "health-labels",
+      "scope": "main-region"
+    },
+    {
+      "id": "potion-key",
+      "tag": "text",
+      "parentId": "health-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "hotbar-panel",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region"
+    },
+    {
+      "id": "hotbar-caption",
+      "tag": "text",
+      "parentId": "hotbar-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "hotbar",
+      "tag": "row",
+      "parentId": "hotbar-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-1",
+      "tag": "column",
+      "parentId": "hotbar",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-1-glyph",
+      "tag": "text",
+      "parentId": "skill-1",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-1-label",
+      "tag": "text",
+      "parentId": "skill-1",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-1-key",
+      "tag": "text",
+      "parentId": "skill-1",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-2",
+      "tag": "column",
+      "parentId": "hotbar",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-2-glyph",
+      "tag": "text",
+      "parentId": "skill-2",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-2-label",
+      "tag": "text",
+      "parentId": "skill-2",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-2-key",
+      "tag": "text",
+      "parentId": "skill-2",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-3",
+      "tag": "column",
+      "parentId": "hotbar",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-3-glyph",
+      "tag": "text",
+      "parentId": "skill-3",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-3-label",
+      "tag": "text",
+      "parentId": "skill-3",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-3-key",
+      "tag": "text",
+      "parentId": "skill-3",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-4",
+      "tag": "column",
+      "parentId": "hotbar",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-4-glyph",
+      "tag": "text",
+      "parentId": "skill-4",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-4-label",
+      "tag": "text",
+      "parentId": "skill-4",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-4-key",
+      "tag": "text",
+      "parentId": "skill-4",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-left",
+      "tag": "column",
+      "parentId": "hotbar",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-left-glyph",
+      "tag": "text",
+      "parentId": "skill-left",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-left-label",
+      "tag": "text",
+      "parentId": "skill-left",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-left-key",
+      "tag": "text",
+      "parentId": "skill-left",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-right",
+      "tag": "column",
+      "parentId": "hotbar",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-right-glyph",
+      "tag": "text",
+      "parentId": "skill-right",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-right-label",
+      "tag": "text",
+      "parentId": "skill-right",
+      "scope": "main-region"
+    },
+    {
+      "id": "skill-right-key",
+      "tag": "text",
+      "parentId": "skill-right",
+      "scope": "main-region"
+    },
+    {
+      "id": "utility-row",
+      "tag": "row",
+      "parentId": "hotbar-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "evade-hint",
+      "tag": "text",
+      "parentId": "utility-row",
+      "scope": "main-region"
+    },
+    {
+      "id": "open-wheel",
+      "tag": "button",
+      "parentId": "utility-row",
+      "scope": "main-region"
+    },
+    {
+      "id": "inventory-hint",
+      "tag": "text",
+      "parentId": "utility-row",
+      "scope": "main-region"
+    },
+    {
+      "id": "mana-panel",
+      "tag": "column",
+      "parentId": "bottom-hud",
+      "scope": "main-region"
+    },
+    {
+      "id": "mana-orb",
+      "tag": "overlay",
+      "parentId": "mana-panel",
+      "scope": "main-region"
+    },
+    {
+      "id": "mana-meter",
+      "tag": "hud-meter",
+      "parentId": "mana-orb",
+      "scope": "main-region"
+    },
+    {
+      "id": "mana-labels",
+      "tag": "column",
+      "parentId": "mana-orb",
+      "scope": "main-region"
+    },
+    {
+      "id": "mana-top-space",
+      "tag": "column",
+      "parentId": "mana-labels",
+      "scope": "main-region"
+    },
+    {
+      "id": "mana-title",
+      "tag": "text",
+      "parentId": "mana-labels",
+      "scope": "main-region"
+    },
+    {
+      "id": "mana-value",
+      "tag": "text",
+      "parentId": "mana-labels",
+      "scope": "main-region"
+    },
+    {
+      "id": "mana-bottom-space",
+      "tag": "column",
+      "parentId": "mana-labels",
+      "scope": "main-region"
+    },
+    {
+      "id": "resource-hint",
+      "tag": "text",
+      "parentId": "mana-panel",
+      "scope": "main-region"
+    }
+  ]
+}
