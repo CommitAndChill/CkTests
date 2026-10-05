@@ -3,6 +3,7 @@
 #include "CkOnline/Direct/CkOnlineDirect_Subsystem.h"
 #include "CkOnline/Direct/CkOnlineDirect_Utils.h"
 #include "CkOnline/Direct/CkOnlineDirect_ListenTarget.h"
+#include "CkOnline/Connection/CkOnlineConnection_Subsystem.h"
 #include "Misc/PackageName.h"
 
 #include "Engine/Engine.h"
@@ -144,6 +145,7 @@ void UCkOnlineDirectIpTest_ProofComponent::Server_RecordProof_Implementation()
 auto UCkOnlineDirectIpTest_Subsystem::Initialize(FSubsystemCollectionBase& InCollection) -> void
 {
     Super::Initialize(InCollection);
+    InCollection.InitializeDependency<UCk_OnlineConnection_Subsystem_UE>();
     if (GEngine == nullptr) { return; }
     _NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(this, &ThisClass::OnNetworkFailure);
     _TravelFailureHandle = GEngine->OnTravelFailure().AddUObject(this, &ThisClass::OnTravelFailure);
@@ -272,6 +274,7 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     const ck::test::ip::FLobbyBinding* InBinding) -> bool
 {
     if (!IsInGameThread() || _Deinitialized) { return false; }
+    if (InBinding != nullptr) { return DoRequestProductionEntry(true, InPort, FString{}, *InBinding); }
     const bool Bridged = InBinding != nullptr;
     auto* World = Get_ReadyWorld();
     if (World == nullptr) { return DoReject(TEXT("No ready game world.")); }
@@ -309,6 +312,7 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     { return DoReject(TEXT("Could not form a local listen travel URL for the requested port.")); }
     if (!HasIdleOwnedTravelContext(World, GetGameInstance()))
     { return DoReject(TEXT("Host travel context changed during preparation; existing travel is preserved.")); }
+    _UsesFoundationOwner = false;
     _BridgeActive = Bridged;
     _TestControlFaultQueued = false;
     _ReturnToLobby = Bridged;
@@ -351,6 +355,7 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     const ck::test::ip::FLobbyBinding* InBinding) -> bool
 {
     if (!IsInGameThread() || _Deinitialized) { return false; }
+    if (InBinding != nullptr) { return DoRequestProductionEntry(false, 0, InEndpoint, *InBinding); }
     const bool Bridged = InBinding != nullptr;
     FString Canonical;
     if (Bridged)
@@ -386,6 +391,7 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     { return DoReject(TEXT("The joining world has no return travel context.")); }
     if (!HasIdleOwnedTravelContext(World, GetGameInstance()))
     { return DoReject(TEXT("Join travel context changed during preparation; existing travel is preserved.")); }
+    _UsesFoundationOwner = false;
     _BridgeActive = Bridged;
     _TestControlFaultQueued = false;
     _ReturnToLobby = Bridged;
@@ -406,6 +412,147 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     PlayerController->ClientTravel(_Endpoint, TRAVEL_Absolute);
     UE_LOG(LogCkOnlineDirectIpTest, Display, TEXT("Joining %s (request issued; admission not yet proven)"), *_Endpoint);
     return true;
+}
+
+auto UCkOnlineDirectIpTest_Subsystem::DoRequestProductionEntry(bool InHosting, int32 InPort,
+    const FString& InEndpoint, const ck::test::ip::FLobbyBinding& InBinding) -> bool
+{
+    auto* Instance = GetGameInstance();
+    auto* World = Get_ReadyWorld();
+    auto* Owner = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineConnection_Subsystem_UE>() : nullptr;
+    auto* Direct = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineDirect_Subsystem_UE>() : nullptr;
+    if (!IsValid(World) || !IsValid(Owner) || !IsValid(Direct) || IsValid(Get_ProofState()) ||
+        _State != EState::Offline || !Owner->Get_IsIdle())
+    { return DoReject(TEXT("Gameplay entry needs the idle owned Lobby; queued or pending travel must settle first.")); }
+    ck::test::ip::FLobbyBinding Current;
+    if (!TryCaptureOwnedLobby(InHosting, Current) || !InBinding.Matches(Direct->Get_Snapshot()))
+    { return DoReject(TEXT("The owned two-member ready lobby changed before entry.")); }
+    const auto ReturnMap = UWorld::RemovePIEPrefix(World->GetPackage()->GetName());
+    const auto Map = TSoftObjectPtr<UWorld>{FSoftObjectPath{
+        ReturnMap + TEXT(".") + FPackageName::GetShortName(ReturnMap)}};
+    auto Spec = FCk_OnlineConnection_Spec{};
+    Spec.Set_DirectService(Direct->Get_Service()).Set_Binding(InBinding).Set_ExpectedMembers(2)
+        .Set_GameplayMap(Map).Set_GameplayMode(TSubclassOf<AGameModeBase>{FindObject<UClass>(nullptr, GymGameModePath)})
+        .Set_ReturnMap(Map).Set_ReturnMode(TSubclassOf<AGameModeBase>{FindObject<UClass>(nullptr, LobbyGameModePath)})
+        .Set_ListenPort(InPort).Set_Endpoint(InEndpoint);
+    auto Request = FCk_Request_OnlineConnection{};
+    Request.Set_Action(InHosting ? ECk_OnlineConnection_Action::Host : ECk_OnlineConnection_Action::Join).Set_Spec(Spec);
+    auto Operation = FCk_OnlineConnection_Operation{};
+    if (!Owner->TryRequest(Request, Operation))
+    { return DoReject(TEXT("Foundation rejected the entry target, ready binding, driver or travel context.")); }
+    _UsesFoundationOwner = true;
+    _ProductionEntry = Operation;
+    _ConfirmationQueued = false;
+    _ProductionReturnQueued = false;
+    _BridgeActive = true;
+    _BridgeBinding = InBinding;
+    _BridgeLastBinding = InBinding;
+    _BridgeReadback = TEXT("Foundation entry queued; transport and gym readiness pending");
+    _TestControlFaultQueued = false;
+    _ReturnToLobby = true;
+    _ReturnMap = ReturnMap;
+    _RequestedHostPort = InPort;
+    _Endpoint = InHosting ? FString::Printf(TEXT("%s:%d"), *InBinding.Get_HostAddress(), InPort) : InEndpoint;
+    _HasJoinEndpoint = !InHosting;
+    _State = InHosting ? EState::StartingHost : EState::Joining;
+    _ReturnPending = false;
+    _FailureReturnPending = false;
+    _FailureIsolationReadback = TEXT("Not exercised");
+    _FailureIsolationObservations = 0;
+    _QueuedTravelIsolationReadback = TEXT("Not exercised");
+    _QueuedTravelTestObservations = 0;
+    _QueuedTravelTestPending = false;
+    _LastError.Empty();
+    return true;
+}
+
+auto UCkOnlineDirectIpTest_Subsystem::DoObserveProductionOwner() -> void
+{
+    auto* Instance = GetGameInstance();
+    auto* Owner = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineConnection_Subsystem_UE>() : nullptr;
+    if (!IsValid(Owner)) { _State = EState::Failed; _LastError = TEXT("Foundation connection owner unavailable."); return; }
+    const auto Snapshot = Owner->Get_Snapshot();
+    const auto State = Snapshot.Get_State();
+    if (!Snapshot.Get_LastError().IsEmpty()) { _LastError = Snapshot.Get_LastError(); }
+    _ReturnPending = State == ECk_OnlineConnection_State::AwaitingReturn || State == ECk_OnlineConnection_State::Returning;
+    _FailureReturnPending = false;
+    if (_ReturnPending)
+    {
+        _State = EState::Leaving;
+        _BridgeReadback = TEXT("Foundation is returning to the configured Lobby");
+        return;
+    }
+    if (State == ECk_OnlineConnection_State::Idle)
+    {
+        if (_ProductionEntry.Get_Id().IsValid() && !Owner->Get_IsIdle()) { return; }
+        if (_BridgeActive)
+        {
+            _BridgeReadback = Get_BridgeStillValid() ? TEXT("Returned to Online Lobby; control lobby preserved") :
+                TEXT("Returned to Online Lobby; control lobby changed or was lost");
+        }
+        _BridgeActive = false;
+        _BridgeBinding = {};
+        _HasJoinEndpoint = false;
+        _ProductionReturnQueued = false;
+        _ConfirmationQueued = false;
+        _State = EState::Offline;
+        return;
+    }
+    if (State == ECk_OnlineConnection_State::Failed || State == ECk_OnlineConnection_State::Stopped)
+    {
+        _State = EState::Failed;
+        _BridgeActive = false;
+        _BridgeBinding = {};
+        _BridgeReadback = TEXT("Foundation return failed or owner stopped; inspect its terminal result");
+        return;
+    }
+    if (State == ECk_OnlineConnection_State::Active)
+    {
+        _State = Snapshot.Get_Hosting() ? EState::Hosting : EState::Connected;
+        _BridgeReadback = TEXT("Foundation Active; gym replicated readiness confirmed");
+        return;
+    }
+    _State = Snapshot.Get_Hosting() ? EState::StartingHost : EState::Joining;
+    if (State != ECk_OnlineConnection_State::AwaitingGameReady || _ConfirmationQueued || !Get_BridgeStillValid()) { return; }
+    auto* World = Get_ReadyWorld();
+    auto* Proof = Get_ProofState();
+    if (!IsValid(World) || !IsValid(Proof)) { return; }
+    bool Ready = false;
+    if (Snapshot.Get_Hosting())
+    {
+        if (World->GetNetMode() == NM_ListenServer && Proof->PlayerArray.Num() == 1)
+        {
+            if (!Proof->SessionMarker.IsValid()) { Proof->Request_BeginHosting(_BridgeBinding.Get_Epoch()); }
+            Ready = Proof->SessionMarker.IsValid() && Proof->LobbyEpoch == _BridgeBinding.Get_Epoch();
+        }
+    }
+    else
+    {
+        auto* Controller = Instance->GetFirstLocalPlayerController();
+        Ready = World->GetNetMode() == NM_Client && HasOpenClientConnection(World) &&
+            Proof->SessionMarker.IsValid() && Proof->LobbyEpoch == _BridgeBinding.Get_Epoch() &&
+            IsValid(Controller) && IsValid(Controller->PlayerState) && Proof->PlayerArray.Contains(Controller->PlayerState);
+    }
+    if (!Ready) { return; }
+    auto Request = FCk_Request_OnlineConnection{};
+    Request.Set_Action(ECk_OnlineConnection_Action::ConfirmGameReady).Set_Target(_ProductionEntry);
+    auto Confirmation = FCk_OnlineConnection_Operation{};
+    _ConfirmationQueued = Owner->TryRequest(Request, Confirmation);
+}
+
+auto UCkOnlineDirectIpTest_Subsystem::Get_ConnectionOwnerText() const -> FString
+{
+    auto* Instance = GetGameInstance();
+    auto* Owner = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineConnection_Subsystem_UE>() : nullptr;
+    if (!IsValid(Owner)) { return TEXT("Foundation: Stopped"); }
+    const auto Snapshot = Owner->Get_Snapshot();
+    const auto Completion = Owner->Get_LastCompletion();
+    const auto StateName = StaticEnum<ECk_OnlineConnection_State>()->GetNameStringByValue(static_cast<int64>(Snapshot.Get_State()));
+    const auto ActionName = StaticEnum<ECk_OnlineConnection_Action>()->GetNameStringByValue(static_cast<int64>(Completion.Get_Action()));
+    const auto ResultName = StaticEnum<ECk_OnlineConnection_Result>()->GetNameStringByValue(static_cast<int64>(Completion.Get_Result()));
+    return FString::Printf(TEXT("Foundation: %s | op %s | session %s | completed %d | %s %s"),
+        *StateName, *Snapshot.Get_Operation().Get_Id().ToString(EGuidFormats::Digits).Left(8),
+        *Snapshot.Get_Session().Get_Id().ToString(EGuidFormats::Digits).Left(8), Owner->Get_CompletedCount(), *ActionName, *ResultName);
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::DoReturnToGym(bool InKeepFailure) -> bool
@@ -437,6 +584,20 @@ auto UCkOnlineDirectIpTest_Subsystem::DoReturnToGym(bool InKeepFailure) -> bool
 
 auto UCkOnlineDirectIpTest_Subsystem::Request_Disconnect() -> bool
 {
+    if (!IsInGameThread() || _Deinitialized) { return false; }
+    if (_UsesFoundationOwner)
+    {
+        auto* Owner = GetGameInstance()->GetSubsystem<UCk_OnlineConnection_Subsystem_UE>();
+        if (!IsValid(Owner) || _ProductionReturnQueued) { return DoReject(TEXT("No active Foundation operation to return.")); }
+        const auto Snapshot = Owner->Get_Snapshot();
+        auto Request = FCk_Request_OnlineConnection{};
+        Request.Set_Action(ECk_OnlineConnection_Action::Return).Set_Target(
+            Snapshot.Get_State() == ECk_OnlineConnection_State::Active ? Snapshot.Get_Session() : Snapshot.Get_Operation());
+        auto Operation = FCk_OnlineConnection_Operation{};
+        if (!Owner->TryRequest(Request, Operation)) { return DoReject(TEXT("Foundation return was rejected; wait for the current operation.")); }
+        _ProductionReturnQueued = true;
+        return true;
+    }
     if (_State == EState::Offline || _State == EState::Leaving) { return DoReject(TEXT("No active connection to leave.")); }
     if (Get_ReadyWorld() == nullptr || _ReturnMap.IsEmpty()) { return DoReject(TEXT("No return world available.")); }
     _LastError.Empty();
@@ -530,6 +691,7 @@ auto UCkOnlineDirectIpTest_Subsystem::DoObserveQueuedLobbyReload() -> void
 auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
 {
     DoObserveQueuedLobbyReload();
+    if (_UsesFoundationOwner) { DoObserveProductionOwner(); return; }
     if (_BridgeActive && !_ReturnPending && !_FailureReturnPending &&
         _State != EState::Offline && _State != EState::Leaving && !Get_BridgeStillValid())
     {
@@ -702,7 +864,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
 auto UCkOnlineDirectIpTest_Subsystem::OnNetworkFailure(UWorld* InWorld, UNetDriver* InDriver,
     ENetworkFailure::Type InFailure, const FString& InError) -> void
 {
-    if (!IsInGameThread() || _Deinitialized ||
+    if (_UsesFoundationOwner || !IsInGameThread() || _Deinitialized ||
         (_State != EState::StartingHost && _State != EState::Joining &&
          _State != EState::Hosting && _State != EState::Connected)) { return; }
     auto* Instance = GetGameInstance();
@@ -736,6 +898,7 @@ auto UCkOnlineDirectIpTest_Subsystem::OnNetworkFailure(UWorld* InWorld, UNetDriv
 auto UCkOnlineDirectIpTest_Subsystem::OnTravelFailure(UWorld* InWorld, ETravelFailure::Type InFailure,
     const FString& InError) -> void
 {
+    if (_UsesFoundationOwner) { return; }
     if (!IsValid(InWorld) || InWorld->GetGameInstance() != GetGameInstance() || _State == EState::Offline) { return; }
     const auto WasReturning = _ReturnPending;
     _State = EState::Failed;
@@ -955,6 +1118,13 @@ auto UCkOnlineDirectIpTest_Subsystem::Get_StateText() const -> FString
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_IsHosting() const -> bool
 {
+    if (_UsesFoundationOwner)
+    {
+        auto* Instance = GetGameInstance();
+        auto* Owner = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineConnection_Subsystem_UE>() : nullptr;
+        if (!IsValid(Owner) || Owner->Get_Snapshot().Get_State() != ECk_OnlineConnection_State::Active ||
+            !Owner->Get_Snapshot().Get_Hosting()) { return false; }
+    }
     auto* World = Get_ReadyWorld();
     auto* State = Get_ProofState();
     auto* Driver = World != nullptr ? Cast<UIpNetDriver>(World->GetNetDriver()) : nullptr;
@@ -967,6 +1137,13 @@ auto UCkOnlineDirectIpTest_Subsystem::Get_IsHosting() const -> bool
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_IsConnected() const -> bool
 {
+    if (_UsesFoundationOwner)
+    {
+        auto* Instance = GetGameInstance();
+        auto* Owner = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineConnection_Subsystem_UE>() : nullptr;
+        if (!IsValid(Owner) || Owner->Get_Snapshot().Get_State() != ECk_OnlineConnection_State::Active ||
+            Owner->Get_Snapshot().Get_Hosting()) { return false; }
+    }
     auto* World = Get_ReadyWorld();
     auto* State = Get_ProofState();
     return _State == EState::Connected && World != nullptr && World->GetNetMode() == NM_Client
@@ -977,6 +1154,12 @@ auto UCkOnlineDirectIpTest_Subsystem::Get_IsConnected() const -> bool
 auto UCkOnlineDirectIpTest_Subsystem::Get_IsOffline() const -> bool
 {
     if (!IsInGameThread()) { return false; }
+    if (_UsesFoundationOwner)
+    {
+        auto* Instance = GetGameInstance();
+        auto* Owner = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineConnection_Subsystem_UE>() : nullptr;
+        return _State == EState::Offline && IsValid(Owner) && Owner->Get_IsIdle();
+    }
     auto* World = Get_ReadyWorld();
     if (_State != EState::Offline || World == nullptr || World->GetNetDriver() != nullptr ||
         World->GetNetMode() != NM_Standalone) { return false; }

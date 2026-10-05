@@ -128,6 +128,18 @@ class ACk_OnlineGym_DirectIp_PlayerController : ACk_Gym_Base_PlayerController
             FailureIsolation, FailureIsolationTone))); // 27
         Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::F8, "F8",
             "Test: reject unrelated network failure", Probe.Get_IsLobbyBridge() && (IsHosting || IsConnected)))); // 28
+        FString ConnectionOwnerText = Probe.Get_ConnectionOwnerText();
+        ECkGym_ControlTone ConnectionOwnerTone = ECkGym_ControlTone::Info;
+        if (ConnectionOwnerText.StartsWith("Foundation: Active")) { ConnectionOwnerTone = ECkGym_ControlTone::Success; }
+        else if (ConnectionOwnerText.StartsWith("Foundation: Failed")) { ConnectionOwnerTone = ECkGym_ControlTone::Error; }
+        else if (ConnectionOwnerText.StartsWith("Foundation: Stopped")) { ConnectionOwnerTone = ECkGym_ControlTone::Neutral; }
+        else if (ConnectionOwnerText.StartsWith("Foundation: Entering")
+            || ConnectionOwnerText.StartsWith("Foundation: AwaitingGameReady")
+            || ConnectionOwnerText.StartsWith("Foundation: AwaitingReturn")
+            || ConnectionOwnerText.StartsWith("Foundation: Returning"))
+        { ConnectionOwnerTone = ECkGym_ControlTone::Warning; }
+        Rows.Add(CkGym_Control::Details(CkGym_Control::StatusTone("Foundation connection owner",
+            ConnectionOwnerText, ConnectionOwnerTone))); // 29
         return Rows;
     }
 

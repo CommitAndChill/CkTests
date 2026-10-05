@@ -188,6 +188,9 @@ The unchecked Gate13 configured gameplay port check is in
 `Script/CkOnline/CONFIGURED_GAMEPLAY_PORT_EDITOR_TESTING.md`; the deferred-check
 index tracks it. Both Standalone windows must use the same gameplay port because
 the lobby invite does not advertise that target.
+The unchecked Gate14 Foundation connection owner check is in
+`Script/CkOnline/PUBLIC_CONNECTION_EDITOR_TESTING.md`; it observes successful
+ready-lobby entry, gameplay return, and host-loss return operations.
 The combined normal-path editor card is
 `Script/CkOnline/AFK_RETURN_EDITOR_TESTING.md`; individual edge-case checks remain
 in the deferred editor-check index.

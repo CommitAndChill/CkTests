@@ -7,6 +7,7 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Tickable.h"
 #include "CkOnline/CkOnlineDirectIpTest_Bridge.h"
+#include "CkOnline/Connection/CkOnlineConnection_Fragment_Data.h"
 
 #include "CkOnlineDirectIpTest_Subsystem.generated.h"
 
@@ -59,7 +60,7 @@ public:
     void Server_RecordProof();
 };
 
-/** Stock IP transport fixture only. Does not supply a production CkOnline provider. */
+/** Standalone IP fixture and a ready-lobby consumer of Foundation's connection owner. */
 UCLASS(BlueprintType)
 class CKTESTS_API UCkOnlineDirectIpTest_Subsystem : public UGameInstanceSubsystem, public FTickableGameObject
 {
@@ -118,6 +119,9 @@ public:
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     FString Get_StateText() const;
+
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
+    FString Get_ConnectionOwnerText() const;
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     FString Get_LobbyBridgeText() const;
@@ -179,6 +183,9 @@ private:
     enum class EState : uint8 { Offline, StartingHost, Hosting, Joining, Connected, Leaving, Failed };
     auto DoRequestHost(int32 InPort, const ck::test::ip::FLobbyBinding* InBinding) -> bool;
     auto DoRequestJoin(const FString& InEndpoint, const ck::test::ip::FLobbyBinding* InBinding) -> bool;
+    auto DoRequestProductionEntry(bool InHosting, int32 InPort, const FString& InEndpoint,
+        const ck::test::ip::FLobbyBinding& InBinding) -> bool;
+    auto DoObserveProductionOwner() -> void;
     auto TryCaptureOwnedLobby(bool InHosting, ck::test::ip::FLobbyBinding& Out) const -> bool;
     auto Get_BridgeStillValid() const -> bool;
     auto TryGetTestControlService(UCk_OnlineDirect_Subsystem_UE*& OutService) -> bool;
@@ -192,6 +199,10 @@ private:
     auto OnTravelFailure(UWorld* InWorld, ETravelFailure::Type InFailure, const FString& InError) -> void;
 
     EState _State = EState::Offline;
+    bool _UsesFoundationOwner = false;
+    bool _ConfirmationQueued = false;
+    bool _ProductionReturnQueued = false;
+    FCk_OnlineConnection_Operation _ProductionEntry;
     FString _Endpoint = TEXT("127.0.0.1:7787");
     FString _ReturnMap;
     FString _LastError;

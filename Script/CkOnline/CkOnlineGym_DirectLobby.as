@@ -173,6 +173,19 @@ namespace CkOnlineDirectGym
             && ck::IsValid(Ip) && Ip.Get_IsOffline();
         Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::F9, "F9",
             "Test: preserve queued Lobby reload", CanTestQueuedTravel))); // 45
+        FString ConnectionOwnerText = ck::IsValid(Ip)
+            ? Ip.Get_ConnectionOwnerText() : "Foundation connection owner unavailable.";
+        ECkGym_ControlTone ConnectionOwnerTone = ECkGym_ControlTone::Info;
+        if (ConnectionOwnerText.StartsWith("Foundation: Active")) { ConnectionOwnerTone = ECkGym_ControlTone::Success; }
+        else if (ConnectionOwnerText.StartsWith("Foundation: Failed")) { ConnectionOwnerTone = ECkGym_ControlTone::Error; }
+        else if (ConnectionOwnerText.StartsWith("Foundation: Stopped")) { ConnectionOwnerTone = ECkGym_ControlTone::Neutral; }
+        else if (ConnectionOwnerText.StartsWith("Foundation: Entering")
+            || ConnectionOwnerText.StartsWith("Foundation: AwaitingGameReady")
+            || ConnectionOwnerText.StartsWith("Foundation: AwaitingReturn")
+            || ConnectionOwnerText.StartsWith("Foundation: Returning"))
+        { ConnectionOwnerTone = ECkGym_ControlTone::Warning; }
+        Rows.Add(CkGym_Control::Details(CkGym_Control::StatusTone("Foundation connection owner",
+            ConnectionOwnerText, ConnectionOwnerTone))); // 46
 
         if (InChat)
         {

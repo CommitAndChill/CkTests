@@ -57,6 +57,82 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
         _OwnsDirectTestProfile = false;
     }
 
+    private bool Step_VerifyConnectionSurface()
+    {
+        auto Owner = Subsystem::GetGameInstanceSubsystem(UCk_OnlineConnection_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Owner))
+        {
+            FinishFailure("Foundation connection owner subsystem unavailable");
+            return false;
+        }
+        auto Service = Owner.Get_Service();
+        if (ck::Is_NOT_Valid(Service))
+        {
+            FinishFailure("Foundation connection owner returned no valid service handle");
+            return false;
+        }
+
+        auto SnapshotBefore = Owner.Get_Snapshot();
+        auto CompletionBefore = Owner.Get_LastCompletion();
+        int32 CompletedBefore = Owner.Get_CompletedCount();
+        bool IdleBefore = Owner.Get_IsIdle();
+        // Exercise the generated typed-handle mixin directly; no generated namespace is required.
+        auto HandleSnapshotBefore = Service.Get_Snapshot();
+        auto HandleCompletionBefore = Service.Get_LastCompletion();
+        int32 HandleCompletedBefore = Service.Get_CompletedCount();
+        bool HandleIdleBefore = Service.Get_IsIdle();
+        Assert_True(SnapshotBefore.Get_State() == ECk_OnlineConnection_State::Idle && IdleBefore
+            && HandleSnapshotBefore.Get_State() == ECk_OnlineConnection_State::Idle && HandleIdleBefore,
+            "Foundation connection facade and typed handle expose an Idle owner");
+        Assert_True(CompletedBefore == 0 && HandleCompletedBefore == CompletedBefore,
+            "Foundation connection owner begins with no completed operations");
+
+        auto InvalidRequest = FCk_Request_OnlineConnection();
+        auto OutOperation = FCk_OnlineConnection_Operation();
+        OutOperation.Set_Id(FGuid::NewGuid());
+        OutOperation.Set_Generation(FGuid::NewGuid());
+        Assert_False(Service.TryRequest(InvalidRequest, OutOperation),
+            "typed valid service rejects the default Invalid request");
+        Assert_True(!OutOperation.Get_Id().IsValid() && !OutOperation.Get_Generation().IsValid(),
+            "typed request rejection clears both seeded output operation keys");
+
+        OutOperation.Set_Id(FGuid::NewGuid());
+        OutOperation.Set_Generation(FGuid::NewGuid());
+        Assert_False(Owner.TryRequest(InvalidRequest, OutOperation),
+            "Foundation connection facade rejects the default Invalid request");
+        Assert_True(!OutOperation.Get_Id().IsValid() && !OutOperation.Get_Generation().IsValid(),
+            "facade request rejection clears both seeded output operation keys");
+
+        auto InvalidService = FCk_Handle_OnlineConnection();
+        OutOperation.Set_Id(FGuid::NewGuid());
+        OutOperation.Set_Generation(FGuid::NewGuid());
+        Assert_False(InvalidService.TryRequest(InvalidRequest, OutOperation),
+            "default typed connection handle rejects without reaching a service");
+        Assert_True(!OutOperation.Get_Id().IsValid() && !OutOperation.Get_Generation().IsValid(),
+            "default-handle rejection clears both seeded output operation keys");
+
+        auto SnapshotAfter = Owner.Get_Snapshot();
+        auto CompletionAfter = Owner.Get_LastCompletion();
+        auto CompletionOperationBefore = CompletionBefore.Get_Operation();
+        auto CompletionOperationAfter = CompletionAfter.Get_Operation();
+        Assert_True(SnapshotAfter.Get_State() == SnapshotBefore.Get_State()
+            && SnapshotAfter.Get_Revision() == SnapshotBefore.Get_Revision()
+            && Owner.Get_CompletedCount() == CompletedBefore && Owner.Get_IsIdle() == IdleBefore,
+            "malformed admission attempts preserve owner state, revision, completion count and idle status");
+        Assert_True(CompletionAfter.Get_Action() == CompletionBefore.Get_Action()
+            && CompletionAfter.Get_Result() == CompletionBefore.Get_Result()
+            && CompletionAfter.Get_Detail() == CompletionBefore.Get_Detail()
+            && CompletionOperationAfter.Get_Id() == CompletionOperationBefore.Get_Id()
+            && CompletionOperationAfter.Get_Generation() == CompletionOperationBefore.Get_Generation(),
+            "malformed admission attempts preserve last-completion readback");
+        Assert_True(Service.Get_Snapshot().Get_Revision() == HandleSnapshotBefore.Get_Revision()
+            && Service.Get_CompletedCount() == HandleCompletedBefore && Service.Get_IsIdle() == HandleIdleBefore
+            && Service.Get_LastCompletion().Get_Result() == HandleCompletionBefore.Get_Result(),
+            "typed-handle readbacks remain callable and unchanged after rejection");
+        // This covers malformed admission/readback only; it does not prove engine travel or a positive AS entry.
+        return true;
+    }
+
     UFUNCTION()
     private void Step_Start(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
@@ -370,6 +446,11 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
             Assert_True(Members[0].Get_Id() == _BeforeRenewal.Get_LocalMemberId()
                 && Members[0].Get_Ready(),
                 "reflected renewal preserves the existing ready member");
+        }
+        if (!Step_VerifyConnectionSurface())
+        {
+            DoCleanup();
+            return;
         }
         DoCleanup();
         FinishSuccess();

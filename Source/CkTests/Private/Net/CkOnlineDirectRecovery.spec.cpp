@@ -7,6 +7,9 @@
 #include "CkOnline/Direct/CkOnlineDirect_Feature.h"
 #include "CkOnline/Direct/CkOnlineDirect_Subsystem.h"
 #include "CkOnline/Direct/CkOnlineDirect_Utils.h"
+#include "CkOnline/Connection/CkOnlineConnection_Subsystem.h"
+#include "CkOnline/Connection/CkOnlineConnection_Utils.h"
+#include "UnitTests/CkOnline/CkTest_OnlineConnectionListener.h"
 #include "CkOnline/CkOnlineDirectGym_Subsystem.h"
 #include "CkOnline/CkOnlineDirectIpTest_Bridge.h"
 #include "CkOnline/CkOnlineDirectIpTest_Subsystem.h"
@@ -66,6 +69,10 @@ namespace ck_online_direct_recovery_test
         ck::test::ip::FLobbyBinding Binding;
         FCk_OnlineDirect_Snapshot JoinedBeforeTravel;
         FCk_OnlineDirect_Snapshot HostedBeforeTravel;
+        int32 ConnectionCompletedBefore = 0;
+        FCk_OnlineConnection_Operation EntryOperation;
+        TStrongObjectPtr<UCk_Test_OnlineConnectionListener_UE> ConnectionListener{
+            NewObject<UCk_Test_OnlineConnectionListener_UE>()};
 
         ~FFixture()
         {
@@ -117,6 +124,12 @@ namespace ck_online_direct_recovery_test
         {
             auto* Instance = GameInstance();
             return IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineDirect_Subsystem_UE>() : nullptr;
+        }
+
+        auto Connection() const -> UCk_OnlineConnection_Subsystem_UE*
+        {
+            auto* Instance = GameInstance();
+            return IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineConnection_Subsystem_UE>() : nullptr;
         }
 
         auto Ip() const -> UCkOnlineDirectIpTest_Subsystem*
@@ -570,6 +583,17 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
                 Context->PendingNetGame == nullptr && Context->TravelURL.IsEmpty() && World->NextURL.IsEmpty() &&
                 IsValid(FindObject<UClass>(nullptr, LobbyModePath))))
             { F.Aborted = true; return; }
+            auto* Connection = F.Connection();
+            if (!TestTrue(TEXT("real ready Lobby has an idle Foundation connection owner"),
+                IsValid(Connection) && Connection->Get_IsIdle()))
+            { F.Aborted = true; return; }
+            F.ConnectionCompletedBefore = Connection->Get_CompletedCount();
+            const auto ConnectionBeforeQueue = Connection->Get_Snapshot();
+            auto ConnectionHandle = Connection->Get_Service();
+            FCk_Delegate_OnlineConnection_Completed ConnectionDelegate;
+            ConnectionDelegate.BindDynamic(F.ConnectionListener.Get(), &UCk_Test_OnlineConnectionListener_UE::OnCompleted);
+            UCk_Utils_OnlineConnection_UE::BindTo_OnCompleted(ConnectionHandle, ConnectionDelegate,
+                ECk_Signal_BindingPolicy::IgnorePayloadInFlight, ECk_Signal_PostFireBehavior::DoNothing);
             const auto StateBefore = Ip->Get_StateText();
             const auto BridgeBefore = Ip->Get_LobbyBridgeText();
             const auto CompletedBefore = F.Direct()->Get_CompletedCount();
@@ -605,6 +629,14 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
             TestTrue(TEXT("rejected competing Join preserves Direct invite"), After.Get_JoinDescriptor() == Before.Get_JoinDescriptor());
             TestEqual(TEXT("rejected competing Join preserves transcript size"), After.Get_Messages().Num(), Before.Get_Messages().Num());
             TestEqual(TEXT("rejected competing Join dispatches no control completion"), F.Direct()->Get_CompletedCount(), CompletedBefore);
+            TestEqual(TEXT("queued travel rejection dispatches no Foundation connection completion"),
+                Connection->Get_CompletedCount(), F.ConnectionCompletedBefore);
+            TestEqual(TEXT("queued travel rejection delivers no connection terminal signal"),
+                F.ConnectionListener->Completions.Num(), 0);
+            TestEqual(TEXT("queued travel rejection preserves Foundation state"),
+                Connection->Get_Snapshot().Get_State(), ConnectionBeforeQueue.Get_State());
+            TestEqual(TEXT("queued travel rejection preserves Foundation revision"),
+                Connection->Get_Snapshot().Get_Revision(), ConnectionBeforeQueue.Get_Revision());
             if (Admitted) { F.Aborted = true; }
         }));
 
@@ -646,6 +678,17 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
         {
             auto* Gym = F.Gym();
             auto* Direct = F.Direct();
+            auto* Connection = F.Connection();
+            if (!TestTrue(TEXT("actual pending entry has a real Foundation connection owner"), IsValid(Connection)))
+            { F.Aborted = true; return; }
+            const auto ConnectionBefore = Connection->Get_Snapshot();
+            F.EntryOperation = ConnectionBefore.Get_Operation();
+            TestEqual(TEXT("real pending travel is Foundation Entering"), ConnectionBefore.Get_State(), ECk_OnlineConnection_State::Entering);
+            TestTrue(TEXT("real pending entry has a generated key separate from Direct generation"),
+                F.EntryOperation.Get_Id().IsValid() && F.EntryOperation.Get_Generation().IsValid() &&
+                F.EntryOperation.Get_Generation() != F.ClientGeneration);
+            TestEqual(TEXT("pending entry has no premature Foundation completion"),
+                Connection->Get_CompletedCount(), F.ConnectionCompletedBefore);
             const auto PortBefore = Gym->Get_GameplayPort();
             const auto Before = Direct->Get_Snapshot();
             const auto CompletedBefore = Direct->Get_CompletedCount();
@@ -704,6 +747,18 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
                     F.Gym()->Get_IsOwnedProfile() && F.Binding.Matches(F.Direct()->Get_Snapshot()));
                 TestEqual(TEXT("rejected network event preserves control revision"), F.Direct()->Get_Snapshot().Get_Revision(), Before.Get_Revision());
                 TestEqual(TEXT("rejected network event dispatches no control completion"), F.Direct()->Get_CompletedCount(), CompletedBefore);
+                auto* Owner = F.Connection();
+                if (TestTrue(TEXT("rejected network event retains Foundation owner"), IsValid(Owner)))
+                {
+                    const auto OwnerSnapshot = Owner->Get_Snapshot();
+                    TestEqual(TEXT("rejected network event preserves Foundation Entering"),
+                        OwnerSnapshot.Get_State(), ECk_OnlineConnection_State::Entering);
+                    TestTrue(TEXT("rejected network event preserves Foundation entry key"),
+                        OwnerSnapshot.Get_Operation().Get_Id() == F.EntryOperation.Get_Id() &&
+                        OwnerSnapshot.Get_Operation().Get_Generation() == F.EntryOperation.Get_Generation());
+                    TestEqual(TEXT("rejected network event dispatches no Foundation completion"),
+                        Owner->Get_CompletedCount(), F.ConnectionCompletedBefore);
+                }
             };
             // Negative observer inputs only; the real pending driver remains responsible for natural timeout/recovery.
             GEngine->OnNetworkFailure().Broadcast(World, nullptr, ENetworkFailure::ConnectionLost,
@@ -740,6 +795,46 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
         {
             TestTrue(TEXT("return retains original GameInstance"),
                 F.World()->GetGameInstance() == F.GameInstance());
+            auto* Connection = F.Connection();
+            if (!TestTrue(TEXT("replacement Lobby retains the real Foundation connection owner"), IsValid(Connection)))
+            { F.Aborted = true; return; }
+            const auto Returned = Connection->Get_Snapshot();
+            const auto Completion = Connection->Get_LastCompletion();
+            TestEqual(TEXT("replacement Lobby owner reaches Idle"), Returned.Get_State(), ECk_OnlineConnection_State::Idle);
+            TestTrue(TEXT("replacement Lobby owner reports actual idle transport"), Connection->Get_IsIdle());
+            TestEqual(TEXT("failed entry and separate return produce exactly two owner completions"),
+                Connection->Get_CompletedCount(), F.ConnectionCompletedBefore + 2);
+            TestEqual(TEXT("last owner completion belongs to Return"), Completion.Get_Action(), ECk_OnlineConnection_Action::Return);
+            TestEqual(TEXT("configured replacement Lobby completes Return successfully"),
+                Completion.Get_Result(), ECk_OnlineConnection_Result::Succeeded);
+            TestTrue(TEXT("successful recovery Return has a separate key in the same connection generation"),
+                Completion.Get_Operation().Get_Id().IsValid() &&
+                Completion.Get_Operation().Get_Id() != F.EntryOperation.Get_Id() &&
+                Completion.Get_Operation().Get_Generation() == F.EntryOperation.Get_Generation());
+            TestFalse(TEXT("successful return clears retained gameplay session"),
+                Returned.Get_Session().Get_Id().IsValid() || Returned.Get_Session().Get_Generation().IsValid());
+            TestFalse(TEXT("successful return clears active owner operation"),
+                Returned.Get_Operation().Get_Id().IsValid() || Returned.Get_Operation().Get_Generation().IsValid());
+            int32 EntryTerminals = 0;
+            int32 ReturnTerminals = 0;
+            for (const auto& Terminal : F.ConnectionListener->Completions)
+            {
+                if (Terminal.Get_Operation().Get_Id() == F.EntryOperation.Get_Id() &&
+                    Terminal.Get_Operation().Get_Generation() == F.EntryOperation.Get_Generation())
+                {
+                    ++EntryTerminals;
+                    TestEqual(TEXT("original entry terminal identifies Join"), Terminal.Get_Action(), ECk_OnlineConnection_Action::Join);
+                    TestTrue(TEXT("real silent UDP entry fails without readiness success"),
+                        Terminal.Get_Result() == ECk_OnlineConnection_Result::TimedOut ||
+                        Terminal.Get_Result() == ECk_OnlineConnection_Result::TransportError);
+                }
+                if (Terminal.Get_Operation().Get_Id() == Completion.Get_Operation().Get_Id() &&
+                    Terminal.Get_Operation().Get_Generation() == Completion.Get_Operation().Get_Generation())
+                { ++ReturnTerminals; }
+            }
+            TestEqual(TEXT("real entry has exactly one failed terminal signal"), EntryTerminals, 1);
+            TestEqual(TEXT("real recovery has exactly one successful Return terminal signal"), ReturnTerminals, 1);
+            TestEqual(TEXT("real observer receives only entry and Return terminal signals"), F.ConnectionListener->Completions.Num(), 2);
             const auto* ReturnedContext = F.GameInstance()->GetWorldContext();
             TestTrue(TEXT("genuine failed-entry return clears context queued travel"),
                 ReturnedContext != nullptr && ReturnedContext->World() == F.World() && ReturnedContext->TravelURL.IsEmpty());
