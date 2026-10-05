@@ -126,7 +126,7 @@
     "script": "State, keyed interaction records, actions, requests and lifecycle",
     "native": "Generic reflected session, HUD and radial controls"
   },
-  "verification": "100-node source contract, Development build, 35/35 DX11 UiAuthoring compatibility tests, and native 720p/1080p/1440p captures; DX12 and cooked packaging open",
+  "verification": "100-node source contract and 7 selector checks, Development build, 35/35 DX11 UiAuthoring compatibility tests, and native 720p/1080p/1440p captures; DX12 and cooked packaging open",
   "schemaVersion": 1,
   "nodeCount": 100,
   "nodes": [
