@@ -496,6 +496,17 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
                 }
             }
             TestTrue(TEXT("Rejected numeric sector mode preserves interaction records and collection revision"), SameRecords);
+            Errors.Reset();
+            const FString InvalidFontStyles = SourceStyles.Replace(TEXT("-ck-radial-label-font-size: 17px"),
+                TEXT("-ck-radial-label-font-size: 0px"));
+            TestFalse(TEXT("Out-of-domain radial label font size rejects source"),
+                Owner->TryReload(SourceMarkup, InvalidFontStyles, Errors));
+            TestTrue(TEXT("Rejected radial font size has a specific diagnostic"), Errors.ContainsByPredicate([](const FString& Error)
+                { return Error.Contains(TEXT("Radial selector font size '-ck-radial-label-font-size'")); }));
+            TestTrue(TEXT("Rejected radial font size preserves the published view and revision"),
+                Owner->Get_IsUsable() && Owner->Get_Revision() == StyleRevision && Owner->Get_View() == State->View
+                && Root->GetChildren() != nullptr && Root->GetChildren()->Num() == 1
+                && Root->GetChildren()->GetChildAt(0) == AcceptedChild);
             CollectGarbage(RF_NoFlags);
             TestTrue(TEXT("Script reflected ownership survives collection"), State->Owner.IsValid()
                 && State->Owner.Get() == Session(World) && State->Owner->Get_IsUsable());
