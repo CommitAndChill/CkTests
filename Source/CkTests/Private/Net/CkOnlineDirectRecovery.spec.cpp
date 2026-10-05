@@ -403,6 +403,30 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
             }
             const auto Before = Direct->Get_Snapshot();
             const auto DraftBefore = Gym->Get_JoinDescriptorDraft();
+            const auto PortBefore = Gym->Get_GameplayPort();
+            const auto CompletionBefore = Direct->Get_CompletedCount();
+            TestTrue(TEXT("actual Offline Lobby allows gameplay port edits"), Gym->Get_CanEditGameplayPort());
+            for (const TCHAR* BadPort : {TEXT(""), TEXT("0"), TEXT("65536"), TEXT("123456"),
+                TEXT("-1"), TEXT("+7789"), TEXT(" 7789"), TEXT("7789?listen"), TEXT("7.789")})
+            {
+                TestFalse(TEXT("invalid gameplay port rejects in real Offline Lobby"), Gym->Request_SetGameplayPort(BadPort));
+                TestEqual(TEXT("invalid port preserves configured gameplay port"), Gym->Get_GameplayPort(), PortBefore);
+            }
+            TestTrue(TEXT("valid decimal gameplay port edit succeeds in real Offline Lobby"),
+                Gym->Request_SetGameplayPort(TEXT("07789")));
+            TestEqual(TEXT("valid gameplay port normalizes decimal input"), Gym->Get_GameplayPort(), 7789);
+            TestTrue(TEXT("original gameplay port restores before entry"),
+                Gym->Request_SetGameplayPort(FString::FromInt(PortBefore)));
+            TestEqual(TEXT("restored gameplay port matches original"), Gym->Get_GameplayPort(), PortBefore);
+            TestFalse(TEXT("port edits start no Direct profile or gym ownership"),
+                Direct->Get_IsStarted() || Gym->Get_IsOwnedProfile());
+            TestEqual(TEXT("port edits preserve Direct revision"), Direct->Get_Snapshot().Get_Revision(), Before.Get_Revision());
+            TestEqual(TEXT("port edits preserve Direct generation"),
+                Direct->Get_Snapshot().Get_ServiceGeneration(), Before.Get_ServiceGeneration());
+            TestEqual(TEXT("port edits dispatch no Direct completion"), Direct->Get_CompletedCount(), CompletionBefore);
+            TestTrue(TEXT("port edits preserve saved invite draft"), Gym->Get_JoinDescriptorDraft() == DraftBefore);
+            TestTrue(TEXT("port edits preserve original Offline Lobby world"),
+                FObjectKey(F.World()) == F.InitialLobbyWorldKey && F.Ip()->Get_IsOffline() && !F.HasPendingNetGame());
             TestFalse(TEXT("empty invite rejected before profile start"),
                 Gym->Request_JoinInvite(TEXT("")));
             TestFalse(TEXT("empty invite starts no Direct profile or gym ownership"),
@@ -542,6 +566,30 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
             TestFalse(TEXT("travel request does not report connected gameplay"), F.Ip()->Get_IsConnected());
             TestTrue(TEXT("accepted travel enters IP Joining state"),
                 F.Ip()->Get_StateText().StartsWith(TEXT("Joining")));
+        }));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("actual pending ClientTravel blocks gameplay port edits"),
+        [](FFixture& F)
+        { return F.HasPendingNetGame() && IsValid(F.Ip()) && F.Ip()->Get_StateText().StartsWith(TEXT("Joining")); },
+        [this](FFixture& F)
+        {
+            auto* Gym = F.Gym();
+            auto* Direct = F.Direct();
+            const auto PortBefore = Gym->Get_GameplayPort();
+            const auto Before = Direct->Get_Snapshot();
+            const auto CompletedBefore = Direct->Get_CompletedCount();
+            const auto DraftBefore = Gym->Get_JoinDescriptorDraft();
+            TestFalse(TEXT("actual pending gameplay entry disables port edits"), Gym->Get_CanEditGameplayPort());
+            TestFalse(TEXT("valid port edit rejects during actual pending entry"),
+                Gym->Request_SetGameplayPort(FString::FromInt(PortBefore == 7789 ? 7790 : 7789)));
+            TestEqual(TEXT("pending entry rejects without changing port"), Gym->Get_GameplayPort(), PortBefore);
+            TestTrue(TEXT("pending edit preserves saved invite draft"), Gym->Get_JoinDescriptorDraft() == DraftBefore);
+            TestEqual(TEXT("pending edit preserves control revision"), Direct->Get_Snapshot().Get_Revision(), Before.Get_Revision());
+            TestEqual(TEXT("pending edit dispatches no Direct completion"), Direct->Get_CompletedCount(), CompletedBefore);
+            TestTrue(TEXT("pending edit preserves the owned ready control binding"),
+                Gym->Get_IsOwnedProfile() && F.Binding.Matches(Direct->Get_Snapshot()));
+            TestTrue(TEXT("pending edit does not cancel actual gameplay entry"),
+                F.HasPendingNetGame() && F.Ip()->Get_StateText().StartsWith(TEXT("Joining")));
         }));
 
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("bounded failed ClientTravel returns to new Offline Lobby world"),

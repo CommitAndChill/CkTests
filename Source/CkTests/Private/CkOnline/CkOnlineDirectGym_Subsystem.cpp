@@ -5,11 +5,15 @@
 #include "CkOnline/Direct/CkOnlineDirect_Subsystem.h"
 #include "CkOnline/Direct/CkOnlineDirect_Transport.h"
 #include "CkOnline/Subsystem/CkOnline_Subsystem.h"
+#include "CkOnline/CkOnlineDirectIpTest_Subsystem.h"
 
+#include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
-#include "Engine/Engine.h"
+#include "Engine/PendingNetGame.h"
+#include "Engine/World.h"
 #include "Framework/Application/SlateApplication.h"
+#include "GameFramework/GameModeBase.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Input/Reply.h"
 #include "Widgets/Input/SEditableTextBox.h"
@@ -25,6 +29,7 @@ auto FieldName(const ECkOnlineDirectGym_TextField InField) -> const TCHAR*
         case ECkOnlineDirectGym_TextField::AdvertisedAddress: return TEXT("Advertised IPv4 address");
         case ECkOnlineDirectGym_TextField::JoinDescriptor: return TEXT("Join descriptor");
         case ECkOnlineDirectGym_TextField::ChatDraft: return TEXT("Chat draft");
+        case ECkOnlineDirectGym_TextField::GameplayPort: return TEXT("Gameplay listen port");
     }
     return TEXT("Text");
 }
@@ -80,6 +85,57 @@ auto UCkOnlineDirectGym_Subsystem::Get_IsOwnedProfile() const -> bool
     return _OwnsProfile && Service != nullptr && Service->Get_IsStarted()
         && _OwnedGeneration.IsValid()
         && Service->Get_Snapshot().Get_ServiceGeneration() == _OwnedGeneration;
+}
+
+auto UCkOnlineDirectGym_Subsystem::GetGameplayPortEditFailure() const -> FString
+{
+    if (!IsInGameThread()) { return TEXT("Gameplay port can only be edited on the active game thread."); }
+    if (_IsDeinitializing) { return TEXT("Gameplay port cannot be edited while this subsystem is deinitializing."); }
+    if (_IsEditing) { return TEXT("Finish or cancel the current text edit first."); }
+    auto* Instance = GetGameInstance();
+    if (!IsValid(Instance)) { return TEXT("Gameplay port requires an active game instance."); }
+    auto* Ip = Instance->GetSubsystem<UCkOnlineDirectIpTest_Subsystem>();
+    if (!IsValid(Ip) || !Ip->Get_IsOffline())
+    { return TEXT("Gameplay port can only be edited while the Direct IP fixture is Offline."); }
+    auto* World = Instance->GetWorld();
+    if (!IsValid(World) || !World->IsGameWorld() || !World->HasBegunPlay()
+        || World->GetNetMode() != NM_Standalone || World->GetNetDriver() != nullptr)
+    { return TEXT("Gameplay port requires an offline Standalone gym world."); }
+    const auto* Mode = World->GetAuthGameMode();
+    const auto ModePath = IsValid(Mode) ? Mode->GetClass()->GetPathName() : FString();
+    if (ModePath != TEXT("/Script/Angelscript.Ck_OnlineGym_DirectLobby_GameMode")
+        && ModePath != TEXT("/Script/Angelscript.Ck_OnlineGym_DirectIp_GameMode"))
+    { return TEXT("Gameplay port can only be edited in the Online Lobby or Direct IP gym."); }
+    const auto* Context = GEngine != nullptr ? GEngine->GetWorldContextFromWorld(World) : nullptr;
+    if (Context == nullptr || Context->OwningGameInstance != Instance)
+    { return TEXT("Gameplay port requires the active game instance travel context."); }
+    if (Context->PendingNetGame != nullptr || !Context->TravelURL.IsEmpty() || !World->NextURL.IsEmpty())
+    { return TEXT("Gameplay port cannot be edited during pending travel."); }
+    return FString();
+}
+
+auto UCkOnlineDirectGym_Subsystem::Get_CanEditGameplayPort() const -> bool
+{
+    return GetGameplayPortEditFailure().IsEmpty();
+}
+
+auto UCkOnlineDirectGym_Subsystem::Request_SetGameplayPort(const FString& InPortText) -> bool
+{
+    const auto EditFailure = GetGameplayPortEditFailure();
+    if (!EditFailure.IsEmpty()) { return Reject(EditFailure); }
+    if (InPortText.IsEmpty() || InPortText.Len() > 5)
+    { return Reject(TEXT("Gameplay port must contain 1 to 5 ASCII decimal digits.")); }
+    for (const TCHAR Character : InPortText)
+    {
+        if (Character < TEXT('0') || Character > TEXT('9'))
+        { return Reject(TEXT("Gameplay port must contain 1 to 5 ASCII decimal digits.")); }
+    }
+    const int32 Port = FCString::Atoi(*InPortText);
+    if (Port < 1 || Port > 65535)
+    { return Reject(TEXT("Gameplay port must be in the range 1 to 65535.")); }
+    _GameplayPort = Port;
+    _LastError.Empty();
+    return true;
 }
 
 auto UCkOnlineDirectGym_Subsystem::EnsureOwnedStarted() -> bool
@@ -376,8 +432,14 @@ auto UCkOnlineDirectGym_Subsystem::OpenTextEditor(const ECkOnlineDirectGym_TextF
     if (InField != ECkOnlineDirectGym_TextField::Name &&
         InField != ECkOnlineDirectGym_TextField::AdvertisedAddress &&
         InField != ECkOnlineDirectGym_TextField::JoinDescriptor &&
-        InField != ECkOnlineDirectGym_TextField::ChatDraft)
+        InField != ECkOnlineDirectGym_TextField::ChatDraft &&
+        InField != ECkOnlineDirectGym_TextField::GameplayPort)
     { return Reject(TEXT("Unknown Direct text field.")); }
+    if (InField == ECkOnlineDirectGym_TextField::GameplayPort)
+    {
+        const auto EditFailure = GetGameplayPortEditFailure();
+        if (!EditFailure.IsEmpty()) { return Reject(EditFailure); }
+    }
     _EditingField = InField;
     FString Initial;
     switch (InField)
@@ -389,6 +451,7 @@ auto UCkOnlineDirectGym_Subsystem::OpenTextEditor(const ECkOnlineDirectGym_TextF
             if (Initial.IsEmpty()) { Initial = _JoinDescriptor; }
             break;
         case ECkOnlineDirectGym_TextField::ChatDraft: Initial = _ChatDraft; break;
+        case ECkOnlineDirectGym_TextField::GameplayPort: Initial = FString::FromInt(_GameplayPort); break;
     }
     auto& Slate = FSlateApplication::Get();
     _PreviousFocus = Slate.GetUserFocusedWidget(_SlateUserIndex);
@@ -443,12 +506,20 @@ auto UCkOnlineDirectGym_Subsystem::CommitText(const FString& InText) -> void
         CloseEditor();
         return;
     }
+    if (_EditingField == ECkOnlineDirectGym_TextField::GameplayPort)
+    {
+        const FString PortText = InText;
+        CloseEditor();
+        Request_SetGameplayPort(PortText);
+        return;
+    }
     switch (_EditingField)
     {
         case ECkOnlineDirectGym_TextField::Name: _Name = InText; break;
         case ECkOnlineDirectGym_TextField::AdvertisedAddress: _AdvertisedAddress = InText; break;
         case ECkOnlineDirectGym_TextField::JoinDescriptor: _JoinDescriptor = InText; break;
         case ECkOnlineDirectGym_TextField::ChatDraft: _ChatDraft = InText; break;
+        case ECkOnlineDirectGym_TextField::GameplayPort: break;
     }
     _LastError.Empty();
     CloseEditor();

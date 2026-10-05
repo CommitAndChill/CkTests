@@ -2,6 +2,9 @@
 #include "CkOnline/CkOnline_Host.h"
 #include "CkOnline/Direct/CkOnlineDirect_Feature.h"
 #include "CkOnline/Direct/CkOnlineDirect_Utils.h"
+#include "CkOnline/Direct/CkOnlineDirect_ListenTarget.h"
+#include "Engine/World.h"
+#include "GameFramework/GameModeBase.h"
 
 #include "CkOnline/CkOnlineDirectGym_Evidence.h"
 #include "CkOnline/CkOnlineDirectIpTest_Bridge.h"
@@ -482,6 +485,63 @@ bool FCkTest_OnlineDirect_Loopback::RunTest(const FString& Parameters)
                 UCk_Utils_OnlineDirect_UE::MatchesReadyLobby(F.ClientBinding, Client));
             const auto HostCompletions = UCk_Utils_OnlineDirect_UE::Get_CompletedCount(F.Server.Handle);
             const auto ClientCompletions = UCk_Utils_OnlineDirect_UE::Get_CompletedCount(F.Client.Handle);
+            const auto ListenMap = TSoftObjectPtr<UWorld>{FSoftObjectPath{TEXT("/Engine/Maps/Entry.Entry")}};
+            const auto ListenMode = TSubclassOf<AGameModeBase>{AGameModeBase::StaticClass()};
+            auto ListenTarget = FCk_OnlineDirect_ListenTarget{};
+            TestTrue(TEXT("public builder accepts configured map mode address and port"),
+                UCk_Utils_OnlineDirect_UE::TryBuildListenTarget(ListenMap, ListenMode, TEXT("127.0.0.2"), 7789, ListenTarget));
+            TestEqual(TEXT("configured endpoint retains caller address and port"),
+                ListenTarget.Get_GameplayEndpoint(), FString(TEXT("127.0.0.2:7789")));
+            const auto GenericTarget = ListenTarget;
+            TestTrue(TEXT("actual ready host binding builds the same listen target"),
+                UCk_Utils_OnlineDirect_UE::TryBuildReadyLobbyListenTarget(F.HostBinding, ListenMap, ListenMode, 7789, ListenTarget));
+            TestEqual(TEXT("generic and ready-host travel URLs agree"), ListenTarget.Get_TravelUrl(), GenericTarget.Get_TravelUrl());
+            TestEqual(TEXT("generic and ready-host gameplay endpoints agree"),
+                ListenTarget.Get_GameplayEndpoint(), GenericTarget.Get_GameplayEndpoint());
+            const FURL RoundTrip(nullptr, *ListenTarget.Get_TravelUrl(), TRAVEL_Absolute);
+            TestTrue(TEXT("configured URL round-trips exact local listen intent"),
+                RoundTrip.Valid && RoundTrip.IsLocalInternal() && RoundTrip.Map == TEXT("/Engine/Maps/Entry") &&
+                RoundTrip.Port == 7789 && RoundTrip.Op.Num() == 2 && RoundTrip.HasOption(TEXT("listen")) &&
+                FString(RoundTrip.GetOption(TEXT("game="), TEXT(""))) == ListenMode->GetPathName());
+            const auto RejectTarget = [this, &GenericTarget](const TCHAR* Label, const TSoftObjectPtr<UWorld>& Map,
+                TSubclassOf<AGameModeBase> Mode, const FString& Address, int32 Port)
+            {
+                auto Out = GenericTarget;
+                TestFalse(Label, UCk_Utils_OnlineDirect_UE::TryBuildListenTarget(Map, Mode, Address, Port, Out));
+                TestTrue(*FString::Printf(TEXT("%s clears prior listen target"), Label),
+                    Out.Get_TravelUrl().IsEmpty() && Out.Get_GameplayEndpoint().IsEmpty());
+            };
+            for (const TCHAR* BadMap : {TEXT(""), TEXT("/Engine/Maps/Entry"), TEXT("/Engine/Maps/Entry.Other"),
+                TEXT("/Engine/Maps/Entry.Entry:Subobject"), TEXT("/Engine/Maps/Entry.Entry?listen")})
+            {
+                RejectTarget(TEXT("invalid map intent rejects"), TSoftObjectPtr<UWorld>{FSoftObjectPath{BadMap}},
+                    ListenMode, TEXT("127.0.0.2"), 7789);
+            }
+            RejectTarget(TEXT("missing mode rejects"), ListenMap, {}, TEXT("127.0.0.2"), 7789);
+            RejectTarget(TEXT("non-GameMode class rejects"), ListenMap,
+                TSubclassOf<AGameModeBase>{UWorld::StaticClass()}, TEXT("127.0.0.2"), 7789);
+            for (const TCHAR* BadAddress : {TEXT(""), TEXT("localhost"), TEXT("0.0.0.0"), TEXT("224.0.0.1"),
+                TEXT("127.000.000.002"), TEXT("127.0.0.2?listen")})
+            {
+                RejectTarget(TEXT("invalid listen address rejects"), ListenMap, ListenMode, BadAddress, 7789);
+            }
+            for (const int32 BadPort : {-1, 0, 65536})
+            {
+                RejectTarget(TEXT("out-of-range listen port rejects"), ListenMap, ListenMode, TEXT("127.0.0.2"), BadPort);
+                auto Out = GenericTarget;
+                TestFalse(TEXT("ready-host builder rejects out-of-range port"),
+                    UCk_Utils_OnlineDirect_UE::TryBuildReadyLobbyListenTarget(F.HostBinding, ListenMap, ListenMode, BadPort, Out));
+                TestTrue(TEXT("rejected ready-host port clears prior target"),
+                    Out.Get_TravelUrl().IsEmpty() && Out.Get_GameplayEndpoint().IsEmpty());
+            }
+            for (const auto& Binding : {ck::test::ip::FLobbyBinding{}, F.ClientBinding})
+            {
+                auto Out = GenericTarget;
+                TestFalse(TEXT("default or client binding cannot build a listen target"),
+                    UCk_Utils_OnlineDirect_UE::TryBuildReadyLobbyListenTarget(Binding, ListenMap, ListenMode, 7789, Out));
+                TestTrue(TEXT("rejected listen binding clears prior target"),
+                    Out.Get_TravelUrl().IsEmpty() && Out.Get_GameplayEndpoint().IsEmpty());
+            }
             const auto Reject = [this, &F](const TCHAR* Label, const FCk_OnlineDirect_Snapshot& Candidate,
                 bool Hosting, int32 ExpectedMembers = 2)
             {

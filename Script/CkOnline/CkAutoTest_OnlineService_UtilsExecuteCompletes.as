@@ -301,6 +301,32 @@ class UCk_AutoTest_OnlineService_UtilsExecuteCompletes : UCk_AutoTest_Base
             "default binding rejects a gameplay endpoint");
         Assert_True(Canonical.Len() == 0 && Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
             "pure public guards neither retain partial output nor enqueue an operation");
+        auto Map = assets::TestGyms_CkTests_Level();
+        FCk_OnlineDirect_ListenTarget GenericTarget;
+        FCk_OnlineDirect_ListenTarget BoundTarget;
+        Assert_True(utils_online_direct::TryBuildListenTarget(Map, ACk_OnlineGym_DirectIp_GameMode,
+            _BeforeRenewalBinding.Get_HostAddress(), 23456, GenericTarget),
+            "reflected generic builder accepts the consumer map, mode and selected port");
+        Assert_True(utils_online_direct::TryBuildReadyLobbyListenTarget(_BeforeRenewalBinding, Map,
+            ACk_OnlineGym_DirectIp_GameMode, 23456, BoundTarget),
+            "reflected bound builder accepts the actual ready hosting binding");
+        Assert_True(BoundTarget.Get_GameplayEndpoint() == Endpoint
+            && BoundTarget.Get_TravelUrl().Len() > 0
+            && BoundTarget.Get_TravelUrl() == GenericTarget.Get_TravelUrl()
+            && BoundTarget.Get_GameplayEndpoint() == GenericTarget.Get_GameplayEndpoint(),
+            "both reflected builders publish the same consumer-selected listen target");
+        Assert_False(utils_online_direct::TryBuildReadyLobbyListenTarget(Rejected, Map,
+            ACk_OnlineGym_DirectIp_GameMode, 23456, BoundTarget),
+            "default binding cannot publish a host listen target");
+        Assert_True(BoundTarget.Get_TravelUrl().Len() == 0 && BoundTarget.Get_GameplayEndpoint().Len() == 0,
+            "rejected bound builder clears both prior outputs");
+        Assert_False(utils_online_direct::TryBuildListenTarget(Map, ACk_OnlineGym_DirectIp_GameMode,
+            _BeforeRenewalBinding.Get_HostAddress(), 0, GenericTarget),
+            "reflected generic builder rejects an invalid gameplay port");
+        Assert_True(GenericTarget.Get_TravelUrl().Len() == 0 && GenericTarget.Get_GameplayEndpoint().Len() == 0
+            && Direct.Get_Snapshot().Get_Revision() == _BeforeRenewal.Get_Revision()
+            && Direct.Get_CompletedCount() == _DirectCompletionBefore + 1,
+            "listen-target rejection leaves no partial output or control mutation");
         _DirectCompletionBefore = Direct.Get_CompletedCount();
         if (!Direct.Request(ECk_OnlineDirect_Action::RenewInvite, "", false))
         {

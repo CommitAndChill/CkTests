@@ -2,6 +2,8 @@
 #include "CkOnline/CkOnlineDirectGym_Subsystem.h"
 #include "CkOnline/Direct/CkOnlineDirect_Subsystem.h"
 #include "CkOnline/Direct/CkOnlineDirect_Utils.h"
+#include "CkOnline/Direct/CkOnlineDirect_ListenTarget.h"
+#include "Misc/PackageName.h"
 
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -277,15 +279,14 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     { return DoReject(TEXT("The host world has no travel context.")); }
     const auto ReturnMap = UWorld::RemovePIEPrefix(World->GetPackage()->GetName());
     if (ReturnMap.IsEmpty()) { return DoReject(TEXT("The host world has no return map.")); }
-    FURL ListenUrl(nullptr, *ReturnMap, TRAVEL_Absolute);
-    ListenUrl.Port = InPort;
-    ListenUrl.AddOption(GymGameOption);
-    ListenUrl.AddOption(TEXT("listen"));
-    const auto TravelUrl = ListenUrl.ToString();
-    const FURL RoundTrip(nullptr, *TravelUrl, TRAVEL_Absolute);
-    if (!ListenUrl.Valid || !RoundTrip.Valid || !RoundTrip.IsLocalInternal()
-        || RoundTrip.Map != ReturnMap || RoundTrip.Port != InPort
-        || !RoundTrip.HasOption(TEXT("listen")) || !RoundTrip.HasOption(TEXT("game=")))
+    const auto Map = TSoftObjectPtr<UWorld>{FSoftObjectPath{
+        ReturnMap + TEXT(".") + FPackageName::GetShortName(ReturnMap)}};
+    const auto GameMode = TSubclassOf<AGameModeBase>{FindObject<UClass>(nullptr, GymGameModePath)};
+    auto ListenTarget = FCk_OnlineDirect_ListenTarget{};
+    const bool TargetIsValid = Bridged
+        ? UCk_Utils_OnlineDirect_UE::TryBuildReadyLobbyListenTarget(*InBinding, Map, GameMode, InPort, ListenTarget)
+        : UCk_Utils_OnlineDirect_UE::TryBuildListenTarget(Map, GameMode, TEXT("127.0.0.1"), InPort, ListenTarget);
+    if (!TargetIsValid)
     { return DoReject(TEXT("Could not form a local listen travel URL for the requested port.")); }
     _BridgeActive = Bridged;
     _TestControlFaultQueued = false;
@@ -296,11 +297,11 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     _ReturnMap = ReturnMap;
     _RequestedHostPort = InPort;
     _HostingDepartureWorld = World;
-    _Endpoint = FString::Printf(TEXT("%s:%d"), Bridged ? *InBinding->Get_HostAddress() : TEXT("127.0.0.1"), InPort);
+    _Endpoint = ListenTarget.Get_GameplayEndpoint();
     _LastError.Empty();
     _State = EState::StartingHost;
     _Deadline = FPlatformTime::Seconds() + JoinTimeoutSeconds;
-    GEngine->SetClientTravel(World, *TravelUrl, TRAVEL_Absolute);
+    GEngine->SetClientTravel(World, *ListenTarget.Get_TravelUrl(), TRAVEL_Absolute);
     UE_LOG(LogCkOnlineDirectIpTest, Display, TEXT("Hosting requested for %s (local listen travel issued; bound driver not yet proven)"), *_Endpoint);
     return true;
 }

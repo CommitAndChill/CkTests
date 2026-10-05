@@ -13,7 +13,7 @@ class UCk_OnlineDirect_Subsystem_UE;
 
 UENUM(BlueprintType)
 enum class ECkOnlineDirectGym_TextField : uint8
-{ Name, AdvertisedAddress, JoinDescriptor, ChatDraft };
+{ Name, AdvertisedAddress, JoinDescriptor, ChatDraft, GameplayPort };
 
 /** Human-driven text input and ownership guard for the Direct TCP editor gyms. */
 UCLASS(BlueprintType)
@@ -29,6 +29,8 @@ public:
     bool Request_CopyDescriptor();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_RenewInvite();
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
+    bool Request_SetGameplayPort(const FString& InPortText);
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
     bool Request_Host();
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online|Direct")
@@ -54,6 +56,10 @@ public:
 
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online|Direct")
     bool Get_IsEditing() const { return _IsEditing; }
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online|Direct")
+    int32 Get_GameplayPort() const { return _GameplayPort; }
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online|Direct")
+    bool Get_CanEditGameplayPort() const;
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online|Direct")
     bool Get_IsOwnedProfile() const;
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online|Direct")
@@ -86,6 +92,7 @@ private:
     auto EnsureOwnedStarted() -> bool;
     auto Queue(ECk_OnlineDirect_Action InAction, const FString& InText = FString(), bool InReady = false) -> bool;
     auto Reject(const FString& InReason) -> bool;
+    auto GetGameplayPortEditFailure() const -> FString;
     auto OpenTextEditor(ECkOnlineDirectGym_TextField InField, bool InSendOnEnter) -> bool;
     auto CommitText(const FString& InText) -> void;
     auto CloseEditor() -> void;
@@ -98,6 +105,7 @@ private:
     FString _ChatDraft;
     FString _LastError;
     FString _LastQueuedAction = TEXT("none");
+    int32 _GameplayPort = 7787;
     FGuid _OwnedGeneration;
     int32 _AcceptedRequests = 0;
     int32 _CheckpointOrdinal = 0;

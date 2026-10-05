@@ -152,10 +152,13 @@ namespace CkOnlineDirectGym
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Roster with member IDs", Probe.Get_RosterText()))); // 39
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Full bridge error", BridgeError))); // 40
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Gameplay target",
-            HostAddress.Len() > 0 ? f"{HostAddress}:7787" : "none (no active lobby host)"))); // 41
+            HostAddress.Len() > 0 ? f"{HostAddress}:{Probe.Get_GameplayPort()}"
+                : f"none (no active lobby host; selected port {Probe.Get_GameplayPort()})"))); // 41
         Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::Y, "Y", "Renew host invite",
             Snapshot.Get_State() == ECk_OnlineDirect_State::Hosting && Probe.Get_IsOwnedProfile()
                 && Probe.Get_IsEditing() == false))); // 42
+        Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::F4, "F4",
+            f"Edit gameplay port ({Probe.Get_GameplayPort()})", Probe.Get_CanEditGameplayPort()))); // 43
 
         if (InChat)
         {
@@ -206,11 +209,12 @@ namespace CkOnlineDirectGym
             if (ck::Is_NOT_Valid(Direct) || ck::Is_NOT_Valid(Ip) || !Probe.Get_IsOwnedProfile()) { return; }
             auto Snapshot = Direct.Get_Snapshot();
             if (Snapshot.Get_State() == ECk_OnlineDirect_State::Hosting)
-            { Ip.Request_HostFromReadyLobby(7787); }
+            { Ip.Request_HostFromReadyLobby(Probe.Get_GameplayPort()); }
             else if (Snapshot.Get_State() == ECk_OnlineDirect_State::Joined)
-            { Ip.Request_JoinFromReadyLobby(f"{Snapshot.Get_HostAddress()}:7787"); }
+            { Ip.Request_JoinFromReadyLobby(f"{Snapshot.Get_HostAddress()}:{Probe.Get_GameplayPort()}"); }
         }
         else if (InRowIndex == 42) { Probe.Request_RenewInvite(); }
+        else if (InRowIndex == 43) { Probe.Request_EditText(ECkOnlineDirectGym_TextField::GameplayPort); }
         else if (InRowIndex == 34)
         {
             if (ck::IsValid(InHud)) { InHud.Request_ToggleDetails(); }
