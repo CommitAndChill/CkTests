@@ -191,6 +191,9 @@ the lobby invite does not advertise that target.
 The combined normal-path editor card is
 `Script/CkOnline/AFK_RETURN_EDITOR_TESTING.md`; individual edge-case checks remain
 in the deferred editor-check index.
+The unchecked Gate15 malformed unrelated network-failure check is
+`Script/CkOnline/FAILURE_ISOLATION_EDITOR_TESTING.md`; it verifies event
+rejection during bridged gameplay and separately checks genuine Host **X** recovery.
 Declaring no rows draws no panel, which is why this
 costs nothing to gyms that have not adopted it. Deliberately NOT adopted: `CkInput`'s KeyBinding
 and Playground gyms and `CkVoiceChat` - the panel polls raw keys, which collides with a gym whose
