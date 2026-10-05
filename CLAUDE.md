@@ -194,6 +194,9 @@ in the deferred editor-check index.
 The unchecked Gate15 malformed unrelated network-failure check is
 `Script/CkOnline/FAILURE_ISOLATION_EDITOR_TESTING.md`; it verifies event
 rejection during bridged gameplay and separately checks genuine Host **X** recovery.
+The unchecked Gate16 queued Lobby travel admission check is
+`Script/CkOnline/QUEUED_TRAVEL_EDITOR_TESTING.md`; it verifies a real local reload
+survives a rejected competing gameplay entry, with the ordinary return path checked separately.
 Declaring no rows draws no panel, which is why this
 costs nothing to gyms that have not adopted it. Deliberately NOT adopted: `CkInput`'s KeyBinding
 and Playground gyms and `CkVoiceChat` - the panel polls raw keys, which collides with a gym whose
