@@ -184,6 +184,13 @@ Hosting > **P** / Client **K** join sequence.
 The unchecked Gate12 public ready-lobby binding check is in
 `Script/CkOnline/PUBLIC_READY_LOBBY_EDITOR_TESTING.md`; the deferred-check index
 tracks it. It verifies readiness-gated gameplay travel and lobby identity after return.
+The unchecked Gate13 configured gameplay port check is in
+`Script/CkOnline/CONFIGURED_GAMEPLAY_PORT_EDITOR_TESTING.md`; the deferred-check
+index tracks it. Both Standalone windows must use the same gameplay port because
+the lobby invite does not advertise that target.
+The combined normal-path editor card is
+`Script/CkOnline/AFK_RETURN_EDITOR_TESTING.md`; individual edge-case checks remain
+in the deferred editor-check index.
 Declaring no rows draws no panel, which is why this
 costs nothing to gyms that have not adopted it. Deliberately NOT adopted: `CkInput`'s KeyBinding
 and Playground gyms and `CkVoiceChat` - the panel polls raw keys, which collides with a gym whose

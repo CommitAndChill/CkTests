@@ -2,6 +2,8 @@
 
 **Status, 2026-10-04:** The user deferred the following manual gym checks while AFK. They are unchecked, not failures or passes. No reminder is scheduled.
 
+For the combined normal path, use the [Online gym return check](AFK_RETURN_EDITOR_TESTING.md). Focused old-invite, failed-entry, and control-loss procedures remain listed separately below.
+
 - **Gate6, previously reported passing:** The earlier two-window [lobby/gameplay round trip](LOBBY_GAMEPLAY_EDITOR_TESTING.md) was reported working by the user. That report does not cover the newer panel or recovery controls.
 - **Gate7, unchecked:** Run the [online panel check](ONLINE_PANEL_EDITOR_TESTING.md) for guided colors, Next step prompts, F2 details, chat input focus/cancel, and return guidance. Its guide repeats the two-Standalone-window setup and Host **J** → Hosting → **P** / Client **K** join sequence.
 - **Gate8, unchecked:** Run the [Direct recovery fault check](DIRECT_RECOVERY_EDITOR_TESTING.md) for real F6 readiness loss, F7 control-profile stop, automatic Lobby return, and fresh recovery. Its guide repeats the same setup and join sequence.
@@ -9,3 +11,4 @@
 - **Gate10, unchecked:** Run the [gameplay recovery check](GAMEPLAY_RECOVERY_EDITOR_TESTING.md) for Client **G** before Host **G**, then Host **X** before Client **X**. Its guide repeats the separate-process setup and Host **J** > Hosting > **P** / Client **K** join sequence. No manual result is claimed.
 - **Gate11, unchecked:** Run the [host invite renewal check](INVITE_RENEWAL_EDITOR_TESTING.md) for same-lobby renewal, old-invite rejection, and rejoining with the renewed invite. The guide repeats the two-Standalone-window setup and Host **J** > Hosting > **P** / Client **K** join sequence. No five-minute wait or remote-machine behavior is required or claimed.
 - **Gate12, unchecked:** Run the [public ready-lobby binding check](PUBLIC_READY_LOBBY_EDITOR_TESTING.md) for readiness-gated gameplay travel, fresh client proof, and preservation of matching lobby identity through return. Its guide repeats the two-Standalone-window setup and Host **J** > Hosting > **P** / Client **K** join sequence.
+- **Gate13, unchecked:** Run the [configured gameplay port check](CONFIGURED_GAMEPLAY_PORT_EDITOR_TESTING.md) for invalid-port preservation, matching 7789 targets, fresh client proof, and lobby continuity after return. Its guide repeats the two-Standalone-window setup and Host **J** > Hosting > **P** / Client **K** join sequence.
