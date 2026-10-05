@@ -8,6 +8,7 @@
 #include "CkSlateLayout/SCkUiSurface.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkTests/UI/CkPauseMenuProof.h"
+#include "CkScriptedPause_TestAdapter.h"
 
 #include "Engine/GameInstance.h"
 #include "Editor.h"
@@ -28,6 +29,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "UObject/UnrealType.h"
+#include "UObject/StrongObjectPtr.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SMenuAnchor.h"
 #include "Widgets/SViewport.h"
@@ -145,6 +147,12 @@ namespace ck_settings_menu_proof_test
         auto* Menu = Cast<UCk_PauseMenuProof_UE>(Return->GetObjectPropertyValue_InContainer(Params.GetData()));
         Function->DestroyStruct(Params.GetData());
         return Menu;
+    }
+
+    auto GetActiveScriptPause(APlayerController* InPlayer) -> UCommonActivatableWidget*
+    {
+        return Cast<UCommonActivatableWidget>(ck_scripted_pause_test::Object(
+            InPlayer, TEXT("Get_ActiveScriptPause")));
     }
 
     auto Tick(FSlateApplication& InSlate) -> void
@@ -627,74 +635,100 @@ bool FCk_SettingsMenuProof_PIE::RunTest(const FString&)
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
         {
-            UCk_PauseMenuProof_UE* Menu = GetActiveMenu(GetPlayer(ck::auto_test::net::Get_ServerWorld()));
-            return IsValid(Menu) && Menu->Get_Screen() == ECk_UiAuthoringProof_Screen::Pause;
-        }), 10.0, TEXT("real [1] opens Pause after Settings Cancel")));
+            UCommonActivatableWidget* Pause = GetActiveScriptPause(
+                GetPlayer(ck::auto_test::net::Get_ServerWorld()));
+            return IsValid(Pause) && Pause->IsActivated()
+                && ck_scripted_pause_test::Bool(Pause, TEXT("Get_IsCurrent"));
+        }), 10.0, TEXT("real [1] opens scripted Pause after Settings Cancel")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InWorld) -> void
         {
-            UCk_PauseMenuProof_UE* Menu = GetActiveMenu(GetPlayer(InWorld));
-            if (NOT TestNotNull(TEXT("nested flow has Pause host"), Menu)) { return; }
-            const TSharedPtr<FCkUiView> PauseView = Menu->Get_AuthoredView();
+            UCommonActivatableWidget* PauseWidget = GetActiveScriptPause(GetPlayer(InWorld));
+            if (NOT TestNotNull(TEXT("nested flow has real scripted Pause parent"), PauseWidget)) { return; }
+            ck_scripted_pause_test::FMenu Pause;
+            Pause.Script.Reset(PauseWidget);
+            UCk_UI_AuthoredSession_UE* ParentSession = Pause.Get_Session();
+            UCk_UI_LayerMembership_UE* ParentMembership = Pause.Get_Membership();
+            const TSharedPtr<FCkUiView> PauseView = Pause.Get_AuthoredView();
+            if (NOT TestTrue(TEXT("script parent exposes the admitted authored session and view"),
+                IsValid(ParentSession) && IsValid(ParentMembership) && PauseView.IsValid())) { return; }
+            const int64 ParentRevision = PauseView->GetRevision();
             const TSharedPtr<SButton> SettingsButton = PauseView.IsValid()
                 ? PauseView->GetButton(TEXT("settings-button")) : nullptr;
             if (NOT TestTrue(TEXT("Pause has authored Settings action"), SettingsButton.IsValid())) { return; }
             FSlateApplication& Slate = FSlateApplication::Get();
-            Slate.SetUserFocus(Menu->Get_SlateUserIndex(), SettingsButton.ToSharedRef(), EFocusCause::SetDirectly);
+            const int32 User = Pause.Get_SlateUserIndex();
+            Slate.SetUserFocus(User, SettingsButton.ToSharedRef(), EFocusCause::SetDirectly);
             Tick(Slate);
-            TestTrue(TEXT("Pause Settings action routes through native Enter"),
-                PressKey(EKeys::Enter, Menu->Get_SlateUserIndex()));
-            if (NOT TestEqual(TEXT("nested Settings uses same activated host"),
-                Menu->Get_Screen(), ECk_UiAuthoringProof_Screen::Settings)) { return; }
-            TestTrue(TEXT("nested transition retains pause and releases old Pause view"),
-                InWorld->IsPaused() && PauseView->IsOwnerReleased());
-            const int32 SettingsCount = Menu->Get_ActionCount(FName{TEXT("SettingsRequested")});
+            TestTrue(TEXT("script Pause Settings action routes through native Enter"), PressKey(EKeys::Enter, User));
+            TStrongObjectPtr<UCk_PauseMenuProof_UE> ChildHold{Pause.Get_SettingsChild()};
+            UCk_PauseMenuProof_UE* Child = ChildHold.Get();
+            if (NOT TestTrue(TEXT("nested Settings is the exact native child over the script parent"),
+                IsValid(Child) && Child == GetActiveMenu(GetPlayer(InWorld))
+                    && Child->IsActivated() && Child->Get_Screen() == ECk_UiAuthoringProof_Screen::Settings
+                    && Pause.Get_IsCurrent() && !Pause.IsActivated()
+                    && Pause.Get_Session() == ParentSession && Pause.Get_Membership() == ParentMembership
+                    && Pause.Get_AuthoredView() == PauseView && PauseView->GetRevision() == ParentRevision
+                    && !PauseView->IsOwnerReleased() && InWorld->IsPaused())) { return; }
+            const int32 SettingsCount = Pause.Get_ActionCount(FName{TEXT("SettingsRequested")});
             const FKeyEvent StaleButtonEvent{EKeys::Enter, FModifierKeysState{},
-                static_cast<uint32>(Menu->Get_SlateUserIndex()), false, 0, 0};
+                static_cast<uint32>(User), false, 0, 0};
             SettingsButton->OnKeyDown(SettingsButton->GetCachedGeometry(), StaleButtonEvent);
             SettingsButton->OnKeyUp(SettingsButton->GetCachedGeometry(), StaleButtonEvent);
-            TestTrue(TEXT("stale Pause action cannot redispatch after owner release"),
-                Menu->Get_ActionCount(FName{TEXT("SettingsRequested")}) == SettingsCount
-                    && Menu->Get_Screen() == ECk_UiAuthoringProof_Screen::Settings);
+            TestTrue(TEXT("covered Pause action cannot redispatch while its view stays live"),
+                Pause.Get_ActionCount(FName{TEXT("SettingsRequested")}) == SettingsCount
+                    && Pause.Get_SettingsChild() == Child && !PauseView->IsOwnerReleased());
             TestTrue(TEXT("nested Settings keeps applied fixture values"),
-                Menu->Get_AppliedSettings().Get_Volume() == 76.0f
-                    && NOT Menu->Get_AppliedSettings().Get_Subtitles()
-                    && Menu->Get_AppliedSettings().Get_DisplayMode() == TEXT("Borderless"));
-            const TSharedPtr<FCkUiView> SettingsView = Menu->Get_AuthoredView();
-            const TSharedPtr<SWidget> SettingsSelect = GetControl(Menu, TEXT("settings-display-mode"));
+                Child->Get_AppliedSettings().Get_Volume() == 76.0f
+                    && NOT Child->Get_AppliedSettings().Get_Subtitles()
+                    && Child->Get_AppliedSettings().Get_DisplayMode() == TEXT("Borderless"));
+            const TSharedPtr<FCkUiView> SettingsView = Child->Get_AuthoredView();
+            const TSharedPtr<SWidget> SettingsSelect = GetControl(Child, TEXT("settings-display-mode"));
             if (NOT TestTrue(TEXT("nested Settings select is available for replacement lifetime"),
                 SettingsView.IsValid() && SettingsSelect.IsValid()
                     && SettingsSelect->GetTypeAsString() == TEXT("SCkUiSelect"))
                 || NOT TestTrue(TEXT("nested select accepts focus"),
-                    FocusControl(Menu, TEXT("settings-display-mode")))) { return; }
+                    FocusControl(Child, TEXT("settings-display-mode")))) { return; }
             TestTrue(TEXT("nested dropdown opens through Space"),
-                PressKey(EKeys::SpaceBar, Menu->Get_SlateUserIndex()));
+                PressKey(EKeys::SpaceBar, User));
             const TSharedRef<SMenuAnchor> NestedAnchor = StaticCastSharedRef<SMenuAnchor>(SettingsSelect.ToSharedRef());
-            if (NOT TestTrue(TEXT("nested dropdown is open before screen replacement"),
+            if (NOT TestTrue(TEXT("nested dropdown is open before Escape"),
                 NestedAnchor->IsOpen())) { return; }
-            if (NOT TestTrue(TEXT("replacing Settings view with Pause succeeds"),
-                Menu->Request_ShowScreen(ECk_UiAuthoringProof_Screen::Pause))) { return; }
-            TestTrue(TEXT("old Settings view replacement closes its popup and preserves pause"),
-                SettingsView->IsOwnerReleased() && NOT NestedAnchor->IsOpen()
-                    && Menu->Get_AuthoredView() != SettingsView
-                    && Menu->Get_Screen() == ECk_UiAuthoringProof_Screen::Pause
-                    && Menu->IsActivated() && InWorld->IsPaused());
-            const TSharedPtr<FCkUiView> FreshPauseView = Menu->Get_AuthoredView();
-            const TSharedPtr<SButton> FreshSettingsButton = FreshPauseView.IsValid()
-                ? FreshPauseView->GetButton(TEXT("settings-button")) : nullptr;
-            if (NOT TestTrue(TEXT("replacement Pause offers fresh Settings action"),
-                FreshSettingsButton.IsValid())) { return; }
-            FSlateApplication::Get().SetUserFocus(Menu->Get_SlateUserIndex(),
-                FreshSettingsButton.ToSharedRef(), EFocusCause::SetDirectly);
-            Tick(FSlateApplication::Get());
-            if (NOT TestTrue(TEXT("fresh Pause action reenters nested Settings through Enter"),
-                PressKey(EKeys::Enter, Menu->Get_SlateUserIndex())
-                    && Menu->Get_Screen() == ECk_UiAuthoringProof_Screen::Settings)) { return; }
-            PressKey(EKeys::Escape, Menu->Get_SlateUserIndex());
-            TestTrue(TEXT("nested Escape returns to Pause without releasing pause"),
-                Menu->IsActivated() && Menu->Get_Screen() == ECk_UiAuthoringProof_Screen::Pause
-                    && InWorld->IsPaused() && Menu->Get_AuthoredView().IsValid());
-            PressKey(EKeys::Escape, Menu->Get_SlateUserIndex());
+            const FKeyEvent PopupEscapeEvent{EKeys::Escape, FModifierKeysState{},
+                static_cast<uint32>(User), false, 0, 0};
+            const bool PopupEscapeDown = Slate.ProcessKeyDownEvent(PopupEscapeEvent);
+            const bool PopupEscapeUp = Slate.ProcessKeyUpEvent(PopupEscapeEvent);
+            Tick(Slate);
+            // Slate's menu wrapper clears focus on Escape; the release need not have a focused recipient.
+            AddInfo(FString::Printf(TEXT("Nested popup Escape: press handled=%d release handled=%d"),
+                PopupEscapeDown, PopupEscapeUp));
+            TestTrue(TEXT("nested popup handles the Escape press"), PopupEscapeDown);
+            TestTrue(TEXT("nested select Escape closes only its popup"),
+                !NestedAnchor->IsOpen() && Child->IsActivated() && Pause.Get_SettingsChild() == Child
+                    && !Pause.IsActivated() && Pause.Get_IsCurrent()
+                    && Pause.Get_ActionCount(FName{TEXT("SettingsRequested")}) == SettingsCount
+                    && Pause.Get_AuthoredView() == PauseView && PauseView->GetRevision() == ParentRevision);
+            if (NOT TestTrue(TEXT("nested Cancel receives focus"),
+                FocusControl(Child, TEXT("settings-cancel")))) { return; }
+            TestTrue(TEXT("nested Cancel closes native child"), PressKey(EKeys::Enter, User));
+            TestTrue(TEXT("Cancel resumes exact retained script parent and closes child popup"),
+                !Child->IsActivated() && SettingsView->IsOwnerReleased() && !NestedAnchor->IsOpen()
+                    && Pause.Get_SettingsChild() == nullptr && Pause.IsActivated() && Pause.Get_IsCurrent()
+                    && Pause.Get_Session() == ParentSession && Pause.Get_Membership() == ParentMembership
+                    && Pause.Get_AuthoredView() == PauseView && PauseView->GetRevision() == ParentRevision
+                    && !PauseView->IsOwnerReleased() && InWorld->IsPaused());
+            Slate.SetUserFocus(User, SettingsButton.ToSharedRef(), EFocusCause::SetDirectly);
+            Tick(Slate);
+            if (NOT TestTrue(TEXT("retained Pause action reenters exact native Settings child"),
+                PressKey(EKeys::Enter, User) && IsValid(Pause.Get_SettingsChild())
+                    && Pause.Get_SettingsChild() != Child)) { return; }
+            TStrongObjectPtr<UCk_PauseMenuProof_UE> EscapeChild{Pause.Get_SettingsChild()};
+            TestTrue(TEXT("nested child Escape returns to retained script parent"),
+                PressKey(EKeys::Escape, User) && !EscapeChild->IsActivated()
+                    && Pause.Get_SettingsChild() == nullptr && Pause.IsActivated()
+                    && Pause.Get_AuthoredView() == PauseView && PauseView->GetRevision() == ParentRevision
+                    && InWorld->IsPaused());
+            PressKey(EKeys::Escape, User);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([]() -> bool

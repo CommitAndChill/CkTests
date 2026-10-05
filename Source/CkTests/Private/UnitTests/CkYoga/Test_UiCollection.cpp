@@ -87,6 +87,21 @@ auto FCkUiCollection_Mutation::RunTest(const FString&) -> bool
     TestEqual(TEXT("No-op does not publish"), Notifications, NotificationsAfterChange);
     TestEqual(TEXT("No-op keeps revision"), Collection->GetRevision(), Revision + 1);
 
+    const int64 ARevisionBeforeReorder = OriginalA->GetRevision();
+    const int64 BRevisionBeforeReorder = OriginalB->GetRevision();
+    if (!TestTrue(TEXT("Pure stable-key reorder commits"), Collection->TrySetRecords({Record(TEXT("a"), TEXT("A")), Record(TEXT("b"), TEXT("B2"), 3.0f)}).Succeeded)) { return false; }
+    TestTrue(TEXT("Pure reorder publishes requested record order"), Collection->GetRecords().Num() == 2
+        && Collection->GetRecords()[0] == OriginalA && Collection->GetRecords()[1] == OriginalB);
+    TestTrue(TEXT("Pure reorder preserves surviving record pointers"), Collection->FindRecord(TEXT("a")) == OriginalA && Collection->FindRecord(TEXT("b")) == OriginalB);
+    TestTrue(TEXT("Pure reorder preserves unchanged record revisions"), OriginalA->GetRevision() == ARevisionBeforeReorder && OriginalB->GetRevision() == BRevisionBeforeReorder);
+    TestEqual(TEXT("Pure reorder advances collection revision once"), Collection->GetRevision(), Revision + 2);
+    TestEqual(TEXT("Pure reorder emits one notification"), Notifications, NotificationsAfterChange + 1);
+    const int64 RevisionAfterReorder = Collection->GetRevision();
+    const int32 NotificationsAfterReorder = Notifications;
+    TestTrue(TEXT("Repeated pure reorder succeeds"), Collection->TrySetRecords({Record(TEXT("a"), TEXT("A")), Record(TEXT("b"), TEXT("B2"), 3.0f)}).Succeeded);
+    TestEqual(TEXT("Repeated pure reorder preserves collection revision"), Collection->GetRevision(), RevisionAfterReorder);
+    TestEqual(TEXT("Repeated pure reorder emits no notification"), Notifications, NotificationsAfterReorder);
+
     const TSharedPtr<const FCkUiRecord> RootBeforeInvalid = Collection->FindRecord(TEXT("a"));
     auto Invalid = Record(TEXT("new"), TEXT("new"));
     auto Bad = Record(TEXT("bad"), TEXT("bad"));
@@ -97,8 +112,8 @@ auto FCkUiCollection_Mutation::RunTest(const FString&) -> bool
     TestTrue(TEXT("Rejected update retains earlier rows"), Collection->FindRecord(TEXT("a")) == RootBeforeInvalid && !Collection->FindRecord(TEXT("new")).IsValid());
     const FCkUiFieldValue* UnchangedLabel = OriginalA->FindField(TEXT("label"));
     TestTrue(TEXT("Late rejection does not change a surviving row in place"), UnchangedLabel != nullptr && UnchangedLabel->Text.ToString() == TEXT("A"));
-    TestEqual(TEXT("Rejected update changes neither revision nor event count"), Collection->GetRevision(), Revision + 1);
-    TestEqual(TEXT("Rejected update emits no event"), Notifications, NotificationsAfterChange);
+    TestEqual(TEXT("Rejected update changes neither revision nor event count"), Collection->GetRevision(), RevisionAfterReorder);
+    TestEqual(TEXT("Rejected update emits no event"), Notifications, NotificationsAfterReorder);
 
     TWeakPtr<const FCkUiRecord> Removed = Collection->FindRecord(TEXT("b"));
     if (!TestTrue(TEXT("Removal update succeeds"), Collection->TrySetRecords({Record(TEXT("a"), TEXT("A"))}).Succeeded)) { return false; }
@@ -302,6 +317,47 @@ auto FCkUiCollection_BatchMutation::RunTest(const FString&) -> bool
     TestEqual(TEXT("Unchanged batch preserves second revision"), Second->GetRevision(), SecondRevision);
     TestEqual(TEXT("Unchanged batch emits no first notification"), FirstNotifications, 4);
     TestEqual(TEXT("Unchanged batch emits no second notification"), SecondNotifications, 2);
+    auto OrderBaseline = TArray<FCkUiCollectionUpdate>{};
+    OrderBaseline.Add({First, {Record(TEXT("first"), TEXT("First payload released"), 13.0f), Record(TEXT("first-tail"), TEXT("Tail"))}});
+    OrderBaseline.Add({Second, {Record(TEXT("second"), TEXT("Second payload changed"), 21.0f), Record(TEXT("second-tail"), TEXT("Tail"))}});
+    if (!TestTrue(TEXT("Batch order baseline commits"), FCkUiCollection::TrySetRecordsBatch(MoveTemp(OrderBaseline)).Succeeded)) { return false; }
+    const TSharedPtr<const FCkUiRecord> FirstHead = First->FindRecord(TEXT("first"));
+    const TSharedPtr<const FCkUiRecord> FirstTail = First->FindRecord(TEXT("first-tail"));
+    const TSharedPtr<const FCkUiRecord> SecondHead = Second->FindRecord(TEXT("second"));
+    const TSharedPtr<const FCkUiRecord> SecondTail = Second->FindRecord(TEXT("second-tail"));
+    const int64 FirstOrderRevision = First->GetRevision();
+    const int64 SecondOrderRevision = Second->GetRevision();
+    const int64 FirstHeadRevision = FirstHead->GetRevision();
+    const int64 FirstTailRevision = FirstTail->GetRevision();
+    const int64 SecondHeadRevision = SecondHead->GetRevision();
+    const int64 SecondTailRevision = SecondTail->GetRevision();
+    const int32 FirstOrderNotifications = FirstNotifications;
+    const int32 SecondOrderNotifications = SecondNotifications;
+    bool FirstSawBothReorders = false;
+    bool SecondSawBothReorders = false;
+    const auto BothOrdersPublished = [&]
+    {
+        return First->GetRecords().Num() == 2 && Second->GetRecords().Num() == 2
+            && First->GetRecords()[0] == FirstTail && First->GetRecords()[1] == FirstHead
+            && Second->GetRecords()[0] == SecondTail && Second->GetRecords()[1] == SecondHead;
+    };
+    First->OnChanged().AddLambda([&] { FirstSawBothReorders = BothOrdersPublished(); });
+    Second->OnChanged().AddLambda([&] { SecondSawBothReorders = BothOrdersPublished(); });
+    auto OrderBatch = TArray<FCkUiCollectionUpdate>{};
+    OrderBatch.Add({First, {Record(TEXT("first-tail"), TEXT("Tail")), Record(TEXT("first"), TEXT("First payload released"), 13.0f)}});
+    OrderBatch.Add({Second, {Record(TEXT("second-tail"), TEXT("Tail")), Record(TEXT("second"), TEXT("Second payload changed"), 21.0f)}});
+    const auto RepeatedOrderBatch = OrderBatch;
+    TestTrue(TEXT("Pure batch reorder commits"), FCkUiCollection::TrySetRecordsBatch(MoveTemp(OrderBatch)).Succeeded);
+    TestTrue(TEXT("Each batch callback sees both requested orders already published"), FirstSawBothReorders && SecondSawBothReorders);
+    TestTrue(TEXT("Pure batch reorder preserves all record identities and revisions"), First->FindRecord(TEXT("first")) == FirstHead
+        && First->FindRecord(TEXT("first-tail")) == FirstTail && Second->FindRecord(TEXT("second")) == SecondHead && Second->FindRecord(TEXT("second-tail")) == SecondTail
+        && FirstHead->GetRevision() == FirstHeadRevision && FirstTail->GetRevision() == FirstTailRevision
+        && SecondHead->GetRevision() == SecondHeadRevision && SecondTail->GetRevision() == SecondTailRevision);
+    TestTrue(TEXT("Pure batch reorder advances each collection revision and notifies once"), First->GetRevision() == FirstOrderRevision + 1
+        && Second->GetRevision() == SecondOrderRevision + 1 && FirstNotifications == FirstOrderNotifications + 1 && SecondNotifications == SecondOrderNotifications + 1);
+    TestTrue(TEXT("Repeated pure batch order succeeds"), FCkUiCollection::TrySetRecordsBatch(RepeatedOrderBatch).Succeeded);
+    TestTrue(TEXT("Repeated pure batch order preserves revisions and notification counts"), First->GetRevision() == FirstOrderRevision + 1
+        && Second->GetRevision() == SecondOrderRevision + 1 && FirstNotifications == FirstOrderNotifications + 1 && SecondNotifications == SecondOrderNotifications + 1);
     TestTrue(TEXT("Empty batch succeeds"), FCkUiCollection::TrySetRecordsBatch({}).Succeeded);
     return true;
 }
@@ -344,6 +400,32 @@ auto FCkUiCollection_ChildCollections::RunTest(const FString&) -> bool
     TestTrue(TEXT("Identical recursive data is a no-op"), Collection->TrySetRecords({MakeParent(TEXT("Crowd"), {MakeChild(TEXT("band-0"), TEXT("Near"))})}).Succeeded);
     TestEqual(TEXT("Recursive no-op preserves root revision"), Collection->GetRevision(), StableRevision);
     TestTrue(TEXT("Recursive no-op preserves child record identity"), Parent->FindChildCollection(TEXT("bands")) == Bands && Bands->FindRecord(TEXT("band-0")) == Band);
+    if (!TestTrue(TEXT("Two-child order baseline commits"), Collection->TrySetRecords({MakeParent(TEXT("Crowd"), {MakeChild(TEXT("band-0"), TEXT("Near")), MakeChild(TEXT("band-1"), TEXT("Far"))})}).Succeeded)) { return false; }
+    const TSharedPtr<const FCkUiRecord> OtherBand = Bands->FindRecord(TEXT("band-1"));
+    if (!TestTrue(TEXT("Second child record can be found"), OtherBand.IsValid())) { return false; }
+    const int64 BandRevision = Band->GetRevision();
+    const int64 OtherBandRevision = OtherBand->GetRevision();
+    const int64 BandsRevision = Bands->GetRevision();
+    const int64 RootRevisionBeforeReorder = Collection->GetRevision();
+    auto NotificationOrder = TArray<FString>{};
+    bool RootSawChildOrder = false;
+    Collection->OnChanged().AddLambda([&]
+    {
+        NotificationOrder.Add(TEXT("root"));
+        RootSawChildOrder = Bands->GetRecords().Num() == 2 && Bands->GetRecords()[0] == OtherBand && Bands->GetRecords()[1] == Band;
+    });
+    Bands->OnChanged().AddLambda([&] { NotificationOrder.Add(TEXT("bands")); });
+    TestTrue(TEXT("Pure child reorder commits"), Collection->TrySetRecords({MakeParent(TEXT("Crowd"), {MakeChild(TEXT("band-1"), TEXT("Far")), MakeChild(TEXT("band-0"), TEXT("Near"))})}).Succeeded);
+    TestTrue(TEXT("Root callback sees requested pure child order before child callback"), RootSawChildOrder
+        && NotificationOrder == TArray<FString>{TEXT("root"), TEXT("bands")});
+    TestTrue(TEXT("Pure child reorder retains parent child collection and leaf identities"), Collection->FindRecord(TEXT("crowd-0")) == Parent
+        && Parent->FindChildCollection(TEXT("bands")) == Bands && Bands->FindRecord(TEXT("band-0")) == Band && Bands->FindRecord(TEXT("band-1")) == OtherBand);
+    TestTrue(TEXT("Pure child reorder advances collection revisions once and preserves leaf revisions"), Collection->GetRevision() == RootRevisionBeforeReorder + 1
+        && Bands->GetRevision() == BandsRevision + 1 && Band->GetRevision() == BandRevision && OtherBand->GetRevision() == OtherBandRevision);
+    NotificationOrder.Reset();
+    TestTrue(TEXT("Repeated pure child order succeeds"), Collection->TrySetRecords({MakeParent(TEXT("Crowd"), {MakeChild(TEXT("band-1"), TEXT("Far")), MakeChild(TEXT("band-0"), TEXT("Near"))})}).Succeeded);
+    TestTrue(TEXT("Repeated pure child order preserves collection revisions and emits no notification"), NotificationOrder.IsEmpty()
+        && Collection->GetRevision() == RootRevisionBeforeReorder + 1 && Bands->GetRevision() == BandsRevision + 1);
     const int64 Revision = Collection->GetRevision();
     auto Duplicate = MakeParent(TEXT("Rejected"), {MakeChild(TEXT("same"), TEXT("A")), MakeChild(TEXT("same"), TEXT("B"))});
     TestFalse(TEXT("Duplicate child keys reject atomically"), Collection->TrySetRecords({MoveTemp(Duplicate)}).Succeeded);

@@ -1,0 +1,71 @@
+<ui version="1">
+  <region name="main">
+    <column id="mission-board" class="board">
+      <row id="board-header" class="header">
+        <column id="brand" class="brand">
+          <text id="board-kicker" class="kicker">TERMINUS / OPERATIONS COMMAND</text>
+          <text id="board-title" class="title">MISSION BOARD</text>
+        </column>
+        <column id="connection" class="connection">
+          <text id="board-online" class="online">UPLINK ESTABLISHED</text>
+          <text id="board-status" bind="BoardStatus" class="subtle"/>
+        </column>
+      </row>
+      <column id="board-rule" class="rule"/>
+      <row id="board-body" class="body">
+        <column id="mission-feed" class="feed">
+          <row id="feed-heading" class="feed-heading">
+            <text id="feed-label" class="section-label">ACTIVE OPERATIONS</text>
+            <text id="mission-count" bind="MissionCount" class="count"/>
+          </row>
+          <repeat id="missions" bind="Missions" direction="vertical" class="mission-list">
+            <column id="mission-row" class="mission-row">
+              <button id="mission-select" bind-field="TitleText" color-field="AccentColor" item-action="SelectMission" class="mission-select"/>
+              <column id="mission-route-wrap" class="mission-route-wrap">
+                <text id="mission-route" bind-field="RouteText" class="mission-route"/>
+              </column>
+              <row id="mission-meta" class="mission-meta">
+                <text id="mission-status" bind-field="StatusText" class="mission-status"/>
+                <text id="mission-done" visible-field="DoneBool" class="mission-done">COMPLETED</text>
+              </row>
+            </column>
+          </repeat>
+        </column>
+        <column id="selected-panel" class="selected-panel">
+          <text id="selection-label" bind="Selection" class="selection-label"/>
+          <text id="detail-title" bind="DetailTitle" class="detail-title"/>
+          <text id="detail-route" bind="DetailRoute" class="detail-route"/>
+          <column id="route-map" class="route-map">
+            <row id="route-nodes" class="route-nodes">
+              <column id="route-home" class="route-node"/>
+              <column id="route-line-a" class="route-line"/>
+              <column id="route-objective" class="route-objective"/>
+              <column id="route-line-b" class="route-line"/>
+              <column id="route-next" class="route-node"/>
+            </row>
+            <row id="route-labels" class="route-labels">
+              <text id="route-home-label" class="route-label">TERMINUS</text>
+              <text id="route-objective-label" class="route-label">OBJECTIVE</text>
+              <text id="route-next-label" class="route-label">NEXT JUMP</text>
+            </row>
+          </column>
+          <column id="detail-rule" class="rule"/>
+          <text id="briefing-label" class="briefing-label">MISSION BRIEFING</text>
+          <text id="detail-brief" bind="DetailBrief" class="detail-brief"/>
+          <column id="detail-spacer" class="detail-spacer"/>
+          <column id="telemetry" class="telemetry">
+            <text id="progress-label" class="telemetry-label">OBJECTIVE TELEMETRY</text>
+            <text id="detail-progress" bind="DetailProgress" class="detail-progress"/>
+            <text id="detail-status" bind="DetailStatus" class="detail-status"/>
+          </column>
+          <button id="mission-complete" action="CompleteMission" class="complete">COMPLETE OBJECTIVE</button>
+          <text id="detail-hint" class="detail-hint">Confirm when the objective has been secured.</text>
+        </column>
+      </row>
+      <row id="board-footer" class="footer">
+        <text id="footer-brand" class="footer-brand">TERMINUS / EXPEDITION NETWORK</text>
+        <text id="footer-code" class="footer-code">SECURE CHANNEL  //  07.19</text>
+      </row>
+    </column>
+  </region>
+</ui>

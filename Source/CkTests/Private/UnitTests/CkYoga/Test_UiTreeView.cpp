@@ -42,10 +42,23 @@ auto FCkUiTreeView_Runtime::RunTest(const FString&) -> bool
     if (!TestTrue(TEXT("Initial hierarchy publishes"), Model->TrySetNodes({Node(TEXT("root"), {}, TEXT("Root")), Node(TEXT("child"), FString(TEXT("root")), TEXT("Child")), Node(TEXT("other"), {}, TEXT("Other"))}).Succeeded)) { return false; }
     FString Query;
     int32 SelectionEvents = 0;
+    TWeakPtr<SCkUiTree> CallbackTree;
+    bool QueueFromCallback = false;
+    bool CallbackRequestAccepted = false;
     auto Data = FCkUiView::FDataBindings{};
     Data.Trees.Add(TEXT("tree"), Model);
     Data.Text.Add(TEXT("query"), TAttribute<FText>::CreateLambda([&Query]() { return FText::FromString(Query); }));
-    Data.TreeSelectionChanged.Add(TEXT("selected"), FOnCkUiTreeSelectionChanged::CreateLambda([&SelectionEvents](TOptional<FString>, ESelectInfo::Type) { ++SelectionEvents; }));
+    Data.TreeSelectionChanged.Add(TEXT("selected"), FOnCkUiTreeSelectionChanged::CreateLambda(
+        [&SelectionEvents, &CallbackTree, &QueueFromCallback, &CallbackRequestAccepted](TOptional<FString>, ESelectInfo::Type)
+        {
+            ++SelectionEvents;
+            if (QueueFromCallback)
+            {
+                QueueFromCallback = false;
+                const TSharedPtr<SCkUiTree> Current = CallbackTree.Pin();
+                CallbackRequestAccepted = Current.IsValid() && Current->TryRequestSelectKey(FString(TEXT("other")), true);
+            }
+        }));
     Data.ContextActions.Add(TEXT("inspect"), FOnCkUiContextAction::CreateLambda([](const FString&) {}));
     TSharedPtr<FCkUiView> View = FCkUiView::Create({}, {}, {}, FCoreStyle::GetDefaultFontStyle("Regular", 12), MoveTemp(Data));
     TSharedPtr<SWidget> Region = View->GetRegion(TEXT("main"));
@@ -57,6 +70,73 @@ auto FCkUiTreeView_Runtime::RunTest(const FString&) -> bool
     TSharedPtr<SCkUiTree> Tree = View->GetTree(TEXT("tree"));
     TSharedPtr<STreeView<SCkUiTree::FNode>> NativeTree = Tree.IsValid() ? Tree->GetTree() : nullptr;
     if (!TestTrue(TEXT("Authored tree exposes retained native tree"), Tree.IsValid() && NativeTree.IsValid())) { return false; }
+    CallbackTree = Tree;
+    const auto NativeSelectionIs = [&Tree, &NativeTree, &Model](TOptional<FString> InKey)
+    {
+        const TArray<SCkUiTree::FNode> Items = NativeTree->GetSelectedItems();
+        if (!InKey.IsSet()) { return !Tree->GetSelectedKey().IsSet() && Items.IsEmpty(); }
+        return Tree->GetSelectedKey() == InKey && Items.Num() == 1 && Items[0] == Model->FindNode(InKey.GetValue());
+    };
+    TestTrue(TEXT("Post-publication fixture adds a new stable key"), Model->TrySetNodes({Node(TEXT("root"), {}, TEXT("Root")), Node(TEXT("child"), FString(TEXT("root")), TEXT("Child")), Node(TEXT("other"), {}, TEXT("Other")), Node(TEXT("new"), {}, TEXT("New"))}).Succeeded);
+    TestFalse(TEXT("Immediate selection has not projected the newly published key"), Tree->TrySelectKey(FString(TEXT("new"))));
+    TestTrue(TEXT("Deferred request admits the new key before projection refresh"), Tree->TryRequestSelectKey(FString(TEXT("new"))) && Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Pending);
+    TestFalse(TEXT("Admission does not claim native application"), NativeSelectionIs(FString(TEXT("new"))));
+    Tick(Slate);
+    TestTrue(TEXT("Native tick applies the current published node silently"), Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Applied && NativeSelectionIs(FString(TEXT("new"))) && SelectionEvents == 0);
+    TestTrue(TEXT("Latest accepted request supersedes its predecessor"), Tree->TryRequestSelectKey(FString(TEXT("root"))) && Tree->TryRequestSelectKey(FString(TEXT("other"))));
+    TestFalse(TEXT("Unknown request rejects admission without replacing pending work"), Tree->TryRequestSelectKey(FString(TEXT("missing"))));
+    Tick(Slate);
+    TestTrue(TEXT("Rejected admission preserves the latest valid native request"), NativeSelectionIs(FString(TEXT("other"))) && Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Applied);
+    const int32 BeforeSameKey = SelectionEvents;
+    TestTrue(TEXT("Same-key deferred notification is admitted"), Tree->TryRequestSelectKey(FString(TEXT("other")), true));
+    Tick(Slate);
+    TestTrue(TEXT("Same-key request does not duplicate semantic notification"), NativeSelectionIs(FString(TEXT("other"))) && SelectionEvents == BeforeSameKey);
+    TestTrue(TEXT("Deferred clear is admitted"), Tree->TryRequestSelectKey({}, true));
+    Tick(Slate);
+    TestTrue(TEXT("Deferred clear clears adapter and native selection and notifies once"), NativeSelectionIs({}) && SelectionEvents == BeforeSameKey + 1);
+    QueueFromCallback = true;
+    const int32 BeforeCallbackRequest = SelectionEvents;
+    NativeTree->SetSelection(Model->FindNode(TEXT("root")), ESelectInfo::OnKeyPress);
+    TestTrue(TEXT("A selection callback queues a request without immediate native mutation"), CallbackRequestAccepted && NativeSelectionIs(FString(TEXT("root"))) && Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Pending);
+    Tick(Slate);
+    TestTrue(TEXT("Callback request applies after native activity and notifies exactly once"), NativeSelectionIs(FString(TEXT("other"))) && SelectionEvents == BeforeCallbackRequest + 2);
+    TestTrue(TEXT("User-selection cancellation request admits"), Tree->TryRequestSelectKey(FString(TEXT("other"))));
+    NativeTree->SetSelection(Model->FindNode(TEXT("root")), ESelectInfo::OnKeyPress);
+    Tick(Slate);
+    TestTrue(TEXT("Native user selection cancels older pending work"), NativeSelectionIs(FString(TEXT("root"))) && Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::None);
+    Query = TEXT("Root");
+    TestTrue(TEXT("A currently present filtered key can be admitted before refresh"), Tree->TryRequestSelectKey(FString(TEXT("other")), true));
+    const int32 BeforeFiltered = SelectionEvents;
+    Tick(Slate);
+    TestTrue(TEXT("Filtered request rejects without changing surviving selection or notifying"), Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Rejected && !Tree->GetSelectionRequestError().IsEmpty() && NativeSelectionIs(FString(TEXT("root"))) && SelectionEvents == BeforeFiltered);
+    Query.Reset(); Tick(Slate);
+    TestTrue(TEXT("Removed-key request admits while the key is current"), Tree->TryRequestSelectKey(FString(TEXT("new")), true));
+    TestTrue(TEXT("Pending target can be removed by an atomic model publication"), Model->TrySetNodes({Node(TEXT("root"), {}, TEXT("Root")), Node(TEXT("child"), FString(TEXT("root")), TEXT("Child")), Node(TEXT("other"), {}, TEXT("Other"))}).Succeeded);
+    const int32 BeforeRemoved = SelectionEvents;
+    Tick(Slate);
+    TestTrue(TEXT("Removed target rejects without late callback or stale native selection"), Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Rejected && NativeSelectionIs(FString(TEXT("root"))) && SelectionEvents == BeforeRemoved);
+    Tree->CancelSelectionRequest();
+    TestTrue(TEXT("Explicit cancellation clears terminal status and error"), Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::None && Tree->GetSelectionRequestError().IsEmpty());
+    TestTrue(TEXT("Reentrant deferred callback starts from the other key"), Tree->TrySelectKey(FString(TEXT("other"))));
+    QueueFromCallback = true;
+    CallbackRequestAccepted = false;
+    const int32 BeforeReentrantDeferred = SelectionEvents;
+    TestTrue(TEXT("Notifying deferred request admits before callback supersession"), Tree->TryRequestSelectKey(FString(TEXT("root")), true));
+    Tick(Slate);
+    TestTrue(TEXT("Deferred notification can queue a subsequent request without losing it"), CallbackRequestAccepted && NativeSelectionIs(FString(TEXT("other"))) && Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Applied && SelectionEvents == BeforeReentrantDeferred + 2);
+    TestFalse(TEXT("Collapsed fixture parent has no user expansion"), NativeTree->IsItemExpanded(Model->FindNode(TEXT("root"))));
+    TestTrue(TEXT("Deferred collapsed-descendant selection admits without expanding"), Tree->TryRequestSelectKey(FString(TEXT("child"))));
+    Tick(Slate);
+    TestTrue(TEXT("Collapsed descendant has exact native selection without expanding its parent"), NativeSelectionIs(FString(TEXT("child"))) && !NativeTree->IsItemExpanded(Model->FindNode(TEXT("root"))));
+    TestTrue(TEXT("Compatible reload preserves collapsed-child selection"), View->TryReload(Markup(), Styles(), TEXT("UiTreeDeferredCollapsedReload")).Succeeded);
+    Tick(Slate);
+    TestTrue(TEXT("Native refresh retains the current collapsed selected child"), NativeSelectionIs(FString(TEXT("child"))));
+    Query = TEXT("Root");
+    const int32 BeforeCollapsedFilter = SelectionEvents;
+    Tick(Slate);
+    TestTrue(TEXT("Invisible-selection support still clears a genuinely filtered child once"), NativeSelectionIs({}) && SelectionEvents == BeforeCollapsedFilter + 1);
+    Query.Reset(); Tick(Slate);
+    TestTrue(TEXT("Root selection restores after collapsed-child proof"), Tree->TrySelectKey(FString(TEXT("root"))));
     TestTrue(TEXT("Initial tree cells generate without error"), Tree->GetLastCellError().IsEmpty());
     const SCkUiTree::FNode Root = Model->FindNode(TEXT("root"));
     if (!TestTrue(TEXT("Root node exists"), Root.IsValid())) { return false; }
@@ -148,6 +228,7 @@ auto FCkUiTreeView_Runtime::RunTest(const FString&) -> bool
     NativeTree->SetSelection(ProjectionRoot, ESelectInfo::OnMouseClick);
     Tick(Slate);
     TestTrue(TEXT("Non-selectable projection tree exposes no selection state or callback"), !Tree->GetSelectedKey().IsSet() && !Tree->TrySelectKey(FString(TEXT("root"))) && NativeTree->GetSelectedItems().Num() == 0 && SelectionEvents == EventsBeforeProjection);
+    TestFalse(TEXT("Non-selectable tree rejects deferred key and clear admission"), Tree->TryRequestSelectKey(FString(TEXT("root"))) || Tree->TryRequestSelectKey({}));
     if (!TestTrue(TEXT("Projection hides false root while retaining visible root expansion"), Model->TrySetNodes({Node(TEXT("root"), {}, TEXT("Root")), Node(TEXT("child"), FString(TEXT("root")), TEXT("Child")), Node(TEXT("other"), {}, TEXT("Other"), 0.0f, false)}).Succeeded)) { return false; }
     Tick(Slate);
     TestTrue(TEXT("Projection retains collection identity, realized row, and expansion without auto-expanding"), Model->FindNode(TEXT("root")) == ProjectionRoot && NativeTree->WidgetFromItem(ProjectionRoot) == ProjectionRow && Tree->GetVisibleNodeCount() == 2 && Tree->GetExpandedKeys().Contains(TEXT("root")) && Tree->GetTree() == NativeTree);
@@ -186,6 +267,81 @@ auto FCkUiTreeView_Runtime::RunTest(const FString&) -> bool
     const FCkUiLoadResult KindChange = View->TryReload(OrdinaryIdCollision, TEXT(""), TEXT("UiTreeViewKindChange"));
     TestFalse(TEXT("Retained tree id cannot become an ordinary node"), KindChange.Succeeded);
     TestTrue(TEXT("Retained tree kind change preserves pointer and revision"), View->GetRevision() == AcceptedRevision + 2 && View->GetTree(TEXT("tree")) == Tree);
+    TestTrue(TEXT("Pending selection admits before compatible reload"), Tree->TryRequestSelectKey(FString(TEXT("other"))));
+    TestTrue(TEXT("Compatible reload preserves pending request"), View->TryReload(Markup(), Styles(), TEXT("UiTreeDeferredReload")).Succeeded && Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Pending);
+    const FCkUiLoadResult PendingRejected = View->TryReload(Markup().Replace(TEXT("bind-field=\"name\""), TEXT("bind-field=\"rank\"")), Styles(), TEXT("UiTreeDeferredRejected"));
+    TestTrue(TEXT("Rejected reload preserves pending request and native identity"), !PendingRejected.Succeeded && View->GetTree(TEXT("tree")) == Tree && Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Pending);
+    Tick(Slate);
+    TestTrue(TEXT("Pending request applies through compatible and rejected reloads"), NativeSelectionIs(FString(TEXT("other"))) && Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Applied);
+    TestTrue(TEXT("Pending request admits before owner release"), Tree->TryRequestSelectKey(FString(TEXT("root")), true));
+    const int32 BeforeOwnerRelease = SelectionEvents;
+    const int64 ModelBeforeOwnerRelease = Model->GetRevision();
+    View->ReleaseOwnerInteractions();
+    Tick(Slate);
+    NativeTree->SetSelection(Model->FindNode(TEXT("root")), ESelectInfo::OnKeyPress);
+    TestTrue(TEXT("Owner release cancels pending work on a retained mounted tree without callback/model mutation"), Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::None && SelectionEvents == BeforeOwnerRelease && Model->GetRevision() == ModelBeforeOwnerRelease);
+    TestFalse(TEXT("Released owner cannot admit or immediately apply new selection"), Tree->TryRequestSelectKey(FString(TEXT("root")), true) || Tree->TrySelectKey(FString(TEXT("root")), true));
+    {
+        auto RemovalData = FCkUiView::FDataBindings{};
+        RemovalData.Trees.Add(TEXT("tree"), Model);
+        RemovalData.Text.Add(TEXT("query"), FText::GetEmpty());
+        RemovalData.TreeSelectionChanged.Add(TEXT("selected"), FOnCkUiTreeSelectionChanged::CreateLambda([&SelectionEvents](TOptional<FString>, ESelectInfo::Type) { ++SelectionEvents; }));
+        const TSharedRef<FCkUiView> RemovalView = FCkUiView::Create({}, {}, {}, {}, MoveTemp(RemovalData));
+        const TSharedPtr<SWidget> RemovalRegion = RemovalView->GetRegion(TEXT("main"));
+        Scope.Window->SetContent(RemovalRegion.ToSharedRef());
+        if (!TestTrue(TEXT("Independent tree owner loads for removal"), RemovalView->TryReload(Markup(), Styles(), TEXT("UiTreeDeferredRemoval")).Succeeded)) { return false; }
+        Tick(Slate);
+        const TSharedPtr<SCkUiTree> RemovedTree = RemovalView->GetTree(TEXT("tree"));
+        if (!TestTrue(TEXT("Removed tree queues a notifying request"), RemovedTree.IsValid() && RemovedTree->TryRequestSelectKey(FString(TEXT("root")), true))) { return false; }
+        const int32 BeforeRemoval = SelectionEvents;
+        const FString WithoutTree = TEXT("<ui version=\"1\"><region name=\"main\"><column id=\"root\"><text id=\"empty\">Empty</text></column></region></ui>");
+        TestTrue(TEXT("Accepted removal retires pending tree requests"), RemovalView->TryReload(WithoutTree, TEXT(""), TEXT("UiTreeRemoved")).Succeeded && !RemovalView->GetTree(TEXT("tree")).IsValid() && RemovedTree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::None);
+        Scope.Window->SetContent(RemovedTree.ToSharedRef());
+        Tick(Slate);
+        RemovedTree->GetTree()->SetSelection(Model->FindNode(TEXT("root")), ESelectInfo::OnKeyPress);
+        TestTrue(TEXT("Externally mounted removed tree cannot revive pending work or owner callbacks"), !RemovedTree->TryRequestSelectKey(FString(TEXT("other")), true) && SelectionEvents == BeforeRemoval && Model->GetRevision() == ModelBeforeOwnerRelease);
+        Scope.Window->SetContent(Region.ToSharedRef());
+    }
+    {
+        auto ReentrantData = FCkUiView::FDataBindings{};
+        ReentrantData.Trees.Add(TEXT("tree"), Model);
+        ReentrantData.Text.Add(TEXT("query"), FText::GetEmpty());
+        ReentrantData.TreeSelectionChanged.Add(TEXT("selected"), FOnCkUiTreeSelectionChanged::CreateLambda([&SelectionEvents](TOptional<FString>, ESelectInfo::Type) { ++SelectionEvents; }));
+        ReentrantData.ContextActions.Add(TEXT("inspect"), FOnCkUiContextAction::CreateLambda([](const FString&) {}));
+        const TSharedRef<FCkUiView> ReentrantView = FCkUiView::Create({}, {}, {}, {}, MoveTemp(ReentrantData));
+        const TSharedPtr<SWidget> ReentrantRegion = ReentrantView->GetRegion(TEXT("main"));
+        Scope.Window->SetContent(ReentrantRegion.ToSharedRef());
+        const FString TwoTrees = ContextMarkup().Replace(TEXT("</tree></column>"), TEXT("</tree><tree id=\"second-tree\" class=\"fill\" bind=\"tree\" filter-bind=\"query\" selection-action=\"selected\" row-height=\"24\"><row id=\"second-cell\"><text id=\"second-name\" bind-field=\"name\"/></row></tree></column>"));
+        if (!TestTrue(TEXT("Two-tree owner loads for native teardown reentry"), ReentrantView->TryReload(TwoTrees, Styles(), TEXT("UiTreeReleaseReentry")).Succeeded)) { return false; }
+        Tick(Slate);
+        const TSharedPtr<SCkUiTree> First = ReentrantView->GetTree(TEXT("tree"));
+        const TSharedPtr<SCkUiTree> Second = ReentrantView->GetTree(TEXT("second-tree"));
+        if (!TestTrue(TEXT("Two-tree owner exposes controls before menu opening"), First.IsValid() && Second.IsValid() && First->TrySelectKey(FString(TEXT("root"))))) { return false; }
+        Slate.SetKeyboardFocus(First->GetTree().ToSharedRef(), EFocusCause::SetDirectly);
+        const FModifierKeysState ReentryShift{true, false, false, false, false, false, false, false, false};
+        const FReply Opened = First->GetTree()->OnKeyDown(First->GetTree()->GetCachedGeometry(), FKeyEvent(EKeys::F10, ReentryShift, 0, false, 0, 0));
+        Tick(Slate);
+        if (!TestTrue(TEXT("Native Shift+F10 focuses the owned authored menu"), Opened.IsEventHandled() && Slate.GetUserFocusedWidget(0).IsValid() && Slate.GetUserFocusedWidget(0) != First->GetTree())) { return false; }
+        TestTrue(TEXT("Both trees queue notifying work before release"), First->TryRequestSelectKey(FString(TEXT("other")), true) && Second->TryRequestSelectKey(FString(TEXT("root")), true));
+        const int32 BeforeReentry = SelectionEvents;
+        bool ReloadArmed = true;
+        bool ReloadAttempted = false;
+        bool ReloadAccepted = false;
+        const FDelegateHandle FocusListener = Slate.OnFocusChanging().AddLambda(
+            [&ReentrantView, &ReloadArmed, &ReloadAttempted, &ReloadAccepted](auto&&...)
+            {
+                if (!ReloadArmed) { return; }
+                ReloadArmed = false;
+                ReloadAttempted = true;
+                const FString Empty = TEXT("<ui version=\"1\"><region name=\"main\"><column id=\"root\"><text id=\"release-status\">Released</text></column></region></ui>");
+                ReloadAccepted = ReentrantView->TryReload(Empty, TEXT(""), TEXT("UiTreeReleaseFocusDiagnostic")).Succeeded;
+            });
+        ReentrantView->ReleaseOwnerInteractions();
+        Slate.OnFocusChanging().Remove(FocusListener);
+        TestTrue(TEXT("Menu focus release permits supported diagnostic reload during owner teardown"), ReloadAttempted && ReloadAccepted && ReentrantView->IsOwnerReleased() && !ReentrantView->GetTree(TEXT("tree")).IsValid() && !ReentrantView->GetTree(TEXT("second-tree")).IsValid());
+        TestTrue(TEXT("Snapshot teardown retires every held tree despite reentrant map replacement"), First->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::None && Second->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::None && !First->TryRequestSelectKey(FString(TEXT("root")), true) && !Second->TryRequestSelectKey(FString(TEXT("root")), true) && SelectionEvents == BeforeReentry && Model->GetRevision() == ModelBeforeOwnerRelease);
+        Scope.Window->SetContent(Region.ToSharedRef());
+    }
     TWeakPtr<FCkUiView> WeakView = View;
     TWeakPtr<FCkUiTreeCollection> WeakModel = Model;
     Slate.DestroyWindowImmediately(Scope.Window.ToSharedRef()); Scope.Window.Reset();
