@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check authored XML IDs/classes and an optional design-contract node inventory.
+"""Check authored XML IDs/classes, simple CSS selectors, and contract node identity.
 
 This is a source consistency check, not the CkSlateLayout parser or a runtime gate.
 """
@@ -26,6 +26,38 @@ def read_text(path):
         return path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeError) as exc:
         fail(f"cannot read {path}: {exc}")
+
+
+def declared_css_classes(stylesheet):
+    """Preflight top-level rules with the runtime's single .class selector shape.
+
+    Declaration properties and values are left to the framework parser.
+    """
+    css = stylesheet
+    comment_start = css.find("/*")
+    while comment_start != -1:
+        comment_end = css.find("*/", comment_start + 2)
+        if comment_end == -1:
+            fail("unterminated CSS comment")
+        css = css[:comment_start] + css[comment_end + 2:]
+        comment_start = css.find("/*")
+    declared = set()
+    position = 0
+    while position < len(css):
+        while position < len(css) and css[position].isspace():
+            position += 1
+        if position == len(css):
+            break
+        rule = CSS_RULE.match(css, position)
+        if rule is None:
+            snippet = css[position:position + 40].splitlines()[0]
+            fail(f"CSS selector must be a single .class: {snippet!r}")
+        declared.add(rule.group(1))
+        end = css.find("}", rule.end())
+        if end == -1:
+            fail(f"unterminated CSS rule for .{rule.group(1)}")
+        position = end + 1
+    return declared
 
 
 def authored_nodes(region):
@@ -123,8 +155,7 @@ def main(argv=None):
         if len(regions[0]) != 1:
             fail("main region must contain exactly one authored root")
         records, used = authored_nodes(regions[0])
-        css = re.sub(r"/\*.*?\*/", "", read_text(args.stylesheet), flags=re.DOTALL)
-        declared = set(CSS_RULE.findall(css))
+        declared = declared_css_classes(read_text(args.stylesheet))
         undefined = sorted(used - declared)
         if undefined:
             fail("undefined CSS classes: " + ", ".join(undefined))
@@ -135,8 +166,8 @@ def main(argv=None):
     suffix = f"; contract {contract_count} nodes matched" if contract_count is not None else ""
     print(f"OK: {len(records)} authored IDs, {len(used)} CSS classes referenced, "
           f"{len(declared)} declared selectors{suffix}.")
-    print("Limits: XML structure, scoped IDs, simple CSS classes and contract identity only; "
-          "no binding, full CSS grammar or runtime validation.")
+    print("Limits: XML structure, scoped IDs, top-level single .class CSS rules and "
+          "contract identity only; no declaration/value, binding or runtime validation.")
     return 0
 
 
