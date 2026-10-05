@@ -119,6 +119,15 @@ class ACk_OnlineGym_DirectIp_PlayerController : ACk_Gym_Base_PlayerController
             "Test: stop my TCP control profile", CanTestControlLoss))); // 25
         Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Recovery test",
             "Expect exit to Lobby and an actual loss error; compare both windows, no automatic PASS."))); // 26
+        FString FailureIsolation = Probe.Get_FailureIsolationText();
+        ECkGym_ControlTone FailureIsolationTone = ECkGym_ControlTone::Info;
+        if (FailureIsolation.StartsWith("OBSERVED")) { FailureIsolationTone = ECkGym_ControlTone::Success; }
+        else if (FailureIsolation.StartsWith("CHANGED")) { FailureIsolationTone = ECkGym_ControlTone::Error; }
+        else if (FailureIsolation.StartsWith("Not run")) { FailureIsolationTone = ECkGym_ControlTone::Warning; }
+        Rows.Add(CkGym_Control::Details(CkGym_Control::StatusTone("Failure isolation",
+            FailureIsolation, FailureIsolationTone))); // 27
+        Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::F8, "F8",
+            "Test: reject unrelated network failure", Probe.Get_IsLobbyBridge() && (IsHosting || IsConnected)))); // 28
         return Rows;
     }
 
@@ -151,5 +160,6 @@ class ACk_OnlineGym_DirectIp_PlayerController : ACk_Gym_Base_PlayerController
         }
         else if (InRowIndex == 24) { Probe.Request_TestControlReadyLoss(); }
         else if (InRowIndex == 25) { Probe.Request_TestControlStop(); }
+        else if (InRowIndex == 28) { Probe.Request_TestUnrelatedNetworkFailure(); }
     }
 }

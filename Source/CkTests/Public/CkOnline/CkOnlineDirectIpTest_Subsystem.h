@@ -104,6 +104,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
     bool Request_TestControlStop();
 
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
+    bool Request_TestUnrelatedNetworkFailure();
+
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
+    FString Get_FailureIsolationText() const { return _FailureIsolationReadback; }
+
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     FString Get_StateText() const;
 
@@ -183,6 +189,9 @@ private:
     FString _ReturnMap;
     FString _LastError;
     FString _BridgeReadback = TEXT("none");
+    FString _FailureIsolationReadback = TEXT("Not exercised");
+    int32 _FailureIsolationObservations = 0;
+    bool _FailureIsolationTestActive = false;
     ck::test::ip::FLobbyBinding _BridgeBinding;
     ck::test::ip::FLobbyBinding _BridgeLastBinding;
     bool _BridgeActive = false;

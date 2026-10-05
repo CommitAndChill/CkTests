@@ -20,6 +20,8 @@
 #include "Net/UnrealNetwork.h"
 #include "SocketSubsystem.h"
 #include "HAL/PlatformProcess.h"
+#include "Templates/UnrealTemplate.h"
+#include "UObject/ObjectKey.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCkOnlineDirectIpTest, Log, All);
 
@@ -298,6 +300,8 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     _RequestedHostPort = InPort;
     _HostingDepartureWorld = World;
     _Endpoint = ListenTarget.Get_GameplayEndpoint();
+    _FailureIsolationReadback = TEXT("Not exercised");
+    _FailureIsolationObservations = 0;
     _LastError.Empty();
     _State = EState::StartingHost;
     _Deadline = FPlatformTime::Seconds() + JoinTimeoutSeconds;
@@ -362,6 +366,8 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     _BridgeReadback = Bridged ? TEXT("Joining gameplay from ready lobby") : TEXT("none");
     _ReturnMap = ReturnMap;
     _Endpoint = MoveTemp(Canonical);
+    _FailureIsolationReadback = TEXT("Not exercised");
+    _FailureIsolationObservations = 0;
     _HasJoinEndpoint = true;
     _LastError.Empty();
     _State = EState::Joining;
@@ -717,6 +723,67 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_LogCheckpoint() -> bool
         *State->SessionMarker.ToString(EGuidFormats::Digits),
         *State->LobbyEpoch.ToString(EGuidFormats::Digits), Get_PeerCount(),
         State->ProofSequence, State->LastProofPlayerId);
+    return true;
+}
+
+auto UCkOnlineDirectIpTest_Subsystem::Request_TestUnrelatedNetworkFailure() -> bool
+{
+    if (!IsInGameThread() || _Deinitialized || _FailureIsolationTestActive) { return false; }
+    if (_TestControlFaultQueued || _ReturnPending || _FailureReturnPending || !_BridgeActive ||
+        !Get_BridgeStillValid() || (!Get_IsHosting() && !Get_IsConnected()))
+    {
+        _FailureIsolationReadback = TEXT("Not run: requires established bridged gameplay.");
+        return false;
+    }
+    auto* World = Get_ReadyWorld();
+    auto* Instance = GetGameInstance();
+    if (GEngine == nullptr || !IsValid(World) || !IsValid(Instance)) { return false; }
+    const auto* Context = Instance->GetWorldContext();
+    auto* Driver = World->GetNetDriver();
+    auto* ProofState = Get_ProofState();
+    if (Context == nullptr || Context->OwningGameInstance != Instance || Context->World() != World ||
+        Context->PendingNetGame != nullptr || !Context->TravelURL.IsEmpty() || !World->NextURL.IsEmpty() ||
+        !IsValid(Driver) || !IsValid(ProofState) || !ProofState->SessionMarker.IsValid())
+    {
+        _FailureIsolationReadback = TEXT("Not run: current session or travel context unavailable.");
+        return false;
+    }
+    const auto WorldKey = FObjectKey{World};
+    const auto DriverKey = FObjectKey{Driver};
+    const auto StateBefore = _State;
+    const auto ErrorBefore = _LastError;
+    const auto BridgeBefore = _BridgeReadback;
+    const auto BindingBefore = _BridgeBinding;
+    const auto DeadlineBefore = _Deadline;
+    const auto SessionBefore = ProofState->SessionMarker;
+    const auto ProofBefore = ProofState->ProofSequence;
+    const auto TestGuard = TGuardValue<bool>{_FailureIsolationTestActive, true};
+    // Exercise the subscribed observer without creating a real connection loss or driver.
+    GEngine->OnNetworkFailure().Broadcast(World, nullptr, ENetworkFailure::ConnectionLost,
+        TEXT("Gym defensive observer input: unrelated null-driver ConnectionLost"));
+    auto* CurrentWorld = Get_ReadyWorld();
+    auto* CurrentProof = Get_ProofState();
+    const auto* CurrentContext = IsValid(Instance) ? Instance->GetWorldContext() : nullptr;
+    auto* CurrentDirect = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineDirect_Subsystem_UE>() : nullptr;
+    const bool Unchanged = !_Deinitialized && _BridgeActive && _State == StateBefore && _LastError == ErrorBefore &&
+        _BridgeReadback == BridgeBefore && _Deadline == DeadlineBefore &&
+        !_ReturnPending && !_FailureReturnPending && IsValid(CurrentWorld) &&
+        FObjectKey{CurrentWorld} == WorldKey && IsValid(CurrentWorld->GetNetDriver()) &&
+        FObjectKey{CurrentWorld->GetNetDriver()} == DriverKey && CurrentContext != nullptr &&
+        CurrentContext->OwningGameInstance == Instance && CurrentContext->World() == CurrentWorld &&
+        CurrentContext->PendingNetGame == nullptr && CurrentContext->TravelURL.IsEmpty() &&
+        CurrentWorld->NextURL.IsEmpty() && IsValid(CurrentProof) &&
+        CurrentProof->SessionMarker == SessionBefore && CurrentProof->ProofSequence == ProofBefore &&
+        IsValid(CurrentDirect) && BindingBefore.Matches(CurrentDirect->Get_Snapshot()) &&
+        Get_BridgeStillValid();
+    if (!Unchanged)
+    {
+        _FailureIsolationReadback = TEXT("CHANGED: malformed event altered the session; inspect recovery.");
+        return false;
+    }
+    if (_FailureIsolationObservations < MAX_int32) { ++_FailureIsolationObservations; }
+    _FailureIsolationReadback = FString::Printf(
+        TEXT("OBSERVED %d: malformed event ignored; same gameplay session and proof."), _FailureIsolationObservations);
     return true;
 }
 
