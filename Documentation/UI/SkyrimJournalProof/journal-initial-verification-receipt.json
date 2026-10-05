@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "status": "native-focused-passed",
+  "date": "2026-10-04",
+  "platform": "Windows PC",
+  "engine": "5.7.4",
+  "configuration": "Development",
+  "renderer": "D3D12 SM6",
+  "gateLog": "Saved/Logs/Journal-Gate-03.log",
+  "gateLogSha256": "3b4f4ea2940b882d8af12e7e78c6dcda3d8edd812457b4bf5d84f335d98f9d72",
+  "buildLog": "Saved/Logs/Journal-Build-04.log",
+  "buildLogSha256": "d72dadeec393c6f65480db7476f11cf80562b65d0880c21cdebdf4ac67a89334",
+  "total": 20,
+  "passed": 20,
+  "failed": 0,
+  "skipped": 0,
+  "contaminated": 0,
+  "reportedDuration": "6m 4s",
+  "finalEditorBoots": 1,
+  "tests": [
+    "Ck.UiAuthoring.Journal.Model.AtomicFailures",
+    "Ck.UiAuthoring.Journal.Model.ConfigurationAndStress",
+    "Ck.UiAuthoring.Journal.Model.FixtureAndActions",
+    "Ck.UiAuthoring.Journal.PIE",
+    "Ck.UiAuthoring.PowerWheel.PIE",
+    "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+    "Ck.UiAuthoring.Tabs.ConstrainedScrollContent",
+    "Ck.UiAuthoring.Tabs.HiddenPanelReleasesSliderCapture",
+    "Ck.UiAuthoring.Tabs.HiddenPanelReleasesTransientInteraction",
+    "Ck.UiAuthoring.Tabs.MultiUserFocus",
+    "Ck.UiAuthoring.Tabs.PanelStateRetention",
+    "Ck.UiAuthoring.Tabs.ParserSchema",
+    "Ck.UiAuthoring.Tabs.RetainedRuntime",
+    "Ck.UiAuthoring.Tabs.VisualStyle",
+    "Ck.UiAuthoring.Tree.MutationGuards",
+    "Ck.UiAuthoring.Tree.ViewRuntime",
+    "Ck.UiAuthoring.Tree.ViewValidation",
+    "Ck.UiAuthoring.Tree.VisualStyle",
+    "Ck.UiAuthoring.UMG.SurfaceLifetime",
+    "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+  ],
+  "sourceSha256": {
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp": "1f09e9d8601f4a74d69e62d322ab72dc93d60f06e45d318ca2af260eff4b4273",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTabs.cpp": "59fb514b58a9018233015085fcf13fa09b1b866b9f49362f0b6ed53d75c5d6de",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiDocument.h": "c71d823184a081838712b7d69517ef8347aa66d8b7721f18519113314f5d0e0d",
+    "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as": "f1df54d2eeb762179035177d850665149039c48ce5f0f6e2f547366c1d95c162",
+    "Plugins/CkTests/Source/CkTests/CkTests.Build.cs": "d0bb0f1c2dff222461d021d7dedef6ead96016cc33e9346d7bb89a24a5b2ef5f",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsVisualStyle.cpp": "baf8f02fafc842a570dce910804951a4236127a1d4e7c062d339a9072bc24237",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.css": "e45d6fcdc5be2b45a70e8fd3bb418735d75b75d074419fcfee9ce6b1d90a488c",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.html": "1a21b82628adef809d5962250e99159b71e4af585fb0bd0bd57084c8976beec0",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkSkyrimJournal_Gym.as": "9cc7d67656199ebe9e036ead960e55dd2039f98e617072784ef3f1813002a300",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProof.cpp": "b04df1d109fa2cdb5a4f1105834a7a3b7744ed66a059f6c3553fba5f25fc5e71",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.cpp": "e2c9ed5ef0d280432c9a739e454eee77abcd82b20d4a36734f370849dfdf249d",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.h": "5f3896d69aba59a4a153ad969ec0914773bd8d70179b9bc096e679d8624d169a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.cpp": "1d4391dfa27bb055118548f8332e5c719a9c8b1607d5f0e8789a5d94eff32096",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.h": "5f75b220e7b7b308861bd6fb5b102736111e930f93e926cde8686998e1d22c2c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalModel.cpp": "23a64fb92f3092a27e3694e93dfe9bf489917337653ef51352923c7b17e509e1",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalProof.cpp": "8d9bdccda249ba94bb7277132cb5488f0d02f814bc0aff793fd5a7171c89242f",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkJournalProof.h": "682985859b64df669454e884de22ca29a85e832e04ba930a1b599807dc7fb62c",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/OFL.txt": "0e4cc6ece88573545be2ed25835363662a6182ba4a4c1b5c8feda52add30e8a6",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTree.cpp": "55db27819828a8c275cf63cf1ef4394bded5dff171b1809d2c96f615da24f8e2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeVisualStyle.cpp": "7a4ec6d7b9442aa9fe9bea09029d160f306e83c96f33e3cccb8cf75e4de1a3ef"
+  },
+  "captures": [
+    {
+      "path": "Captures/initial-1280x720.png",
+      "size": [
+        1280,
+        720
+      ],
+      "sha256": "eb73fe1c572d796bfe429170208d1b0754243203d01ad46ce417fa0fa5b24d40",
+      "capturedUtc": "2026-10-04T22:37:23.775522+00:00"
+    },
+    {
+      "path": "Captures/initial-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "7c82dd48352c09e91158610be65d7a4d729fa8a4c539a3e3a6fc15ae52537c26",
+      "capturedUtc": "2026-10-04T22:37:23.966393+00:00"
+    },
+    {
+      "path": "Captures/initial-2560x1080.png",
+      "size": [
+        2560,
+        1080
+      ],
+      "sha256": "b4f79af6503e4688e704d935286772bc077c552de5a5252153ca1dfd9db4c6c9",
+      "capturedUtc": "2026-10-04T22:37:24.213385+00:00"
+    },
+    {
+      "path": "Captures/tracked-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "25ebe9f8850f6c17b0088c4532496286a0d210704bb392cdb6f06cbb3e424854",
+      "capturedUtc": "2026-10-04T22:37:24.511719+00:00"
+    },
+    {
+      "path": "Captures/miscellaneous-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "a42e69240a30c57e06a7198fd5485a2d09e3cd9897f2ce1570c8f5d99ab9fe9f",
+      "capturedUtc": "2026-10-04T22:37:24.672699+00:00"
+    },
+    {
+      "path": "Captures/stats-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "7f0c126ba75fba4e4c7ce01a39904b2603f3cea761becff758de109412ad037c",
+      "capturedUtc": "2026-10-04T22:37:24.932199+00:00"
+    },
+    {
+      "path": "Captures/system-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "89733d698667e144309b40bb70a23ece43fc2f4662d503307fd571f1731e275f",
+      "capturedUtc": "2026-10-04T22:37:25.075774+00:00"
+    },
+    {
+      "path": "Captures/completed-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "658659dcbe00edba5ebd125aad920c5f5009e23e1bc59d3f464c396e5fb8f1d0",
+      "capturedUtc": "2026-10-04T22:37:25.225978+00:00"
+    },
+    {
+      "path": "Captures/long-summary-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "3cd470f9e1b6521e05b474de9003fcfff6f5004450c3f73a7dfa4a70f2425dd7",
+      "capturedUtc": "2026-10-04T22:37:25.414589+00:00"
+    },
+    {
+      "path": "Captures/stress-scrolled-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "90bfc020ce344c7e8096a6d846c84599e036cd9e1bdf08010cc9b22c153ec6a6",
+      "capturedUtc": "2026-10-04T22:37:25.688981+00:00"
+    },
+    {
+      "path": "Captures/closed-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "bd5adccbba669ddfe7d2f19306d8cdf56a61badd89f31859cb2fc28f91a53d49",
+      "capturedUtc": "2026-10-04T22:37:25.983868+00:00"
+    }
+  ],
+  "visualLimitations": [
+    "Native blue keyboard-focus chrome and default scrollbar/selection styling differ from reference.",
+    "Header ornaments sit tightly beside long category labels.",
+    "Scroll viewports may show partial rows at their edges.",
+    "Fixed-height rows prove bounded fixture text, not arbitrary localized text."
+  ],
+  "notEstablished": [
+    "Packaged game/cook",
+    "Physical controller acceptance",
+    "Real quest backend/map/persistence",
+    "Complete Skyrim General Stats or System implementation"
+  ]
+}

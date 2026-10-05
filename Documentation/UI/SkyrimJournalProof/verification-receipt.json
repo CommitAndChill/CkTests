@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 1,
+  "status": "native-focused-passed",
+  "date": "2026-10-04",
+  "platform": "Windows PC",
+  "engine": "5.7.4",
+  "configuration": "Development",
+  "renderer": "D3D12 SM6",
+  "gateLog": "Saved/Logs/FontCatalog-Gate-02.log",
+  "gateLogSha256": "35110508e4eaf3a1ccd9e109991e01eb3ba43e81b3ce9340d4681c525a3f2442",
+  "buildLog": "Saved/Logs/FontCatalog-Build-03.log",
+  "buildLogSha256": "b0f32c47174544bac58a56cc6e198ecde25e27692f7eb9a11e3761c9ae811b59",
+  "total": 26,
+  "passed": 26,
+  "failed": 0,
+  "skipped": 0,
+  "contaminated": 0,
+  "reportedDuration": "6m 13s",
+  "finalEditorBoots": 1,
+  "tests": [
+    "Ck.UiAuthoring.Fonts.NativeRuntime",
+    "Ck.UiAuthoring.Fonts.RegistryValidation",
+    "Ck.UiAuthoring.FormStyles.RetainedNativeControls",
+    "Ck.UiAuthoring.Journal.Model.AtomicFailures",
+    "Ck.UiAuthoring.Journal.Model.ConfigurationAndStress",
+    "Ck.UiAuthoring.Journal.Model.FixtureAndActions",
+    "Ck.UiAuthoring.Journal.PIE",
+    "Ck.UiAuthoring.Parser.FontFamilyRejectsUnsupported",
+    "Ck.UiAuthoring.Parser.FontFamilySubset",
+    "Ck.UiAuthoring.PowerWheel.PIE",
+    "Ck.UiAuthoring.Selection.NativeSingleSelection",
+    "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+    "Ck.UiAuthoring.Tabs.ConstrainedScrollContent",
+    "Ck.UiAuthoring.Tabs.HiddenPanelReleasesSliderCapture",
+    "Ck.UiAuthoring.Tabs.HiddenPanelReleasesTransientInteraction",
+    "Ck.UiAuthoring.Tabs.MultiUserFocus",
+    "Ck.UiAuthoring.Tabs.PanelStateRetention",
+    "Ck.UiAuthoring.Tabs.ParserSchema",
+    "Ck.UiAuthoring.Tabs.RetainedRuntime",
+    "Ck.UiAuthoring.Tabs.VisualStyle",
+    "Ck.UiAuthoring.Tree.MutationGuards",
+    "Ck.UiAuthoring.Tree.ViewRuntime",
+    "Ck.UiAuthoring.Tree.ViewValidation",
+    "Ck.UiAuthoring.Tree.VisualStyle",
+    "Ck.UiAuthoring.UMG.SurfaceLifetime",
+    "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+  ],
+  "sourceSha256": {
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp": "447e5e43710e1ac9393e93a6aaad0c0d4ccd528b3b5773dd9a2166cdb79d52e7",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiFontRegistry.cpp": "98ba296fd67e42de90987e820fb44b4152a48f7902a81d589503beec1a7e443c",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiSurface.cpp": "8febdcee07d3128184a77998e12beb3668192fe61e630022effc292954ba2726",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTabs.cpp": "59fb514b58a9018233015085fcf13fa09b1b866b9f49362f0b6ed53d75c5d6de",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTree.cpp": "ac56f6121a85758b3829405c263166fa1630460812cbc4d3f12294afd399fac3",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiDocument.h": "952c50733c09bce9708894d9cbd6b227a18149c1995d879de9f602c74cb193f4",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiFontRegistry.h": "6776c0ed558c04e0d9069823fb16aa565b0613a623294c83549a93b57ac8202f",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiSurface.h": "538516f32bb8c8ce0b3c7b49a808b6cd0f8a11325ffcaf7242c4b71b4e6ecfb6",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiTree.h": "e06b26651e4c66f08d91683b8432c411abaab0d9b6f560a097cd41f062db7510",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkUiFontResources.cpp": "3b84014dc1462b745567e7508a663427604de8e4486a1e650a6b0296b6394449",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkUiFontResources.h": "b2280483171b696b8f7425585e80e0deb1c624df147861763217383ed14c9d55",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/OFL.txt": "0e4cc6ece88573545be2ed25835363662a6182ba4a4c1b5c8feda52add30e8a6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.css": "2c4da32cbae534ea4a95756fd2ee5d0589b1b399ce378978b14b2a67f8d93ec6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.html": "1a21b82628adef809d5962250e99159b71e4af585fb0bd0bd57084c8976beec0",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkSkyrimJournal_Gym.as": "9cc7d67656199ebe9e036ead960e55dd2039f98e617072784ef3f1813002a300",
+    "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as": "f1df54d2eeb762179035177d850665149039c48ce5f0f6e2f547366c1d95c162",
+    "Plugins/CkTests/Source/CkTests/CkTests.Build.cs": "d0bb0f1c2dff222461d021d7dedef6ead96016cc33e9346d7bb89a24a5b2ef5f",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProof.cpp": "375b77304c9d577c2b7f682c08141a6a506474b32ed73c6e42c59137209a0fda",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.cpp": "e2c9ed5ef0d280432c9a739e454eee77abcd82b20d4a36734f370849dfdf249d",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.h": "5f3896d69aba59a4a153ad969ec0914773bd8d70179b9bc096e679d8624d169a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.cpp": "1d4391dfa27bb055118548f8332e5c719a9c8b1607d5f0e8789a5d94eff32096",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.h": "5f75b220e7b7b308861bd6fb5b102736111e930f93e926cde8686998e1d22c2c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalModel.cpp": "23a64fb92f3092a27e3694e93dfe9bf489917337653ef51352923c7b17e509e1",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalProof.cpp": "8d9bdccda249ba94bb7277132cb5488f0d02f814bc0aff793fd5a7171c89242f",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiDocument.cpp": "cc50598928395dc63d2f2cb805f111e4c64f58a8fe7b6979ba3161e3e48ae9e0",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiFontRegistry.cpp": "957d2c64afe646a6dae9db027003f21de6b1a0e7a3ac64620fc5ac14fece0a3d",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiSingleSelection.cpp": "090ddf0e8f347bbd8ceb20543b683cfeb011b3289c96de7d13ff05d667edb0f6",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsVisualStyle.cpp": "baf8f02fafc842a570dce910804951a4236127a1d4e7c062d339a9072bc24237",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeView.cpp": "4610bec9877fe7c22b2515efc62222ba20e1dedbb3397f2954e70c6204e6f0b2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeVisualStyle.cpp": "7a4ec6d7b9442aa9fe9bea09029d160f306e83c96f33e3cccb8cf75e4de1a3ef",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkJournalProof.h": "c9771f5907c5064d67f924b16f1fc6f22a826ec18532657e768d5809509d385b"
+  },
+  "captures": [
+    {
+      "path": "Captures/initial-1280x720.png",
+      "size": [
+        1280,
+        720
+      ],
+      "sha256": "75076123f996e2f74b0484db9de8a9082090e2cb878c58841c61fc5e106dc8aa",
+      "capturedUtc": "2026-10-05T00:49:38.237426+00:00"
+    },
+    {
+      "path": "Captures/initial-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "4c5ee84dcf156380e5c8e9bd79d122452c34c88e68dcfb2986cdbc3cc04be488",
+      "capturedUtc": "2026-10-05T00:49:38.429965+00:00"
+    },
+    {
+      "path": "Captures/initial-2560x1080.png",
+      "size": [
+        2560,
+        1080
+      ],
+      "sha256": "14e8491d10e06c1acc11d6f833fcf6ee4ce40da4b51321654f645a48f028228d",
+      "capturedUtc": "2026-10-05T00:49:38.677084+00:00"
+    },
+    {
+      "path": "Captures/tracked-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "68ce6abcaf0763131cc8543308b3a17b3c9ddc9888faa4f6ae706fa9a9916e6b",
+      "capturedUtc": "2026-10-05T00:49:38.976417+00:00"
+    },
+    {
+      "path": "Captures/miscellaneous-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "188d940a8a6d4837219fe3ced132d75ab01f4235be54f1cbb2e01a8990769d3b",
+      "capturedUtc": "2026-10-05T00:49:39.141131+00:00"
+    },
+    {
+      "path": "Captures/stats-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "d2860defd4cbf709e2e29cbe594ae7313f51b280c61765bbad4715b68229b2d2",
+      "capturedUtc": "2026-10-05T00:49:39.402582+00:00"
+    },
+    {
+      "path": "Captures/system-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "4ecf0584e2fefe86bf742dd5f8194ebb9d871f9877e3abb1967369e0a5d844c6",
+      "capturedUtc": "2026-10-05T00:49:39.545275+00:00"
+    },
+    {
+      "path": "Captures/completed-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "e014563fa9c32baeaf4391c83190fa2d03d42b3fae515f208cd969793a2a8fab",
+      "capturedUtc": "2026-10-05T00:49:39.694103+00:00"
+    },
+    {
+      "path": "Captures/long-summary-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "e784caebcb181c31f1b8f0eba58a66eed2cab5a5149f16adfb6d6f90d35c7aa1",
+      "capturedUtc": "2026-10-05T00:49:39.867523+00:00"
+    },
+    {
+      "path": "Captures/stress-scrolled-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "3ba1021ff9f4834698ddb9a8570dbbc92534098d5b9af409d9dda28e0d23ac72",
+      "capturedUtc": "2026-10-05T00:49:40.125814+00:00"
+    },
+    {
+      "path": "Captures/closed-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "95206b7bf833e6db862499c2cd881150f4e5460c7f011e1fe18dde9751463bbd",
+      "capturedUtc": "2026-10-05T00:49:40.427669+00:00"
+    }
+  ],
+  "visualLimitations": [
+    "Native blue keyboard-focus chrome and default scrollbar/selection styling differ from reference.",
+    "Header ornaments sit tightly beside long category labels.",
+    "Scroll viewports may show partial rows at their edges.",
+    "Deferred selection does not automatically reveal an offscreen selected item.",
+    "Fixed-height rows prove bounded fixture text, not arbitrary localized text."
+  ],
+  "notEstablished": [
+    "Packaged game/cook",
+    "Physical controller acceptance",
+    "Real quest backend/map/persistence",
+    "Complete Skyrim General Stats or System implementation"
+  ],
+  "sharedCapability": "CSS named font families, immutable catalogs and owned inline UMG font resources; deferred stable-key tree selection",
+  "priorReceipt": "deferred-selection-verification-receipt.json",
+  "startupExternalDiagnostics": {
+    "chromiumUsbPropertyErrors": 1,
+    "chromiumCrlVerificationErrors": 17
+  },
+  "discoveryLog": "Saved/Logs/FontCatalog-Discovery-01.log",
+  "discoveryLogSha256": "3b688efc23b194f44ab1bfb126cc221f5c8d0fdb131b073bebff87bffc714b93",
+  "buildActions": 8,
+  "buildSeconds": 16.27,
+  "fontPhaseEditorBoots": 4,
+  "priorFailedGate": {
+    "log": "Saved/Logs/FontCatalog-Gate-01.log",
+    "sha256": "795446645b323bd5e4b112cc3467ac565ce98c7c0202e3054caea03b3da20b8d",
+    "total": 26,
+    "passed": 23,
+    "failed": 3,
+    "cause": "Tabs family admission blocked by general text-style guard; fixtures used missing CSS class and unsupported tabs styles."
+  },
+  "fontEvidenceLimits": [
+    "File validation establishes operational face opening, not exhaustive OpenType conformance.",
+    "NativeRuntime proves font identity, original byte retention, GC lifetime and registered fallback selection; measurement alone is not fresh raster proof.",
+    "Repeat and realized table-cell propagation are tested; custom-slot and tree-cell snapshot forwarding were inspected.",
+    "Font registration and view configuration still begin in C++; no scripting facade or packaged-resource acceptance is established."
+  ]
+}

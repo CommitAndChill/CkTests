@@ -1,0 +1,415 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-runtime-verified",
+  "summary": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0
+  },
+  "testNames": [
+    "Ck.UiAuthoring.Fonts.NativeRuntime",
+    "Ck.UiAuthoring.Fonts.RegistryValidation",
+    "Ck.UiAuthoring.FormStyles.RetainedNativeControls",
+    "Ck.UiAuthoring.InventoryMenuProof.PIE",
+    "Ck.UiAuthoring.Journal.PIE",
+    "Ck.UiAuthoring.PauseMenuProof.PIE",
+    "Ck.UiAuthoring.PowerWheel.PIE",
+    "Ck.UiAuthoring.ScriptingCard.PIE",
+    "Ck.UiAuthoring.SettingsMenuProof.PIE",
+    "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+    "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars",
+    "Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents",
+    "Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc",
+    "Ck.UiAuthoring.UMG.SurfaceLifetime",
+    "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+  ],
+  "gateLog": "Saved/Logs/ScriptedFont-Gate-01.log",
+  "gateLogSha256": "d70d69ea41a7c5d3e27f8472edd345f58925834c52808c60745ba411adfd6762",
+  "buildLog": "Saved/Logs/ScriptedFont-Build-02.log",
+  "buildLogSha256": "af00d00931eaeb52475c7cc5378cda9b36e73d2e67388fa34a9355278c1ffbf3",
+  "buildActions": 5,
+  "buildDurationSeconds": 12.98,
+  "buildAttempts": [
+    {
+      "log": "Saved/Logs/ScriptedFont-Build-01.log",
+      "sha256": "9d965228f7576668964654f95adc7e5db8f312ba12cb92b57db72e2bc2cf0d64",
+      "succeeded": false
+    },
+    {
+      "log": "Saved/Logs/ScriptedFont-Build-02.log",
+      "sha256": "af00d00931eaeb52475c7cc5378cda9b36e73d2e67388fa34a9355278c1ffbf3",
+      "succeeded": true
+    }
+  ],
+  "buildCorrection": "The first incremental build rejected two test calls to IsValid on non-null TSharedRef font data; those test-only checks were removed. No Editor boot occurred before the corrected build.",
+  "plannedEditorBoots": 1,
+  "actualEditorBoots": 1,
+  "cachedDiscovery": true,
+  "diagnostics": {
+    "unrealErrors": 0,
+    "fatals": 0,
+    "ensures": 0,
+    "staleScriptOrCompileErrors": 0,
+    "chromiumUsbPropertyErrors": 1,
+    "chromiumCrlVerificationErrors": 16
+  },
+  "frozenSourceCount": 68,
+  "frozenSources": {
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp": "447e5e43710e1ac9393e93a6aaad0c0d4ccd528b3b5773dd9a2166cdb79d52e7",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiFontRegistry.cpp": "98ba296fd67e42de90987e820fb44b4152a48f7902a81d589503beec1a7e443c",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiSurface.cpp": "33c15099a74d5e0a33c5b983acc5801854e2ed285e56af128b9616d9e4f4fa35",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTabs.cpp": "59fb514b58a9018233015085fcf13fa09b1b866b9f49362f0b6ed53d75c5d6de",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTree.cpp": "ac56f6121a85758b3829405c263166fa1630460812cbc4d3f12294afd399fac3",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiDocument.h": "952c50733c09bce9708894d9cbd6b227a18149c1995d879de9f602c74cb193f4",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiFontRegistry.h": "6776c0ed558c04e0d9069823fb16aa565b0613a623294c83549a93b57ac8202f",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiSurface.h": "0f8c0ec4604a71a3f56e96203586f412353f3018f20cf7be9574769371d2e691",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiTree.h": "e06b26651e4c66f08d91683b8432c411abaab0d9b6f560a097cd41f062db7510",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkUiFontResources.cpp": "3b84014dc1462b745567e7508a663427604de8e4486a1e650a6b0296b6394449",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkUiFontResources.h": "b2280483171b696b8f7425585e80e0deb1c624df147861763217383ed14c9d55",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/OFL.txt": "0e4cc6ece88573545be2ed25835363662a6182ba4a4c1b5c8feda52add30e8a6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.css": "2c4da32cbae534ea4a95756fd2ee5d0589b1b399ce378978b14b2a67f8d93ec6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.html": "1a21b82628adef809d5962250e99159b71e4af585fb0bd0bd57084c8976beec0",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkSkyrimJournal_Gym.as": "9cc7d67656199ebe9e036ead960e55dd2039f98e617072784ef3f1813002a300",
+    "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as": "e73dcd80eb95b3f79472f65a2ec37bddbff2c8b18a29631ff7abefe77050d842",
+    "Plugins/CkTests/Source/CkTests/CkTests.Build.cs": "2ca29385cdadabdc33ecda5dce2e1f202d3658502c3025db30af80eeac214623",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProof.cpp": "375b77304c9d577c2b7f682c08141a6a506474b32ed73c6e42c59137209a0fda",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.cpp": "e2c9ed5ef0d280432c9a739e454eee77abcd82b20d4a36734f370849dfdf249d",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.h": "5f3896d69aba59a4a153ad969ec0914773bd8d70179b9bc096e679d8624d169a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.cpp": "1d4391dfa27bb055118548f8332e5c719a9c8b1607d5f0e8789a5d94eff32096",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.h": "5f75b220e7b7b308861bd6fb5b102736111e930f93e926cde8686998e1d22c2c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalModel.cpp": "23a64fb92f3092a27e3694e93dfe9bf489917337653ef51352923c7b17e509e1",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalProof.cpp": "8d9bdccda249ba94bb7277132cb5488f0d02f814bc0aff793fd5a7171c89242f",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiDocument.cpp": "cc50598928395dc63d2f2cb805f111e4c64f58a8fe7b6979ba3161e3e48ae9e0",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiFontRegistry.cpp": "f9d1718d3a9a7accf91603f08859baafa3c64bdc06fa51cb5cb288c2e504a302",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiSingleSelection.cpp": "090ddf0e8f347bbd8ceb20543b683cfeb011b3289c96de7d13ff05d667edb0f6",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsVisualStyle.cpp": "baf8f02fafc842a570dce910804951a4236127a1d4e7c062d339a9072bc24237",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeView.cpp": "4610bec9877fe7c22b2515efc62222ba20e1dedbb3397f2954e70c6204e6f0b2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeVisualStyle.cpp": "7a4ec6d7b9442aa9fe9bea09029d160f306e83c96f33e3cccb8cf75e4de1a3ef",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkJournalProof.h": "c9771f5907c5064d67f924b16f1fc6f22a826ec18532657e768d5809509d385b",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkAuthoredSession.h": "d82c1a840a6d731ca30be5f5728cffabc488252e087daa5cf89bcfdeab2971cb",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkAuthoredSession.cpp": "20f93db18d597a9d352b3548c03476f32caacae5faa712563853555053036969",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptingCard_Gym.as": "60d3d7a0e58a38587c92dc5870699fa15b5dbbff5671fe0d9dee147821f31a9a",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiAuthoredSession.cpp": "09323db6b7bc1a7858ad9a2dcd67925c21ed556e1930e14192e85f778a3b0154",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiAuthoredSession_TestListener.h": "9da818899286ed047525ed6166fe636e234fabb89bb5f97749f12d3a3ba1d566",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_ScriptingCardProof.cpp": "ea5539a7fb01b33c8a2c6bc066cfb3babf7096cb7fe682d9d54e516f8cd52654",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptingCardProof/ScriptingCardProof.ui.html": "3430d27d922ccc3ce0ed25416696a3477a5c4ce9cdacdf2a7f5028362a9cb0b2",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptingCardProof/ScriptingCardProof.ui.css": "93403a187b3ff806db4d2b10f6fbc64fe78774ef23ba926c87fe475c8c1a5f96",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiOwnedSession_TestOwner.h": "3bdc8cd5ee4a6eb64d500414b0756ba42ff2b69157160c345b3d7732d9126de2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_PauseMenuProof.cpp": "d83cd861a6be0bacdfe1390a88c8f78b85f21b2691fe604b88f3f57606c7c117",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkPauseMenuProof.cpp": "ab57138882992083e285ef782d71a467e68f23bb2065453f5811e03a6cebba9b",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkPauseMenuProof.h": "b7f6ca2d8d3f11df8b9a139f5fcce254d3c85b15b9d706b30d8e02b2c440b26b",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiAuthoringGym_Assets.as": "8123b953ca90a0f175a7022182237415df0242288292907f5e4419f00e12d1d9",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/PauseMenuProof.ui.html": "84f6d1979ba34fee08bd45e2bd52f2b0ff2c53d5ece04b10942c78b43a65e85f",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/PauseMenuProof.ui.css": "c8b102dbf7fedd66816cfe919bab314c16802457c3d9d68c03695bd1421c4df4",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/CustomWidgets/WidgetStack/CkStack_Widget.h": "22061226cf36f179ef2ca5299276fc3d4376a6e1503142d481ab55b268662d12",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/CustomWidgets/WidgetStack/CkStack_Widget.cpp": "60f13c21a1a14c483a840f457e2501df1e5da56eaacaf363023fb465f086adbd",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/Layout/CkUI_LayerMembership.h": "4b6cd6c5aebc60428279dae43c07cffe38befa3a7216ae9a453e0419d2548d10",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/Layout/CkUI_LayerMembership.cpp": "2fdd1cd208c59f161f62abaa74b171561aa4f1ed188a5b76539c15998c2d852a",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiLayerMembership_TestScenarios.h": "240288ca9b7790c6c86754f67427877651e1000bbe9d6206842b79eb1f9b5f3c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiLayerMembership_TestListener.h": "d3662571934219232d4a71805c9d39d2b5451be6b8a813e773a1bb711cc54f85",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiLayerMembership_Probe.as": "726b0edeb719ea48529055a7e473470d218361883f06c1589d60060c7224a62a",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptedPause_Widget.as": "c5dda70d2da584ae3fd90f2c98dce1b3bfe2bca192c941828217c3dd70802895",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiAuthoringGym_PlayerController.as": "392dd3b846c06ea290dabc300d74e659ac14cba25afd03f22df14df0e458de60",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkScriptedPause_TestAdapter.h": "0d39a2721b635cd39c215a0fddc8d60faaa49c33bceee640a615bf7046859f71",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_SettingsMenuProof.cpp": "bf502591bff467e727c5bce205afcb811b3f6a7eaf23583e091137804fb24d92",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_InventoryMenuProof.cpp": "1a6d72f81febb41144176018496237bb7aa09c0d2393469f558ef10364cfc52a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkInventoryMenuProofModel.h": "92bc0b23a8e4e2cb1e98da11e50ce085e1eed1ccde5115139a87e88d670fd52f",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkInventoryMenuProofModel.cpp": "de6814552e3d7df671e5e7bf7abe11bce39a8ee289f0e1d394fbc97cfe8320c4",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkInventoryMenuProof.h": "e643788bd5777465fbddd464dff4c78f49e9595f7d7866ef304a9c9160c25ac3",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/pause-menu-backdrop.png": "182f4aebacb423e87e18b64b8d637bf314ecb4ed932494de3c665ad9197ff747",
+    "Plugins/CkTests/Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.html": "7e0693c956a374d19cd92f3996ccc420e3e9badac95d4169e23586a2f44753c5",
+    "Plugins/CkTests/Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.css": "a308779ad2fb5b8cf4274e092b13ce233420010b5580c327f04477dfd5653fac",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.html": "926dcc27ccd0064df1a4681ce0649177592be29a6ca6e10374463023a7260a76",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.css": "aeb01d2bdc530f2a11c8bb42565f6605815678c440a76202d38f4344dd56d755",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/inventory-item-atlas.png": "dd508c365fd8aac071b30cabe0e6023341d055ba40f1401ecfaad549a04eb6eb"
+  },
+  "historicalReceipts": {
+    "Plugins/CkTests/Documentation/UI/DefaultFontProof/verification-receipt.json": "175986f8ccff9635443928b0059667ad46cc0f91fe3956ac751397dcff2863f2",
+    "Plugins/CkTests/Documentation/UI/LayerMembershipProof/verification-receipt.json": "1f8da2ed58e9a8e9aa9e33f40291de380c2df30c0584c6834ce7bf7fb9eb3089",
+    "Plugins/CkTests/Documentation/UI/OwnedInputProof/verification-receipt.json": "e6e9bad257852db5b2a5eb05dd0818596adbeab04fa08f03b29cff967cbd790e",
+    "Plugins/CkTests/Documentation/UI/PowerWheelProof/verification-receipt.json": "e7c16a15f9f91a2889798f3e50bec9cda13f6ebe9d0c8ca2c2cafefbd52ec3aa",
+    "Plugins/CkTests/Documentation/UI/ScriptedPauseProof/verification-receipt.json": "2caf4c04a725c918f9d1aeb2f269df6e45ad3350d2879889d1fc28f6a56f813e",
+    "Plugins/CkTests/Documentation/UI/ScriptingCardProof/verification-receipt.json": "1ee936258024ed81a9db8b23261065473361105f2050a35c8152c5474437323f",
+    "Plugins/CkTests/Documentation/UI/SkyrimJournalProof/verification-receipt.json": "0348051521c5bc0f3e94bee799613a0559e731695d202c5e4bb14e9229e4913e"
+  },
+  "fontFiles": {
+    "D:/Repos/CkPlugins_2/Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": {
+      "sha256": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+      "bytes": 371616
+    },
+    "D:/Repos/UnrealEngineAngelscript/Engine/Content/Slate/Fonts/Roboto-Bold.ttf": {
+      "sha256": "24571503140760240924dcd1238f77e7cd0454c0d8b0793990cefa2fad71471f",
+      "bytes": 163448
+    },
+    "D:/Repos/UnrealEngineAngelscript/Engine/Content/Slate/Fonts/DroidSansFallback.ttf": {
+      "sha256": "05d71b179ef97b82cf1bb91cef290c600a510f77f39b4964359e3ef88378c79d",
+      "bytes": 3939852
+    }
+  },
+  "captures": [
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "0d25a67a17217d574a51a9ac7ff28c106b2820ba6ac3e19abe83fe78672f3db2",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:02.703506+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5e8213dd374041e47b5c54a0be89f25b0dc9e06f1095c404f5f1672fc4644479",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:02.481951+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "b9fd02f343fc3e6354834d82f6747e80e435da80fa784f0d232dabd30ecb6ef0",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:03.077003+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-restored-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5e8213dd374041e47b5c54a0be89f25b0dc9e06f1095c404f5f1672fc4644479",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:03.372039+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-empty-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5b1336474bdde624781564ca287621197f4b06beb77074b0b2e96e8f13f7e99f",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:05.437761+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-equipped-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "bd30dcdfe363aa17da6b9253577b07568f67f67505c6064e29855add5508c0f9",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:04.346296+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-scrolled-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "30fa280c7846e8bb850ecda894c6b642282a5bd828c7ab53118a2abd7e422bfd",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:03.580362+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-supplies-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5fdf96bc92fde99b19cdddc508aa4a4d4174141c0fede9caa5af607d9dda71b3",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:04.712228+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1280x720-focused.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "dccbe599189d827abc3e76dae4def5b991d903be10f5bc64ea292aa8aaeb8fd8",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:20.989362+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-disabled.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "0270ca00bebb5ecbf73d7a77f1713a0da95053fc0b91c21c692661d178ce4154",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:22.660454+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-focused.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "1a5aa195f51986ee0a4aef4327bd4e8022330149a62aac3740d148d94589bd76",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:21.720634+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-hover.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "470c8698a9ca2f8253c8d8afecf72ed8cc58bb5dc3b02bf75350dcfeb83081d7",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:21.975339+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-long-label.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "9ed360274a2741cc95172cf7af6fbcf89afe02b6ff7ba3bf477bb02b0525e63b",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:22.944540+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-pressed.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "07f7c701074f73f5b9ac553a969dafde8395a310882387ba7db9628d7f282e97",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:22.230301+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/2560x1080-focused.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "9892efd0833e3a8c3ec792f846888c0df88e70f73029502546f83799d212e4ea",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:21.397004+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/armed-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "6351a29eb90a53b69b4d2ccbca2a9b8e6786d7cf3bde38ce075d629a8520c149",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:45.436434+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/fired-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "e2d0a12e4fc6c8e44343fc04828ffe2e6bfa8d1770d34fd422aaea69ca46b0b4",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:45.608178+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "f51f8987f2486f7d38de3d643b1b4544e453da4100ab5332977b7bed79653c27",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:44.510440+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "c8ee4616e00669f253f2f8227d0c026a369a426312e658346b1393341821ddfc",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:44.742709+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-2560x1440.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "e6eecfe2ce6ce0c82aaa83dbbd68993d5de61ccfea7bbc51cba9a68d92f64808",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:45.049380+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "cd9eff0b414f2ee02aafa0d8c51fb2acb018f1321c1e095e35a74c4d2b55da05",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:54.819726+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "45b3dd804e11ba8be54e188ec60f0e34609f115448808d12bc7664b56bcd9253",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:55.551937+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "906d90cd4bef8d5b9aae9294959a62e6fbee45203bd8d23a9ebe1ea2488f9f92",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:55.206275+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-dirty-all-fields-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "8a1049d4e791cd509cb308a9f91e07c8f4e881b3696208ee35756c4b569a767d",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:57.011796+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-dirty-reference-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "f65196b781e89349ca1039f8dcb0a0fc2726012daf1648e6f57012a8894bbc26",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:56.509692+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-popup-open-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "96cf05b5dbb105ca7b209c0038c4ab44ee268970f5bc1b22d4ec02accfd2d987",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:55.966756+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-popup-window.png",
+      "width": 1926,
+      "height": 1118,
+      "sha256": "4d5886ddb4058d3d93447daa50a00e8fdec003b071b76f9cc34fd9be77e55b7e",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T06:31:56.180274+00:00"
+    }
+  ],
+  "documentationCaptures": [
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedFontProof/armed-1920x1080.png",
+      "sha256": "6351a29eb90a53b69b4d2ccbca2a9b8e6786d7cf3bde38ce075d629a8520c149",
+      "source": "Saved/Automation/ScriptingCardProof/armed-1920x1080.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedFontProof/fired-1920x1080.png",
+      "sha256": "e2d0a12e4fc6c8e44343fc04828ffe2e6bfa8d1770d34fd422aaea69ca46b0b4",
+      "source": "Saved/Automation/ScriptingCardProof/fired-1920x1080.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedFontProof/initial-1280x720.png",
+      "sha256": "f51f8987f2486f7d38de3d643b1b4544e453da4100ab5332977b7bed79653c27",
+      "source": "Saved/Automation/ScriptingCardProof/initial-1280x720.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedFontProof/initial-1920x1080.png",
+      "sha256": "c8ee4616e00669f253f2f8227d0c026a369a426312e658346b1393341821ddfc",
+      "source": "Saved/Automation/ScriptingCardProof/initial-1920x1080.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedFontProof/initial-2560x1440.png",
+      "sha256": "e6eecfe2ce6ce0c82aaa83dbbd68993d5de61ccfea7bbc51cba9a68d92f64808",
+      "source": "Saved/Automation/ScriptingCardProof/initial-2560x1440.png"
+    }
+  ],
+  "visualInspectionManifest": "Saved/Automation/ScriptedFontCaptureInspection-01.json",
+  "visualInspectionManifestSha256": "75e6be73f0c6138127b295826e5ae225e7dbdf803b73a1d36a29f97d4bd5e82e",
+  "scope": "Reflected named-font initialization and actual AngelScript card consumer, retained resource ownership and atomic failures, with compatible authoring checks.",
+  "capabilities": [
+    "Script declares card-ui Regular/Bold and fallback files in the reflected session config without a new C++ screen host.",
+    "Mounted title/subtitle resolve the same named composite with explicit Bold/Regular faces and exact expected font bytes; unstyled labels retain Core font.",
+    "Session registration rejects invalid declarations and missing/malformed resources atomically and permits corrected initialization retry.",
+    "Unknown-family and unavailable-Bold reloads preserve accepted root/revision/model; corrected reload succeeds.",
+    "Retained text keeps inline primary/fallback assets and bytes alive after config/session release and GC."
+  ],
+  "limitations": [
+    "Development Editor file paths only; installed-plugin lookup and packaged resource acceptance remain unverified.",
+    "The card deliberately pairs Roboto Condensed Regular with Roboto Bold; its Droid Sans fallback uses the same source file for both named faces.",
+    "Font validation proves available faces open, not exhaustive OpenType conformance or every fallback glyph.",
+    "Font declarations freeze at initialization; hot replacement of a catalog is not supported.",
+    "Collections, custom factory declarations and multi-value transactions remain outside this reflected scalar resource slice.",
+    "The compatible focused population is not repository-wide regression coverage."
+  ]
+}

@@ -1,0 +1,21 @@
+# Pause migration: delivered boundary and next proof
+
+The [scripted Pause proof](ScriptedPauseProof/README.md) passed 15 selected Editor checks with 27 inspected captures. It reuses the existing HTML/CSS and loose backdrop, creates the UMG shell in AngelScript and moves labels, actions, source polling and pause policy into the actual gym `[1]` path. A Widget Blueprint or a new native Pause screen host is unnecessary for that path.
+
+The existing [native host](../../Source/CkTests/Private/UI/CkPauseMenuProof.cpp) still owns standalone Settings and Inventory. Its prepared Settings child validates the exact active script parent, prepares before parent suspension and commits synchronously or expires at the next CoreTicker pump. Cancel/Escape closes that child and returns to the same script parent, session, view and revision. The migration does not reconstruct native Pause on return.
+
+The screen composes the verified [input/focus adapter](OwnedInputProof/README.md) and [admission observer](LayerMembershipProof/README.md). Covered deactivation suspends dispatch while retaining the accepted view and pause ownership. Terminal cleanup marks the script terminal and drains without saved-focus restoration before callbacks; it clears owned pause, closes its child, releases the session and removes only the captured admission if still current. Same-UObject re-admission during child close is preserved. External pause remains external.
+
+The migration exposed four shared gaps: required ordinary-button identity/action/enabled/region contracts; a pure authored-button focus query; terminal input suspension without restoring saved focus; and nullable by-value interaction-owner accessors for script-derived widgets. They are implemented without coupling CkWidgets to CkUI or introducing another document parser. Invalid declarations/source reject before staging and preserve the accepted view.
+
+No native Pause functions were deleted. Against CkTests commit `88e894a0b040e9f69411d47e9418240b3dd38f04`, accumulated native host changes total 350 added and 22 removed lines, net +328 C++ lines. This baseline includes earlier uncommitted proof work; it is not an isolated migration delta. The proof establishes responsibility transfer and script control, not net code reduction or whole-host deletion.
+
+The [receipt](ScriptedPauseProof/verification-receipt.json) names the exact tests, final build/logs, all eight Editor boots across four attempts, source/resource hashes, captures and preserved historical receipts. Startup retries have no runtime verdict. The first completed gate passed 14/15 with an overly strict popup press/release assertion; its corrected production-state fixture and compatible siblings passed in the final fresh boot.
+
+Required title/hint nodes and button label bindings still lack mandatory reflected visual contracts. This gate uses instant stack transitions and Development Editor resources. Nonzero transition animation, complete terminal focus reentry, focus-redirection rollback, automatic focus recovery after popup dismissal, packaged lookup, physical controllers, complete foreign-user action rejection and real game persistence/travel need separate evidence. The second-player fixtures use one scene view, not two-view split-screen rendering.
+
+## Named resources delivered
+
+The existing script-owned card now declares named Regular/Bold/fallback files through the reflected session configuration. The [scripted-font proof](ScriptedFontProof/README.md) passed 15 selected checks in one fresh real-renderer boot, including actual script constructor/accessor use, exact mounted source bytes, atomic failed admission/retry and source reload, and retained font ownership through GC. It adds no per-screen loader or C++ host and preserves the widget/font registry argument boundary. Its receipt preserves all seven earlier receipts.
+
+The later [Mission Board proof](ScriptedCollectionProof/README.md) passes 32 selected checks and delivers reflected flat collection schemas, keyed records and item actions through an actual script-owned screen. Image fields, nested/tree models, custom factories and multi-value model transactions remain further script-authoring boundaries. Settings/Inventory migration and packaged resource acceptance remain independent future slices.

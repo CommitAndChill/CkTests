@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "status": "native-focused-passed",
+  "date": "2026-10-04",
+  "platform": "Windows PC",
+  "engine": "5.7.4",
+  "configuration": "Development",
+  "renderer": "D3D12 SM6",
+  "gateLog": "Saved/Logs/DeferredSelection-Gate-02.log",
+  "gateLogSha256": "bc88a2f71cf4670ebde390a3960dffd1d266432372a02f455a17d090c6b6c74d",
+  "buildLog": "Saved/Logs/DeferredSelection-Build-04.log",
+  "buildLogSha256": "74918bdf8ba3d73b402cd1fc08ce99b06b38446db1af0ae3bc5e3acb473bba70",
+  "total": 21,
+  "passed": 21,
+  "failed": 0,
+  "skipped": 0,
+  "contaminated": 0,
+  "reportedDuration": "6m 5s",
+  "finalEditorBoots": 1,
+  "tests": [
+    "Ck.UiAuthoring.Journal.Model.AtomicFailures",
+    "Ck.UiAuthoring.Journal.Model.ConfigurationAndStress",
+    "Ck.UiAuthoring.Journal.Model.FixtureAndActions",
+    "Ck.UiAuthoring.Journal.PIE",
+    "Ck.UiAuthoring.PowerWheel.PIE",
+    "Ck.UiAuthoring.Selection.NativeSingleSelection",
+    "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+    "Ck.UiAuthoring.Tabs.ConstrainedScrollContent",
+    "Ck.UiAuthoring.Tabs.HiddenPanelReleasesSliderCapture",
+    "Ck.UiAuthoring.Tabs.HiddenPanelReleasesTransientInteraction",
+    "Ck.UiAuthoring.Tabs.MultiUserFocus",
+    "Ck.UiAuthoring.Tabs.PanelStateRetention",
+    "Ck.UiAuthoring.Tabs.ParserSchema",
+    "Ck.UiAuthoring.Tabs.RetainedRuntime",
+    "Ck.UiAuthoring.Tabs.VisualStyle",
+    "Ck.UiAuthoring.Tree.MutationGuards",
+    "Ck.UiAuthoring.Tree.ViewRuntime",
+    "Ck.UiAuthoring.Tree.ViewValidation",
+    "Ck.UiAuthoring.Tree.VisualStyle",
+    "Ck.UiAuthoring.UMG.SurfaceLifetime",
+    "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+  ],
+  "sourceSha256": {
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp": "1f09e9d8601f4a74d69e62d322ab72dc93d60f06e45d318ca2af260eff4b4273",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiSurface.cpp": "8dfb1bf35f00eedba628b0c7aed9664bd43450e87e1a1d9193ab2f40c95231e1",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTabs.cpp": "59fb514b58a9018233015085fcf13fa09b1b866b9f49362f0b6ed53d75c5d6de",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTree.cpp": "ac56f6121a85758b3829405c263166fa1630460812cbc4d3f12294afd399fac3",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiDocument.h": "c71d823184a081838712b7d69517ef8347aa66d8b7721f18519113314f5d0e0d",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiTree.h": "e06b26651e4c66f08d91683b8432c411abaab0d9b6f560a097cd41f062db7510",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/OFL.txt": "0e4cc6ece88573545be2ed25835363662a6182ba4a4c1b5c8feda52add30e8a6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.css": "e45d6fcdc5be2b45a70e8fd3bb418735d75b75d074419fcfee9ce6b1d90a488c",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.html": "1a21b82628adef809d5962250e99159b71e4af585fb0bd0bd57084c8976beec0",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkSkyrimJournal_Gym.as": "9cc7d67656199ebe9e036ead960e55dd2039f98e617072784ef3f1813002a300",
+    "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as": "f1df54d2eeb762179035177d850665149039c48ce5f0f6e2f547366c1d95c162",
+    "Plugins/CkTests/Source/CkTests/CkTests.Build.cs": "d0bb0f1c2dff222461d021d7dedef6ead96016cc33e9346d7bb89a24a5b2ef5f",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProof.cpp": "74b3862af0d78f80b05ff6986a8509832cb80cedf69f8ccfe56598d41486f9c9",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.cpp": "e2c9ed5ef0d280432c9a739e454eee77abcd82b20d4a36734f370849dfdf249d",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.h": "5f3896d69aba59a4a153ad969ec0914773bd8d70179b9bc096e679d8624d169a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.cpp": "1d4391dfa27bb055118548f8332e5c719a9c8b1607d5f0e8789a5d94eff32096",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.h": "5f75b220e7b7b308861bd6fb5b102736111e930f93e926cde8686998e1d22c2c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalModel.cpp": "23a64fb92f3092a27e3694e93dfe9bf489917337653ef51352923c7b17e509e1",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalProof.cpp": "8d9bdccda249ba94bb7277132cb5488f0d02f814bc0aff793fd5a7171c89242f",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiSingleSelection.cpp": "090ddf0e8f347bbd8ceb20543b683cfeb011b3289c96de7d13ff05d667edb0f6",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsVisualStyle.cpp": "baf8f02fafc842a570dce910804951a4236127a1d4e7c062d339a9072bc24237",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeView.cpp": "4610bec9877fe7c22b2515efc62222ba20e1dedbb3397f2954e70c6204e6f0b2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeVisualStyle.cpp": "7a4ec6d7b9442aa9fe9bea09029d160f306e83c96f33e3cccb8cf75e4de1a3ef",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkJournalProof.h": "c9771f5907c5064d67f924b16f1fc6f22a826ec18532657e768d5809509d385b"
+  },
+  "captures": [
+    {
+      "path": "Captures/initial-1280x720.png",
+      "size": [
+        1280,
+        720
+      ],
+      "sha256": "72e7c2f0e045d39b86ef5e1c030af80abca5b10d6f660b23318cbe5d98b27673",
+      "capturedUtc": "2026-10-04T23:40:39.616086+00:00"
+    },
+    {
+      "path": "Captures/initial-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "66d506b119e100cb97726586d6cf031a1541927f52297f67bdc0ad6644721a0b",
+      "capturedUtc": "2026-10-04T23:40:39.804004+00:00"
+    },
+    {
+      "path": "Captures/initial-2560x1080.png",
+      "size": [
+        2560,
+        1080
+      ],
+      "sha256": "55214550fc08c24351494d668586d473cc5fbf78d02e95a36dbc3a8b173942a4",
+      "capturedUtc": "2026-10-04T23:40:40.075642+00:00"
+    },
+    {
+      "path": "Captures/tracked-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "5c27d9121406f2c95f0df8081b2bd0e00b6e80f747b1b37bee9e091ee67f4416",
+      "capturedUtc": "2026-10-04T23:40:40.395090+00:00"
+    },
+    {
+      "path": "Captures/miscellaneous-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "b4ca906cb75528a11f38c639e080d612eff396eb51b2b43253a36054f7f86aca",
+      "capturedUtc": "2026-10-04T23:40:40.562745+00:00"
+    },
+    {
+      "path": "Captures/stats-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "047c54ec4fb4d8aeb7a77e459d4213bafc0b4378b5e54ca0b62ca178fcd53553",
+      "capturedUtc": "2026-10-04T23:40:40.838148+00:00"
+    },
+    {
+      "path": "Captures/system-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "0206b66c04098e3b70c2fe69dbcf644b6b6c35920b530c6dfff2cbb46aeaa8c9",
+      "capturedUtc": "2026-10-04T23:40:40.995918+00:00"
+    },
+    {
+      "path": "Captures/completed-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "5bf840df9e43b392bef3aa99ee33960014a827e96d8aca3b024cb23731952f64",
+      "capturedUtc": "2026-10-04T23:40:41.180371+00:00"
+    },
+    {
+      "path": "Captures/long-summary-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "2b1611cbd70c0125905eb68e35c46a002fbec2188238bbf808e43a92fbec901e",
+      "capturedUtc": "2026-10-04T23:40:41.396092+00:00"
+    },
+    {
+      "path": "Captures/stress-scrolled-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "206b3e79b41ee75f9c1c7bb8a0af8a18a6dda29ba77c70b0857dcfd43a5f0c77",
+      "capturedUtc": "2026-10-04T23:40:41.789545+00:00"
+    },
+    {
+      "path": "Captures/closed-1920x1080.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "sha256": "7a7589922c1dd36d0cc3484680b431c281e3c70c6e75d974cc34a00c67e94e67",
+      "capturedUtc": "2026-10-04T23:40:42.179458+00:00"
+    }
+  ],
+  "visualLimitations": [
+    "Native blue keyboard-focus chrome and default scrollbar/selection styling differ from reference.",
+    "Header ornaments sit tightly beside long category labels.",
+    "Scroll viewports may show partial rows at their edges.",
+    "Deferred selection does not automatically reveal an offscreen selected item.",
+    "Fixed-height rows prove bounded fixture text, not arbitrary localized text."
+  ],
+  "notEstablished": [
+    "Packaged game/cook",
+    "Physical controller acceptance",
+    "Real quest backend/map/persistence",
+    "Complete Skyrim General Stats or System implementation"
+  ],
+  "sharedCapability": "Deferred stable-key tree selection; journal timing workaround removed",
+  "priorReceipt": "journal-initial-verification-receipt.json",
+  "startupExternalDiagnostics": {
+    "chromiumUsbPropertyErrors": 1,
+    "chromiumCrlVerificationErrors": 17
+  }
+}

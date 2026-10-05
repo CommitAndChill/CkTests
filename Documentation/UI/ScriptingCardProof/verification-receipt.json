@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-runtime-verified",
+  "summary": {
+    "total": 11,
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0
+  },
+  "testNames": [
+    "Ck.UiAuthoring.Fonts.NativeRuntime",
+    "Ck.UiAuthoring.FormStyles.RetainedNativeControls",
+    "Ck.UiAuthoring.Journal.PIE",
+    "Ck.UiAuthoring.PowerWheel.PIE",
+    "Ck.UiAuthoring.ScriptingCard.PIE",
+    "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+    "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars",
+    "Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents",
+    "Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc",
+    "Ck.UiAuthoring.UMG.SurfaceLifetime",
+    "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+  ],
+  "gateLog": "Saved/Logs/ScriptingCard-Gate-06.log",
+  "gateLogSha256": "7e96c358f65268a412a5a77dbce9cc9fedc05a7b3a5f3893ed34914080db50ab",
+  "discoveryAndInitialGateLog": "Saved/Logs/ScriptingCard-Gate-01.log",
+  "discoveryAndInitialGateLogSha256": "411fb72297315d0b32e538c0e5342e4ee4ddd54f4fd2ae53b575080b9884d8b8",
+  "build": "Separate incremental Editor build through UnrealToolbox: 4 actions in 10.44 seconds.",
+  "buildActions": 4,
+  "buildDurationSeconds": 10.44,
+  "buildLog": "Saved/Logs/ScriptingCard-Build-06.log",
+  "buildLogSha256": "009c3bc66f104a7432f3f07e94653cbfbde6c1afd98a55df28b8045304e08d89",
+  "plannedEditorBoots": 3,
+  "actualEditorBoots": 12,
+  "additionalBootReason": "Initial renderer discovery idle-output timeout; fresh discovery plus first red runtime; combined build/test adds inline/headless and renderer discovery plus split test groups; test-only runs exposed a missing default font and then undersized native line boxes; final separate build and test-only run verified both repairs.",
+  "initialAttempt": {
+    "editorBoots": 2,
+    "testCount": 0,
+    "result": "renderer discovery failed; no runtime verdict"
+  },
+  "redRuntimeAttempt": {
+    "editorBoots": 3,
+    "headlessDiscovery": 1,
+    "rendererDiscovery": 1,
+    "freshRendererGate": 1,
+    "total": 11,
+    "passed": 8,
+    "failed": 3,
+    "log": "Saved/Logs/ScriptingCard-Gate-02.log",
+    "sha256": "9fbd8ae0a954d85b3ba4ea6e662cff50ff5ea937b4c7a047afc2214358fc24c6",
+    "cause": "Session did not create declared retained-region mounts before reload."
+  },
+  "secondRedRuntimeAttempt": {
+    "editorBoots": 4,
+    "inlineHeadlessDiscovery": 1,
+    "rendererDiscovery": 1,
+    "firstTestGroup": 1,
+    "rendererTestGroup": 1,
+    "total": 11,
+    "passed": 9,
+    "failed": 2,
+    "log": "Saved/Logs/ScriptingCard-Gate-03.log",
+    "sha256": "e29bf6823e396772c2a14f375cf6cc161828e22d5ae6cf04f3bd00ceb6541ac9",
+    "causes": [
+      "Card direct region root was explicitly sized, contrary to native admission.",
+      "Slider normalization produced 30.0000019; test incorrectly demanded exact 30.",
+      "Inline headless discovery rejected renderer-only declared roots; Toolbox population verdict invalid."
+    ]
+  },
+  "thirdRedRuntimeAttempt": {
+    "editorBoots": 1,
+    "total": 11,
+    "passed": 10,
+    "failed": 1,
+    "log": "Saved/Logs/ScriptingCard-Gate-04.log",
+    "sha256": "3268a80976ffd0c07990e1515f5502da184ca46645615ec3165d2ce4c4d512bc",
+    "cause": "Empty base font had positive default size but no font object/composite; text rendered missing glyphs and failed bounds.",
+    "capture": "Plugins/CkTests/Documentation/UI/ScriptingCardProof/missing-default-font-1920x1080.png",
+    "captureSha256": "9ab97f490030a4b6265f106e9ff7bab0f95a8ee74bf31c5c8b546fcfd9df52e4"
+  },
+  "fourthRedRuntimeAttempt": {
+    "editorBoots": 1,
+    "total": 11,
+    "passed": 10,
+    "failed": 1,
+    "log": "Saved/Logs/ScriptingCard-Gate-05.log",
+    "sha256": "86d6c36087c53031fbe9ad4da4512f01e9e9848d84ac2ae6cd63ad67fdaac8f0",
+    "cause": "Correct composite rendered readable glyphs, but title/count rows were smaller than their natural native line boxes.",
+    "capture": "Plugins/CkTests/Documentation/UI/ScriptingCardProof/undersized-line-boxes-1920x1080.png",
+    "captureSha256": "04600278c49360d958b98a4e8349cbd6db392bb783bab61ddb38b44d77d62e9b"
+  },
+  "finalAttempt": {
+    "editorBoots": 1,
+    "cachedDiscovery": true,
+    "freshRendererGate": 1
+  },
+  "diagnostics": {
+    "unrealErrors": 0,
+    "fatals": 0,
+    "ensures": 0,
+    "staleScriptOrCompileErrors": 0,
+    "chromiumUsbPropertyErrors": 1,
+    "chromiumCrlVerificationErrors": 17
+  },
+  "frozenSourceCount": 40,
+  "frozenSources": {
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp": "447e5e43710e1ac9393e93a6aaad0c0d4ccd528b3b5773dd9a2166cdb79d52e7",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiFontRegistry.cpp": "98ba296fd67e42de90987e820fb44b4152a48f7902a81d589503beec1a7e443c",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiSurface.cpp": "8febdcee07d3128184a77998e12beb3668192fe61e630022effc292954ba2726",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTabs.cpp": "59fb514b58a9018233015085fcf13fa09b1b866b9f49362f0b6ed53d75c5d6de",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTree.cpp": "ac56f6121a85758b3829405c263166fa1630460812cbc4d3f12294afd399fac3",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiDocument.h": "952c50733c09bce9708894d9cbd6b227a18149c1995d879de9f602c74cb193f4",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiFontRegistry.h": "6776c0ed558c04e0d9069823fb16aa565b0613a623294c83549a93b57ac8202f",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiSurface.h": "538516f32bb8c8ce0b3c7b49a808b6cd0f8a11325ffcaf7242c4b71b4e6ecfb6",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiTree.h": "e06b26651e4c66f08d91683b8432c411abaab0d9b6f560a097cd41f062db7510",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkUiFontResources.cpp": "3b84014dc1462b745567e7508a663427604de8e4486a1e650a6b0296b6394449",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkUiFontResources.h": "b2280483171b696b8f7425585e80e0deb1c624df147861763217383ed14c9d55",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/OFL.txt": "0e4cc6ece88573545be2ed25835363662a6182ba4a4c1b5c8feda52add30e8a6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.css": "2c4da32cbae534ea4a95756fd2ee5d0589b1b399ce378978b14b2a67f8d93ec6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.html": "1a21b82628adef809d5962250e99159b71e4af585fb0bd0bd57084c8976beec0",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkSkyrimJournal_Gym.as": "9cc7d67656199ebe9e036ead960e55dd2039f98e617072784ef3f1813002a300",
+    "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as": "e73dcd80eb95b3f79472f65a2ec37bddbff2c8b18a29631ff7abefe77050d842",
+    "Plugins/CkTests/Source/CkTests/CkTests.Build.cs": "f779ed04d5d0254f678b1c368f485ec2d7a7b1e7cc80d0deca19f31ae0b5b299",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProof.cpp": "375b77304c9d577c2b7f682c08141a6a506474b32ed73c6e42c59137209a0fda",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.cpp": "e2c9ed5ef0d280432c9a739e454eee77abcd82b20d4a36734f370849dfdf249d",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.h": "5f3896d69aba59a4a153ad969ec0914773bd8d70179b9bc096e679d8624d169a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.cpp": "1d4391dfa27bb055118548f8332e5c719a9c8b1607d5f0e8789a5d94eff32096",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.h": "5f75b220e7b7b308861bd6fb5b102736111e930f93e926cde8686998e1d22c2c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalModel.cpp": "23a64fb92f3092a27e3694e93dfe9bf489917337653ef51352923c7b17e509e1",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalProof.cpp": "8d9bdccda249ba94bb7277132cb5488f0d02f814bc0aff793fd5a7171c89242f",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiDocument.cpp": "cc50598928395dc63d2f2cb805f111e4c64f58a8fe7b6979ba3161e3e48ae9e0",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiFontRegistry.cpp": "957d2c64afe646a6dae9db027003f21de6b1a0e7a3ac64620fc5ac14fece0a3d",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiSingleSelection.cpp": "090ddf0e8f347bbd8ceb20543b683cfeb011b3289c96de7d13ff05d667edb0f6",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsVisualStyle.cpp": "baf8f02fafc842a570dce910804951a4236127a1d4e7c062d339a9072bc24237",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeView.cpp": "4610bec9877fe7c22b2515efc62222ba20e1dedbb3397f2954e70c6204e6f0b2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeVisualStyle.cpp": "7a4ec6d7b9442aa9fe9bea09029d160f306e83c96f33e3cccb8cf75e4de1a3ef",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkJournalProof.h": "c9771f5907c5064d67f924b16f1fc6f22a826ec18532657e768d5809509d385b",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkAuthoredSession.h": "fcd81d7b81ac83b8dc1d3c523e1428821c0517a9e7679ded7e3d1daf734a4e79",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkAuthoredSession.cpp": "f99250dbbafa0a7c4770957256cae2d990ac0c6fa06f4a4afd9a302f3631fc4e",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptingCard_Gym.as": "c06f60c1d7d61e7bc6befb815be068613d6f9431b002cc5cb5b40094c9db7895",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiAuthoredSession.cpp": "c0b3d169244c1e2a219f21a9fd04bb45738fc054406e693e39fa7a7461b6ee30",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiAuthoredSession_TestListener.h": "9da818899286ed047525ed6166fe636e234fabb89bb5f97749f12d3a3ba1d566",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_ScriptingCardProof.cpp": "5a64d4e04407edc297976ccd44edad2e18abfda7528730d90ba37eb274508f3d",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptingCardProof/ScriptingCardProof.ui.html": "3430d27d922ccc3ce0ed25416696a3477a5c4ce9cdacdf2a7f5028362a9cb0b2",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptingCardProof/ScriptingCardProof.ui.css": "e43f2bcca9c517707947d4c000753973fd8c82818fff967273e443799f59d5c0"
+  },
+  "captureCount": 5,
+  "captures": [
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptingCardProof/initial-1280x720.png",
+      "sha256": "47f29a63274fa83d0ba7461f02932cdf1d1e55b79bbad62bc17310b098907733",
+      "width": 1280,
+      "height": 720,
+      "capturedUtc": "2026-10-05T02:19:28.175711+00:00"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptingCardProof/initial-1920x1080.png",
+      "sha256": "45c4a9ce60d1c583079be48e015a2c6065b925cc01e80b88f45f6cb2b8785bdc",
+      "width": 1920,
+      "height": 1080,
+      "capturedUtc": "2026-10-05T02:19:28.408952+00:00"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptingCardProof/initial-2560x1440.png",
+      "sha256": "199291fb9657ff23859a3b6e28d080d1d0adfde8ecd1dcaa5708749dc43ad1e7",
+      "width": 2560,
+      "height": 1440,
+      "capturedUtc": "2026-10-05T02:19:28.733568+00:00"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptingCardProof/armed-1920x1080.png",
+      "sha256": "e59bfa1a73346f3c2b50234fd5f7a326e79031b376261c78ebd976f2f445272b",
+      "width": 1920,
+      "height": 1080,
+      "capturedUtc": "2026-10-05T02:19:29.086004+00:00"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptingCardProof/fired-1920x1080.png",
+      "sha256": "c9a07a5df2797e221cf53df2798469ce368d55038618e7c1dae765d23e4c4e2c",
+      "width": 1920,
+      "height": 1080,
+      "capturedUtc": "2026-10-05T02:19:29.252502+00:00"
+    }
+  ],
+  "capturesInspected": true,
+  "sourcePreflight": {
+    "nodeCount": 28,
+    "usedClasses": 25,
+    "declaredClasses": 25,
+    "contractIdentitiesMatch": true
+  },
+  "limits": [
+    "Development Editor fixture, not packaged game",
+    "Scalar reflected bindings only",
+    "No screen-specific C++ host or Widget Blueprint",
+    "No physical controller/localization/game backend proof",
+    "Installed-plugin lookup, reflected font resources/collections, reusable menu lifecycle pending"
+  ],
+  "inspectionNotes": [
+    "All five fresh native PNGs viewed individually; title, count, static copy and button label readable without clipping.",
+    "Initial three resolutions show Ready, shots0, charge65%, checked safety.",
+    "Armed state shows charge50%, unchecked safety and shots0; fired state shows Shot Fired and shots1.",
+    "Fired button visibly has native focus styling; native text-fit checks cover13 text elements, button label inspected visually."
+  ],
+  "textFit": {
+    "authoredTextElements": 13,
+    "buttonLabelVisuallyInspected": true,
+    "toleranceLocalUnits": 0.5
+  }
+}

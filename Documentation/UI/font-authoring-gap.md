@@ -1,0 +1,40 @@
+# Font and scripting authoring gaps
+
+The journal exposed two separate authoring gaps: shared font resources and a scripting-facing view/binding API. Named font catalogs and their UMG resource bridge passed the [26-test focused native gate](SkyrimJournalProof/verification.md), including two dedicated font tests and 11 visually inspected journal captures. The reflected scalar session and script-owned card have passed a separate [11-test focused Editor gate](ScriptingCardProof/verification.md), with five inspected captures. The later [scripted-font proof](ScriptedFontProof/README.md) passed 15 selected checks and exposes named resource declarations to AngelScript. Packaged resource acceptance remains future work.
+
+| Current production path | Consequence for an agent-authored screen |
+| --- | --- |
+| `CkUiDocument.cpp` accepts a lowercase registered family name alongside `monospace` and `sans-serif`. `SCkUiSurface.cpp` resolves the effective Regular/Bold face before staging any widgets. | A source author can select a registered family in CSS. Unknown families and missing required faces reject a reload atomically. The subset still has no CSS inheritance, quoted/list names, URLs or file imports. |
+| `FCkUiView::Create` accepts an immutable `FCkUiFontRegistrySnapshot`. Repeat, slot and authored table/tree cell views share it. Registered native controls retain their separate schemas and host base font. | The resource catalog follows descendants without introducing per-screen loaders or silently expanding control schemas. |
+| `CkWidgets` supplies `FCkUiFontResources::Register`, which validates all declared file bytes, creates inline faces and roots every primary/fallback object through the retained composite. `CkSlateLayout` owns the catalog and remains independent of Engine. | File loading and lifetime belong to a shared UMG resource bridge. An externally held text widget can retain its font after the view and catalog are released. Validation establishes face opening, not exhaustive OpenType conformance. |
+| The journal registers `journal-ui` with Roboto Condensed and Droid Sans fallback, then selects that family in its 14 typography classes. It no longer constructs a composite in its host. | Font family selection moves into CSS while the resource owner still declares files and licenses. |
+| `CkTests.Build.cs` stages the journal's HTML/CSS/TTF/license as `NonUFS`. | A runtime registration API alone cannot ensure that resources exist in a packaged game. The resource owner must declare staging; that still requires a packaged proof. |
+| `UCk_UI_AuthoredSession_UE` adapts scalar declarations, proposed edits, source reload and surface mounting into reflected APIs. | The scripted card creates its UMG shell and drives native controls without a screen-specific C++ host. The later [Mission Board proof](ScriptedCollectionProof/README.md) delivers five-kind flat collections and keyed actions with 32 selected checks. Image fields, nested/tree models, custom factories, polling and multi-value transactions still need follow-up coverage. Named fonts now have the separately verified reflected configuration; shared input ownership and the actual Pause consumer have later proofs below. |
+
+The [bounded scripting proof](scripting-authoring-plan.md) establishes the scalar interactive card and script-owned shell. The later [scripted Pause proof](ScriptedPauseProof/README.md) migrates the existing gym Pause policy with a retained native Settings child and 15 selected tests. No native Pause functions were removed and C++ support code grew; this proves script responsibility and control, rather than net host-code reduction. Font registration still uses the native UMG bridge; the later reflected resource configuration makes its declarations available to scripts. Keep layout, visual family selection and bindings in source, while the owning module declares its font files and licenses.
+
+The scalar session explicitly supplies a CoreStyle base font. The lower-level absent-source defect is now repaired: omitted/empty native base fonts attach Core's composite while preserving positive caller typography; nonfinite sizes normalize before measurement. The separate [default-font regression](DefaultFontProof/README.md) passed 12 focused tests, with before/after raster inspection. Its receipt preserves the earlier journal/card evidence separately. Reflected named fonts now have their separate focused proof; packaged acceptance remains future work.
+
+The [shared input/focus proof](OwnedInputProof/README.md) now establishes optional
+CommonUI session ownership, nonzero-player authored button focus/navigation,
+cover/uncover suspension and held-release draining in a separate 13-test gate.
+The API was exercised from C++ in that historical gate. The later script Pause gate exercises the actual screen and its pause policy. The separate
+[layer membership proof](LayerMembershipProof/README.md) passed 13 focused
+checks for exact admission lifetime, weak retention, deferred retirement and
+an actual AngelScript delegate consumer. Pairing that observer with a real
+menu's terminal cleanup is exercised by the later scripted Pause proof, with exact admission checks through child-close callbacks.
+
+The focused gate establishes the following font scope:
+
+1. Missing or malformed required faces/fallbacks reject the complete registration without publishing a partial family. A document requesting an unavailable family or face rejects without replacing the accepted view.
+2. An externally held text widget keeps primary/fallback inline assets and admitted bytes alive after view/catalog/window release and GC. Mounted repeat and table-cell fonts share the admitted composite while retaining local size/tracking values.
+3. Fresh journal captures verify condensed text and marker glyphs. Native font identities establish supported Regular/Bold selection; unknown family/required-face requests reject atomically. Native measurement alone is not fresh raster proof. Repeat/table-cell propagation is tested; custom-slot/tree-cell forwarding was inspected.
+
+Future acceptance remains required:
+
+1. Further migrations should measure bespoke host-code reduction while preserving menu, pause and player-specific input behavior. Pause now has a script-owned policy path, but Settings/Inventory and richer binding/resource APIs remain native.
+2. Packaged/staged resource lookup needs its own gate; development Editor rendering alone does not prove it.
+
+The [scripted-font proof](ScriptedFontProof/README.md) extends the existing card with an optional reflected font list. It admits all families into a local catalog before publishing a view, retains the custom control registry as the sixth Create argument and supplies the separate font snapshot seventh. The real AngelScript config resolves mounted Regular/Bold text and exact source bytes; unknown-family source rejects without replacing the accepted tree/revision/model. The native reflected test rejects default, invalid, duplicate, missing and malformed declarations, including a valid first family followed by a missing face in a second family, then retries successfully on the same session. Caller config mutation does not change the admitted catalog. Retained text survives session release and collection while preserving inline primary/fallback bytes. Its 15-test gate and 27 inspected captures are recorded separately from every earlier receipt.
+
+Implementation sources: [catalog](../../../CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiFontRegistry.h), [UMG resources](../../../CkFoundation/Source/CkWidgets/Private/Authoring/CkUiFontResources.cpp), [parser](../../../CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp), [view](../../../CkFoundation/Source/CkSlateLayout/Private/SCkUiSurface.cpp), [widget arguments](../../../CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiWidgetRegistry.h), [journal host](../../Source/CkTests/Private/UI/CkJournalProof.cpp), and [staging](../../Source/CkTests/CkTests.Build.cs).

@@ -1,0 +1,392 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-runtime-verified",
+  "summary": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0
+  },
+  "testNames": [
+    "Ck.UiAuthoring.Fonts.NativeRuntime",
+    "Ck.UiAuthoring.Fonts.RegistryValidation",
+    "Ck.UiAuthoring.FormStyles.RetainedNativeControls",
+    "Ck.UiAuthoring.InventoryMenuProof.PIE",
+    "Ck.UiAuthoring.Journal.PIE",
+    "Ck.UiAuthoring.PauseMenuProof.PIE",
+    "Ck.UiAuthoring.PowerWheel.PIE",
+    "Ck.UiAuthoring.ScriptingCard.PIE",
+    "Ck.UiAuthoring.SettingsMenuProof.PIE",
+    "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+    "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars",
+    "Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents",
+    "Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc",
+    "Ck.UiAuthoring.UMG.SurfaceLifetime",
+    "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+  ],
+  "gateLog": "Saved/Logs/ScriptedPause-Gate-04.log",
+  "gateLogSha256": "531e6384a6730f09f509c2aa5aa6fd1b75a3de6d09ff5ef2ec36bf7bcf965279",
+  "buildLog": "Saved/Logs/ScriptedPause-Build-03.log",
+  "buildLogSha256": "620b43dcefe0c64f73d1d20c46d916fd50e933009b13b5303c2195add6424add",
+  "buildActions": 4,
+  "buildDurationSeconds": 12.36,
+  "plannedEditorBoots": 1,
+  "actualEditorBoots": 8,
+  "gateAttempts": [
+    {
+      "log": "Saved/Logs/ScriptedPause-BuildGate-01.log",
+      "sha256": "84bf7e19f0da185ec377ac1575659d8bcba27a3efef51b8b0cd59743ba9dc569",
+      "editorBoots": 3,
+      "final": false
+    },
+    {
+      "log": "Saved/Logs/ScriptedPause-Gate-02.log",
+      "sha256": "ba55bd6bbd64adba17aa0357601d13c7a26c10dde91d5005a0daa89630fb95ad",
+      "editorBoots": 3,
+      "final": false
+    },
+    {
+      "log": "Saved/Logs/ScriptedPause-Gate-03.log",
+      "sha256": "ab1d3d69a918d28521e780456b3c4849c6daafa485c852c1f145097a3cade138",
+      "editorBoots": 1,
+      "final": false
+    },
+    {
+      "log": "Saved/Logs/ScriptedPause-Gate-04.log",
+      "sha256": "531e6384a6730f09f509c2aa5aa6fd1b75a3de6d09ff5ef2ec36bf7bcf965279",
+      "editorBoots": 1,
+      "final": true
+    }
+  ],
+  "cachedDiscovery": true,
+  "diagnostics": {
+    "unrealErrors": 0,
+    "fatals": 0,
+    "ensures": 0,
+    "staleScriptOrCompileErrors": 0,
+    "chromiumUsbPropertyErrors": 1,
+    "chromiumCrlVerificationErrors": 16
+  },
+  "frozenSourceCount": 68,
+  "frozenSources": {
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp": "447e5e43710e1ac9393e93a6aaad0c0d4ccd528b3b5773dd9a2166cdb79d52e7",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiFontRegistry.cpp": "98ba296fd67e42de90987e820fb44b4152a48f7902a81d589503beec1a7e443c",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiSurface.cpp": "33c15099a74d5e0a33c5b983acc5801854e2ed285e56af128b9616d9e4f4fa35",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTabs.cpp": "59fb514b58a9018233015085fcf13fa09b1b866b9f49362f0b6ed53d75c5d6de",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTree.cpp": "ac56f6121a85758b3829405c263166fa1630460812cbc4d3f12294afd399fac3",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiDocument.h": "952c50733c09bce9708894d9cbd6b227a18149c1995d879de9f602c74cb193f4",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiFontRegistry.h": "6776c0ed558c04e0d9069823fb16aa565b0613a623294c83549a93b57ac8202f",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiSurface.h": "0f8c0ec4604a71a3f56e96203586f412353f3018f20cf7be9574769371d2e691",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiTree.h": "e06b26651e4c66f08d91683b8432c411abaab0d9b6f560a097cd41f062db7510",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkUiFontResources.cpp": "3b84014dc1462b745567e7508a663427604de8e4486a1e650a6b0296b6394449",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkUiFontResources.h": "b2280483171b696b8f7425585e80e0deb1c624df147861763217383ed14c9d55",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/OFL.txt": "0e4cc6ece88573545be2ed25835363662a6182ba4a4c1b5c8feda52add30e8a6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.css": "2c4da32cbae534ea4a95756fd2ee5d0589b1b399ce378978b14b2a67f8d93ec6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.html": "1a21b82628adef809d5962250e99159b71e4af585fb0bd0bd57084c8976beec0",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkSkyrimJournal_Gym.as": "9cc7d67656199ebe9e036ead960e55dd2039f98e617072784ef3f1813002a300",
+    "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as": "e73dcd80eb95b3f79472f65a2ec37bddbff2c8b18a29631ff7abefe77050d842",
+    "Plugins/CkTests/Source/CkTests/CkTests.Build.cs": "2ca29385cdadabdc33ecda5dce2e1f202d3658502c3025db30af80eeac214623",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProof.cpp": "375b77304c9d577c2b7f682c08141a6a506474b32ed73c6e42c59137209a0fda",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.cpp": "e2c9ed5ef0d280432c9a739e454eee77abcd82b20d4a36734f370849dfdf249d",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.h": "5f3896d69aba59a4a153ad969ec0914773bd8d70179b9bc096e679d8624d169a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.cpp": "1d4391dfa27bb055118548f8332e5c719a9c8b1607d5f0e8789a5d94eff32096",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.h": "5f75b220e7b7b308861bd6fb5b102736111e930f93e926cde8686998e1d22c2c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalModel.cpp": "23a64fb92f3092a27e3694e93dfe9bf489917337653ef51352923c7b17e509e1",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalProof.cpp": "8d9bdccda249ba94bb7277132cb5488f0d02f814bc0aff793fd5a7171c89242f",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiDocument.cpp": "cc50598928395dc63d2f2cb805f111e4c64f58a8fe7b6979ba3161e3e48ae9e0",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiFontRegistry.cpp": "6c7a94587a389b1332bfc2572e20d69b79c9eea4f90ac446a6923ece1f798249",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiSingleSelection.cpp": "090ddf0e8f347bbd8ceb20543b683cfeb011b3289c96de7d13ff05d667edb0f6",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsVisualStyle.cpp": "baf8f02fafc842a570dce910804951a4236127a1d4e7c062d339a9072bc24237",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeView.cpp": "4610bec9877fe7c22b2515efc62222ba20e1dedbb3397f2954e70c6204e6f0b2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeVisualStyle.cpp": "7a4ec6d7b9442aa9fe9bea09029d160f306e83c96f33e3cccb8cf75e4de1a3ef",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkJournalProof.h": "c9771f5907c5064d67f924b16f1fc6f22a826ec18532657e768d5809509d385b",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkAuthoredSession.h": "b555712b8e49c01ea0051d12acc54c24945dea7651e541a2cda30a25d169a801",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkAuthoredSession.cpp": "b75c8308b70ea6e95e65ddcdfd1394b1e006fa6a838ca457c4f370906012dcf6",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptingCard_Gym.as": "c06f60c1d7d61e7bc6befb815be068613d6f9431b002cc5cb5b40094c9db7895",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiAuthoredSession.cpp": "09323db6b7bc1a7858ad9a2dcd67925c21ed556e1930e14192e85f778a3b0154",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiAuthoredSession_TestListener.h": "9da818899286ed047525ed6166fe636e234fabb89bb5f97749f12d3a3ba1d566",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_ScriptingCardProof.cpp": "5a64d4e04407edc297976ccd44edad2e18abfda7528730d90ba37eb274508f3d",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptingCardProof/ScriptingCardProof.ui.html": "3430d27d922ccc3ce0ed25416696a3477a5c4ce9cdacdf2a7f5028362a9cb0b2",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptingCardProof/ScriptingCardProof.ui.css": "e43f2bcca9c517707947d4c000753973fd8c82818fff967273e443799f59d5c0",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiOwnedSession_TestOwner.h": "3bdc8cd5ee4a6eb64d500414b0756ba42ff2b69157160c345b3d7732d9126de2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_PauseMenuProof.cpp": "d83cd861a6be0bacdfe1390a88c8f78b85f21b2691fe604b88f3f57606c7c117",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkPauseMenuProof.cpp": "ab57138882992083e285ef782d71a467e68f23bb2065453f5811e03a6cebba9b",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkPauseMenuProof.h": "b7f6ca2d8d3f11df8b9a139f5fcce254d3c85b15b9d706b30d8e02b2c440b26b",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiAuthoringGym_Assets.as": "8123b953ca90a0f175a7022182237415df0242288292907f5e4419f00e12d1d9",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/PauseMenuProof.ui.html": "84f6d1979ba34fee08bd45e2bd52f2b0ff2c53d5ece04b10942c78b43a65e85f",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/PauseMenuProof.ui.css": "c8b102dbf7fedd66816cfe919bab314c16802457c3d9d68c03695bd1421c4df4",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/CustomWidgets/WidgetStack/CkStack_Widget.h": "22061226cf36f179ef2ca5299276fc3d4376a6e1503142d481ab55b268662d12",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/CustomWidgets/WidgetStack/CkStack_Widget.cpp": "60f13c21a1a14c483a840f457e2501df1e5da56eaacaf363023fb465f086adbd",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/Layout/CkUI_LayerMembership.h": "4b6cd6c5aebc60428279dae43c07cffe38befa3a7216ae9a453e0419d2548d10",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/Layout/CkUI_LayerMembership.cpp": "2fdd1cd208c59f161f62abaa74b171561aa4f1ed188a5b76539c15998c2d852a",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiLayerMembership_TestScenarios.h": "240288ca9b7790c6c86754f67427877651e1000bbe9d6206842b79eb1f9b5f3c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiLayerMembership_TestListener.h": "d3662571934219232d4a71805c9d39d2b5451be6b8a813e773a1bb711cc54f85",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiLayerMembership_Probe.as": "726b0edeb719ea48529055a7e473470d218361883f06c1589d60060c7224a62a",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptedPause_Widget.as": "c5dda70d2da584ae3fd90f2c98dce1b3bfe2bca192c941828217c3dd70802895",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiAuthoringGym_PlayerController.as": "392dd3b846c06ea290dabc300d74e659ac14cba25afd03f22df14df0e458de60",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkScriptedPause_TestAdapter.h": "0d39a2721b635cd39c215a0fddc8d60faaa49c33bceee640a615bf7046859f71",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_SettingsMenuProof.cpp": "bf502591bff467e727c5bce205afcb811b3f6a7eaf23583e091137804fb24d92",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_InventoryMenuProof.cpp": "1a6d72f81febb41144176018496237bb7aa09c0d2393469f558ef10364cfc52a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkInventoryMenuProofModel.h": "92bc0b23a8e4e2cb1e98da11e50ce085e1eed1ccde5115139a87e88d670fd52f",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkInventoryMenuProofModel.cpp": "de6814552e3d7df671e5e7bf7abe11bce39a8ee289f0e1d394fbc97cfe8320c4",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkInventoryMenuProof.h": "e643788bd5777465fbddd464dff4c78f49e9595f7d7866ef304a9c9160c25ac3",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/pause-menu-backdrop.png": "182f4aebacb423e87e18b64b8d637bf314ecb4ed932494de3c665ad9197ff747",
+    "Plugins/CkTests/Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.html": "7e0693c956a374d19cd92f3996ccc420e3e9badac95d4169e23586a2f44753c5",
+    "Plugins/CkTests/Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.css": "a308779ad2fb5b8cf4274e092b13ce233420010b5580c327f04477dfd5653fac",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.html": "926dcc27ccd0064df1a4681ce0649177592be29a6ca6e10374463023a7260a76",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.css": "aeb01d2bdc530f2a11c8bb42565f6605815678c440a76202d38f4344dd56d755",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/inventory-item-atlas.png": "dd508c365fd8aac071b30cabe0e6023341d055ba40f1401ecfaad549a04eb6eb"
+  },
+  "historicalReceipts": {
+    "Plugins/CkTests/Documentation/UI/DefaultFontProof/verification-receipt.json": "175986f8ccff9635443928b0059667ad46cc0f91fe3956ac751397dcff2863f2",
+    "Plugins/CkTests/Documentation/UI/LayerMembershipProof/verification-receipt.json": "1f8da2ed58e9a8e9aa9e33f40291de380c2df30c0584c6834ce7bf7fb9eb3089",
+    "Plugins/CkTests/Documentation/UI/OwnedInputProof/verification-receipt.json": "e6e9bad257852db5b2a5eb05dd0818596adbeab04fa08f03b29cff967cbd790e",
+    "Plugins/CkTests/Documentation/UI/PowerWheelProof/verification-receipt.json": "e7c16a15f9f91a2889798f3e50bec9cda13f6ebe9d0c8ca2c2cafefbd52ec3aa",
+    "Plugins/CkTests/Documentation/UI/ScriptingCardProof/verification-receipt.json": "1ee936258024ed81a9db8b23261065473361105f2050a35c8152c5474437323f",
+    "Plugins/CkTests/Documentation/UI/SkyrimJournalProof/verification-receipt.json": "0348051521c5bc0f3e94bee799613a0559e731695d202c5e4bb14e9229e4913e"
+  },
+  "captures": [
+    {
+      "path": "Saved/Automation/PauseMenuProof/1280x720-focused.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "dccbe599189d827abc3e76dae4def5b991d903be10f5bc64ea292aa8aaeb8fd8",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:03.146412+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-disabled.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "0270ca00bebb5ecbf73d7a77f1713a0da95053fc0b91c21c692661d178ce4154",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:04.813779+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-focused.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "1a5aa195f51986ee0a4aef4327bd4e8022330149a62aac3740d148d94589bd76",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:03.880740+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-hover.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "470c8698a9ca2f8253c8d8afecf72ed8cc58bb5dc3b02bf75350dcfeb83081d7",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:04.129817+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-long-label.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "9ed360274a2741cc95172cf7af6fbcf89afe02b6ff7ba3bf477bb02b0525e63b",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:05.144638+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-pressed.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "07f7c701074f73f5b9ac553a969dafde8395a310882387ba7db9628d7f282e97",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:04.381555+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/2560x1080-focused.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "9892efd0833e3a8c3ec792f846888c0df88e70f73029502546f83799d212e4ea",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:03.554435+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/armed-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "61293360cd83c038f342790d5bb92237a19dfd25dcb2ed78d9a5223fb3939bfb",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:28.102755+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/fired-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "741d4d29ae5e52a99b7f5a91ef81335d4345e0d78f8859f31a4047bea4e8d7b1",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:28.296240+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "e1729bd4415682e3f49a78ab23703856d75c273fe73a6be625197317458ea84f",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:27.116056+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "114a2d93c62f3380ba550a761dca549be366e5aa04631e6e3abc4fe980711b84",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:27.354387+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-2560x1440.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "d7386b5a02301fab33d46806ba8eca0668e9c076f75f88f0394245741b44bff9",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:27.691759+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "074a73f23bf032e4c3c0143ab687f8c4835b2a97af876868d2483e28997a4568",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:37.540282+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "c37cd6d291e216bbd282d58ccfedf58841b4f14fa1976a92d78b5655cf66706f",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:38.222386+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "2b2e1ebe21cbd3972288338a06095bd55b71fdbcfe8937230f4c989708354a94",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:37.908734+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-dirty-all-fields-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "0e57503419d93df8fa435ef4474abf1214ce6e96fd8fb9512c80d5f458a9ec7c",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:39.562721+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-dirty-reference-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "97750c631e57848ae56e28732c9fabe5acfc82c0a90f0b981e2d30071b176d4c",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:39.156284+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-popup-open-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "64ada3fc12cec17e076312767e49298e198df81d8eee72c2df7ba2c9b108dfa7",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:38.631759+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-popup-window.png",
+      "width": 1926,
+      "height": 1118,
+      "sha256": "3495ef484140f182e9139ffcd9b2a1500c3c58cdcb09153e3ab28d5edecae8cc",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:53:38.842890+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "e7a4b995a014a962521e44429837c04aa7e11d20a54c70c7fae271695fe6a46a",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:52:44.709786+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "419ed117e1314e5ab2810b87ccd67a9b24024b729a6936dad2127357c62f74ae",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:52:44.487320+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "d44082319a97bca2eb4a6b9e74d7ee02d3c2337fce3ef0f73369860ccbe36acc",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:52:45.085940+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-restored-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "a0bc82791d28b54fe38e326f755b22e8c389b41ce8b59256a1893a9e00420678",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:52:45.376618+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-empty-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "e31a4ac64144c8b273db40a7573dd2557482250b0370ecff50d1981fc79de40d",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:52:47.443101+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-equipped-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "59e249310fa45ef0c0b8556fd2515b21fffcb42fdee24c76b0d2f38924e5dcb0",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:52:46.361855+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-scrolled-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "2a056d10c2dee0bbdac705d174ae9dc73120bc062b4b5a35d59834a277987d01",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:52:45.590347+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-supplies-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "e3b39156f9416ef7e79a5214d17414f8aa66e68813fb7bfb59e94871973ce756",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T05:52:46.730438+00:00"
+    }
+  ],
+  "visualInspectionManifest": "Saved/Automation/ScriptedPauseCaptureInspection-04.json",
+  "visualInspectionManifestSha256": "9df2e62858f745edd0bbbcbc67699fb77900ccf6c2e4159b2a62c1286385f14e",
+  "scope": "Actual AngelScript Pause screen and real gym shortcut, retained native Settings child, source contracts, input/focus/lifetime scenarios, and compatible authoring checks.",
+  "bootPlanDeviation": "The initial combined build/test started inline discovery and a cached worker. Discovery rejected the interaction-owner script binding; the quiet runtime worker exceeded the idle watchdog and respawned. The owned run was cancelled, the binding was repaired and a separate incremental build passed. Gate02 produced no tests: quiet engine material initialization exceeded the idle watchdog, followed by a respawn and renderer fallback. Gate03 restored the successful historical gate's per-run verbose shader logging and completed 14/15 tests. Its sole red assertion incorrectly required both popup Escape press and release to be handled; Slate's menu handler clears focus during dismissal. The fixture was corrected to dispatch both events and assert handled press plus exact popup/child/parent state. Gate04 reruns the same focused population after the incremental fixture build. All logged Editor boots are counted; cancelled attempts provide no runtime verdict.",
+  "capabilities": [
+    "Actual script class creates UMG shell, imports loose PNG, declares scalars/actions/required buttons and owns source and pause policy.",
+    "Real gym [1] creates script Pause; nested native Settings returns to the same script parent/session/view/revision through Cancel and Escape.",
+    "Missing/changed required ordinary-button contracts reject before staging; optional empty native configurations remain compatible.",
+    "Pure focused-button query supports disable-focused-button navigation repair; EndInput(false) drains and discards saved focus without callbacks.",
+    "Interaction-owner config has nullable object-by-value script accessors; actual script round trips null and its derived owner before initialization.",
+    "Prepared Settings commits synchronously or expires at next CoreTicker pump without changing retained parent state.",
+    "Exact native child push is one-shot; child focus attempts once and has no activation/polling retries.",
+    "Script preserves external pause, retires session on terminal clear/removal/layout destroy, and covered parent retains its accepted view.",
+    "Exact captured watcher gates terminal removal after child-close callbacks, preserving same-UObject newer admission while releasing old view."
+  ],
+  "limitations": [
+    "Legacy native Pause functions remain for compatible native screen swaps; Settings/Inventory are not fully migrated and net C++ deletion is not established.",
+    "Required title/hint nodes and button label bindings are not declared as mandatory reflected source contracts.",
+    "Instant CommonUI transitions only; nonzero transition animation and complete terminal focus reentry are not proved by this fixture.",
+    "Prepared-child focus redirection/failure rollback is inspected in production code; this gate does not force that callback path.",
+    "Popup Escape is verified to dismiss only the popup; subsequent Cancel is explicitly focused, so automatic focus recovery after dismissal is not proved.",
+    "Physical gamepad behavior, packaged lookup, real gameplay persistence/title travel and complete foreign-user action rejection remain unverified.",
+    "Second-player lifetime scenarios overlay a single scene view, not two-view split-screen rendering."
+  ]
+}

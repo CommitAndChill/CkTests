@@ -1,0 +1,907 @@
+{
+  "schemaVersion": 1,
+  "nodeCount": 50,
+  "logicalViewport": [
+    1920,
+    1080
+  ],
+  "status": "source-checked-focused-runtime-verified",
+  "reference": "illustrative; not runtime evidence",
+  "nodes": [
+    {
+      "id": "mission-board",
+      "tag": "column",
+      "parentId": null,
+      "scope": "main-region",
+      "classes": [
+        "board"
+      ],
+      "declaredPadding": "64px 80px 40px 80px"
+    },
+    {
+      "id": "board-header",
+      "tag": "row",
+      "parentId": "mission-board",
+      "scope": "main-region",
+      "classes": [
+        "header"
+      ],
+      "declaredSize": {
+        "height": "140px"
+      }
+    },
+    {
+      "id": "brand",
+      "tag": "column",
+      "parentId": "board-header",
+      "scope": "main-region",
+      "classes": [
+        "brand"
+      ],
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "board-kicker",
+      "tag": "text",
+      "parentId": "brand",
+      "scope": "main-region",
+      "classes": [
+        "kicker"
+      ],
+      "textLiteral": "TERMINUS / OPERATIONS COMMAND",
+      "declaredSize": {
+        "height": "34px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "22px",
+        "color": "#6ECFE6",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "board-title",
+      "tag": "text",
+      "parentId": "brand",
+      "scope": "main-region",
+      "classes": [
+        "title"
+      ],
+      "textLiteral": "MISSION BOARD",
+      "declaredSize": {
+        "height": "92px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "56px",
+        "font-weight": "bold",
+        "color": "#EDF5F8",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "connection",
+      "tag": "column",
+      "parentId": "board-header",
+      "scope": "main-region",
+      "classes": [
+        "connection"
+      ],
+      "declaredSize": {
+        "width": "380px"
+      },
+      "declaredPadding": "18px 0px 0px 0px"
+    },
+    {
+      "id": "board-online",
+      "tag": "text",
+      "parentId": "connection",
+      "scope": "main-region",
+      "classes": [
+        "online"
+      ],
+      "textLiteral": "UPLINK ESTABLISHED",
+      "declaredSize": {
+        "height": "38px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "22px",
+        "color": "#79DDB8",
+        "text-wrap": "nowrap",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "board-status",
+      "tag": "text",
+      "parentId": "connection",
+      "scope": "main-region",
+      "classes": [
+        "subtle"
+      ],
+      "bindings": {
+        "bind": "BoardStatus"
+      },
+      "declaredSize": {
+        "height": "38px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "20px",
+        "color": "#809AAD",
+        "text-wrap": "nowrap",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "board-rule",
+      "tag": "column",
+      "parentId": "mission-board",
+      "scope": "main-region",
+      "classes": [
+        "rule"
+      ],
+      "declaredSize": {
+        "height": "2px"
+      }
+    },
+    {
+      "id": "board-body",
+      "tag": "row",
+      "parentId": "mission-board",
+      "scope": "main-region",
+      "classes": [
+        "body"
+      ],
+      "declaredSize": {
+        "height": "770px"
+      },
+      "declaredPadding": "34px 0px 0px 0px"
+    },
+    {
+      "id": "mission-feed",
+      "tag": "column",
+      "parentId": "board-body",
+      "scope": "main-region",
+      "classes": [
+        "feed"
+      ],
+      "declaredSize": {
+        "width": "920px"
+      }
+    },
+    {
+      "id": "feed-heading",
+      "tag": "row",
+      "parentId": "mission-feed",
+      "scope": "main-region",
+      "classes": [
+        "feed-heading"
+      ],
+      "declaredSize": {
+        "height": "56px"
+      }
+    },
+    {
+      "id": "feed-label",
+      "tag": "text",
+      "parentId": "feed-heading",
+      "scope": "main-region",
+      "classes": [
+        "section-label"
+      ],
+      "textLiteral": "ACTIVE OPERATIONS",
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "24px",
+        "font-weight": "bold",
+        "color": "#D9E9EF",
+        "text-wrap": "nowrap"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "mission-count",
+      "tag": "text",
+      "parentId": "feed-heading",
+      "scope": "main-region",
+      "classes": [
+        "count"
+      ],
+      "bindings": {
+        "bind": "MissionCount"
+      },
+      "declaredSize": {
+        "width": "230px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "21px",
+        "color": "#6ECFE6",
+        "text-wrap": "nowrap",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "missions",
+      "tag": "repeat",
+      "parentId": "mission-feed",
+      "scope": "main-region",
+      "classes": [
+        "mission-list"
+      ],
+      "bindings": {
+        "bind": "Missions"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "mission-row",
+      "tag": "column",
+      "parentId": "missions",
+      "scope": "repeat-item-local",
+      "classes": [
+        "mission-row"
+      ],
+      "declaredSize": {
+        "height": "148px"
+      },
+      "declaredPadding": "12px 24px 12px 24px"
+    },
+    {
+      "id": "mission-select",
+      "tag": "button",
+      "parentId": "mission-row",
+      "scope": "repeat-item-local",
+      "classes": [
+        "mission-select"
+      ],
+      "bindings": {
+        "bind-field": "TitleText",
+        "color-field": "AccentColor",
+        "item-action": "SelectMission"
+      },
+      "declaredSize": {
+        "height": "54px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "29px",
+        "font-weight": "bold"
+      },
+      "declaredVisualStateAndButtonStyle": {
+        "-ck-button-text-align": "left",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#102332",
+        "-ck-button-border-color": "#102332",
+        "-ck-button-color": "#6ECFE6",
+        "-ck-button-hover-background": "#1A384A",
+        "-ck-button-hover-border-color": "#6ECFE6",
+        "-ck-button-focus-background": "#1A384A",
+        "-ck-button-focus-outline-color": "#6ECFE6",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-focus-outline-gap": "0px",
+        "-ck-button-pressed-background": "#254B60",
+        "-ck-button-radius": "3px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "10px",
+        "-ck-button-padding-y": "0px"
+      }
+    },
+    {
+      "id": "mission-route-wrap",
+      "tag": "column",
+      "parentId": "mission-row",
+      "scope": "repeat-item-local",
+      "classes": [
+        "mission-route-wrap"
+      ],
+      "declaredSize": {
+        "height": "30px"
+      },
+      "declaredPadding": "0px 10px 0px 10px"
+    },
+    {
+      "id": "mission-route",
+      "tag": "text",
+      "parentId": "mission-route-wrap",
+      "scope": "repeat-item-local",
+      "classes": [
+        "mission-route"
+      ],
+      "bindings": {
+        "bind-field": "RouteText"
+      },
+      "declaredSize": {
+        "height": "30px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "19px",
+        "color": "#9CB2C1",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "mission-meta",
+      "tag": "row",
+      "parentId": "mission-row",
+      "scope": "repeat-item-local",
+      "classes": [
+        "mission-meta"
+      ],
+      "declaredSize": {
+        "height": "30px"
+      },
+      "declaredPadding": "0px 10px 0px 10px"
+    },
+    {
+      "id": "mission-status",
+      "tag": "text",
+      "parentId": "mission-meta",
+      "scope": "repeat-item-local",
+      "classes": [
+        "mission-status"
+      ],
+      "bindings": {
+        "bind-field": "StatusText"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "18px",
+        "color": "#728E9F",
+        "text-wrap": "nowrap"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "mission-done",
+      "tag": "text",
+      "parentId": "mission-meta",
+      "scope": "repeat-item-local",
+      "classes": [
+        "mission-done"
+      ],
+      "bindings": {
+        "visible-field": "DoneBool"
+      },
+      "textLiteral": "COMPLETED",
+      "declaredSize": {
+        "width": "160px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "18px",
+        "font-weight": "bold",
+        "color": "#79DDB8",
+        "text-wrap": "nowrap",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "selected-panel",
+      "tag": "column",
+      "parentId": "board-body",
+      "scope": "main-region",
+      "classes": [
+        "selected-panel"
+      ],
+      "declaredPadding": "32px",
+      "declaredFlex": {
+        "flex-grow": "1",
+        "flex-shrink": "1"
+      }
+    },
+    {
+      "id": "selection-label",
+      "tag": "text",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "selection-label"
+      ],
+      "bindings": {
+        "bind": "Selection"
+      },
+      "declaredSize": {
+        "height": "34px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "21px",
+        "font-weight": "bold",
+        "color": "#F6B65E",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "detail-title",
+      "tag": "text",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "detail-title"
+      ],
+      "bindings": {
+        "bind": "DetailTitle"
+      },
+      "declaredSize": {
+        "height": "62px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "37px",
+        "font-weight": "bold",
+        "color": "#EDF5F8",
+        "text-wrap": "nowrap",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "detail-route",
+      "tag": "text",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "detail-route"
+      ],
+      "bindings": {
+        "bind": "DetailRoute"
+      },
+      "declaredSize": {
+        "height": "36px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "21px",
+        "color": "#9CB2C1",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "route-map",
+      "tag": "column",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "route-map"
+      ],
+      "declaredSize": {
+        "height": "96px"
+      },
+      "declaredPadding": "14px 18px 10px 18px"
+    },
+    {
+      "id": "route-nodes",
+      "tag": "row",
+      "parentId": "route-map",
+      "scope": "main-region",
+      "classes": [
+        "route-nodes"
+      ],
+      "declaredSize": {
+        "height": "40px"
+      },
+      "declaredPadding": "0px 76px 0px 76px"
+    },
+    {
+      "id": "route-home",
+      "tag": "column",
+      "parentId": "route-nodes",
+      "scope": "main-region",
+      "classes": [
+        "route-node"
+      ],
+      "declaredSize": {
+        "width": "34px",
+        "height": "34px"
+      },
+      "declaredTypography": {
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "route-line-a",
+      "tag": "column",
+      "parentId": "route-nodes",
+      "scope": "main-region",
+      "classes": [
+        "route-line"
+      ],
+      "declaredSize": {
+        "height": "2px"
+      },
+      "declaredTypography": {
+        "vertical-align": "center"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "route-objective",
+      "tag": "column",
+      "parentId": "route-nodes",
+      "scope": "main-region",
+      "classes": [
+        "route-objective"
+      ],
+      "declaredSize": {
+        "width": "38px",
+        "height": "38px"
+      },
+      "declaredTypography": {
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "route-line-b",
+      "tag": "column",
+      "parentId": "route-nodes",
+      "scope": "main-region",
+      "classes": [
+        "route-line"
+      ],
+      "declaredSize": {
+        "height": "2px"
+      },
+      "declaredTypography": {
+        "vertical-align": "center"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "route-next",
+      "tag": "column",
+      "parentId": "route-nodes",
+      "scope": "main-region",
+      "classes": [
+        "route-node"
+      ],
+      "declaredSize": {
+        "width": "34px",
+        "height": "34px"
+      },
+      "declaredTypography": {
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "route-labels",
+      "tag": "row",
+      "parentId": "route-map",
+      "scope": "main-region",
+      "classes": [
+        "route-labels"
+      ],
+      "declaredSize": {
+        "height": "32px"
+      }
+    },
+    {
+      "id": "route-home-label",
+      "tag": "text",
+      "parentId": "route-labels",
+      "scope": "main-region",
+      "classes": [
+        "route-label"
+      ],
+      "textLiteral": "TERMINUS",
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "17px",
+        "color": "#6ECFE6",
+        "text-wrap": "nowrap",
+        "horizontal-align": "center"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "route-objective-label",
+      "tag": "text",
+      "parentId": "route-labels",
+      "scope": "main-region",
+      "classes": [
+        "route-label"
+      ],
+      "textLiteral": "OBJECTIVE",
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "17px",
+        "color": "#6ECFE6",
+        "text-wrap": "nowrap",
+        "horizontal-align": "center"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "route-next-label",
+      "tag": "text",
+      "parentId": "route-labels",
+      "scope": "main-region",
+      "classes": [
+        "route-label"
+      ],
+      "textLiteral": "NEXT JUMP",
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "17px",
+        "color": "#6ECFE6",
+        "text-wrap": "nowrap",
+        "horizontal-align": "center"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "detail-rule",
+      "tag": "column",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "rule"
+      ],
+      "declaredSize": {
+        "height": "2px"
+      }
+    },
+    {
+      "id": "briefing-label",
+      "tag": "text",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "briefing-label"
+      ],
+      "textLiteral": "MISSION BRIEFING",
+      "declaredSize": {
+        "height": "34px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "19px",
+        "color": "#6ECFE6",
+        "text-wrap": "nowrap",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "detail-brief",
+      "tag": "text",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "detail-brief"
+      ],
+      "bindings": {
+        "bind": "DetailBrief"
+      },
+      "declaredSize": {
+        "height": "90px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "25px",
+        "color": "#CDDFE8",
+        "text-wrap": "wrap"
+      }
+    },
+    {
+      "id": "detail-spacer",
+      "tag": "column",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "detail-spacer"
+      ],
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "telemetry",
+      "tag": "column",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "telemetry"
+      ],
+      "declaredSize": {
+        "height": "126px"
+      },
+      "declaredPadding": "10px 18px 10px 18px"
+    },
+    {
+      "id": "progress-label",
+      "tag": "text",
+      "parentId": "telemetry",
+      "scope": "main-region",
+      "classes": [
+        "telemetry-label"
+      ],
+      "textLiteral": "OBJECTIVE TELEMETRY",
+      "declaredSize": {
+        "height": "30px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "17px",
+        "color": "#809AAD",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "detail-progress",
+      "tag": "text",
+      "parentId": "telemetry",
+      "scope": "main-region",
+      "classes": [
+        "detail-progress"
+      ],
+      "bindings": {
+        "bind": "DetailProgress"
+      },
+      "declaredSize": {
+        "height": "40px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "24px",
+        "color": "#D9E9EF",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "detail-status",
+      "tag": "text",
+      "parentId": "telemetry",
+      "scope": "main-region",
+      "classes": [
+        "detail-status"
+      ],
+      "bindings": {
+        "bind": "DetailStatus"
+      },
+      "declaredSize": {
+        "height": "36px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "20px",
+        "font-weight": "bold",
+        "color": "#F6B65E",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "mission-complete",
+      "tag": "button",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "complete"
+      ],
+      "actions": {
+        "action": "CompleteMission"
+      },
+      "textLiteral": "COMPLETE OBJECTIVE",
+      "declaredSize": {
+        "height": "60px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "25px",
+        "font-weight": "bold"
+      },
+      "declaredVisualStateAndButtonStyle": {
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#755326",
+        "-ck-button-border-color": "#F6B65E",
+        "-ck-button-color": "#FFF1D7",
+        "-ck-button-hover-background": "#936A31",
+        "-ck-button-hover-border-color": "#FFF1D7",
+        "-ck-button-focus-background": "#936A31",
+        "-ck-button-focus-outline-color": "#FFF1D7",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-focus-outline-gap": "2px",
+        "-ck-button-pressed-background": "#A97D40",
+        "-ck-button-radius": "4px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "20px",
+        "-ck-button-padding-y": "0px"
+      }
+    },
+    {
+      "id": "detail-hint",
+      "tag": "text",
+      "parentId": "selected-panel",
+      "scope": "main-region",
+      "classes": [
+        "detail-hint"
+      ],
+      "textLiteral": "Confirm when the objective has been secured.",
+      "declaredSize": {
+        "height": "30px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "18px",
+        "color": "#809AAD",
+        "text-wrap": "nowrap",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "board-footer",
+      "tag": "row",
+      "parentId": "mission-board",
+      "scope": "main-region",
+      "classes": [
+        "footer"
+      ],
+      "declaredSize": {
+        "height": "64px"
+      },
+      "declaredTypography": {
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "footer-brand",
+      "tag": "text",
+      "parentId": "board-footer",
+      "scope": "main-region",
+      "classes": [
+        "footer-brand"
+      ],
+      "textLiteral": "TERMINUS / EXPEDITION NETWORK",
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "18px",
+        "color": "#678394",
+        "text-wrap": "nowrap"
+      },
+      "declaredFlex": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "footer-code",
+      "tag": "text",
+      "parentId": "board-footer",
+      "scope": "main-region",
+      "classes": [
+        "footer-code"
+      ],
+      "textLiteral": "SECURE CHANNEL  //  07.19",
+      "declaredSize": {
+        "width": "380px"
+      },
+      "declaredTypography": {
+        "font-family": "mission-ui",
+        "font-size": "18px",
+        "color": "#678394",
+        "text-wrap": "nowrap",
+        "horizontal-align": "right"
+      }
+    }
+  ]
+}

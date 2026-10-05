@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-runtime-verified",
+  "sourceOfTruth": "code-and-authored-resources",
+  "architecture": {
+    "host": "AngelScript UUserWidget",
+    "surface": "UCk_UI_AuthoredSurface_UE",
+    "session": "UCk_UI_AuthoredSession_UE",
+    "region": "main",
+    "widgetBlueprintRequired": false
+  },
+  "logicalViewport": [
+    1920,
+    1080
+  ],
+  "panel": {
+    "width": 820,
+    "height": 824,
+    "padding": 42
+  },
+  "regions": [
+    "main"
+  ],
+  "initialModel": {
+    "Text": {
+      "ShotCount": "0",
+      "ChargeLabel": "65%",
+      "Status": "READY"
+    },
+    "Number": {
+      "Charge": 65
+    },
+    "Bool": {
+      "Safety": true
+    },
+    "Actions": [
+      "Fire"
+    ]
+  },
+  "nodeCount": 28,
+  "nodes": [
+    {
+      "id": "card-composition",
+      "tag": "column",
+      "parentId": null,
+      "scope": "main-region",
+      "cssClasses": [
+        "composition"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-top-space",
+      "tag": "column",
+      "parentId": "card-composition",
+      "scope": "main-region",
+      "cssClasses": [
+        "outer-space"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-panel",
+      "tag": "column",
+      "parentId": "card-composition",
+      "scope": "main-region",
+      "cssClasses": [
+        "panel"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-header",
+      "tag": "row",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "header"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-kicker",
+      "tag": "text",
+      "parentId": "card-header",
+      "scope": "main-region",
+      "cssClasses": [
+        "kicker"
+      ],
+      "attributes": {},
+      "staticText": "HELIOS / ARMORY"
+    },
+    {
+      "id": "card-unit",
+      "tag": "text",
+      "parentId": "card-header",
+      "scope": "main-region",
+      "cssClasses": [
+        "unit"
+      ],
+      "attributes": {},
+      "staticText": "MK. VII"
+    },
+    {
+      "id": "card-title",
+      "tag": "text",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "title"
+      ],
+      "attributes": {},
+      "staticText": "PULSE CARBINE"
+    },
+    {
+      "id": "card-subtitle",
+      "tag": "text",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "subtitle"
+      ],
+      "attributes": {},
+      "staticText": "Weapon systems online. Awaiting operator."
+    },
+    {
+      "id": "card-divider",
+      "tag": "column",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "divider"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-telemetry",
+      "tag": "row",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "telemetry"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-shot-readout",
+      "tag": "column",
+      "parentId": "card-telemetry",
+      "scope": "main-region",
+      "cssClasses": [
+        "readout"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-shot-label",
+      "tag": "text",
+      "parentId": "card-shot-readout",
+      "scope": "main-region",
+      "cssClasses": [
+        "readout-label"
+      ],
+      "attributes": {},
+      "staticText": "ROUNDS FIRED"
+    },
+    {
+      "id": "card-shot-value",
+      "tag": "text",
+      "parentId": "card-shot-readout",
+      "scope": "main-region",
+      "cssClasses": [
+        "shot-value"
+      ],
+      "attributes": {
+        "bind": "ShotCount"
+      },
+      "staticText": ""
+    },
+    {
+      "id": "card-state-readout",
+      "tag": "column",
+      "parentId": "card-telemetry",
+      "scope": "main-region",
+      "cssClasses": [
+        "state-readout"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-state-label",
+      "tag": "text",
+      "parentId": "card-state-readout",
+      "scope": "main-region",
+      "cssClasses": [
+        "readout-label"
+      ],
+      "attributes": {},
+      "staticText": "SYSTEM STATUS"
+    },
+    {
+      "id": "card-status",
+      "tag": "text",
+      "parentId": "card-state-readout",
+      "scope": "main-region",
+      "cssClasses": [
+        "status"
+      ],
+      "attributes": {
+        "bind": "Status"
+      },
+      "staticText": ""
+    },
+    {
+      "id": "card-charge-header",
+      "tag": "row",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "charge-header"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-charge-label",
+      "tag": "text",
+      "parentId": "card-charge-header",
+      "scope": "main-region",
+      "cssClasses": [
+        "field-label"
+      ],
+      "attributes": {},
+      "staticText": "CAPACITOR CHARGE"
+    },
+    {
+      "id": "card-charge-value",
+      "tag": "text",
+      "parentId": "card-charge-header",
+      "scope": "main-region",
+      "cssClasses": [
+        "field-value"
+      ],
+      "attributes": {
+        "bind": "ChargeLabel"
+      },
+      "staticText": ""
+    },
+    {
+      "id": "card-charge",
+      "tag": "slider",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "charge-slider"
+      ],
+      "attributes": {
+        "value-bind": "Charge",
+        "interaction": "Charge",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "staticText": ""
+    },
+    {
+      "id": "card-safety-row",
+      "tag": "row",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "safety-row"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-safety-copy",
+      "tag": "column",
+      "parentId": "card-safety-row",
+      "scope": "main-region",
+      "cssClasses": [
+        "safety-copy"
+      ],
+      "attributes": {},
+      "staticText": ""
+    },
+    {
+      "id": "card-safety-label",
+      "tag": "text",
+      "parentId": "card-safety-copy",
+      "scope": "main-region",
+      "cssClasses": [
+        "field-label"
+      ],
+      "attributes": {},
+      "staticText": "SAFETY INTERLOCK"
+    },
+    {
+      "id": "card-safety-hint",
+      "tag": "text",
+      "parentId": "card-safety-copy",
+      "scope": "main-region",
+      "cssClasses": [
+        "helper"
+      ],
+      "attributes": {},
+      "staticText": "Disengage to enable live fire."
+    },
+    {
+      "id": "card-safety",
+      "tag": "checkbox",
+      "parentId": "card-safety-row",
+      "scope": "main-region",
+      "cssClasses": [
+        "safety-checkbox"
+      ],
+      "attributes": {
+        "value-bind": "Safety",
+        "changed": "Safety"
+      },
+      "staticText": ""
+    },
+    {
+      "id": "card-fire",
+      "tag": "button",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "fire-button"
+      ],
+      "attributes": {
+        "action": "Fire"
+      },
+      "staticText": "FIRE WEAPON"
+    },
+    {
+      "id": "card-footer",
+      "tag": "text",
+      "parentId": "card-panel",
+      "scope": "main-region",
+      "cssClasses": [
+        "footer"
+      ],
+      "attributes": {},
+      "staticText": "HELIOS SYSTEMS / TRAINING LINK ACTIVE"
+    },
+    {
+      "id": "card-bottom-space",
+      "tag": "column",
+      "parentId": "card-composition",
+      "scope": "main-region",
+      "cssClasses": [
+        "outer-space"
+      ],
+      "attributes": {},
+      "staticText": ""
+    }
+  ],
+  "limits": [
+    "Editor fixture only",
+    "bounded English copy",
+    "scalar bindings only",
+    "no real weapon integration",
+    "packaging and installed plugin lookup unverified"
+  ],
+  "verificationReceipt": "verification-receipt.json"
+}

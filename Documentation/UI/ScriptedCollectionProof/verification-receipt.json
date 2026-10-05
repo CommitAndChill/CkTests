@@ -1,0 +1,1356 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-runtime-verified",
+  "summary": {
+    "total": 32,
+    "passed": 32,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0
+  },
+  "testNames": [
+    "Ck.UiAuthoring.Collection.AtomicBatchMutation",
+    "Ck.UiAuthoring.Collection.ChildCollectionsAtomicity",
+    "Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder",
+    "Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation",
+    "Ck.UiAuthoring.Collection.ValidationAndDataScale",
+    "Ck.UiAuthoring.Fonts.NativeRuntime",
+    "Ck.UiAuthoring.Fonts.RegistryValidation",
+    "Ck.UiAuthoring.FormStyles.RetainedNativeControls",
+    "Ck.UiAuthoring.InventoryMenuProof.PIE",
+    "Ck.UiAuthoring.Journal.PIE",
+    "Ck.UiAuthoring.PauseMenuProof.PIE",
+    "Ck.UiAuthoring.PowerWheel.PIE",
+    "Ck.UiAuthoring.Repeat.CollectionReplacement",
+    "Ck.UiAuthoring.Repeat.ConstrainedGeometry",
+    "Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries",
+    "Ck.UiAuthoring.Repeat.EmptyPreflight",
+    "Ck.UiAuthoring.Repeat.FailedChildAtomicity",
+    "Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity",
+    "Ck.UiAuthoring.Repeat.ItemTypedEvents",
+    "Ck.UiAuthoring.Repeat.KeyedRetentionAndActions",
+    "Ck.UiAuthoring.Repeat.NestedChildBinding",
+    "Ck.UiAuthoring.Repeat.RemovedItemClearsFocus",
+    "Ck.UiAuthoring.ScriptedCollection.PIE",
+    "Ck.UiAuthoring.ScriptingCard.PIE",
+    "Ck.UiAuthoring.SettingsMenuProof.PIE",
+    "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+    "Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload",
+    "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars",
+    "Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents",
+    "Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc",
+    "Ck.UiAuthoring.UMG.SurfaceLifetime",
+    "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+  ],
+  "gateLog": "Saved/Logs/ScriptedCollection-Gate-04.log",
+  "gateLogSha256": "6caab55afcb372fd28e4e5019c07f2827b633fc7c34b172627ce438b619065c3",
+  "buildLog": "Saved/Logs/ScriptedCollection-Build-06.log",
+  "buildLogSha256": "ee00caf706e3f07f38a49e61da1b80ef2a01ce2a3b52cf982452a8d40b90ee36",
+  "buildActions": 4,
+  "buildDurationSeconds": 10.99,
+  "buildAttempts": [
+    {
+      "log": "Saved/Logs/ScriptedCollection-Build-01.log",
+      "sha256": "8ce9a2ec156f1eebb0c880a98f4fee4f966cc1b2b0b7d1e9c419836206c48552",
+      "succeeded": false,
+      "buildActions": 23,
+      "buildDurationSeconds": 46.09,
+      "editorBoots": 0,
+      "compilerErrors": [
+        "D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(327,27): error C2664: 'bool ck_scripted_collection_pie::CheckBounds(const TSharedRef<SWidget,ESPMode::ThreadSafe> &,FAutomationTestBase &,const FString &,const FSlateRect &)': cannot convert argument 4 from 'initializer list' to 'const FSlateRect &'",
+        "D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(377,5): error C2662: 'FChildren *SWidget::GetChildren(void)': cannot convert 'this' pointer from 'ObjectType' to 'SWidget &'",
+        "D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_UiRepeat.cpp(457,126): error C2662: 'FChildren *SWidget::GetChildren(void)': cannot convert 'this' pointer from 'ObjectType' to 'SWidget &'"
+      ],
+      "externalBuildLockWait": []
+    },
+    {
+      "log": "Saved/Logs/ScriptedCollection-Build-02.log",
+      "sha256": "d1c3a9fa5a43d1790ee3617731b7dd417e9fe55f904632cbf54b6d97645351f8",
+      "succeeded": true,
+      "buildActions": 5,
+      "buildDurationSeconds": 12.55,
+      "editorBoots": 0,
+      "compilerErrors": [],
+      "externalBuildLockWait": []
+    },
+    {
+      "log": "Saved/Logs/ScriptedCollection-Build-03.log",
+      "sha256": "d8f9459126c294ca3a711862ec8995091306ff5fad8179a78787918d222b818c",
+      "succeeded": true,
+      "buildActions": 5,
+      "buildDurationSeconds": 22.06,
+      "editorBoots": 0,
+      "compilerErrors": [],
+      "externalBuildLockWait": [
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 16s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 32s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 48s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 1m 4s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 1m 20s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 1m 36s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 1m 51s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 2m 7s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 2m 23s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 2m 39s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 2m 55s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 3m 11s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 3m 27s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 3m 43s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 3m 59s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 4m 15s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 4m 31s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 4m 47s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 5m 3s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 5m 19s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 5m 34s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 5m 50s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 6m 6s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 6m 22s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 6m 38s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 6m 54s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 7m 10s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 7m 26s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 7m 42s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 7m 58s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 8m 14s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 8m 30s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 8m 46s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 9m 1s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 9m 17s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 9m 33s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 9m 49s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 10m 5s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 10m 21s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 10m 37s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 10m 53s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 11m 9s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 11m 25s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 11m 41s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 11m 57s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 12m 12s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 12m 28s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 12m 44s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 13m 0s. (Pass --no-wait to fail fast; check with --build-status.)",
+        "Waiting on Saad#18856 (PID 18856): Build CkPluginsEditor DebugGame Win64 of D:\\Repos\\CkPlugins_3\\CkPlugins.uproject, started 2026-10-05 00:12:52 - elapsed 13m 16s. (Pass --no-wait to fail fast; check with --build-status.)"
+      ]
+    },
+    {
+      "log": "Saved/Logs/ScriptedCollection-Build-04.log",
+      "sha256": "adba005fe55467d9db82a2600187f39939999f82fe8aaf3b48d28f10cd5539c7",
+      "succeeded": true,
+      "buildActions": 6,
+      "buildDurationSeconds": 13.47,
+      "editorBoots": 0,
+      "compilerErrors": [],
+      "externalBuildLockWait": []
+    },
+    {
+      "log": "Saved/Logs/ScriptedCollection-Build-05.log",
+      "sha256": "f7f2315d1ed818a72b2520579e59527c173a111d6d801661d756fb88bd04690a",
+      "succeeded": true,
+      "buildActions": 4,
+      "buildDurationSeconds": 12.93,
+      "editorBoots": 0,
+      "compilerErrors": [],
+      "externalBuildLockWait": []
+    },
+    {
+      "log": "Saved/Logs/ScriptedCollection-Build-06.log",
+      "sha256": "ee00caf706e3f07f38a49e61da1b80ef2a01ce2a3b52cf982452a8d40b90ee36",
+      "succeeded": true,
+      "buildActions": 4,
+      "buildDurationSeconds": 10.99,
+      "editorBoots": 0,
+      "compilerErrors": [],
+      "externalBuildLockWait": []
+    }
+  ],
+  "buildCorrection": "Build-01 rejected three test expressions (implicit Slate rectangle and const widget children). Build-02 corrected those expressions. Build-03 rebuilt the native reorder fix after waiting for another project build. Build-04 compiled corrected fixtures after Gate-01 and followed the authored Mission Board padding correction. Build-05 made the repeat test return immediately when its compatible retained-identity TestTrue assertion fails; its correction pass also removed duplicate board CSS dimensions owned by the script SizeBox. Build-06 propagated ancestor visibility in the tagged-text test fixture, retaining label-presence and false-to-true behavior checks. Its correction pass also added panel shrink and measured row heights. These builds booted no Editor.",
+  "redReproduction": {
+    "log": "Saved/Logs/ScriptedCollection-Red-01.log",
+    "sha256": "a01d584db4db7d73e9641c198d74245c9292a528674c4c2853999a0ec232e94b",
+    "durationSeconds": 26,
+    "summary": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "contaminated": 0
+    },
+    "assertions": [
+      "Expected 'Pure reorder publishes requested record order' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_UiCollection.cpp(95)]",
+      "Expected 'Pure reorder advances collection revision once' to be 3, but it was 2. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_UiCollection.cpp(98)]",
+      "Expected 'Pure reorder emits one notification' to be 3, but it was 2. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_UiCollection.cpp(99)]"
+    ],
+    "sourceSnapshot": "Saved/Automation/ScriptedCollectionFrozenSources-02.json",
+    "sourceSnapshotSha256": "9508b6f24c9e693158deee694f010a0038d479b1ece0716beccdab999554a894",
+    "nativeProductionUnchangedBeforeFix": true,
+    "nativeProductionEvidence": {
+      "manifest": "Saved/Automation/ScriptedCollectionRedNativeEvidence-01.json",
+      "sha256": "a114dc6649c6c9431e140a306abbb106dd866d421348a51b18c46e9998a473e7",
+      "evidence": {
+        "status": "verified",
+        "repository": "Plugins/CkFoundation",
+        "commit": "51bf4d3ab485d92435b154c8687a540b39b674ad",
+        "path": "Source/CkSlateLayout/Private/CkUiCollection.cpp",
+        "normalizedCrLfSha256": "3e158b6c06890eb1ea9c960790d7e9c693d39fb75e509002124f5fafb7d5a54d",
+        "redSourceSnapshot": "Saved/Automation/ScriptedCollectionFrozenSources-02.json"
+      }
+    },
+    "nativeBaselineSnapshot": "Saved/Automation/ScriptedCollectionFrozenSources-01.json",
+    "nativeBaselineSnapshotSha256": "bd686f6d5dbe8c4cd069385baea67e284a7023b4e544b18e5d729d0d9aaad57e",
+    "diagnostics": {
+      "unrealErrors": 4,
+      "fatals": 0,
+      "ensures": 0,
+      "staleScriptOrCompileErrors": 0,
+      "chromiumUsbPropertyErrors": 0,
+      "chromiumCrlVerificationErrors": 0
+    },
+    "editorBoots": 1,
+    "startupCommandLines": [
+      "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation RunTests Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation; Quit\" -unattended -nopause -log -stdout -nullrhi -nosplash\"\""
+    ]
+  },
+  "discovery": {
+    "log": "Saved/Logs/ScriptedCollection-Discovery-01.log",
+    "sha256": "f215b27eff1f6815c52a7f37bd966a6ec215dca7aab1181ea14452b849fca0b0",
+    "fresh": true,
+    "selectedTestCount": 32,
+    "discoveredScriptedCollectionPIE": true,
+    "editorBoots": 2,
+    "diagnostics": {
+      "unrealErrors": 0,
+      "fatals": 0,
+      "ensures": 0,
+      "staleScriptOrCompileErrors": 0,
+      "chromiumUsbPropertyErrors": 1,
+      "chromiumCrlVerificationErrors": 17
+    },
+    "startupCommandLines": [
+      "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation List; Quit\" -unattended -nopause -log -stdout -nullrhi -nosplash -EnvAfterHere -FullStdOutLogOutput -LogCmds=\"LogShaderCompilers VeryVerbose\"\"\"",
+      "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation List; Quit\" -unattended -nopause -log -stdout -RenderOffScreen -nosplash -EnvAfterHere -FullStdOutLogOutput -LogCmds=\"LogShaderCompilers VeryVerbose\"\"\""
+    ],
+    "method": "Toolbox fresh headless and real-renderer Automation List; printed population; no manually supplied discovery cache"
+  },
+  "gateAttempts": [
+    {
+      "log": "Saved/Logs/ScriptedCollection-Gate-01.log",
+      "sha256": "8ae8230c57f45ece61805c3dd5c543eea433b541cde0b2f611b9e7698b0a1b5e",
+      "status": "failed",
+      "summary": {
+        "total": 32,
+        "passed": 29,
+        "failed": 3,
+        "skipped": 0,
+        "contaminated": 0
+      },
+      "durationSeconds": 787,
+      "editorBoots": 2,
+      "completedTestCount": 31,
+      "completedResults": [
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.AtomicBatchMutation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ChildCollectionsAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ValidationAndDataScale"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Fonts.NativeRuntime"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Fonts.RegistryValidation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.FormStyles.RetainedNativeControls"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.InventoryMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Journal.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.PauseMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.PowerWheel.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.CollectionReplacement"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.ConstrainedGeometry"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.EmptyPreflight"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.FailedChildAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.ItemTypedEvents"
+        },
+        {
+          "result": "Fail",
+          "test": "Ck.UiAuthoring.Repeat.KeyedRetentionAndActions"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.NestedChildBinding"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.RemovedItemClearsFocus"
+        },
+        {
+          "result": "Fail",
+          "test": "Ck.UiAuthoring.ScriptedCollection.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.ScriptingCard.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.SettingsMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.SlateLayout.OwnerRelease"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.SurfaceLifetime"
+        },
+        {
+          "result": "Success",
+          "test": "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+        }
+      ],
+      "failedTestNames": [
+        "Ck.UiAuthoring.Repeat.KeyedRetentionAndActions",
+        "Ck.UiAuthoring.ScriptedCollection.PIE",
+        "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars"
+      ],
+      "editorDeath": {
+        "test": "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars",
+        "toolboxEvidence": "[utb --test] main: 'Ck.UiAuthoring.UMG.Session.AdmissionAndScalars' was in flight when the editor died (exit=0x3 (decimal 3)) \u2014 marked Failed, resuming after it",
+        "cause": "The admission test fixture added an element from its own TArray, triggering the array alias assertion. Toolbox marked the in-flight test failed and resumed remaining tests in a second Editor."
+      },
+      "corrections": [
+        "The repeat test expected stale ordinary buttons to retain their identities/actions; refreshed ordinary buttons are reacquired, while keyed root/search/custom retention is checked separately.",
+        "Mission Board admission rejected padding on the text-role mission-route node; the authored padding was corrected.",
+        "The admission fixture now copies its array element before adding it."
+      ],
+      "sourceSnapshot": "Saved/Automation/ScriptedCollectionFrozenSources-04.json",
+      "sourceSnapshotSha256": "e9442e49e8951505348d96ceaa3d3412134d157afba68ddb8f32ac48500f2256",
+      "diagnostics": {
+        "unrealErrors": 32,
+        "fatals": 0,
+        "ensures": 2,
+        "staleScriptOrCompileErrors": 0,
+        "chromiumUsbPropertyErrors": 2,
+        "chromiumCrlVerificationErrors": 34
+      },
+      "startupCommandLines": [
+        "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation RunTests Ck.UiAuthoring.Collection.AtomicBatchMutation+Ck.UiAuthoring.Collection.ChildCollectionsAtomicity+Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder+Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation+Ck.UiAuthoring.Collection.ValidationAndDataScale+Ck.UiAuthoring.Fonts.RegistryValidation+Ck.UiAuthoring.Repeat.CollectionReplacement+Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries+Ck.UiAuthoring.Repeat.EmptyPreflight+Ck.UiAuthoring.Repeat.FailedChildAtomicity+Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity+Ck.UiAuthoring.Repeat.ItemTypedEvents+Ck.UiAuthoring.Repeat.KeyedRetentionAndActions+Ck.UiAuthoring.Repeat.NestedChildBinding+Ck.UiAuthoring.SlateLayout.OwnerRelease+Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload+Ck.UiAuthoring.UMG.Session.AdmissionAndScalars+Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc+Ck.UiAuthoring.UMG.SurfaceLifetime+CkPlugins.UiAuthoring.Startup.ProjectBinaries+Ck.UiAuthoring.Fonts.NativeRuntime+Ck.UiAuthoring.FormStyles.RetainedNativeControls+Ck.UiAuthoring.InventoryMenuProof.PIE+Ck.UiAuthoring.Journal.PIE+Ck.UiAuthoring.PauseMenuProof.PIE+Ck.UiAuthoring.PowerWheel.PIE+Ck.UiAuthoring.Repeat.ConstrainedGeometry+Ck.UiAuthoring.Repeat.RemovedItemClearsFocus+Ck.UiAuthoring.ScriptedCollection.PIE+Ck.UiAuthoring.ScriptingCard.PIE+Ck.UiAuthoring.SettingsMenuProof.PIE+Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents; Quit\" -unattended -nopause -log -stdout -nosplash -EnvAfterHere -FullStdOutLogOutput -LogCmds=\"LogShaderCompilers VeryVerbose\"\"\"",
+        "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation RunTests Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc+Ck.UiAuthoring.UMG.SurfaceLifetime+CkPlugins.UiAuthoring.Startup.ProjectBinaries+Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents; Quit\" -unattended -nopause -log -stdout -nosplash -EnvAfterHere -FullStdOutLogOutput -LogCmds=\"LogShaderCompilers VeryVerbose\"\"\""
+      ]
+    },
+    {
+      "log": "Saved/Logs/ScriptedCollection-Gate-02.log",
+      "sha256": "7daf61056c6b7f2bdcc1dc28544270d908980bde66abf074e032f7fdc9fa144d",
+      "status": "failed",
+      "summary": {
+        "total": 32,
+        "passed": 31,
+        "failed": 1,
+        "skipped": 0,
+        "contaminated": 0
+      },
+      "durationSeconds": 458,
+      "failedTestNames": [
+        "Ck.UiAuthoring.ScriptedCollection.PIE"
+      ],
+      "failureEvidence": "Region root 'mission-board' is sized by its native mount; sizing, growth and alignment belong on a child node.",
+      "correction": "Removed board CSS width and height because the script SizeBox already owns its native 1920x1080 mount sizing.",
+      "editorBoots": 1,
+      "completedTestCount": 32,
+      "completedResults": [
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.AtomicBatchMutation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ChildCollectionsAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ValidationAndDataScale"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Fonts.NativeRuntime"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Fonts.RegistryValidation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.FormStyles.RetainedNativeControls"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.InventoryMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Journal.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.PauseMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.PowerWheel.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.CollectionReplacement"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.ConstrainedGeometry"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.EmptyPreflight"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.FailedChildAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.ItemTypedEvents"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.KeyedRetentionAndActions"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.NestedChildBinding"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.RemovedItemClearsFocus"
+        },
+        {
+          "result": "Fail",
+          "test": "Ck.UiAuthoring.ScriptedCollection.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.ScriptingCard.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.SettingsMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.SlateLayout.OwnerRelease"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.SurfaceLifetime"
+        },
+        {
+          "result": "Success",
+          "test": "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+        }
+      ],
+      "sourceSnapshot": "Saved/Automation/ScriptedCollectionFrozenSources-05.json",
+      "sourceSnapshotSha256": "f6ca06a3eb6a648396b290ad8ebf4817b3b003550b3362d9c4439f9a43f978f3",
+      "diagnostics": {
+        "unrealErrors": 6,
+        "fatals": 0,
+        "ensures": 0,
+        "staleScriptOrCompileErrors": 0,
+        "chromiumUsbPropertyErrors": 1,
+        "chromiumCrlVerificationErrors": 17
+      },
+      "startupCommandLines": [
+        "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation RunTests Ck.UiAuthoring.Collection.AtomicBatchMutation+Ck.UiAuthoring.Collection.ChildCollectionsAtomicity+Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder+Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation+Ck.UiAuthoring.Collection.ValidationAndDataScale+Ck.UiAuthoring.Fonts.RegistryValidation+Ck.UiAuthoring.Repeat.CollectionReplacement+Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries+Ck.UiAuthoring.Repeat.EmptyPreflight+Ck.UiAuthoring.Repeat.FailedChildAtomicity+Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity+Ck.UiAuthoring.Repeat.ItemTypedEvents+Ck.UiAuthoring.Repeat.KeyedRetentionAndActions+Ck.UiAuthoring.Repeat.NestedChildBinding+Ck.UiAuthoring.SlateLayout.OwnerRelease+Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload+Ck.UiAuthoring.UMG.Session.AdmissionAndScalars+Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc+Ck.UiAuthoring.UMG.SurfaceLifetime+CkPlugins.UiAuthoring.Startup.ProjectBinaries+Ck.UiAuthoring.Fonts.NativeRuntime+Ck.UiAuthoring.FormStyles.RetainedNativeControls+Ck.UiAuthoring.InventoryMenuProof.PIE+Ck.UiAuthoring.Journal.PIE+Ck.UiAuthoring.PauseMenuProof.PIE+Ck.UiAuthoring.PowerWheel.PIE+Ck.UiAuthoring.Repeat.ConstrainedGeometry+Ck.UiAuthoring.Repeat.RemovedItemClearsFocus+Ck.UiAuthoring.ScriptedCollection.PIE+Ck.UiAuthoring.ScriptingCard.PIE+Ck.UiAuthoring.SettingsMenuProof.PIE+Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents; Quit\" -unattended -nopause -log -stdout -nosplash -EnvAfterHere -FullStdOutLogOutput -LogCmds=\"LogShaderCompilers VeryVerbose\"\"\""
+      ]
+    },
+    {
+      "log": "Saved/Logs/ScriptedCollection-Gate-03.log",
+      "sha256": "7fb24f5e53277fe371b27b7c08629474bf48595096e8ea9b64609632cc0043ac",
+      "status": "failed",
+      "summary": {
+        "total": 32,
+        "passed": 31,
+        "failed": 1,
+        "skipped": 0,
+        "contaminated": 0
+      },
+      "durationSeconds": 427,
+      "editorBoots": 1,
+      "completedTestCount": 32,
+      "failedTestNames": [
+        "Ck.UiAuthoring.ScriptedCollection.PIE"
+      ],
+      "failureEvidence": [
+        "Test Completed. Result={Fail} Name={PIE} Path={Ck.UiAuthoring.ScriptedCollection.PIE}",
+        "Expected 'native Bool field hides completed label initially' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(377)]",
+        "Expected 'initial-1280x720: board-title text fits allocated content and viewport (568.5x88.5 / 1381.5x87.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: selection-label text fits allocated content and viewport (294.0x33.0 / 1140.0x34.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: detail-title text fits allocated content and viewport (375.0x58.5 / 1140.0x64.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: detail-route text fits allocated content and viewport (294.0x33.0 / 1140.0x39.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: route-next-label text fits allocated content and viewport (103.5x27.0 / 372.0x27.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: briefing-label text fits allocated content and viewport (190.5x30.0 / 1140.0x36.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: detail-brief text fits allocated content and viewport (1138.5x39.0 / 1140.0x100.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: progress-label text fits allocated content and viewport (211.5x27.0 / 1104.0x27.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: detail-progress text fits allocated content and viewport (217.5x37.5 / 1104.0x33.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: detail-status text fits allocated content and viewport (166.5x31.5 / 1104.0x28.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1280x720: None text fits allocated content and viewport (342.0x39.0 / 1100.0x64.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial mission native capture and bounds' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(377)]",
+        "Expected 'initial-1920x1080: board-title text fits allocated content and viewport (570.0x88.0 / 1380.0x86.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: selection-label text fits allocated content and viewport (286.0x33.0 / 1133.0x34.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: detail-title text fits allocated content and viewport (372.0x57.0 / 1133.0x64.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: detail-route text fits allocated content and viewport (294.0x33.0 / 1133.0x38.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: route-home-label text fits allocated content and viewport (97.0x27.0 / 360.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: route-objective-label text fits allocated content and viewport (104.0x27.0 / 367.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: route-next-label text fits allocated content and viewport (109.0x27.0 / 372.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: briefing-label text fits allocated content and viewport (186.0x29.0 / 1133.0x36.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: detail-brief text fits allocated content and viewport (1133.0x39.0 / 1133.0x100.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: progress-label text fits allocated content and viewport (218.0x27.0 / 1097.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: detail-progress text fits allocated content and viewport (222.0x38.0 / 1097.0x32.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: detail-status text fits allocated content and viewport (171.0x32.0 / 1097.0x28.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-1920x1080: None text fits allocated content and viewport (344.0x39.0 / 1093.0x64.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial mission native capture and bounds' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(377)]",
+        "Expected 'initial-2560x1440: board-title text fits allocated content and viewport (570.0x87.8 / 1381.5x86.2)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: selection-label text fits allocated content and viewport (281.2x32.2 / 1125.0x34.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: detail-title text fits allocated content and viewport (374.2x57.8 / 1125.0x64.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: detail-route text fits allocated content and viewport (288.0x32.2 / 1125.0x38.2)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: route-next-label text fits allocated content and viewport (109.5x26.2 / 369.8x26.2)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: briefing-label text fits allocated content and viewport (193.5x30.0 / 1125.0x36.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: detail-brief text fits allocated content and viewport (1124.2x39.0 / 1125.0x100.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: progress-label text fits allocated content and viewport (217.5x26.2 / 1089.0x26.2)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: detail-progress text fits allocated content and viewport (224.2x37.5 / 1089.0x32.2)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: detail-status text fits allocated content and viewport (170.2x31.5 / 1089.0x28.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial-2560x1440: None text fits allocated content and viewport (341.2x39.0 / 1085.0x64.5)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'initial mission native capture and bounds' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(377)]",
+        "Expected 'selected-1920x1080: board-title text fits allocated content and viewport (570.0x88.0 / 1380.0x86.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: selection-label text fits allocated content and viewport (286.0x33.0 / 1184.0x34.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: detail-title text fits allocated content and viewport (484.0x57.0 / 1184.0x64.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: detail-route text fits allocated content and viewport (322.0x33.0 / 1184.0x38.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: route-home-label text fits allocated content and viewport (97.0x27.0 / 377.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: route-objective-label text fits allocated content and viewport (104.0x27.0 / 384.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: route-next-label text fits allocated content and viewport (109.0x27.0 / 389.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: briefing-label text fits allocated content and viewport (186.0x29.0 / 1184.0x36.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: detail-brief text fits allocated content and viewport (1184.0x39.0 / 1184.0x100.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: progress-label text fits allocated content and viewport (218.0x27.0 / 1148.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: detail-progress text fits allocated content and viewport (222.0x38.0 / 1148.0x32.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: detail-status text fits allocated content and viewport (171.0x32.0 / 1148.0x28.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected-1920x1080: None text fits allocated content and viewport (344.0x39.0 / 1144.0x64.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'selected mission capture' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(377)]",
+        "Expected 'complete-1920x1080: board-title text fits allocated content and viewport (570.0x88.0 / 1380.0x86.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: selection-label text fits allocated content and viewport (286.0x33.0 / 1133.0x34.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: detail-title text fits allocated content and viewport (372.0x57.0 / 1133.0x64.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: detail-route text fits allocated content and viewport (294.0x33.0 / 1133.0x38.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: route-home-label text fits allocated content and viewport (97.0x27.0 / 360.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: route-objective-label text fits allocated content and viewport (104.0x27.0 / 367.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: route-next-label text fits allocated content and viewport (109.0x27.0 / 372.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: briefing-label text fits allocated content and viewport (186.0x29.0 / 1133.0x36.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: detail-brief text fits allocated content and viewport (1133.0x39.0 / 1133.0x100.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: progress-label text fits allocated content and viewport (218.0x27.0 / 1097.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: detail-progress text fits allocated content and viewport (238.0x38.0 / 1097.0x32.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: detail-status text fits allocated content and viewport (256.0x32.0 / 1097.0x28.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'complete-1920x1080: None text fits allocated content and viewport (344.0x39.0 / 1093.0x64.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'completed mission capture and bounds' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(461)]",
+        "Expected 'empty-1920x1080: board-title text fits allocated content and viewport (570.0x88.0 / 1380.0x86.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: selection-label text fits allocated content and viewport (300.0x33.0 / 1012.0x34.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: detail-title text fits allocated content and viewport (415.0x57.0 / 1012.0x64.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: detail-route text fits allocated content and viewport (421.0x33.0 / 1012.0x38.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: route-home-label text fits allocated content and viewport (97.0x27.0 / 319.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: route-objective-label text fits allocated content and viewport (104.0x27.0 / 326.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: route-next-label text fits allocated content and viewport (109.0x27.0 / 331.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: briefing-label text fits allocated content and viewport (186.0x29.0 / 1012.0x36.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: detail-brief text fits allocated content and viewport (1012.0x39.0 / 1012.0x100.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: progress-label text fits allocated content and viewport (218.0x27.0 / 976.0x26.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: detail-progress text fits allocated content and viewport (16.0x38.0 / 976.0x32.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: detail-status text fits allocated content and viewport (118.0x32.0 / 976.0x28.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty-1920x1080: None text fits allocated content and viewport (344.0x39.0 / 972.0x64.0)' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(291)]",
+        "Expected 'empty native capture and bounds' to be true. [D:\\Repos\\CkPlugins_2\\Plugins\\CkTests\\Source\\CkTests\\Private\\UnitTests\\CkYoga\\Test_ScriptedCollectionProof.cpp(514)]"
+      ],
+      "completedResults": [
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.AtomicBatchMutation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ChildCollectionsAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Collection.ValidationAndDataScale"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Fonts.NativeRuntime"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Fonts.RegistryValidation"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.FormStyles.RetainedNativeControls"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.InventoryMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Journal.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.PauseMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.PowerWheel.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.CollectionReplacement"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.ConstrainedGeometry"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.EmptyPreflight"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.FailedChildAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.ItemTypedEvents"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.KeyedRetentionAndActions"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.NestedChildBinding"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Repeat.RemovedItemClearsFocus"
+        },
+        {
+          "result": "Fail",
+          "test": "Ck.UiAuthoring.ScriptedCollection.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.ScriptingCard.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.SettingsMenuProof.PIE"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.SlateLayout.OwnerRelease"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc"
+        },
+        {
+          "result": "Success",
+          "test": "Ck.UiAuthoring.UMG.SurfaceLifetime"
+        },
+        {
+          "result": "Success",
+          "test": "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+        }
+      ],
+      "sourceSnapshot": "Saved/Automation/ScriptedCollectionFrozenSources-06.json",
+      "sourceSnapshotSha256": "3ad9512c4d590236226addcafb7c1c771633131f0824fc5930d0984aae7705e6",
+      "diagnostics": {
+        "unrealErrors": 82,
+        "fatals": 0,
+        "ensures": 0,
+        "staleScriptOrCompileErrors": 0,
+        "chromiumUsbPropertyErrors": 1,
+        "chromiumCrlVerificationErrors": 17
+      },
+      "startupCommandLines": [
+        "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation RunTests Ck.UiAuthoring.Collection.AtomicBatchMutation+Ck.UiAuthoring.Collection.ChildCollectionsAtomicity+Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder+Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation+Ck.UiAuthoring.Collection.ValidationAndDataScale+Ck.UiAuthoring.Fonts.RegistryValidation+Ck.UiAuthoring.Repeat.CollectionReplacement+Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries+Ck.UiAuthoring.Repeat.EmptyPreflight+Ck.UiAuthoring.Repeat.FailedChildAtomicity+Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity+Ck.UiAuthoring.Repeat.ItemTypedEvents+Ck.UiAuthoring.Repeat.KeyedRetentionAndActions+Ck.UiAuthoring.Repeat.NestedChildBinding+Ck.UiAuthoring.SlateLayout.OwnerRelease+Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload+Ck.UiAuthoring.UMG.Session.AdmissionAndScalars+Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc+Ck.UiAuthoring.UMG.SurfaceLifetime+CkPlugins.UiAuthoring.Startup.ProjectBinaries+Ck.UiAuthoring.Fonts.NativeRuntime+Ck.UiAuthoring.FormStyles.RetainedNativeControls+Ck.UiAuthoring.InventoryMenuProof.PIE+Ck.UiAuthoring.Journal.PIE+Ck.UiAuthoring.PauseMenuProof.PIE+Ck.UiAuthoring.PowerWheel.PIE+Ck.UiAuthoring.Repeat.ConstrainedGeometry+Ck.UiAuthoring.Repeat.RemovedItemClearsFocus+Ck.UiAuthoring.ScriptedCollection.PIE+Ck.UiAuthoring.ScriptingCard.PIE+Ck.UiAuthoring.SettingsMenuProof.PIE+Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents; Quit\" -unattended -nopause -log -stdout -nosplash -EnvAfterHere -FullStdOutLogOutput -LogCmds=\"LogShaderCompilers VeryVerbose\"\"\""
+      ],
+      "attemptedCapture": {
+        "path": "Saved/Automation/ScriptedCollection-Attempt03-initial-1920x1080.png",
+        "sha256": "bc7f041c0455a9734e7e67009a0db188c352159c2bfbd75a8c70bcaab6edbe76",
+        "width": 1920,
+        "height": 1080,
+        "status": "failed-attempt-inspected",
+        "inspectionFinding": "Root visually inspected this attempted initial capture and confirmed the selected panel overflow. It is failed-attempt evidence, not accepted final visual proof."
+      },
+      "correction": "Added panel shrink and measured text row heights to constrain the selected panel and natural font extents. Tagged text inspection now propagates styled ancestor visibility while still requiring label presence and the Bool false-to-true behavior."
+    },
+    {
+      "log": "Saved/Logs/ScriptedCollection-Gate-04.log",
+      "sha256": "6caab55afcb372fd28e4e5019c07f2827b633fc7c34b172627ce438b619065c3",
+      "status": "passed",
+      "summary": {
+        "total": 32,
+        "passed": 32,
+        "failed": 0,
+        "skipped": 0,
+        "contaminated": 0
+      },
+      "editorBoots": 1,
+      "completedTestCount": 32,
+      "sourceSnapshot": "Saved/Automation/ScriptedCollectionFrozenSources-07.json",
+      "sourceSnapshotSha256": "4b81651fd5ebea02e344ac2020ce539f706b50017a67aa2f4c45bd886f1fcc4e",
+      "diagnostics": {
+        "unrealErrors": 0,
+        "fatals": 0,
+        "ensures": 0,
+        "staleScriptOrCompileErrors": 0,
+        "chromiumUsbPropertyErrors": 1,
+        "chromiumCrlVerificationErrors": 16
+      },
+      "startupCommandLines": [
+        "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation RunTests Ck.UiAuthoring.Collection.AtomicBatchMutation+Ck.UiAuthoring.Collection.ChildCollectionsAtomicity+Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder+Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation+Ck.UiAuthoring.Collection.ValidationAndDataScale+Ck.UiAuthoring.Fonts.RegistryValidation+Ck.UiAuthoring.Repeat.CollectionReplacement+Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries+Ck.UiAuthoring.Repeat.EmptyPreflight+Ck.UiAuthoring.Repeat.FailedChildAtomicity+Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity+Ck.UiAuthoring.Repeat.ItemTypedEvents+Ck.UiAuthoring.Repeat.KeyedRetentionAndActions+Ck.UiAuthoring.Repeat.NestedChildBinding+Ck.UiAuthoring.SlateLayout.OwnerRelease+Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload+Ck.UiAuthoring.UMG.Session.AdmissionAndScalars+Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc+Ck.UiAuthoring.UMG.SurfaceLifetime+CkPlugins.UiAuthoring.Startup.ProjectBinaries+Ck.UiAuthoring.Fonts.NativeRuntime+Ck.UiAuthoring.FormStyles.RetainedNativeControls+Ck.UiAuthoring.InventoryMenuProof.PIE+Ck.UiAuthoring.Journal.PIE+Ck.UiAuthoring.PauseMenuProof.PIE+Ck.UiAuthoring.PowerWheel.PIE+Ck.UiAuthoring.Repeat.ConstrainedGeometry+Ck.UiAuthoring.Repeat.RemovedItemClearsFocus+Ck.UiAuthoring.ScriptedCollection.PIE+Ck.UiAuthoring.ScriptingCard.PIE+Ck.UiAuthoring.SettingsMenuProof.PIE+Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents; Quit\" -unattended -nopause -log -stdout -nosplash -EnvAfterHere -FullStdOutLogOutput -LogCmds=\"LogShaderCompilers VeryVerbose\"\"\""
+      ]
+    }
+  ],
+  "plannedEditorBoots": 4,
+  "revisedPlannedEditorBoots": 8,
+  "actualEditorBoots": 8,
+  "finalGateEditorBoots": 1,
+  "editorBootPlanRevision": "Gate-01 used two boots after an admission fixture crash. Corrected assertions and authored padding required Build-04 and Gate-02. Gate-02 rejected duplicate region-root sizing, requiring Build-05 and Gate-03 alongside a repeat-test return guard. Gate-03 then exposed panel overflow, insufficient natural-font row heights and a local-only visibility fixture; their correction required Build-06 and one fresh Gate-04.",
+  "editorBootCounting": "Unique UE startups from CSV commandline metadata, cross-checked against LogInit command lines when present.",
+  "gateStartupCommandLines": [
+    "\"\" D:/Repos/CkPlugins_2\\CkPlugins.uproject -ExecCmds=\"Automation RunTests Ck.UiAuthoring.Collection.AtomicBatchMutation+Ck.UiAuthoring.Collection.ChildCollectionsAtomicity+Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder+Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation+Ck.UiAuthoring.Collection.ValidationAndDataScale+Ck.UiAuthoring.Fonts.RegistryValidation+Ck.UiAuthoring.Repeat.CollectionReplacement+Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries+Ck.UiAuthoring.Repeat.EmptyPreflight+Ck.UiAuthoring.Repeat.FailedChildAtomicity+Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity+Ck.UiAuthoring.Repeat.ItemTypedEvents+Ck.UiAuthoring.Repeat.KeyedRetentionAndActions+Ck.UiAuthoring.Repeat.NestedChildBinding+Ck.UiAuthoring.SlateLayout.OwnerRelease+Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload+Ck.UiAuthoring.UMG.Session.AdmissionAndScalars+Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc+Ck.UiAuthoring.UMG.SurfaceLifetime+CkPlugins.UiAuthoring.Startup.ProjectBinaries+Ck.UiAuthoring.Fonts.NativeRuntime+Ck.UiAuthoring.FormStyles.RetainedNativeControls+Ck.UiAuthoring.InventoryMenuProof.PIE+Ck.UiAuthoring.Journal.PIE+Ck.UiAuthoring.PauseMenuProof.PIE+Ck.UiAuthoring.PowerWheel.PIE+Ck.UiAuthoring.Repeat.ConstrainedGeometry+Ck.UiAuthoring.Repeat.RemovedItemClearsFocus+Ck.UiAuthoring.ScriptedCollection.PIE+Ck.UiAuthoring.ScriptingCard.PIE+Ck.UiAuthoring.SettingsMenuProof.PIE+Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents; Quit\" -unattended -nopause -log -stdout -nosplash -EnvAfterHere -FullStdOutLogOutput -LogCmds=\"LogShaderCompilers VeryVerbose\"\"\""
+  ],
+  "cachedDiscovery": true,
+  "diagnostics": {
+    "unrealErrors": 0,
+    "fatals": 0,
+    "ensures": 0,
+    "staleScriptOrCompileErrors": 0,
+    "chromiumUsbPropertyErrors": 1,
+    "chromiumCrlVerificationErrors": 16
+  },
+  "frozenSourceCount": 80,
+  "frozenSourceManifest": "Saved/Automation/ScriptedCollectionFrozenSources-07.json",
+  "frozenSourceManifestSha256": "4b81651fd5ebea02e344ac2020ce539f706b50017a67aa2f4c45bd886f1fcc4e",
+  "frozenSources": {
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp": "447e5e43710e1ac9393e93a6aaad0c0d4ccd528b3b5773dd9a2166cdb79d52e7",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiFontRegistry.cpp": "98ba296fd67e42de90987e820fb44b4152a48f7902a81d589503beec1a7e443c",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiSurface.cpp": "33c15099a74d5e0a33c5b983acc5801854e2ed285e56af128b9616d9e4f4fa35",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTabs.cpp": "59fb514b58a9018233015085fcf13fa09b1b866b9f49362f0b6ed53d75c5d6de",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTree.cpp": "ac56f6121a85758b3829405c263166fa1630460812cbc4d3f12294afd399fac3",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiDocument.h": "952c50733c09bce9708894d9cbd6b227a18149c1995d879de9f602c74cb193f4",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiFontRegistry.h": "6776c0ed558c04e0d9069823fb16aa565b0613a623294c83549a93b57ac8202f",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiSurface.h": "0f8c0ec4604a71a3f56e96203586f412353f3018f20cf7be9574769371d2e691",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiTree.h": "e06b26651e4c66f08d91683b8432c411abaab0d9b6f560a097cd41f062db7510",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkUiFontResources.cpp": "3b84014dc1462b745567e7508a663427604de8e4486a1e650a6b0296b6394449",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkUiFontResources.h": "b2280483171b696b8f7425585e80e0deb1c624df147861763217383ed14c9d55",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/OFL.txt": "0e4cc6ece88573545be2ed25835363662a6182ba4a4c1b5c8feda52add30e8a6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.css": "2c4da32cbae534ea4a95756fd2ee5d0589b1b399ce378978b14b2a67f8d93ec6",
+    "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.html": "1a21b82628adef809d5962250e99159b71e4af585fb0bd0bd57084c8976beec0",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkSkyrimJournal_Gym.as": "9cc7d67656199ebe9e036ead960e55dd2039f98e617072784ef3f1813002a300",
+    "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as": "f138aa88f41a5f0724941bb0ba064f22ccee12455805ce3f3793e4b2ea1f339f",
+    "Plugins/CkTests/Source/CkTests/CkTests.Build.cs": "ce32396a0d4dac0d8788f6c78cde21c198feac323bbb6c292828bd8159a72a32",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProof.cpp": "375b77304c9d577c2b7f682c08141a6a506474b32ed73c6e42c59137209a0fda",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.cpp": "e2c9ed5ef0d280432c9a739e454eee77abcd82b20d4a36734f370849dfdf249d",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.h": "5f3896d69aba59a4a153ad969ec0914773bd8d70179b9bc096e679d8624d169a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.cpp": "1d4391dfa27bb055118548f8332e5c719a9c8b1607d5f0e8789a5d94eff32096",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofModel.h": "5f75b220e7b7b308861bd6fb5b102736111e930f93e926cde8686998e1d22c2c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalModel.cpp": "23a64fb92f3092a27e3694e93dfe9bf489917337653ef51352923c7b17e509e1",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalProof.cpp": "8d9bdccda249ba94bb7277132cb5488f0d02f814bc0aff793fd5a7171c89242f",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiDocument.cpp": "cc50598928395dc63d2f2cb805f111e4c64f58a8fe7b6979ba3161e3e48ae9e0",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiFontRegistry.cpp": "f9d1718d3a9a7accf91603f08859baafa3c64bdc06fa51cb5cb288c2e504a302",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiSingleSelection.cpp": "090ddf0e8f347bbd8ceb20543b683cfeb011b3289c96de7d13ff05d667edb0f6",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsVisualStyle.cpp": "baf8f02fafc842a570dce910804951a4236127a1d4e7c062d339a9072bc24237",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeView.cpp": "4610bec9877fe7c22b2515efc62222ba20e1dedbb3397f2954e70c6204e6f0b2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeVisualStyle.cpp": "7a4ec6d7b9442aa9fe9bea09029d160f306e83c96f33e3cccb8cf75e4de1a3ef",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkJournalProof.h": "c9771f5907c5064d67f924b16f1fc6f22a826ec18532657e768d5809509d385b",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkAuthoredSession.h": "55741cc0ac1e496d082cf8d489d45e236a103b976fd1330f6d39f8ac984eb9f9",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkAuthoredSession.cpp": "edd509ad0e49967005483ec9018d8a8fa1c697db562d9ab0df0897ca238e91ca",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptingCard_Gym.as": "60d3d7a0e58a38587c92dc5870699fa15b5dbbff5671fe0d9dee147821f31a9a",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiAuthoredSession.cpp": "becbbacc6272d3859b53a5609589328b12ee7442c542961ef1d45eaa912089ac",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiAuthoredSession_TestListener.h": "9da818899286ed047525ed6166fe636e234fabb89bb5f97749f12d3a3ba1d566",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_ScriptingCardProof.cpp": "ea5539a7fb01b33c8a2c6bc066cfb3babf7096cb7fe682d9d54e516f8cd52654",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptingCardProof/ScriptingCardProof.ui.html": "3430d27d922ccc3ce0ed25416696a3477a5c4ce9cdacdf2a7f5028362a9cb0b2",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptingCardProof/ScriptingCardProof.ui.css": "93403a187b3ff806db4d2b10f6fbc64fe78774ef23ba926c87fe475c8c1a5f96",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiOwnedSession_TestOwner.h": "3bdc8cd5ee4a6eb64d500414b0756ba42ff2b69157160c345b3d7732d9126de2",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_PauseMenuProof.cpp": "d83cd861a6be0bacdfe1390a88c8f78b85f21b2691fe604b88f3f57606c7c117",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkPauseMenuProof.cpp": "ab57138882992083e285ef782d71a467e68f23bb2065453f5811e03a6cebba9b",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkPauseMenuProof.h": "b7f6ca2d8d3f11df8b9a139f5fcce254d3c85b15b9d706b30d8e02b2c440b26b",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiAuthoringGym_Assets.as": "8123b953ca90a0f175a7022182237415df0242288292907f5e4419f00e12d1d9",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/PauseMenuProof.ui.html": "84f6d1979ba34fee08bd45e2bd52f2b0ff2c53d5ece04b10942c78b43a65e85f",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/PauseMenuProof.ui.css": "c8b102dbf7fedd66816cfe919bab314c16802457c3d9d68c03695bd1421c4df4",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/CustomWidgets/WidgetStack/CkStack_Widget.h": "22061226cf36f179ef2ca5299276fc3d4376a6e1503142d481ab55b268662d12",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/CustomWidgets/WidgetStack/CkStack_Widget.cpp": "60f13c21a1a14c483a840f457e2501df1e5da56eaacaf363023fb465f086adbd",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/Layout/CkUI_LayerMembership.h": "4b6cd6c5aebc60428279dae43c07cffe38befa3a7216ae9a453e0419d2548d10",
+    "Plugins/CkFoundation/Source/CkUI/Public/CkUI/Layout/CkUI_LayerMembership.cpp": "2fdd1cd208c59f161f62abaa74b171561aa4f1ed188a5b76539c15998c2d852a",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiLayerMembership_TestScenarios.h": "240288ca9b7790c6c86754f67427877651e1000bbe9d6206842b79eb1f9b5f3c",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkUiLayerMembership_TestListener.h": "d3662571934219232d4a71805c9d39d2b5451be6b8a813e773a1bb711cc54f85",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiLayerMembership_Probe.as": "726b0edeb719ea48529055a7e473470d218361883f06c1589d60060c7224a62a",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptedPause_Widget.as": "c5dda70d2da584ae3fd90f2c98dce1b3bfe2bca192c941828217c3dd70802895",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkUiAuthoringGym_PlayerController.as": "392dd3b846c06ea290dabc300d74e659ac14cba25afd03f22df14df0e458de60",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/CkScriptedPause_TestAdapter.h": "0d39a2721b635cd39c215a0fddc8d60faaa49c33bceee640a615bf7046859f71",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_SettingsMenuProof.cpp": "bf502591bff467e727c5bce205afcb811b3f6a7eaf23583e091137804fb24d92",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_InventoryMenuProof.cpp": "1a6d72f81febb41144176018496237bb7aa09c0d2393469f558ef10364cfc52a",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkInventoryMenuProofModel.h": "92bc0b23a8e4e2cb1e98da11e50ce085e1eed1ccde5115139a87e88d670fd52f",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkInventoryMenuProofModel.cpp": "de6814552e3d7df671e5e7bf7abe11bce39a8ee289f0e1d394fbc97cfe8320c4",
+    "Plugins/CkTests/Source/CkTests/Public/CkTests/UI/CkInventoryMenuProof.h": "e643788bd5777465fbddd464dff4c78f49e9595f7d7866ef304a9c9160c25ac3",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/pause-menu-backdrop.png": "182f4aebacb423e87e18b64b8d637bf314ecb4ed932494de3c665ad9197ff747",
+    "Plugins/CkTests/Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.html": "7e0693c956a374d19cd92f3996ccc420e3e9badac95d4169e23586a2f44753c5",
+    "Plugins/CkTests/Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.css": "a308779ad2fb5b8cf4274e092b13ce233420010b5580c327f04477dfd5653fac",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.html": "926dcc27ccd0064df1a4681ce0649177592be29a6ca6e10374463023a7260a76",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.css": "aeb01d2bdc530f2a11c8bb42565f6605815678c440a76202d38f4344dd56d755",
+    "Plugins/CkTests/Resources/UiAuthoring/InventoryMenuProof/inventory-item-atlas.png": "dd508c365fd8aac071b30cabe0e6023341d055ba40f1401ecfaad549a04eb6eb",
+    "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkAuthoredCollection.h": "f696c2009f13007dd58803f9990fdb43669c31aa6e435064dceac47ddfe90c7f",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkAuthoredCollectionAdapter.h": "a45b670314c2cafa6d14de424ba26ade08169882ee37cba8c859341e100fc9d6",
+    "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkAuthoredCollectionAdapter.cpp": "06f1032509147525ea543583de14a668b64c791c7b118bb08c8c22838da0cb7f",
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiCollection.cpp": "30c5d562f7c760ba5a279e161f5ab47cbed6799fa291feec6d024af7102a4ad9",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiCollection.cpp": "3c71888fb26f06ce33f3fa026f9e1c604f6ba847bffe7619392ae26f29c405d4",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiRepeat.cpp": "b3f25cc810e9379d0d2926d4f67056a8bd7d5701f414256625ef109c153a2b5e",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTableView.cpp": "7199389c77208baea285af05a00e9c94b25a27e5eb9571c62dd8aa110841e7c9",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_ScriptedCollectionProof.cpp": "9749566fdae901b91ddeb6fe61905cde4c388f741e1b433fd78c971e964a51d6",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptingMissions_Gym.as": "15c3896549a91a25438495b1646a10f07e5c04c43660e0325c41b77c0af973ff",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptedCollectionProof/ScriptedCollectionProof.ui.html": "6d97c6550fdb2e8f8cf15554917287ce1b65b98b4bbc42ebada0c9128e565e93",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptedCollectionProof/ScriptedCollectionProof.ui.css": "7127f499542a1953ddab21508875be2730d50ae15de9fc292bace7f30d2777b4",
+    "Plugins/CkTests/Resources/UiAuthoring/ScriptedCollectionProof/mission-board-backdrop.png": "5e7530e862b8591a5eb47631fc75274881cdeb7d90eeb5e31fb7c1e5b3f4f081"
+  },
+  "historicalReceipts": {
+    "Plugins/CkTests/Documentation/UI/DefaultFontProof/verification-receipt.json": "175986f8ccff9635443928b0059667ad46cc0f91fe3956ac751397dcff2863f2",
+    "Plugins/CkTests/Documentation/UI/LayerMembershipProof/verification-receipt.json": "1f8da2ed58e9a8e9aa9e33f40291de380c2df30c0584c6834ce7bf7fb9eb3089",
+    "Plugins/CkTests/Documentation/UI/OwnedInputProof/verification-receipt.json": "e6e9bad257852db5b2a5eb05dd0818596adbeab04fa08f03b29cff967cbd790e",
+    "Plugins/CkTests/Documentation/UI/PowerWheelProof/verification-receipt.json": "e7c16a15f9f91a2889798f3e50bec9cda13f6ebe9d0c8ca2c2cafefbd52ec3aa",
+    "Plugins/CkTests/Documentation/UI/ScriptedFontProof/verification-receipt.json": "8f3af7d649811750e4c4fbe950623a44c9ecab6dab3d51152bdb09d5533db3dc",
+    "Plugins/CkTests/Documentation/UI/ScriptedPauseProof/verification-receipt.json": "2caf4c04a725c918f9d1aeb2f269df6e45ad3350d2879889d1fc28f6a56f813e",
+    "Plugins/CkTests/Documentation/UI/ScriptingCardProof/verification-receipt.json": "1ee936258024ed81a9db8b23261065473361105f2050a35c8152c5474437323f",
+    "Plugins/CkTests/Documentation/UI/SkyrimJournalProof/verification-receipt.json": "0348051521c5bc0f3e94bee799613a0559e731695d202c5e4bb14e9229e4913e"
+  },
+  "fontFiles": {
+    "D:/Repos/CkPlugins_2/Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/RobotoCondensed.ttf": {
+      "sha256": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+      "bytes": 371616
+    },
+    "D:/Repos/UnrealEngineAngelscript/Engine/Content/Slate/Fonts/Roboto-Bold.ttf": {
+      "sha256": "24571503140760240924dcd1238f77e7cd0454c0d8b0793990cefa2fad71471f",
+      "bytes": 163448
+    },
+    "D:/Repos/UnrealEngineAngelscript/Engine/Content/Slate/Fonts/DroidSansFallback.ttf": {
+      "sha256": "05d71b179ef97b82cf1bb91cef290c600a510f77f39b4964359e3ef88378c79d",
+      "bytes": 3939852
+    }
+  },
+  "expectedTestNames": [
+    "Ck.UiAuthoring.Collection.AtomicBatchMutation",
+    "Ck.UiAuthoring.Collection.ChildCollectionsAtomicity",
+    "Ck.UiAuthoring.Collection.ChildCollectionsNotificationOrder",
+    "Ck.UiAuthoring.Collection.StableRowsAndAtomicMutation",
+    "Ck.UiAuthoring.Collection.ValidationAndDataScale",
+    "Ck.UiAuthoring.Fonts.NativeRuntime",
+    "Ck.UiAuthoring.Fonts.RegistryValidation",
+    "Ck.UiAuthoring.FormStyles.RetainedNativeControls",
+    "Ck.UiAuthoring.InventoryMenuProof.PIE",
+    "Ck.UiAuthoring.Journal.PIE",
+    "Ck.UiAuthoring.PauseMenuProof.PIE",
+    "Ck.UiAuthoring.PowerWheel.PIE",
+    "Ck.UiAuthoring.Repeat.CollectionReplacement",
+    "Ck.UiAuthoring.Repeat.ConstrainedGeometry",
+    "Ck.UiAuthoring.Repeat.CustomActionAndFloatSeries",
+    "Ck.UiAuthoring.Repeat.EmptyPreflight",
+    "Ck.UiAuthoring.Repeat.FailedChildAtomicity",
+    "Ck.UiAuthoring.Repeat.IncrementalFailureAtomicity",
+    "Ck.UiAuthoring.Repeat.ItemTypedEvents",
+    "Ck.UiAuthoring.Repeat.KeyedRetentionAndActions",
+    "Ck.UiAuthoring.Repeat.NestedChildBinding",
+    "Ck.UiAuthoring.Repeat.RemovedItemClearsFocus",
+    "Ck.UiAuthoring.ScriptedCollection.PIE",
+    "Ck.UiAuthoring.ScriptingCard.PIE",
+    "Ck.UiAuthoring.SettingsMenuProof.PIE",
+    "Ck.UiAuthoring.SlateLayout.OwnerRelease",
+    "Ck.UiAuthoring.Table.ViewSchemaAndRetainedReload",
+    "Ck.UiAuthoring.UMG.Session.AdmissionAndScalars",
+    "Ck.UiAuthoring.UMG.Session.NativeTransactionsAndEvents",
+    "Ck.UiAuthoring.UMG.Session.OwnerRetirementAndGc",
+    "Ck.UiAuthoring.UMG.SurfaceLifetime",
+    "CkPlugins.UiAuthoring.Startup.ProjectBinaries"
+  ],
+  "captures": [
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "43e9e902c2f1b65aa290ee8b77a114a6500d83d7d898aa9a10e2f7b37ee07268",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:37.479876+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "cf3937f31df3b4ac0111315e6f12329ed5b4a2f00e98ea07ab194a220ce4ed3b",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:37.256320+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "a024abe00c80cc2d329acdb1ed8d625f1bda0273f9a0033ca3fb1f6bd9471024",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:37.841420+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-all-restored-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "cf3937f31df3b4ac0111315e6f12329ed5b4a2f00e98ea07ab194a220ce4ed3b",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:38.198962+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-empty-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "609983a54d7075bbf75392de356236232302e186497578cee98a83515d913e32",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:40.201252+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-equipped-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "a1577942efd2d6a5cb122de6ad6e2d2b13f7b7d367cd21ca9a46708b02a1056f",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:39.153435+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-scrolled-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "dbc514b8d82f288d659a86cdf62c6a5540dec4d75fd58702513824875d9c851a",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:38.403237+00:00"
+    },
+    {
+      "path": "Saved/Automation/InventoryMenuProof/inventory-supplies-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "800c7160ba1ddcead81eeca86c4ac20fd5b6f0f40c1c997ffaee6ae2d4073773",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:39.506196+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1280x720-focused.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "dccbe599189d827abc3e76dae4def5b991d903be10f5bc64ea292aa8aaeb8fd8",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:55.716585+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-disabled.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "0270ca00bebb5ecbf73d7a77f1713a0da95053fc0b91c21c692661d178ce4154",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:57.420364+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-focused.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "1a5aa195f51986ee0a4aef4327bd4e8022330149a62aac3740d148d94589bd76",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:56.513667+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-hover.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "470c8698a9ca2f8253c8d8afecf72ed8cc58bb5dc3b02bf75350dcfeb83081d7",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:56.753485+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-long-label.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "9ed360274a2741cc95172cf7af6fbcf89afe02b6ff7ba3bf477bb02b0525e63b",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:57.700809+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/1920x1080-pressed.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "07f7c701074f73f5b9ac553a969dafde8395a310882387ba7db9628d7f282e97",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:56.999992+00:00"
+    },
+    {
+      "path": "Saved/Automation/PauseMenuProof/2560x1080-focused.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "9892efd0833e3a8c3ec792f846888c0df88e70f73029502546f83799d212e4ea",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:39:56.173688+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptedCollectionProof/complete-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "a349a6dbb77157c12f4b1a6f6ace98f9213355f0035fe5ec3410f5239f85626d",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:21.767090+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptedCollectionProof/empty-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "69d1aac79957b9852c6573d189eb1f2e890777b2a156305eae0cc8437dacf080",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:21.994700+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptedCollectionProof/initial-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "519c6d9b9ecdf8450f603e6a734bed124081ec75a0c5272c85129ad3b693600e",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:20.338998+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptedCollectionProof/initial-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "d89c481d36d016cbeb555f9a24d5b293ca19bccd6305deac5b919165d09389ac",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:20.609817+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptedCollectionProof/initial-2560x1440.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "1cc67eacb67d3f63ad6c0b0c6948ffae6421a51c82f58dc5b2534badd1460e98",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:21.011508+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptedCollectionProof/selected-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "37639b4f26b7640dd99848deab1ae88556ec197e09dd24ee938132005d939f36",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:21.364807+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/armed-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "ce92be2de39fd5f3e7072e92c8582d18e70456753f82b1ef246849311b9a4d6a",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:31.881722+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/fired-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "e966d856f78ca1bbd9a1d5d2f40bd3c88052e029c355622ba59181dba8125c91",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:32.044383+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "0e4f7198209938d6fbef125f7eb201893f50b15ab123810e382f2c2f454b161d",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:30.869787+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "c0f3c1208ed953aa857ae18864458155ce0fe32f6a1f64792578a54cbe3a4fc4",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:31.106085+00:00"
+    },
+    {
+      "path": "Saved/Automation/ScriptingCardProof/initial-2560x1440.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "da2f7becf3df964a741783c87871594516fd579e241e980e7061e2bafeb6e955",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:31.446557+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "9641e48fda7a3dae0190ef3ae8d05f528635ae7169c36719f17623c7a2c1ed6b",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:41.047309+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "1ee9bdc9477914796c6dc533f226c40077ba25de34b93ca7209ea0570ea86bca",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:41.727766+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-clean-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "498311bfdc6f9ddd9bff6291314f86a3a3766abbe768afd29e77db65b797131a",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:41.411631+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-dirty-all-fields-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "4fea2cf3a36feab74ad5e187bf48ab72f2f2c6ea80f778f0ec19d9c27d7cbef2",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:43.009561+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-dirty-reference-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5924bad4e7da39567f8109210226c75fb09e6571337ddc5c1918522844e25c28",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:42.621081+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-popup-open-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "e4f0d968eecd4dee910c9d70bb690a47136cb69b527e117ec001a9b82a09f60a",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:42.102482+00:00"
+    },
+    {
+      "path": "Saved/Automation/SettingsMenuProof/settings-popup-window.png",
+      "width": 1926,
+      "height": 1118,
+      "sha256": "9fa8120bbeedd12d02e969b0eaef8b87a12ea4cea00fd0c8e4972529f68471e3",
+      "inspected": true,
+      "capturedUtc": "2026-10-05T08:40:42.311359+00:00"
+    }
+  ],
+  "documentationCaptures": [
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedCollectionProof/complete-1920x1080.png",
+      "sha256": "a349a6dbb77157c12f4b1a6f6ace98f9213355f0035fe5ec3410f5239f85626d",
+      "source": "Saved/Automation/ScriptedCollectionProof/complete-1920x1080.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedCollectionProof/empty-1920x1080.png",
+      "sha256": "69d1aac79957b9852c6573d189eb1f2e890777b2a156305eae0cc8437dacf080",
+      "source": "Saved/Automation/ScriptedCollectionProof/empty-1920x1080.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedCollectionProof/initial-1280x720.png",
+      "sha256": "519c6d9b9ecdf8450f603e6a734bed124081ec75a0c5272c85129ad3b693600e",
+      "source": "Saved/Automation/ScriptedCollectionProof/initial-1280x720.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedCollectionProof/initial-1920x1080.png",
+      "sha256": "d89c481d36d016cbeb555f9a24d5b293ca19bccd6305deac5b919165d09389ac",
+      "source": "Saved/Automation/ScriptedCollectionProof/initial-1920x1080.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedCollectionProof/initial-2560x1440.png",
+      "sha256": "1cc67eacb67d3f63ad6c0b0c6948ffae6421a51c82f58dc5b2534badd1460e98",
+      "source": "Saved/Automation/ScriptedCollectionProof/initial-2560x1440.png"
+    },
+    {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedCollectionProof/selected-1920x1080.png",
+      "sha256": "37639b4f26b7640dd99848deab1ae88556ec197e09dd24ee938132005d939f36",
+      "source": "Saved/Automation/ScriptedCollectionProof/selected-1920x1080.png"
+    }
+  ],
+  "visualInspectionManifest": "Saved/Automation/ScriptedCollectionCaptureInspection-01.json",
+  "visualInspectionManifestSha256": "1727f998774979e3f29ec5ad5877f04a96219471c9f6de8c6d36ac72697f2b4b",
+  "contactSheets": {
+    "Saved/Automation/ScriptedCollection-ScriptedCollectionProof-Sheet-01.png": "e0967ab03772826762c4f5bbea6951aad01de3d20975c9a1351e243389eb0423",
+    "Saved/Automation/ScriptedCollection-PauseMenuProof-Sheet-01.png": "b2c02b10387f213ee18b5a0659dfb0ad8b3b22b44821182adaf823684e5111e0",
+    "Saved/Automation/ScriptedCollection-ScriptingCardProof-Sheet-01.png": "62071a3d418c4add57eae5ae086977c6ddc63e8af3b1461d2e4b8714768f5792",
+    "Saved/Automation/ScriptedCollection-SettingsMenuProof-Sheet-01.png": "ab5a000d62745405a39073c605b27e6d57ecb15ef71ed0e2773e4d7a8ac1ae27",
+    "Saved/Automation/ScriptedCollection-InventoryMenuProof-Sheet-01.png": "843f6d432ec1ffd3da777794ce7c74d000e45e608533ed82c36f29aa1e6a2755"
+  },
+  "art": {
+    "mockReference": {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedCollectionProof/mission-board-reference.png",
+      "sha256": "d504aab177be046d47155156a0a1934c4d744e833bcf8c645e517617a9561dd6"
+    },
+    "imagePrompts": {
+      "path": "Plugins/CkTests/Documentation/UI/ScriptedCollectionProof/image-prompts.md",
+      "sha256": "ff9d134bf3260636e3588bd29fe9172161dc481c4b9958510c5524bf4c4a12b4"
+    },
+    "backdrop": {
+      "path": "Plugins/CkTests/Resources/UiAuthoring/ScriptedCollectionProof/mission-board-backdrop.png",
+      "sha256": "5e7530e862b8591a5eb47631fc75274881cdeb7d90eeb5e31fb7c1e5b3f4f081"
+    },
+    "mode": "built-in",
+    "mockReferenceRole": "illustrative design reference; not runtime evidence",
+    "backdropRole": "art-only texture; authored native widgets supply interface text and controls"
+  },
+  "scope": "Reflected flat collection admission, atomic keyed publication, native reorder correction, and a registered AngelScript Mission Board PIE consumer, with focused compatible collection/repeat/table/session/font/menu coverage.",
+  "capabilities": [
+    "Reflected flat records support Text, Number, Bool, Integer and Color fields with stable keys.",
+    "Schema and record admission rejects malformed input atomically; corrected publication can retry.",
+    "Pure reorder installs requested order and advances revision with one notification while retaining keyed row state.",
+    "The actual registered AngelScript Mission Board mounts, selects, completes, reorders, removes, reinserts, reloads and clears collection-driven rows and scalar details.",
+    "Native capture assertions and visual inspection cover initial resolution scaling plus selected, completed and empty states.",
+    "Focused compatible tests cover native batch/nested publication, repeat failure/retention/action paths, table reload, session lifetime and earlier font/menu consumers."
+  ],
+  "limitations": [
+    "The reflected collection boundary supports five flat field kinds; Image fields and reflected nested child collections are unsupported.",
+    "Native nested collection sibling tests do not establish reflected nested collection support.",
+    "Ordinary buttons are recreated during repeat refresh; keyed root, search and custom-widget retention are distinct checks. Focus continuity across refresh remains unproven.",
+    "No virtualization or large-list screen performance claim is made.",
+    "Controller navigation and packaged/installed-plugin acceptance remain unverified.",
+    "The generated reference is illustrative; runtime captures show authored native controls over an art-only backdrop.",
+    "The 32-test focused population is not repository-wide regression coverage."
+  ]
+}
