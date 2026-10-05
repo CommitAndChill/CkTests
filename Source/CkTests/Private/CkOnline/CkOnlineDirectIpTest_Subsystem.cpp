@@ -621,12 +621,30 @@ auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
 auto UCkOnlineDirectIpTest_Subsystem::OnNetworkFailure(UWorld* InWorld, UNetDriver* InDriver,
     ENetworkFailure::Type InFailure, const FString& InError) -> void
 {
-    const auto* Context = GetGameInstance() != nullptr ? GetGameInstance()->GetWorldContext() : nullptr;
-    const auto IsOwnWorld = IsValid(InWorld) && InWorld->GetGameInstance() == GetGameInstance();
-    const auto IsOwnPendingDriver = Context != nullptr && IsValid(Context->PendingNetGame)
-        && Context->PendingNetGame->NetDriver == InDriver;
-    if ((!IsOwnWorld && !IsOwnPendingDriver)
-        || _State == EState::Offline || _State == EState::Leaving || _State == EState::Failed) { return; }
+    if (!IsInGameThread() || _Deinitialized ||
+        (_State != EState::StartingHost && _State != EState::Joining &&
+         _State != EState::Hosting && _State != EState::Connected)) { return; }
+    auto* Instance = GetGameInstance();
+    if (!IsValid(Instance)) { return; }
+    const auto* Context = Instance->GetWorldContext();
+    if (Context == nullptr || Context->OwningGameInstance != Instance) { return; }
+    auto* CurrentWorld = Context->World();
+    const bool CurrentWorldIsOwned = IsValid(CurrentWorld) && CurrentWorld->GetGameInstance() == Instance;
+    const bool DriverIsValid = IsValid(InDriver);
+    const bool PendingIsOwned = _State == EState::Joining && IsValid(Context->PendingNetGame);
+    const bool IsOwnWorldDriver = DriverIsValid && CurrentWorldIsOwned && InWorld == CurrentWorld &&
+        CurrentWorld->GetNetDriver() == InDriver;
+    const bool IsOwnPendingDriver = DriverIsValid && PendingIsOwned &&
+        Context->PendingNetGame->NetDriver == InDriver;
+    // Listen creation can fail before there is a driver; pending failure can have no world.
+    // Each null case needs its exact phase/type/context, never nullptr == nullptr ownership.
+    const bool IsOwnCreationFailure = InDriver == nullptr && _State == EState::StartingHost &&
+        InFailure == ENetworkFailure::NetDriverCreateFailure && CurrentWorldIsOwned &&
+        InWorld == CurrentWorld && CurrentWorld->GetNetDriver() == nullptr;
+    const bool IsOwnMissingPendingFailure = InDriver == nullptr && InWorld == nullptr && PendingIsOwned &&
+        InFailure == ENetworkFailure::PendingConnectionFailure && Context->PendingNetGame->NetDriver == nullptr &&
+        !Context->PendingNetGame->ConnectionError.IsEmpty();
+    if (!IsOwnWorldDriver && !IsOwnPendingDriver && !IsOwnCreationFailure && !IsOwnMissingPendingFailure) { return; }
     _State = EState::Failed;
     _LastError = FString::Printf(TEXT("Network failure: %s. Returning to Offline; rejoin explicitly."), *InError);
     // Network failure can fire during the engine's own driver teardown. Defer our return to Tick.

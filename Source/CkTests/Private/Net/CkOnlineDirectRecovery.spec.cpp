@@ -14,15 +14,18 @@
 #include "Editor/UnrealEdEngine.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
+#include "Engine/PendingNetGame.h"
 #include "Engine/World.h"
 #include "GameFramework/GameModeBase.h"
 #include "IPAddress.h"
+#include "IpNetDriver.h"
 #include "PlayInEditorDataTypes.h"
 #include "Settings/LevelEditorPlaySettings.h"
 #include "SocketSubsystem.h"
 #include "Sockets.h"
 #include "UnrealEdGlobals.h"
 #include "UObject/ObjectKey.h"
+#include "UObject/StrongObjectPtr.h"
 
 namespace ck_online_direct_recovery_test
 {
@@ -590,6 +593,67 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
                 Gym->Get_IsOwnedProfile() && F.Binding.Matches(Direct->Get_Snapshot()));
             TestTrue(TEXT("pending edit does not cancel actual gameplay entry"),
                 F.HasPendingNetGame() && F.Ip()->Get_StateText().StartsWith(TEXT("Joining")));
+
+            auto* World = F.World();
+            auto* Ip = F.Ip();
+            const auto* Context = F.GameInstance()->GetWorldContext();
+            if (!TestTrue(TEXT("observer rejection uses the real owned pending travel"),
+                IsValid(World) && Context != nullptr && IsValid(Context->PendingNetGame) &&
+                IsValid(Context->PendingNetGame->NetDriver)))
+            { F.Aborted = true; return; }
+            const auto StateBefore = Ip->Get_StateText();
+            const auto ErrorBefore = Ip->Get_LastError();
+            const auto BridgeBefore = Ip->Get_LobbyBridgeText();
+            const auto HasBridgeBefore = Ip->Get_HasLobbyBridgeContext();
+            const auto* PendingBefore = Context->PendingNetGame.Get();
+            const auto* PendingDriverBefore = PendingBefore->NetDriver.Get();
+            const auto TravelUrlBefore = Context->TravelURL;
+            const auto NextUrlBefore = World->NextURL;
+            const auto WorldBefore = FObjectKey(World);
+            const auto ObserveUnchanged = [this, &F, Ip, StateBefore, ErrorBefore, BridgeBefore,
+                HasBridgeBefore, PendingBefore, PendingDriverBefore, TravelUrlBefore, NextUrlBefore,
+                WorldBefore, Before, CompletedBefore]()
+            {
+                TestEqual(TEXT("rejected network event preserves gameplay operation state"), Ip->Get_StateText(), StateBefore);
+                TestEqual(TEXT("rejected network event preserves LastError"), Ip->Get_LastError(), ErrorBefore);
+                TestTrue(TEXT("rejected network event preserves bridge readback"), Ip->Get_LobbyBridgeText() == BridgeBefore);
+                TestEqual(TEXT("rejected network event preserves bridge ownership"), Ip->Get_HasLobbyBridgeContext(), HasBridgeBefore);
+                auto* CurrentWorld = F.World();
+                const auto* CurrentContext = F.GameInstance()->GetWorldContext();
+                TestTrue(TEXT("rejected network event preserves the actual owned world"),
+                    IsValid(CurrentWorld) && FObjectKey(CurrentWorld) == WorldBefore);
+                if (TestTrue(TEXT("rejected network event retains the owning world context"), CurrentContext != nullptr))
+                {
+                    TestTrue(TEXT("rejected network event preserves the actual pending object"),
+                        CurrentContext->PendingNetGame.Get() == PendingBefore);
+                    TestTrue(TEXT("rejected network event preserves the actual pending driver"),
+                        IsValid(CurrentContext->PendingNetGame) && CurrentContext->PendingNetGame->NetDriver.Get() == PendingDriverBefore);
+                    TestEqual(TEXT("rejected network event preserves context queued travel"), CurrentContext->TravelURL, TravelUrlBefore);
+                }
+                if (IsValid(CurrentWorld))
+                { TestEqual(TEXT("rejected network event preserves world queued travel"), CurrentWorld->NextURL, NextUrlBefore); }
+                TestTrue(TEXT("rejected network event preserves the owned ready binding"),
+                    F.Gym()->Get_IsOwnedProfile() && F.Binding.Matches(F.Direct()->Get_Snapshot()));
+                TestEqual(TEXT("rejected network event preserves control revision"), F.Direct()->Get_Snapshot().Get_Revision(), Before.Get_Revision());
+                TestEqual(TEXT("rejected network event dispatches no control completion"), F.Direct()->Get_CompletedCount(), CompletedBefore);
+            };
+            // Negative observer inputs only; the real pending driver remains responsible for natural timeout/recovery.
+            GEngine->OnNetworkFailure().Broadcast(World, nullptr, ENetworkFailure::ConnectionLost,
+                TEXT("Recovery negative observer input: null driver"));
+            ObserveUnchanged();
+            {
+                // A constructor-initialized stock object with no world/socket; never query its resource virtuals.
+                TStrongObjectPtr<UIpNetDriver> ForeignDriver{NewObject<UIpNetDriver>(GetTransientPackage())};
+                auto* CurrentWorld = F.World();
+                if (!TestTrue(TEXT("negative foreign driver is valid and belongs to neither owned driver"),
+                    IsValid(CurrentWorld) && FObjectKey(CurrentWorld) == WorldBefore &&
+                    IsValid(ForeignDriver.Get()) && ForeignDriver->GetWorld() == nullptr &&
+                    ForeignDriver.Get() != CurrentWorld->GetNetDriver() && ForeignDriver.Get() != PendingDriverBefore))
+                { F.Aborted = true; return; }
+                GEngine->OnNetworkFailure().Broadcast(CurrentWorld, ForeignDriver.Get(), ENetworkFailure::ConnectionLost,
+                    TEXT("Recovery negative observer input: foreign uninitialized driver"));
+                ObserveUnchanged();
+            }
         }));
 
     ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("bounded failed ClientTravel returns to new Offline Lobby world"),
