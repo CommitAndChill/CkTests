@@ -96,6 +96,7 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("UI: Mass Effect 3 Power Wheel", ACk_PowerWheel_GameMode,       "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("UI: Skyrim Journal", ACk_SkyrimJournal_GameMode,               "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("UI: Scripted Mission Board", ACk_ScriptingMissions_GameMode,   "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: Dark Fantasy HUD", ACk_DarkFantasyHud_GameMode,            "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("UI: Scripted UMG Card", ACk_ScriptingCard_GameMode,            "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("UI HUD: Battlefield 4",   ACk_CombatHud_Tactical_GameMode,         "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("USF Materials",      ACk_UsfGym_GameMode,                     "", "CkUsf");

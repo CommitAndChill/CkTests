@@ -63,6 +63,10 @@ public class CkTests : CkModuleRules
         {
             RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ScriptedCollectionProof", Resource), StagedFileType.NonUFS);
         }
+        foreach (var Resource in new[] { "DarkFantasyHudProof.ui.html", "DarkFantasyHudProof.ui.css", "dungeon-backdrop.png", "sewer-minimap.png", "ornamental-hud-frame.png" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "DarkFantasyHudProof", Resource), StagedFileType.NonUFS);
+        }
 
         PublicDependencyModuleNames.AddRange(new string[]
         {
