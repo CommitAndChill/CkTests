@@ -562,6 +562,74 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
             TestTrue(TEXT("rejected target keeps owned Direct profile"), F.Gym()->Get_IsOwnedProfile());
             TestEqual(TEXT("rejected target leaves Direct revision unchanged"),
                 F.Direct()->Get_Snapshot().Get_Revision(), Before.Get_Revision());
+            auto* World = F.World();
+            auto* Ip = F.Ip();
+            const auto* Context = F.GameInstance()->GetWorldContext();
+            if (!TestTrue(TEXT("queued admission fixture has the actual owned idle Lobby context"),
+                IsValid(World) && Context != nullptr && Context->World() == World &&
+                Context->PendingNetGame == nullptr && Context->TravelURL.IsEmpty() && World->NextURL.IsEmpty() &&
+                IsValid(FindObject<UClass>(nullptr, LobbyModePath))))
+            { F.Aborted = true; return; }
+            const auto StateBefore = Ip->Get_StateText();
+            const auto BridgeBefore = Ip->Get_LobbyBridgeText();
+            const auto CompletedBefore = F.Direct()->Get_CompletedCount();
+            const auto ReloadUrl = FString::Printf(TEXT("%s?game=%s"), MapPath, LobbyModePath);
+            GEngine->SetClientTravel(World, *ReloadUrl, TRAVEL_Absolute);
+            const auto QueuedUrl = Context->TravelURL;
+            const auto QueuedType = Context->TravelType;
+            const auto QueuedWorldUrl = World->NextURL;
+            if (!TestTrue(TEXT("engine queues the requested valid local Lobby reload"),
+                QueuedUrl == ReloadUrl && QueuedType == TRAVEL_Absolute))
+            { F.Aborted = true; return; }
+            const auto Endpoint = FString::Printf(TEXT("127.0.0.1:%d"), F.SilentPort);
+            TestFalse(TEXT("queued actual travel is not reported as idle before competing entry"), Ip->Get_IsOffline());
+            const bool Admitted = Ip->Request_JoinFromReadyLobby(Endpoint);
+            TestFalse(TEXT("otherwise-valid ready-lobby Join rejects while actual travel is queued"), Admitted);
+            TestFalse(TEXT("queued actual travel is not reported as idle Offline"), Ip->Get_IsOffline());
+            TestEqual(TEXT("rejected competing Join preserves queued context destination"), Context->TravelURL, QueuedUrl);
+            TestEqual(TEXT("rejected competing Join preserves queued travel type"), Context->TravelType, QueuedType);
+            TestEqual(TEXT("rejected competing Join preserves queued world destination"), World->NextURL, QueuedWorldUrl);
+            TestTrue(TEXT("rejected competing Join preserves the actual current Lobby world"),
+                F.World() == World && FObjectKey(World) == F.InitialLobbyWorldKey && Context->World() == World);
+            TestTrue(TEXT("rejected competing Join creates no driver or pending game"),
+                World->GetNetDriver() == nullptr && Context->PendingNetGame == nullptr);
+            TestEqual(TEXT("rejected competing Join preserves operational state"), Ip->Get_StateText(), StateBefore);
+            TestTrue(TEXT("rejected competing Join publishes no new IP bridge"),
+                !Ip->Get_HasLobbyBridgeContext() && Ip->Get_LobbyBridgeText() == BridgeBefore);
+            const auto After = F.Direct()->Get_Snapshot();
+            TestTrue(TEXT("rejected competing Join preserves owned ready control identity"),
+                F.Gym()->Get_IsOwnedProfile() && F.Binding.Matches(After));
+            TestEqual(TEXT("rejected competing Join preserves Direct state"), After.Get_State(), Before.Get_State());
+            TestEqual(TEXT("rejected competing Join preserves Direct revision"), After.Get_Revision(), Before.Get_Revision());
+            TestEqual(TEXT("rejected competing Join preserves Direct error"), After.Get_LastError(), Before.Get_LastError());
+            TestTrue(TEXT("rejected competing Join preserves Direct invite"), After.Get_JoinDescriptor() == Before.Get_JoinDescriptor());
+            TestEqual(TEXT("rejected competing Join preserves transcript size"), After.Get_Messages().Num(), Before.Get_Messages().Num());
+            TestEqual(TEXT("rejected competing Join dispatches no control completion"), F.Direct()->Get_CompletedCount(), CompletedBefore);
+            if (Admitted) { F.Aborted = true; }
+        }));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FStep(Fixture, TEXT("real queued reload reaches a different idle ready Lobby world"),
+        [](FFixture& F)
+        {
+            auto* World = F.World();
+            const auto* Context = F.GameInstance() != nullptr ? F.GameInstance()->GetWorldContext() : nullptr;
+            if (!IsValid(World) || !World->HasBegunPlay() || FObjectKey(World) == F.InitialLobbyWorldKey ||
+                World->GetGameInstance() != F.GameInstance() || World->GetNetMode() != NM_Standalone ||
+                World->GetNetDriver() != nullptr || Context == nullptr || Context->World() != World ||
+                Context->PendingNetGame != nullptr || !Context->TravelURL.IsEmpty() || !World->NextURL.IsEmpty() ||
+                !IsValid(F.Ip()) || !F.Ip()->Get_IsOffline())
+            { return false; }
+            auto* Mode = World->GetAuthGameMode();
+            return UWorld::RemovePIEPrefix(World->GetPackage()->GetName()) == MapPath && IsValid(Mode) &&
+                Mode->GetClass()->GetPathName() == LobbyModePath && F.Gym()->Get_IsOwnedProfile() &&
+                F.Binding.Matches(F.Direct()->Get_Snapshot());
+        }, [this](FFixture& F)
+        {
+            TestTrue(TEXT("real Lobby reload retains the original GameInstance and ready control binding"),
+                F.World()->GetGameInstance() == F.GameInstance() && F.Binding.Matches(F.Direct()->Get_Snapshot()));
+            TestTrue(TEXT("real Lobby reload leaves resident editor map unchanged"), F.EditorMapUnchanged());
+            TestFalse(TEXT("real Lobby reload creates no IP bridge"), F.Ip()->Get_HasLobbyBridgeContext());
+            F.InitialLobbyWorldKey = FObjectKey(F.World());
             const auto Endpoint = FString::Printf(TEXT("127.0.0.1:%d"), F.SilentPort);
             if (!TestTrue(TEXT("admitted-address gameplay Join issues real ClientTravel"),
                 F.Ip()->Request_JoinFromReadyLobby(Endpoint)))
@@ -672,6 +740,10 @@ bool FCkOnlineDirectRecovery::RunTest(const FString& Parameters)
         {
             TestTrue(TEXT("return retains original GameInstance"),
                 F.World()->GetGameInstance() == F.GameInstance());
+            const auto* ReturnedContext = F.GameInstance()->GetWorldContext();
+            TestTrue(TEXT("genuine failed-entry return clears context queued travel"),
+                ReturnedContext != nullptr && ReturnedContext->World() == F.World() && ReturnedContext->TravelURL.IsEmpty());
+            TestTrue(TEXT("genuine failed-entry return clears world queued travel"), F.World()->NextURL.IsEmpty());
             TestTrue(TEXT("failed travel leaves resident editor map unchanged"),
                 F.EditorMapUnchanged());
             TestTrue(TEXT("failed entry observed real pending network travel"), F.SawPendingNetGame);

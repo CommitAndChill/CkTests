@@ -50,6 +50,16 @@ namespace
         return Driver != nullptr && IsValid(Driver->ServerConnection)
             && Driver->ServerConnection->GetConnectionState() == USOCK_Open;
     }
+
+    auto HasIdleOwnedTravelContext(UWorld* InWorld, UGameInstance* InInstance) -> bool
+    {
+        if (!IsInGameThread() || GEngine == nullptr || !IsValid(InWorld) || !IsValid(InInstance)) { return false; }
+        if (InWorld->GetGameInstance() != InInstance) { return false; }
+        const auto* Context = GEngine->GetWorldContextFromWorld(InWorld);
+        if (Context == nullptr || Context != InInstance->GetWorldContext() ||
+            Context->OwningGameInstance != InInstance || Context->World() != InWorld) { return false; }
+        return Context->PendingNetGame == nullptr && Context->TravelURL.IsEmpty() && InWorld->NextURL.IsEmpty();
+    }
 }
 
 auto ACkOnlineDirectIpTest_GameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const -> void
@@ -247,6 +257,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_Host(int32 InPort) -> bool
 
 auto UCkOnlineDirectIpTest_Subsystem::Request_HostFromReadyLobby(int32 InPort) -> bool
 {
+    if (!IsInGameThread() || _Deinitialized) { return false; }
     if (_State != EState::Offline) { return DoReject(TEXT("Stop the current IP session first.")); }
     ck::test::ip::FLobbyBinding Binding;
     if (!TryCaptureOwnedLobby(true, Binding))
@@ -257,11 +268,14 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_HostFromReadyLobby(int32 InPort) -
 auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     const ck::test::ip::FLobbyBinding* InBinding) -> bool
 {
+    if (!IsInGameThread() || _Deinitialized) { return false; }
     const bool Bridged = InBinding != nullptr;
     auto* World = Get_ReadyWorld();
     if (World == nullptr) { return DoReject(TEXT("No ready game world.")); }
     if (_State != EState::Offline || World->GetNetDriver() != nullptr || World->GetNetMode() != NM_Standalone)
     { return DoReject(TEXT("Host needs an Offline Standalone instance. Automatic PIE networking is not this gate.")); }
+    if (!HasIdleOwnedTravelContext(World, GetGameInstance()))
+    { return DoReject(TEXT("Host needs its idle owned travel context; queued or pending travel must settle first.")); }
     auto* State = Get_ProofState();
     if ((!Bridged && (!IsValid(State) || State->SessionMarker.IsValid())) ||
         (Bridged && IsValid(State)))
@@ -290,6 +304,8 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
         : UCk_Utils_OnlineDirect_UE::TryBuildListenTarget(Map, GameMode, TEXT("127.0.0.1"), InPort, ListenTarget);
     if (!TargetIsValid)
     { return DoReject(TEXT("Could not form a local listen travel URL for the requested port.")); }
+    if (!HasIdleOwnedTravelContext(World, GetGameInstance()))
+    { return DoReject(TEXT("Host travel context changed during preparation; existing travel is preserved.")); }
     _BridgeActive = Bridged;
     _TestControlFaultQueued = false;
     _ReturnToLobby = Bridged;
@@ -317,6 +333,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_Join(const FString& InEndpoint) ->
 
 auto UCkOnlineDirectIpTest_Subsystem::Request_JoinFromReadyLobby(const FString& InEndpoint) -> bool
 {
+    if (!IsInGameThread() || _Deinitialized) { return false; }
     if (_State != EState::Offline) { return DoReject(TEXT("Stop the current IP session first.")); }
     ck::test::ip::FLobbyBinding Binding;
     if (!TryCaptureOwnedLobby(false, Binding))
@@ -327,6 +344,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_JoinFromReadyLobby(const FString& 
 auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     const ck::test::ip::FLobbyBinding* InBinding) -> bool
 {
+    if (!IsInGameThread() || _Deinitialized) { return false; }
     const bool Bridged = InBinding != nullptr;
     FString Canonical;
     if (Bridged)
@@ -340,6 +358,8 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     if (World == nullptr) { return DoReject(TEXT("No ready game world.")); }
     if (_State != EState::Offline || World->GetNetDriver() != nullptr || World->GetNetMode() != NM_Standalone)
     { return DoReject(TEXT("Join needs an Offline Standalone instance. Disconnect with X first.")); }
+    if (!HasIdleOwnedTravelContext(World, GetGameInstance()))
+    { return DoReject(TEXT("Join needs its idle owned travel context; queued or pending travel must settle first.")); }
     if ((Bridged && IsValid(Get_ProofState())) ||
         (!Bridged && !IsValid(Get_ProofState())))
     { return DoReject(TEXT("Select the expected Online gym before joining.")); }
@@ -358,6 +378,8 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     const auto ReturnMap = UWorld::RemovePIEPrefix(World->GetPackage()->GetName());
     if (ReturnMap.IsEmpty() || GEngine == nullptr || GEngine->GetWorldContextFromWorld(World) == nullptr)
     { return DoReject(TEXT("The joining world has no return travel context.")); }
+    if (!HasIdleOwnedTravelContext(World, GetGameInstance()))
+    { return DoReject(TEXT("Join travel context changed during preparation; existing travel is preserved.")); }
     _BridgeActive = Bridged;
     _TestControlFaultQueued = false;
     _ReturnToLobby = Bridged;
@@ -517,7 +539,7 @@ auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
         const auto ReturnMap = UWorld::RemovePIEPrefix(World->GetPackage()->GetName());
         const auto ExpectedMode = _ReturnToLobby ? LobbyGameModePath : GymGameModePath;
         if (ReturnContext != nullptr && ReturnContext->OwningGameInstance == GetGameInstance() &&
-            ReturnContext->PendingNetGame == nullptr &&
+            HasIdleOwnedTravelContext(World, GetGameInstance()) &&
             World != _DepartingWorld.Get() && World->GetNetDriver() == nullptr &&
             World->GetNetMode() == NM_Standalone && ReturnMap == _ReturnMap &&
             IsValid(ReturnMode) && ReturnMode->GetClass()->GetPathName() == ExpectedMode)
@@ -825,12 +847,11 @@ auto UCkOnlineDirectIpTest_Subsystem::Get_IsConnected() const -> bool
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_IsOffline() const -> bool
 {
+    if (!IsInGameThread()) { return false; }
     auto* World = Get_ReadyWorld();
     if (_State != EState::Offline || World == nullptr || World->GetNetDriver() != nullptr ||
         World->GetNetMode() != NM_Standalone) { return false; }
-    const auto* Context = GEngine != nullptr ? GEngine->GetWorldContextFromWorld(World) : nullptr;
-    return Context != nullptr && Context->OwningGameInstance == GetGameInstance() &&
-        Context->PendingNetGame == nullptr;
+    return HasIdleOwnedTravelContext(World, GetGameInstance());
 }
 
 auto UCkOnlineDirectIpTest_Subsystem::Get_CanRejoin() const -> bool
