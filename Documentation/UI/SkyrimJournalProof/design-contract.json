@@ -1,0 +1,621 @@
+{
+  "schemaVersion": 1,
+  "name": "Skyrim quest journal",
+  "status": "native-focused-passed",
+  "verification": "verification-receipt.json",
+  "reference": {
+    "manual": "https://cdn.akamai.steamstatic.com/steam/apps/72850/manuals/skyrim_gfw_manual-07.pdf?t=1647357402",
+    "visual": "https://4.bp.blogspot.com/-OnrY9WaMLms/T0WHwU3-1fI/AAAAAAAABPY/JlUAiiywJrc/s1600/Skyrimmiscellaneousquests.jpg",
+    "breakdown": "reference-breakdown.md",
+    "geometry": "Approximate 1920x1080 logical proposal derived from 1280x720 browser display; not game source constants"
+  },
+  "referenceViewport": [
+    1920,
+    1080
+  ],
+  "host": [
+    "UOverlay scene dimmer",
+    "USafeZone",
+    "UScaleBox ScaleToFit",
+    "USizeBox 1920x1080",
+    "UCk_UI_AuthoredSurface_UE"
+  ],
+  "bindings": {
+    "String": [
+      "JournalTab"
+    ],
+    "Number": [
+      "JournalTabIndex"
+    ],
+    "Text": [
+      "QuestTitle",
+      "QuestSummary",
+      "QuestState",
+      "StatsSummary",
+      "SystemSummary",
+      "FooterKeys",
+      "FooterStatus",
+      "FooterDate"
+    ],
+    "Visibility": [
+      "QuestSummaryVisible"
+    ],
+    "Trees": [
+      "Quests",
+      "Objectives"
+    ],
+    "StringChanged": [
+      "SelectJournalTab"
+    ],
+    "TreeSelectionChanged": [
+      "SelectQuest",
+      "SelectObjective"
+    ],
+    "Actions": [
+      "CloseJournal"
+    ]
+  },
+  "treeFields": {
+    "name": "Text",
+    "marker": "Text",
+    "name-color": "Color"
+  },
+  "nativeArt": [
+    "frame",
+    "tab-rail",
+    "tab-markers",
+    "title-ornament",
+    "footer-line"
+  ],
+  "nodeCount": 61,
+  "nodes": [
+    {
+      "id": "journal-region",
+      "tag": "column",
+      "parentId": null,
+      "scope": "main-region",
+      "cssClass": null,
+      "attributes": {}
+    },
+    {
+      "id": "journal-layout",
+      "tag": "column",
+      "parentId": "journal-region",
+      "scope": "main-region",
+      "cssClass": "journal-layout",
+      "attributes": {}
+    },
+    {
+      "id": "top-gap",
+      "tag": "column",
+      "parentId": "journal-layout",
+      "scope": "main-region",
+      "cssClass": "top-gap",
+      "attributes": {}
+    },
+    {
+      "id": "journal-stage-row",
+      "tag": "row",
+      "parentId": "journal-layout",
+      "scope": "main-region",
+      "cssClass": "journal-stage-row",
+      "attributes": {}
+    },
+    {
+      "id": "stage-left-margin",
+      "tag": "column",
+      "parentId": "journal-stage-row",
+      "scope": "main-region",
+      "cssClass": "stage-left-margin",
+      "attributes": {}
+    },
+    {
+      "id": "journal-stage",
+      "tag": "overlay",
+      "parentId": "journal-stage-row",
+      "scope": "main-region",
+      "cssClass": "journal-stage",
+      "attributes": {}
+    },
+    {
+      "id": "journal-art-stack",
+      "tag": "column",
+      "parentId": "journal-stage",
+      "scope": "main-region",
+      "cssClass": "journal-art-stack",
+      "attributes": {}
+    },
+    {
+      "id": "header-art",
+      "tag": "overlay",
+      "parentId": "journal-art-stack",
+      "scope": "main-region",
+      "cssClass": "header-art",
+      "attributes": {}
+    },
+    {
+      "id": "tab-rail",
+      "tag": "journal-art",
+      "parentId": "header-art",
+      "scope": "main-region",
+      "cssClass": "header-art-leaf",
+      "attributes": {
+        "piece": "tab-rail"
+      }
+    },
+    {
+      "id": "tab-markers",
+      "tag": "journal-art",
+      "parentId": "header-art",
+      "scope": "main-region",
+      "cssClass": "header-art-leaf",
+      "attributes": {
+        "piece": "tab-markers",
+        "value-bind": "JournalTabIndex"
+      }
+    },
+    {
+      "id": "header-body-gap",
+      "tag": "column",
+      "parentId": "journal-art-stack",
+      "scope": "main-region",
+      "cssClass": "header-body-gap",
+      "attributes": {}
+    },
+    {
+      "id": "journal-frame",
+      "tag": "journal-art",
+      "parentId": "journal-art-stack",
+      "scope": "main-region",
+      "cssClass": "journal-frame",
+      "attributes": {
+        "piece": "frame"
+      }
+    },
+    {
+      "id": "journal-tabs",
+      "tag": "tabs",
+      "parentId": "journal-stage",
+      "scope": "main-region",
+      "cssClass": "journal-tabs",
+      "attributes": {
+        "value-bind": "JournalTab",
+        "changed": "SelectJournalTab"
+      }
+    },
+    {
+      "id": "quests-tab",
+      "tag": "tab",
+      "parentId": "journal-tabs",
+      "scope": "main-region",
+      "cssClass": null,
+      "attributes": {
+        "key": "quests",
+        "label": "QUESTS"
+      }
+    },
+    {
+      "id": "quests-panel",
+      "tag": "column",
+      "parentId": "quests-tab",
+      "scope": "main-region",
+      "cssClass": "journal-tab-panel",
+      "attributes": {}
+    },
+    {
+      "id": "quests-panel-gap",
+      "tag": "column",
+      "parentId": "quests-panel",
+      "scope": "main-region",
+      "cssClass": "header-body-gap",
+      "attributes": {}
+    },
+    {
+      "id": "quests-body",
+      "tag": "row",
+      "parentId": "quests-panel",
+      "scope": "main-region",
+      "cssClass": "journal-body",
+      "attributes": {}
+    },
+    {
+      "id": "quest-list-pane",
+      "tag": "column",
+      "parentId": "quests-body",
+      "scope": "main-region",
+      "cssClass": "quest-list-pane",
+      "attributes": {}
+    },
+    {
+      "id": "quest-list-top-gap",
+      "tag": "column",
+      "parentId": "quest-list-pane",
+      "scope": "main-region",
+      "cssClass": "quest-list-top-gap",
+      "attributes": {}
+    },
+    {
+      "id": "quest-list",
+      "tag": "tree",
+      "parentId": "quest-list-pane",
+      "scope": "main-region",
+      "cssClass": "quest-tree",
+      "attributes": {
+        "bind": "Quests",
+        "selection-action": "SelectQuest",
+        "row-height": "52"
+      }
+    },
+    {
+      "id": "quest-row",
+      "tag": "row",
+      "parentId": "quest-list",
+      "scope": "main-region",
+      "cssClass": "quest-row",
+      "attributes": {}
+    },
+    {
+      "id": "quest-row-grow",
+      "tag": "column",
+      "parentId": "quest-row",
+      "scope": "main-region",
+      "cssClass": "row-grow",
+      "attributes": {}
+    },
+    {
+      "id": "quest-row-name",
+      "tag": "text",
+      "parentId": "quest-row",
+      "scope": "main-region",
+      "cssClass": "quest-row-name",
+      "attributes": {
+        "bind-field": "name",
+        "color-field": "name-color"
+      }
+    },
+    {
+      "id": "quest-row-marker",
+      "tag": "text",
+      "parentId": "quest-row",
+      "scope": "main-region",
+      "cssClass": "quest-row-marker",
+      "attributes": {
+        "bind-field": "marker"
+      }
+    },
+    {
+      "id": "quest-details",
+      "tag": "column",
+      "parentId": "quests-body",
+      "scope": "main-region",
+      "cssClass": "quest-details",
+      "attributes": {}
+    },
+    {
+      "id": "details-top-gap",
+      "tag": "column",
+      "parentId": "quest-details",
+      "scope": "main-region",
+      "cssClass": "details-top-gap",
+      "attributes": {}
+    },
+    {
+      "id": "quest-heading",
+      "tag": "overlay",
+      "parentId": "quest-details",
+      "scope": "main-region",
+      "cssClass": "quest-heading",
+      "attributes": {}
+    },
+    {
+      "id": "quest-ornament",
+      "tag": "journal-art",
+      "parentId": "quest-heading",
+      "scope": "main-region",
+      "cssClass": "quest-ornament",
+      "attributes": {
+        "piece": "title-ornament"
+      }
+    },
+    {
+      "id": "quest-title",
+      "tag": "text",
+      "parentId": "quest-heading",
+      "scope": "main-region",
+      "cssClass": "quest-title",
+      "attributes": {
+        "bind": "QuestTitle"
+      }
+    },
+    {
+      "id": "quest-summary",
+      "tag": "text",
+      "parentId": "quest-details",
+      "scope": "main-region",
+      "cssClass": "quest-summary",
+      "attributes": {
+        "bind": "QuestSummary",
+        "visible": "QuestSummaryVisible"
+      }
+    },
+    {
+      "id": "details-list-gap",
+      "tag": "column",
+      "parentId": "quest-details",
+      "scope": "main-region",
+      "cssClass": "details-list-gap",
+      "attributes": {}
+    },
+    {
+      "id": "objective-list",
+      "tag": "tree",
+      "parentId": "quest-details",
+      "scope": "main-region",
+      "cssClass": "objective-tree",
+      "attributes": {
+        "bind": "Objectives",
+        "selection-action": "SelectObjective",
+        "row-height": "58"
+      }
+    },
+    {
+      "id": "objective-row",
+      "tag": "row",
+      "parentId": "objective-list",
+      "scope": "main-region",
+      "cssClass": "objective-row",
+      "attributes": {}
+    },
+    {
+      "id": "objective-row-marker",
+      "tag": "text",
+      "parentId": "objective-row",
+      "scope": "main-region",
+      "cssClass": "objective-row-marker",
+      "attributes": {
+        "bind-field": "marker"
+      }
+    },
+    {
+      "id": "objective-row-name",
+      "tag": "text",
+      "parentId": "objective-row",
+      "scope": "main-region",
+      "cssClass": "objective-row-name",
+      "attributes": {
+        "bind-field": "name",
+        "color-field": "name-color"
+      }
+    },
+    {
+      "id": "quest-state",
+      "tag": "text",
+      "parentId": "quest-details",
+      "scope": "main-region",
+      "cssClass": "quest-state",
+      "attributes": {
+        "bind": "QuestState"
+      }
+    },
+    {
+      "id": "stats-tab",
+      "tag": "tab",
+      "parentId": "journal-tabs",
+      "scope": "main-region",
+      "cssClass": null,
+      "attributes": {
+        "key": "stats",
+        "label": "GENERAL STATS"
+      }
+    },
+    {
+      "id": "stats-panel",
+      "tag": "column",
+      "parentId": "stats-tab",
+      "scope": "main-region",
+      "cssClass": "journal-tab-panel",
+      "attributes": {}
+    },
+    {
+      "id": "stats-panel-gap",
+      "tag": "column",
+      "parentId": "stats-panel",
+      "scope": "main-region",
+      "cssClass": "header-body-gap",
+      "attributes": {}
+    },
+    {
+      "id": "stats-body",
+      "tag": "row",
+      "parentId": "stats-panel",
+      "scope": "main-region",
+      "cssClass": "journal-body",
+      "attributes": {}
+    },
+    {
+      "id": "stats-left-pane",
+      "tag": "column",
+      "parentId": "stats-body",
+      "scope": "main-region",
+      "cssClass": "quest-list-pane",
+      "attributes": {}
+    },
+    {
+      "id": "stats-details",
+      "tag": "column",
+      "parentId": "stats-body",
+      "scope": "main-region",
+      "cssClass": "simple-details",
+      "attributes": {}
+    },
+    {
+      "id": "stats-title",
+      "tag": "text",
+      "parentId": "stats-details",
+      "scope": "main-region",
+      "cssClass": "simple-title",
+      "attributes": {}
+    },
+    {
+      "id": "stats-summary",
+      "tag": "text",
+      "parentId": "stats-details",
+      "scope": "main-region",
+      "cssClass": "simple-summary",
+      "attributes": {
+        "bind": "StatsSummary"
+      }
+    },
+    {
+      "id": "system-tab",
+      "tag": "tab",
+      "parentId": "journal-tabs",
+      "scope": "main-region",
+      "cssClass": null,
+      "attributes": {
+        "key": "system",
+        "label": "SYSTEM"
+      }
+    },
+    {
+      "id": "system-panel",
+      "tag": "column",
+      "parentId": "system-tab",
+      "scope": "main-region",
+      "cssClass": "journal-tab-panel",
+      "attributes": {}
+    },
+    {
+      "id": "system-panel-gap",
+      "tag": "column",
+      "parentId": "system-panel",
+      "scope": "main-region",
+      "cssClass": "header-body-gap",
+      "attributes": {}
+    },
+    {
+      "id": "system-body",
+      "tag": "row",
+      "parentId": "system-panel",
+      "scope": "main-region",
+      "cssClass": "journal-body",
+      "attributes": {}
+    },
+    {
+      "id": "system-left-pane",
+      "tag": "column",
+      "parentId": "system-body",
+      "scope": "main-region",
+      "cssClass": "quest-list-pane",
+      "attributes": {}
+    },
+    {
+      "id": "system-details",
+      "tag": "column",
+      "parentId": "system-body",
+      "scope": "main-region",
+      "cssClass": "simple-details",
+      "attributes": {}
+    },
+    {
+      "id": "system-title",
+      "tag": "text",
+      "parentId": "system-details",
+      "scope": "main-region",
+      "cssClass": "simple-title",
+      "attributes": {}
+    },
+    {
+      "id": "system-summary",
+      "tag": "text",
+      "parentId": "system-details",
+      "scope": "main-region",
+      "cssClass": "simple-summary",
+      "attributes": {
+        "bind": "SystemSummary"
+      }
+    },
+    {
+      "id": "journal-close",
+      "tag": "button",
+      "parentId": "system-details",
+      "scope": "main-region",
+      "cssClass": "journal-close",
+      "attributes": {
+        "action": "CloseJournal"
+      }
+    },
+    {
+      "id": "footer-top-gap",
+      "tag": "column",
+      "parentId": "journal-layout",
+      "scope": "main-region",
+      "cssClass": "footer-top-gap",
+      "attributes": {}
+    },
+    {
+      "id": "footer-line",
+      "tag": "journal-art",
+      "parentId": "journal-layout",
+      "scope": "main-region",
+      "cssClass": "footer-line",
+      "attributes": {
+        "piece": "footer-line"
+      }
+    },
+    {
+      "id": "footer-text-gap",
+      "tag": "column",
+      "parentId": "journal-layout",
+      "scope": "main-region",
+      "cssClass": "footer-text-gap",
+      "attributes": {}
+    },
+    {
+      "id": "journal-footer",
+      "tag": "row",
+      "parentId": "journal-layout",
+      "scope": "main-region",
+      "cssClass": "journal-footer",
+      "attributes": {}
+    },
+    {
+      "id": "footer-keys",
+      "tag": "text",
+      "parentId": "journal-footer",
+      "scope": "main-region",
+      "cssClass": "footer-keys",
+      "attributes": {
+        "bind": "FooterKeys"
+      }
+    },
+    {
+      "id": "footer-status",
+      "tag": "text",
+      "parentId": "journal-footer",
+      "scope": "main-region",
+      "cssClass": "footer-status",
+      "attributes": {
+        "bind": "FooterStatus"
+      }
+    },
+    {
+      "id": "footer-grow",
+      "tag": "column",
+      "parentId": "journal-footer",
+      "scope": "main-region",
+      "cssClass": "footer-grow",
+      "attributes": {}
+    },
+    {
+      "id": "footer-date",
+      "tag": "text",
+      "parentId": "journal-footer",
+      "scope": "main-region",
+      "cssClass": "footer-date",
+      "attributes": {
+        "bind": "FooterDate"
+      }
+    }
+  ]
+}
