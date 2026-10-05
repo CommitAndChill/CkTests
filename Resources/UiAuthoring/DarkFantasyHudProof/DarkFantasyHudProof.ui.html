@@ -1,0 +1,115 @@
+<ui version="1">
+ <region name="main">
+  <overlay id="fantasy-root">
+   <hud-graphic id="ornamental-frame" image-bind="HudFrame" class="ornamental-frame" />
+   <column id="hud-layout" class="hud-layout">
+    <row id="header" class="header">
+     <column id="player-header" class="player-header">
+      <text id="player-name" class="player-name">LYRA / LEVEL 42</text>
+      <text id="player-class" class="small muted">ROGUE - WORLD TIER IV</text>
+     </column>
+     <column id="quest" class="quest">
+      <text id="quest-title" class="quest-title">BENEATH THE ASHEN CITY</text>
+      <text id="quest-objective" class="objective">Find the keeper of the forgotten gate</text>
+      <text id="quest-progress" class="small muted">THE DROWNED PASSAGE / 2 OF 3 SEALS</text>
+     </column>
+     <column id="map-panel" class="map-panel">
+      <text id="map-title" class="map-title">THE FORSAKEN SEWERS</text>
+      <hud-graphic id="minimap" image-bind="Minimap" class="minimap" />
+      <row id="map-meta" class="map-meta">
+       <text id="map-danger" class="small gold">HOSTILE TERRITORY</text>
+       <text id="map-time" class="small muted">23:47</text>
+      </row>
+     </column>
+    </row>
+    <row id="playfield" class="playfield">
+     <column id="party" class="party">
+      <text id="party-title" class="small gold">PARTY / 3</text>
+      <column id="party-lyra" class="party-member">
+       <text id="party-lyra-name" class="party-name">42  LYRA</text>
+       <column id="party-lyra-vitals" class="party-vitals" />
+       <text id="party-lyra-class" class="small muted">ROGUE</text>
+      </column>
+      <column id="party-orin" class="party-member">
+       <text id="party-orin-name" class="party-name">40  ORIN</text>
+       <column id="party-orin-vitals" class="party-vitals" />
+       <text id="party-orin-class" class="small muted">BARBARIAN</text>
+      </column>
+      <column id="party-mira" class="party-member">
+       <text id="party-mira-name" class="party-name">41  MIRA</text>
+       <column id="party-mira-vitals" class="party-vitals" />
+       <text id="party-mira-class" class="small muted">SORCERER</text>
+      </column>
+     </column>
+     <column id="playfield-spacer" class="grow" />
+     <column id="chat-zone" class="chat-zone">
+      <column id="chat-top-space" class="grow" />
+      <column id="chat" class="chat">
+       <text id="chat-channel" class="small gold">PARTY / LOCAL</text>
+       <text id="chat-orin" class="chat-line">Orin: Stay close. Something moves.</text>
+       <text id="chat-mira" class="chat-line">Mira: The gate is just ahead.</text>
+       <text id="chat-action" bind="ActionStatus" class="chat-line action-line" />
+       <text id="chat-hint" class="small muted">ENTER TO CHAT</text>
+      </column>
+     </column>
+    </row>
+    <row id="bottom-hud" class="bottom-hud">
+     <column id="health-panel" class="orb-panel">
+      <overlay id="health-orb" class="orb">
+       <hud-meter id="health-meter" value-bind="HealthFraction" class="health-meter" />
+       <column id="health-labels" class="orb-labels">
+        <column id="health-top-space" class="grow" />
+        <text id="health-title" class="orb-title">LIFE</text>
+        <text id="health-value" bind="HealthText" class="orb-value" />
+        <column id="health-bottom-space" class="grow" />
+       </column>
+      </overlay>
+      <text id="potion-key" class="small gold centered">Q / POTION  4/4</text>
+     </column>
+     <column id="hotbar-panel" class="hotbar-panel">
+      <text id="hotbar-caption" class="small gold centered">SHADOWS ANSWER YOUR CALL</text>
+      <row id="hotbar" class="hotbar">
+       <column id="skill-1" class="skill"><text id="skill-1-glyph" class="skill-glyph">/</text><text id="skill-1-label" class="skill-name">CUT</text><text id="skill-1-key" class="skill-key">1</text></column>
+       <column id="skill-2" class="skill"><text id="skill-2-glyph" class="skill-glyph">X</text><text id="skill-2-label" class="skill-name">FLURRY</text><text id="skill-2-key" class="skill-key">2</text></column>
+       <column id="skill-3" class="skill"><text id="skill-3-glyph" class="skill-glyph">+</text><text id="skill-3-label" class="skill-name">SHADOW</text><text id="skill-3-key" class="skill-key">3</text></column>
+       <column id="skill-4" class="skill"><text id="skill-4-glyph" class="skill-glyph">V</text><text id="skill-4-label" class="skill-name">DASH</text><text id="skill-4-key" class="skill-key">4</text></column>
+       <column id="skill-left" class="skill"><text id="skill-left-glyph" class="skill-glyph">I</text><text id="skill-left-label" class="skill-name">STRIKE</text><text id="skill-left-key" class="skill-key">LMB</text></column>
+       <column id="skill-right" class="skill"><text id="skill-right-glyph" class="skill-glyph">*</text><text id="skill-right-label" class="skill-name">PIERCE</text><text id="skill-right-key" class="skill-key">RMB</text></column>
+      </row>
+      <row id="utility-row" class="utility-row">
+       <text id="evade-hint" class="small muted utility-hint">SPACE EVADE</text>
+       <button id="open-wheel" action="OpenWheel" class="open-button">OPEN WHEEL</button>
+       <text id="inventory-hint" class="small muted utility-hint">I BAG</text>
+      </row>
+     </column>
+     <column id="mana-panel" class="orb-panel">
+      <overlay id="mana-orb" class="orb">
+       <hud-meter id="mana-meter" value-bind="ManaFraction" class="mana-meter" />
+       <column id="mana-labels" class="orb-labels">
+        <column id="mana-top-space" class="grow" />
+        <text id="mana-title" class="orb-title">ENERGY</text>
+        <text id="mana-value" bind="ManaText" class="orb-value" />
+        <column id="mana-bottom-space" class="grow" />
+       </column>
+      </overlay>
+      <text id="resource-hint" class="small gold centered">SHADOW ATTUNEMENT</text>
+     </column>
+    </row>
+   </column>
+   <column id="wheel-zone" class="wheel-zone">
+    <radial-selector id="interaction-wheel" items-bind="Interactions" selection-bind="Selection" select="SelectInteraction" activate="ActivateInteraction" visible="WheelOpen" class="interaction-wheel">
+     <slot name="content">
+      <column id="wheel-center" class="wheel-center">
+       <column id="center-top-space" class="grow" />
+       <text id="wheel-heading" class="wheel-heading">INTERACT</text>
+       <text id="wheel-selection" bind="SelectionLabel" class="wheel-selection" />
+       <button id="activate-selection" action="ActivateSelection" class="center-button">CONFIRM</button>
+       <button id="close-wheel" action="CloseWheel" class="close-button">CLOSE</button>
+       <column id="center-bottom-space" class="grow" />
+      </column>
+     </slot>
+    </radial-selector>
+   </column>
+  </overlay>
+ </region>
+</ui>
