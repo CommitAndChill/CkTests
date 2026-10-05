@@ -110,6 +110,12 @@ public:
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     FString Get_FailureIsolationText() const { return _FailureIsolationReadback; }
 
+    UFUNCTION(BlueprintCallable, Category = "Ck|Tests|Online Direct IP")
+    bool Request_TestQueuedLobbyTravel();
+
+    UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
+    FString Get_QueuedTravelIsolationText() const { return _QueuedTravelIsolationReadback; }
+
     UFUNCTION(BlueprintPure, Category = "Ck|Tests|Online Direct IP")
     FString Get_StateText() const;
 
@@ -180,6 +186,7 @@ private:
     auto Get_ProofState() const -> ACkOnlineDirectIpTest_GameState*;
     auto DoReject(const FString& InReason) -> bool;
     auto DoReturnToGym(bool InKeepFailure) -> bool;
+    auto DoObserveQueuedLobbyReload() -> void;
     auto OnNetworkFailure(UWorld* InWorld, UNetDriver* InDriver,
         ENetworkFailure::Type InFailure, const FString& InError) -> void;
     auto OnTravelFailure(UWorld* InWorld, ETravelFailure::Type InFailure, const FString& InError) -> void;
@@ -192,6 +199,16 @@ private:
     FString _FailureIsolationReadback = TEXT("Not exercised");
     int32 _FailureIsolationObservations = 0;
     bool _FailureIsolationTestActive = false;
+    FString _QueuedTravelIsolationReadback = TEXT("Not exercised");
+    TWeakObjectPtr<UWorld> _QueuedTravelTestDepartureWorld;
+    ck::test::ip::FLobbyBinding _QueuedTravelTestBinding;
+    FString _QueuedTravelTestMap;
+    double _QueuedTravelTestDeadline = 0.0;
+    int32 _QueuedTravelTestRevision = 0;
+    int32 _QueuedTravelTestCompletedCount = 0;
+    int32 _QueuedTravelTestObservations = 0;
+    bool _QueuedTravelTestPending = false;
+    bool _QueuedTravelTestActive = false;
     ck::test::ip::FLobbyBinding _BridgeBinding;
     ck::test::ip::FLobbyBinding _BridgeLastBinding;
     bool _BridgeActive = false;

@@ -160,6 +160,20 @@ namespace CkOnlineDirectGym
         Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::F4, "F4",
             f"Edit gameplay port ({Probe.Get_GameplayPort()})", Probe.Get_CanEditGameplayPort()))); // 43
 
+        FString QueuedTravelText = ck::IsValid(Ip)
+            ? Ip.Get_QueuedTravelIsolationText() : "Not run: Direct IP fixture unavailable.";
+        ECkGym_ControlTone QueuedTravelTone = ECkGym_ControlTone::Info;
+        if (QueuedTravelText.StartsWith("OBSERVED")) { QueuedTravelTone = ECkGym_ControlTone::Success; }
+        else if (QueuedTravelText.StartsWith("CHANGED")) { QueuedTravelTone = ECkGym_ControlTone::Error; }
+        else if (QueuedTravelText.StartsWith("Not run")) { QueuedTravelTone = ECkGym_ControlTone::Warning; }
+        Rows.Add(CkGym_Control::Details(CkGym_Control::StatusTone("Queued travel isolation",
+            QueuedTravelText, QueuedTravelTone))); // 44
+        bool CanTestQueuedTravel = Snapshot.Get_State() == ECk_OnlineDirect_State::Joined
+            && Probe.Get_IsOwnedProfile() && AllMembersReady(Snapshot)
+            && ck::IsValid(Ip) && Ip.Get_IsOffline();
+        Rows.Add(CkGym_Control::Details(CkGym_Control::Action(EKeys::F9, "F9",
+            "Test: preserve queued Lobby reload", CanTestQueuedTravel))); // 45
+
         if (InChat)
         {
             Rows.Add(CkGym_Control::Details(CkGym_Control::Header("AUTHORITATIVE TRANSCRIPT: NEWEST 6 SHOWN, 32 RETAINED")));
@@ -183,6 +197,7 @@ namespace CkOnlineDirectGym
             Rows.Add(CkGym_Control::Details(CkGym_Control::Status("Latest chat with ID",
                 Probe.Get_MessageLineFromNewest(0))));
         }
+
         return Rows;
     }
 
@@ -190,6 +205,17 @@ namespace CkOnlineDirectGym
     {
         auto Probe = Subsystem::GetGameInstanceSubsystem(UCkOnlineDirectGym_Subsystem);
         if (ck::Is_NOT_Valid(Probe)) { return; }
+        if (InRowIndex == 45)
+        {
+            auto Ip = Subsystem::GetGameInstanceSubsystem(UCkOnlineDirectIpTest_Subsystem);
+            auto Direct = Subsystem::GetGameInstanceSubsystem(UCk_OnlineDirect_Subsystem_UE);
+            if (ck::Is_NOT_Valid(Ip) || ck::Is_NOT_Valid(Direct) || !Probe.Get_IsOwnedProfile()
+                || !Ip.Get_IsOffline()) { return; }
+            auto Snapshot = Direct.Get_Snapshot();
+            if (Snapshot.Get_State() != ECk_OnlineDirect_State::Joined || !AllMembersReady(Snapshot)) { return; }
+            Ip.Request_TestQueuedLobbyTravel();
+            return;
+        }
         if (InRowIndex == 21) { Probe.Request_Host(); }
         else if (InRowIndex == 22) { Probe.Request_JoinCopiedInvite(); }
         else if (InRowIndex == 23) { Probe.Request_ToggleReady(); }

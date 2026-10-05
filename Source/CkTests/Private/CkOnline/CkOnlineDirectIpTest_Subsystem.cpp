@@ -162,6 +162,9 @@ auto UCkOnlineDirectIpTest_Subsystem::Deinitialize() -> void
     _HostingDepartureWorld.Reset();
     _BridgeActive = false;
     _BridgeBinding = {};
+    _QueuedTravelTestPending = false;
+    _QueuedTravelTestDepartureWorld.Reset();
+    _QueuedTravelTestBinding = {};
     Super::Deinitialize();
 }
 
@@ -318,6 +321,9 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestHost(int32 InPort,
     _Endpoint = ListenTarget.Get_GameplayEndpoint();
     _FailureIsolationReadback = TEXT("Not exercised");
     _FailureIsolationObservations = 0;
+    _QueuedTravelIsolationReadback = TEXT("Not exercised");
+    _QueuedTravelTestObservations = 0;
+    _QueuedTravelTestPending = false;
     _LastError.Empty();
     _State = EState::StartingHost;
     _Deadline = FPlatformTime::Seconds() + JoinTimeoutSeconds;
@@ -390,6 +396,9 @@ auto UCkOnlineDirectIpTest_Subsystem::DoRequestJoin(const FString& InEndpoint,
     _Endpoint = MoveTemp(Canonical);
     _FailureIsolationReadback = TEXT("Not exercised");
     _FailureIsolationObservations = 0;
+    _QueuedTravelIsolationReadback = TEXT("Not exercised");
+    _QueuedTravelTestObservations = 0;
+    _QueuedTravelTestPending = false;
     _HasJoinEndpoint = true;
     _LastError.Empty();
     _State = EState::Joining;
@@ -475,8 +484,52 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_TestControlStop() -> bool
     return true;
 }
 
+auto UCkOnlineDirectIpTest_Subsystem::DoObserveQueuedLobbyReload() -> void
+{
+    if (!_QueuedTravelTestPending || _QueuedTravelTestActive || _Deinitialized || !IsInGameThread()) { return; }
+    if (FPlatformTime::Seconds() > _QueuedTravelTestDeadline)
+    {
+        _QueuedTravelTestPending = false;
+        _QueuedTravelTestDepartureWorld.Reset();
+        _QueuedTravelTestBinding = {};
+        _QueuedTravelIsolationReadback = TEXT("CHANGED: local Lobby reload did not settle before the bounded deadline.");
+        return;
+    }
+    auto* World = Get_ReadyWorld();
+    if (IsValid(World) && World != _QueuedTravelTestDepartureWorld.Get())
+    {
+        auto* Instance = GetGameInstance();
+        const auto* Context = IsValid(Instance) ? Instance->GetWorldContext() : nullptr;
+        auto* Direct = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineDirect_Subsystem_UE>() : nullptr;
+        auto* Gym = IsValid(Instance) ? Instance->GetSubsystem<UCkOnlineDirectGym_Subsystem>() : nullptr;
+        const auto* Mode = World->GetAuthGameMode();
+        const bool Preserved = Get_IsOffline() && Context != nullptr && Context->OwningGameInstance == Instance &&
+            Context->World() == World && Context->PendingNetGame == nullptr && Context->TravelURL.IsEmpty() &&
+            World->NextURL.IsEmpty() && UWorld::RemovePIEPrefix(World->GetPackage()->GetName()) == _QueuedTravelTestMap &&
+            IsValid(Mode) && Mode->GetClass()->GetPathName() == LobbyGameModePath &&
+            IsValid(Gym) && Gym->Get_IsOwnedProfile() && IsValid(Direct) && Direct->Get_IsStarted() &&
+            _QueuedTravelTestBinding.Matches(Direct->Get_Snapshot()) &&
+            Direct->Get_Snapshot().Get_Revision() == _QueuedTravelTestRevision &&
+            Direct->Get_CompletedCount() == _QueuedTravelTestCompletedCount;
+        _QueuedTravelTestPending = false;
+        _QueuedTravelTestDepartureWorld.Reset();
+        _QueuedTravelTestBinding = {};
+        if (!Preserved)
+        {
+            _QueuedTravelIsolationReadback = TEXT("CHANGED: local Lobby reload or ready control identity differed.");
+            return;
+        }
+        if (_QueuedTravelTestObservations < MAX_int32) { ++_QueuedTravelTestObservations; }
+        _QueuedTravelIsolationReadback = FString::Printf(
+            TEXT("OBSERVED %d: competing Join rejected; new idle Lobby, same ready control identity."),
+            _QueuedTravelTestObservations);
+        return;
+    }
+}
+
 auto UCkOnlineDirectIpTest_Subsystem::Tick(float InDeltaTime) -> void
 {
+    DoObserveQueuedLobbyReload();
     if (_BridgeActive && !_ReturnPending && !_FailureReturnPending &&
         _State != EState::Offline && _State != EState::Leaving && !Get_BridgeStillValid())
     {
@@ -806,6 +859,82 @@ auto UCkOnlineDirectIpTest_Subsystem::Request_TestUnrelatedNetworkFailure() -> b
     if (_FailureIsolationObservations < MAX_int32) { ++_FailureIsolationObservations; }
     _FailureIsolationReadback = FString::Printf(
         TEXT("OBSERVED %d: malformed event ignored; same gameplay session and proof."), _FailureIsolationObservations);
+    return true;
+}
+
+auto UCkOnlineDirectIpTest_Subsystem::Request_TestQueuedLobbyTravel() -> bool
+{
+    if (!IsInGameThread() || _Deinitialized || _QueuedTravelTestActive || _QueuedTravelTestPending) { return false; }
+    ck::test::ip::FLobbyBinding Binding;
+    if (_BridgeActive || _TestControlFaultQueued || _ReturnPending || _FailureReturnPending ||
+        !Get_IsOffline() || !TryCaptureOwnedLobby(false, Binding))
+    {
+        _QueuedTravelIsolationReadback = TEXT("Not run: requires an idle, joined, two-member ready Lobby.");
+        return false;
+    }
+    auto* World = Get_ReadyWorld();
+    auto* Instance = GetGameInstance();
+    if (GEngine == nullptr || !IsValid(World) || !IsValid(Instance)) { return false; }
+    const auto* Context = Instance->GetWorldContext();
+    auto* Gym = Instance->GetSubsystem<UCkOnlineDirectGym_Subsystem>();
+    auto* Direct = Instance->GetSubsystem<UCk_OnlineDirect_Subsystem_UE>();
+    const auto* Mode = World->GetAuthGameMode();
+    if (Context == nullptr || GEngine->GetWorldContextFromWorld(World) != Context ||
+        Context->OwningGameInstance != Instance || Context->World() != World ||
+        Context->PendingNetGame != nullptr || !Context->TravelURL.IsEmpty() || !World->NextURL.IsEmpty() ||
+        !IsValid(Gym) || !IsValid(Direct) || !IsValid(Mode) || Mode->GetClass()->GetPathName() != LobbyGameModePath)
+    {
+        _QueuedTravelIsolationReadback = TEXT("Not run: exact idle Lobby travel context unavailable.");
+        return false;
+    }
+    const auto ReturnMap = UWorld::RemovePIEPrefix(World->GetPackage()->GetName());
+    if (ReturnMap.IsEmpty()) { return false; }
+    const auto ReloadUrl = FString::Printf(TEXT("%s?%s"), *ReturnMap, LobbyGameOption);
+    FString Endpoint;
+    if (!TryParseLobbyEndpoint(FString::Printf(TEXT("%s:%d"), *Binding.Get_HostAddress(),
+        Gym->Get_GameplayPort()), Binding, Endpoint)) { return false; }
+    const auto SnapshotBefore = Direct->Get_Snapshot();
+    const auto CompletedBefore = Direct->Get_CompletedCount();
+    const auto BridgeBefore = _BridgeReadback;
+    const auto BridgeEpochBefore = _BridgeBinding.Get_Epoch();
+    const auto LastBridgeEpochBefore = _BridgeLastBinding.Get_Epoch();
+    const auto EndpointBefore = _Endpoint;
+    const auto ReturnMapBefore = _ReturnMap;
+    const auto ReturnToLobbyBefore = _ReturnToLobby;
+    const auto HasJoinEndpointBefore = _HasJoinEndpoint;
+    const auto DeadlineBefore = _Deadline;
+    const auto TestGuard = TGuardValue<bool>{_QueuedTravelTestActive, true};
+    // Queue a genuine local reload, then exercise competing entry before the engine consumes it.
+    GEngine->SetClientTravel(World, *ReloadUrl, TRAVEL_Absolute);
+    const bool JoinAdmitted = Request_JoinFromReadyLobby(Endpoint);
+    auto* CurrentWorld = Get_ReadyWorld();
+    const auto* CurrentContext = IsValid(Instance) ? Instance->GetWorldContext() : nullptr;
+    auto* CurrentDirect = IsValid(Instance) ? Instance->GetSubsystem<UCk_OnlineDirect_Subsystem_UE>() : nullptr;
+    const bool Preserved = !JoinAdmitted && !_Deinitialized && _State == EState::Offline && !_BridgeActive &&
+        !_ReturnPending && !_FailureReturnPending && _BridgeReadback == BridgeBefore &&
+        _BridgeBinding.Get_Epoch() == BridgeEpochBefore && _BridgeLastBinding.Get_Epoch() == LastBridgeEpochBefore &&
+        _Endpoint == EndpointBefore && _ReturnMap == ReturnMapBefore && _ReturnToLobby == ReturnToLobbyBefore &&
+        _HasJoinEndpoint == HasJoinEndpointBefore && _Deadline == DeadlineBefore && !Get_IsOffline() &&
+        IsValid(CurrentWorld) && CurrentWorld == World && CurrentWorld->GetNetDriver() == nullptr &&
+        CurrentContext != nullptr && CurrentContext->OwningGameInstance == Instance && CurrentContext->World() == World &&
+        CurrentContext->PendingNetGame == nullptr && CurrentContext->TravelURL == ReloadUrl &&
+        CurrentContext->TravelType == TRAVEL_Absolute && CurrentWorld->NextURL.IsEmpty() &&
+        IsValid(CurrentDirect) && Binding.Matches(CurrentDirect->Get_Snapshot()) &&
+        CurrentDirect->Get_Snapshot().Get_Revision() == SnapshotBefore.Get_Revision() &&
+        CurrentDirect->Get_CompletedCount() == CompletedBefore;
+    if (!Preserved)
+    {
+        _QueuedTravelIsolationReadback = TEXT("CHANGED: competing Join altered queued travel or operational state.");
+        return false;
+    }
+    _QueuedTravelTestDepartureWorld = World;
+    _QueuedTravelTestBinding = Binding;
+    _QueuedTravelTestMap = ReturnMap;
+    _QueuedTravelTestRevision = SnapshotBefore.Get_Revision();
+    _QueuedTravelTestCompletedCount = CompletedBefore;
+    _QueuedTravelTestDeadline = FPlatformTime::Seconds() + JoinTimeoutSeconds;
+    _QueuedTravelTestPending = true;
+    _QueuedTravelIsolationReadback = TEXT("Queued destination preserved; awaiting actual local Lobby reload.");
     return true;
 }
 
