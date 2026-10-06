@@ -46,6 +46,12 @@ DECLARE_DELEGATE_RetVal(bool, FCk_NetAutoTest_Condition);
 
 namespace ck::auto_test::net
 {
+    // One independently reported case per network topology.
+    CKTESTS_API auto Get_TopologyTestCases(
+        TArray<FString>& OutNames, TArray<FString>& OutCommands) -> void;
+    CKTESTS_API auto TryGet_DedicatedServer(
+        const FString& InTopology, bool& OutDedicatedServer) -> bool;
+
     // Returns the PIE world running as the server (ListenServer or DedicatedServer). nullptr if
     // no PIE session is active or no server world exists.
     CKTESTS_API auto Get_ServerWorld() -> UWorld*;
@@ -76,6 +82,12 @@ namespace ck::auto_test::net
 }
 
 // --------------------------------------------------------------------------------------------------------------------
+// Standard complex net test: each topology has its own discovery/result row.
+#define CK_IMPLEMENT_NET_AUTOMATION_TEST(TestClass, PrettyName, Flags) \
+    IMPLEMENT_COMPLEX_AUTOMATION_TEST(TestClass, PrettyName, Flags) \
+    void TestClass::GetTests(TArray<FString>& OutNames, TArray<FString>& OutCommands) const \
+    { ck::auto_test::net::Get_TopologyTestCases(OutNames, OutCommands); }
+
 // Latent commands. Defined manually rather than via DEFINE_LATENT_AUTOMATION_COMMAND_* macros so
 // commands that need progress state (frame counter, elapsed time) can carry mutable fields. The
 // public-facing usage is identical: construct with parameters, ADD_LATENT_AUTOMATION_COMMAND.
@@ -83,8 +95,10 @@ namespace ck::auto_test::net
 class CKTESTS_API FCk_Latent_StartPIEMultiClient : public IAutomationLatentCommand
 {
 public:
-    FCk_Latent_StartPIEMultiClient(int32 InNumClients, const FString& InMapPath)
-        : _NumClients(InNumClients), _MapPath(InMapPath) {}
+    FCk_Latent_StartPIEMultiClient(
+        int32 InNumClients, const FString& InMapPath,
+        const FString& InTopology = FString{})
+        : _NumClients(InNumClients), _MapPath(InMapPath), _Topology(InTopology) {}
 
     virtual ~FCk_Latent_StartPIEMultiClient() = default;
     virtual bool Update() override;
@@ -92,6 +106,7 @@ public:
 private:
     int32 _NumClients = 1;
     FString _MapPath;
+    FString _Topology;
 };
 
 class CKTESTS_API FCk_Latent_WaitForPIEReady : public IAutomationLatentCommand

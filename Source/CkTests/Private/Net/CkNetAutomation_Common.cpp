@@ -32,6 +32,15 @@ DEFINE_LOG_CATEGORY_STATIC(LogCkNetAutomation, Log, All);
 
 namespace
 {
+    // A world may remain in a PIE context while UObject destruction or world
+    // teardown has started. Check ordinary validity before reading either flag.
+    bool HasUsableWorld(const UWorld* World)
+    {
+        return ck::IsValid(World) &&
+            !World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) &&
+            !World->bIsTearingDown;
+    }
+
     template <typename TString, typename... TArgs>
     void Log_Error(const TString& Fmt, TArgs&&... Args)
     {
@@ -49,6 +58,20 @@ namespace
 
 namespace ck_net_automation_common
 {
+    bool GSessionFailed = false;
+    bool GOwnsSession = false;
+    bool GRequireExactTopology = false;
+    ENetMode GExpectedServerMode = NM_ListenServer;
+    int32 GExpectedTotalWorlds = 0;
+
+    auto FailSession(const FString& Message) -> void
+    {
+        GSessionFailed = true;
+        if (auto* Test = FAutomationTestFramework::Get().GetCurrentTest())
+        { Test->AddError(Message); }
+        else { Log_Error(TEXT("{}"), Message); }
+    }
+
     // ULevelEditorPlaySettings is a config-backed CDO that UEditorEngine::EndPlayMap writes straight to
     // EditorPerProjectUserSettings.ini on EVERY PIE teardown (PlayLevel.cpp, PlaySettingsConfig->SaveConfig).
     // Overriding it in place for a multi-client test therefore leaks into the developer's next manual Play:
@@ -111,7 +134,8 @@ namespace ck_net_automation_common
     auto
         Override_PlaySettings(
             ULevelEditorPlaySettings* InSettings,
-            int32 InNumClients)
+            int32 InNumClients,
+            bool InDedicatedServer)
         -> void
     {
         // A second start before the matching restore must snapshot the USER's values, not the previous
@@ -130,8 +154,8 @@ namespace ck_net_automation_common
         if (NOT GPlaySettings_RestoreHandle.IsValid())
         { GPlaySettings_RestoreHandle = FEditorDelegates::EndPIE.AddStatic(&OnEndPIE); }
 
-        InSettings->SetPlayNumberOfClients(InNumClients);
-        InSettings->SetPlayNetMode(EPlayNetMode::PIE_ListenServer);
+        InSettings->SetPlayNumberOfClients(InDedicatedServer ? InNumClients - 1 : InNumClients);
+        InSettings->SetPlayNetMode(InDedicatedServer ? EPlayNetMode::PIE_Client : EPlayNetMode::PIE_ListenServer);
         InSettings->SetRunUnderOneProcess(true);
         InSettings->bLaunchSeparateServer = false;
     }
@@ -141,6 +165,30 @@ namespace ck_net_automation_common
 
 namespace ck::auto_test::net
 {
+    auto Get_TopologyTestCases(TArray<FString>& OutNames, TArray<FString>& OutCommands) -> void
+    {
+        OutNames.Add(TEXT("ListenServer"));
+        OutCommands.Add(TEXT("ListenServer"));
+        OutNames.Add(TEXT("ClientServer"));
+        OutCommands.Add(TEXT("ClientServer"));
+    }
+
+    auto TryGet_DedicatedServer(const FString& InTopology, bool& OutDedicatedServer) -> bool
+    {
+        if (InTopology.IsEmpty() || InTopology == TEXT("ListenServer"))
+        {
+            OutDedicatedServer = false;
+            return true;
+        }
+        if (InTopology == TEXT("ClientServer"))
+        {
+            OutDedicatedServer = true;
+            return true;
+        }
+        return false;
+    }
+
+
     auto
         Get_AllPIEWorlds()
         -> TArray<UWorld*>
@@ -160,7 +208,7 @@ namespace ck::auto_test::net
             { continue; }
 
             auto* World = Context.World();
-            if (ck::Is_NOT_Valid(World, ck::IsValid_Policy_NullptrOnly{}))
+            if (!HasUsableWorld(World))
             { continue; }
 
             const auto NetMode = World->GetNetMode();
@@ -200,7 +248,7 @@ namespace ck::auto_test::net
             { continue; }
 
             auto* World = Context.World();
-            if (ck::Is_NOT_Valid(World, ck::IsValid_Policy_NullptrOnly{}))
+            if (!HasUsableWorld(World))
             { continue; }
 
             const auto NetMode = World->GetNetMode();
@@ -218,12 +266,18 @@ namespace ck::auto_test::net
             int32 ClientIdx)
         -> UWorld*
     {
-        auto AllWorlds = Get_AllPIEWorlds();
-        // Index 0 in AllWorlds is the server; clients start at index 1.
-        const auto AbsoluteIdx = ClientIdx + 1;
-        if (AllWorlds.IsValidIndex(AbsoluteIdx) == false)
+        if (ClientIdx < 0)
         { return nullptr; }
-        return AllWorlds[AbsoluteIdx];
+
+        auto Index = 0;
+        for (auto* World : Get_AllPIEWorlds())
+        {
+            if (World->GetNetMode() != NM_Client)
+            { continue; }
+            if (Index++ == ClientIdx)
+            { return World; }
+        }
+        return nullptr;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -232,8 +286,13 @@ namespace ck::auto_test::net
         Get_NumClientWorlds()
         -> int32
     {
-        const auto AllWorlds = Get_AllPIEWorlds();
-        return FMath::Max(0, AllWorlds.Num() - 1);
+        auto Count = 0;
+        for (auto* World : Get_AllPIEWorlds())
+        {
+            if (World->GetNetMode() == NM_Client)
+            { ++Count; }
+        }
+        return Count;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -244,7 +303,7 @@ namespace ck::auto_test::net
             int32 ClientIdx)
         -> APlayerController*
     {
-        if (ck::Is_NOT_Valid(InServerWorld, ck::IsValid_Policy_NullptrOnly{}))
+        if (!HasUsableWorld(InServerWorld))
         { return nullptr; }
 
         // On a listen server, the local player's PlayerController has no UNetConnection; each
@@ -323,42 +382,31 @@ bool
     FCk_Latent_StartPIEMultiClient::
     Update()
 {
+    using namespace ck_net_automation_common;
+    GSessionFailed = false;
+    bool DedicatedServer = false;
+    if (!ck::auto_test::net::TryGet_DedicatedServer(_Topology, DedicatedServer))
+    { FailSession(ck::Format_UE(TEXT("Unsupported network topology [{}]"), _Topology)); return true; }
+    if (_NumClients < 1 || _NumClients > 64 || (DedicatedServer && _NumClients < 2))
+    { FailSession(TEXT("Network test requires 1..64 total worlds; ClientServer requires at least 2")); return true; }
     if (GUnrealEd == nullptr)
-    {
-        Log_Error(TEXT("FCk_Latent_StartPIEMultiClient: GUnrealEd is null — cannot start PIE."));
-        return true;
-    }
-
-    // Load the test map first if a map path was supplied. Empty map path means "use whatever
-    // map is currently open" (rare; intended for tests that build a level programmatically).
-    if (_MapPath.IsEmpty() == false)
-    {
-        constexpr auto LoadAsTemplate = false;
-        constexpr auto ShowProgress = false;
-        const auto Loaded = FEditorFileUtils::LoadMap(_MapPath, LoadAsTemplate, ShowProgress);
-        if (Loaded == false)
-        {
-            Log_Error(TEXT("FCk_Latent_StartPIEMultiClient: failed to load map [{}]"), _MapPath);
-            return true;
-        }
-    }
-
+    { FailSession(TEXT("Cannot start network test without GUnrealEd")); return true; }
+    if (GOwnsSession || GUnrealEd->IsPlaySessionInProgress() ||
+        GUnrealEd->IsPlaySessionRequestQueued() ||
+        !ck::auto_test::net::Get_AllPIEWorlds().IsEmpty())
+    { FailSession(TEXT("Cannot start network test while PIE is active")); return true; }
     auto* Settings = GetMutableDefault<ULevelEditorPlaySettings>();
     if (Settings == nullptr)
-    {
-        Log_Error(TEXT("FCk_Latent_StartPIEMultiClient: GetMutableDefault<ULevelEditorPlaySettings>() returned null."));
-        return true;
-    }
-
-    const auto NumClientsClamped = FMath::Max(1, _NumClients);
-    ck_net_automation_common::Override_PlaySettings(Settings, NumClientsClamped);
-
-    auto Params = FRequestPlaySessionParams{};
+    { FailSession(TEXT("Cannot resolve editor play settings")); return true; }
+    if (!_MapPath.IsEmpty() && !FEditorFileUtils::LoadMap(_MapPath, false, false))
+    { FailSession(ck::Format_UE(TEXT("Failed to load network test map [{}]"), _MapPath)); return true; }
+    GRequireExactTopology = !_Topology.IsEmpty();
+    GExpectedServerMode = DedicatedServer ? NM_DedicatedServer : NM_ListenServer;
+    GExpectedTotalWorlds = _NumClients;
+    Override_PlaySettings(Settings, _NumClients, DedicatedServer);
+    FRequestPlaySessionParams Params{};
     Params.WorldType = EPlaySessionWorldType::PlayInEditor;
-
-    Log_Display(TEXT("FCk_Latent_StartPIEMultiClient: starting PIE with [{}] client(s) on map [{}]"),
-        NumClientsClamped, _MapPath);
-
+    GOwnsSession = true;
     GUnrealEd->RequestPlaySession(Params);
     return true;
 }
@@ -369,30 +417,67 @@ bool
     FCk_Latent_WaitForPIEReady::
     Update()
 {
+    if (ck_net_automation_common::GSessionFailed)
+    { return true; }
+
     if (_StartTime < 0.0)
     { _StartTime = FPlatformTime::Seconds(); }
 
-    const auto Elapsed = FPlatformTime::Seconds() - _StartTime;
-    if (Elapsed > _TimeoutSeconds)
+    const auto PIEWorlds = ck::auto_test::net::Get_AllPIEWorlds();
+    const auto* Server = ck::auto_test::net::Get_ServerWorld();
+    const auto ClientCount = ck::auto_test::net::Get_NumClientWorlds();
+    bool bReady = PIEWorlds.Num() >= _ExpectedTotalWorlds;
+    if (ck_net_automation_common::GRequireExactTopology)
     {
-        Log_Error(TEXT("FCk_Latent_WaitForPIEReady: timed out after [{}]s waiting for [{}] PIE world(s) — observed [{}]"),
-            _TimeoutSeconds, _ExpectedTotalWorlds, ck::auto_test::net::Get_AllPIEWorlds().Num());
-        return true;
+        bReady = bReady && PIEWorlds.Num() == _ExpectedTotalWorlds &&
+            IsValid(Server) && Server->GetNetMode() == ck_net_automation_common::GExpectedServerMode &&
+            ClientCount == _ExpectedTotalWorlds - 1;
     }
 
-    const auto PIEWorlds = ck::auto_test::net::Get_AllPIEWorlds();
-    if (PIEWorlds.Num() < _ExpectedTotalWorlds)
-    { return false; }
-
-    // All worlds present — confirm BeginPlay has fired on each (proxies for "ready to assert").
+    // All worlds present - confirm BeginPlay has fired on each.
     for (auto* World : PIEWorlds)
     {
-        if (World->HasBegunPlay() == false)
-        { return false; }
+        if (!IsValid(World) || !World->HasBegunPlay())
+        { bReady = false; }
     }
 
-    Log_Display(TEXT("FCk_Latent_WaitForPIEReady: [{}] PIE world(s) ready after [{}]s"),
-        PIEWorlds.Num(), Elapsed);
+    const auto Elapsed = FPlatformTime::Seconds() - _StartTime;
+    if (bReady)
+    {
+        Log_Display(TEXT("FCk_Latent_WaitForPIEReady: [{}] PIE world(s) ready after [{}]s"),
+            PIEWorlds.Num(), Elapsed);
+        return true;
+    }
+    if (Elapsed <= _TimeoutSeconds)
+    { return false; }
+
+    const auto ModeName = [](ENetMode InMode) -> const TCHAR*
+    {
+        switch (InMode)
+        {
+        case NM_Standalone: return TEXT("Standalone");
+        case NM_DedicatedServer: return TEXT("DedicatedServer");
+        case NM_ListenServer: return TEXT("ListenServer");
+        case NM_Client: return TEXT("Client");
+        default: return TEXT("unknown");
+        }
+    };
+    TArray<FString> WorldStates;
+    for (int32 Index = 0; Index < PIEWorlds.Num(); ++Index)
+    {
+        const auto* World = PIEWorlds[Index];
+        WorldStates.Add(FString::Printf(TEXT("%d:%s mode=%s BeginPlay=%s"), Index,
+            *GetNameSafe(World), IsValid(World) ? ModeName(World->GetNetMode()) : TEXT("missing"),
+            IsValid(World) && World->HasBegunPlay() ? TEXT("yes") : TEXT("no")));
+    }
+    ck_net_automation_common::FailSession(ck::Format_UE(
+        TEXT("PIE readiness timed out after [{}]s: expected [{}] worlds, observed [{}]; ")
+        TEXT("expected server mode [{}], actual server mode [{}], clients [{}]; worlds [{}]"),
+        _TimeoutSeconds, _ExpectedTotalWorlds, PIEWorlds.Num(),
+        ck_net_automation_common::GRequireExactTopology
+            ? ModeName(ck_net_automation_common::GExpectedServerMode) : TEXT("any"),
+        IsValid(Server) ? ModeName(Server->GetNetMode()) : TEXT("missing"),
+        ClientCount, FString::Join(WorldStates, TEXT("; "))));
     return true;
 }
 
@@ -402,17 +487,25 @@ bool
     FCk_Latent_WaitForCondition::
     Update()
 {
+    if (ck_net_automation_common::GSessionFailed)
+    { return true; }
+
     if (_StartTime < 0.0)
     { _StartTime = FPlatformTime::Seconds(); }
 
-    if (_Predicate.IsBound() && _Predicate.Execute())
+    if (NOT _Predicate.IsBound())
+    {
+        ck_net_automation_common::FailSession(TEXT("FCk_Latent_WaitForCondition: unbound predicate"));
+        return true;
+    }
+    if (_Predicate.Execute())
     { return true; }
 
     const auto Elapsed = FPlatformTime::Seconds() - _StartTime;
     if (Elapsed > _TimeoutSeconds)
     {
-        Log_Display(TEXT("FCk_Latent_WaitForCondition: timed out after [{}]s — advancing (a following assert will report)"),
-            _TimeoutSeconds);
+        ck_net_automation_common::FailSession(ck::Format_UE(
+            TEXT("FCk_Latent_WaitForCondition: timed out after [{}]s"), _TimeoutSeconds));
         return true;
     }
 
@@ -425,6 +518,9 @@ bool
     FCk_Latent_TickWorlds::
     Update()
 {
+    if (ck_net_automation_common::GSessionFailed)
+    { return true; }
+
     // The engine ticks PIE worlds normally between latent command Update() calls — this command
     // is effectively a "wait N frames" so replication can converge. Per-world Tick is intentionally
     // not invoked here; doing so would double-tick and break per-frame invariants in CkFoundation
@@ -439,16 +535,20 @@ bool
     FCk_Latent_RunOnServer::
     Update()
 {
+    if (ck_net_automation_common::GSessionFailed)
+    { return true; }
+
     auto* Server = ck::auto_test::net::Get_ServerWorld();
     if (Server == nullptr)
     {
-        Log_Error(TEXT("FCk_Latent_RunOnServer: no server world available — PIE not started or not ready."));
+        ck_net_automation_common::FailSession(
+            TEXT("FCk_Latent_RunOnServer: no server world available"));
         return true;
     }
 
-    if (_Action.IsBound())
-    { _Action.Execute(Server); }
-
+    if (NOT _Action.IsBound())
+    { ck_net_automation_common::FailSession(TEXT("FCk_Latent_RunOnServer: unbound action")); return true; }
+    _Action.Execute(Server);
     return true;
 }
 
@@ -458,17 +558,20 @@ bool
     FCk_Latent_RunOnClient::
     Update()
 {
+    if (ck_net_automation_common::GSessionFailed)
+    { return true; }
+
     auto* Client = ck::auto_test::net::Get_ClientWorld(_ClientIdx);
     if (Client == nullptr)
     {
-        Log_Error(TEXT("FCk_Latent_RunOnClient: no client world at index [{}] — PIE not started or not enough client instances."),
-            _ClientIdx);
+        ck_net_automation_common::FailSession(ck::Format_UE(
+            TEXT("FCk_Latent_RunOnClient: no client world at index [{}]"), _ClientIdx));
         return true;
     }
 
-    if (_Action.IsBound())
-    { _Action.Execute(Client); }
-
+    if (NOT _Action.IsBound())
+    { ck_net_automation_common::FailSession(TEXT("FCk_Latent_RunOnClient: unbound action")); return true; }
+    _Action.Execute(Client);
     return true;
 }
 
@@ -478,6 +581,7 @@ bool
     FCk_Latent_AssertCondition::
     Update()
 {
+    if (ck_net_automation_common::GSessionFailed) { return true; }
     if (_Test == nullptr)
     { return true; }
 
@@ -500,13 +604,16 @@ bool
     FCk_Latent_WaitUntil::
     Update()
 {
+    if (ck_net_automation_common::GSessionFailed)
+    { return true; }
+
     if (_StartTime < 0.0)
     { _StartTime = FPlatformTime::Seconds(); }
 
     if (_Condition.IsBound() == false)
     {
-        if (_Test != nullptr)
-        { _Test->AddError(ck::Format_UE(TEXT("FCk_Latent_WaitUntil [{}]: unbound condition delegate"), _Message)); }
+        ck_net_automation_common::FailSession(ck::Format_UE(
+            TEXT("FCk_Latent_WaitUntil [{}]: unbound condition delegate"), _Message));
         return true;
     }
 
@@ -522,12 +629,9 @@ bool
     const auto Elapsed = FPlatformTime::Seconds() - _StartTime;
     if (Elapsed > _TimeoutSeconds)
     {
-        if (_Test != nullptr)
-        {
-            _Test->AddError(ck::Format_UE(
-                TEXT("FCk_Latent_WaitUntil: timed out after [{}]s waiting for: {}"),
-                _TimeoutSeconds, _Message));
-        }
+        ck_net_automation_common::FailSession(ck::Format_UE(
+            TEXT("FCk_Latent_WaitUntil: timed out after [{}]s waiting for: {}"),
+            _TimeoutSeconds, _Message));
         return true;
     }
 
@@ -540,28 +644,44 @@ bool
     FCk_Latent_EndPIE::
     Update()
 {
+    if (NOT ck_net_automation_common::GOwnsSession)
+    {
+        ck_net_automation_common::GSessionFailed = false;
+        return true;
+    }
+
     if (GUnrealEd == nullptr)
     {
         ck_net_automation_common::Restore_PlaySettings();
+        ck_net_automation_common::GOwnsSession = false;
+        ck_net_automation_common::GSessionFailed = false;
         return true;
     }
 
     if (_Requested == false)
     {
         Log_Display(TEXT("FCk_Latent_EndPIE: requesting end of PIE session."));
-        GUnrealEd->RequestEndPlayMap();
+        // Cancel only a queued startup. CancelRequestPlaySession also clears the active
+        // session's window state, which EndPlayMap still needs during viewport teardown.
+        if (NOT GUnrealEd->IsPlayingSessionInEditor() && GUnrealEd->IsPlaySessionRequestQueued())
+        { GUnrealEd->CancelRequestPlaySession(); }
+        if (GUnrealEd->IsPlayingSessionInEditor())
+        { GUnrealEd->RequestEndPlayMap(); }
         _Requested = true;
         return false;
     }
 
     // Wait until all PIE worlds are gone before returning — otherwise the next test inherits
     // half-torn-down state.
-    if (NOT ck::auto_test::net::Get_AllPIEWorlds().IsEmpty())
+    if (GUnrealEd->IsPlaySessionInProgress() || GUnrealEd->IsPlaySessionRequestQueued() ||
+        NOT ck::auto_test::net::Get_AllPIEWorlds().IsEmpty())
     { return false; }
 
     // FEditorDelegates::EndPIE has normally restored the Play settings already. This covers the paths
     // where the requested session never started, so that broadcast never happened.
     ck_net_automation_common::Restore_PlaySettings();
+    ck_net_automation_common::GOwnsSession = false;
+    ck_net_automation_common::GSessionFailed = false;
     return true;
 }
 
@@ -571,6 +691,7 @@ bool
     FCk_Latent_RunAsTestOnAllWorlds::
     Update()
 {
+    if (ck_net_automation_common::GSessionFailed) { return true; }
     if (_Test == nullptr)
     { return true; }
 
