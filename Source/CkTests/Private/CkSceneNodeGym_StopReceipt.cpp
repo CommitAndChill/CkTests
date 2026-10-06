@@ -10,6 +10,22 @@
 #include "Engine/World.h"
 #include "GameFramework/GameStateBase.h"
 
+#include <variant>
+
+namespace
+{
+    bool HasPermittedPendingReset(const FCk_Handle_Timer& Timer)
+    {
+        if (!Timer.Has<ck::FFragment_Timer_Requests>()) { return true; }
+        const auto& Requests = Timer.Get<ck::FFragment_Timer_Requests>().Get_Requests();
+        if (Requests.IsEmpty()) { return true; }
+        if (Requests.Num() != 1) { return false; }
+        const auto* Manipulate = std::get_if<FCk_Request_Timer_Manipulate>(&Requests[0]);
+        return Manipulate != nullptr &&
+            Manipulate->Get_Manipulate() == ECk_Timer_Manipulate::Reset;
+    }
+}
+
 void UCk_SceneNodeGym_StopReceiver_UE::OnCompleted(
     FCk_Handle Owner, ECk_Request_OperationResult Result)
 {
@@ -100,8 +116,8 @@ UCk_SceneNodeGym_StopReceipt_UE* UCk_SceneNodeGym_StopRuntime_UE::TryStop_KnownT
                 ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
             !Timer.Has<ck::FFragment_Timer>() ||
             !Timer.Has<ck::FFragment_Timer_Params>() ||
-            Timer.Has_Any<ck::FTag_Timer_NeedsSetup,
-                ck::FFragment_Timer_Requests>())
+            Timer.Has<ck::FTag_Timer_NeedsSetup>() ||
+            !HasPermittedPendingReset(Timer))
         { return nullptr; }
         for (int32 J = 0; J < I; ++J)
         { if (Timers[J] == Timer) { return nullptr; } }

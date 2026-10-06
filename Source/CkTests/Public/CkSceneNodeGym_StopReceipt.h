@@ -63,7 +63,10 @@ public:
     // The source must synchronously close all producer callbacks before this
     // call; no concurrent ECS mutation is allowed, and callers must observe
     // queue drainage at a later real post-ECS boundary, waiting for all
-    // completion callbacks. This must start before source/ledger EndPlay.
+    // completion callbacks. A timer may have no queued requests or exactly
+    // one queued Reset compatible with zero-duration ResetOnDone. The Reset's
+    // origin is not proven; any other queued request shape rejects the whole
+    // batch before Stop. This must start before source/ledger EndPlay.
     // Non-null means a retained attempted batch, possibly already Failed;
     // it does not mean Stop succeeded. No ownership, full closure, stable-pose,
     // or Destroy permission is granted here.
