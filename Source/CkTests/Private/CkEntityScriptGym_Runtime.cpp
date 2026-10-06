@@ -12,11 +12,26 @@ auto
         const FCk_Handle& InWorld, FCk_Handle& OutCarrier)
     -> bool
 {
+    return TryCapture_StationSpawnCarrierWithParent(
+        InTarget, InOwner, InExpectedClass, InWorld, InWorld, OutCarrier);
+}
+
+auto
+    UCk_EntityScriptGym_Spawn_Runtime_UE::
+    TryCapture_StationSpawnCarrierWithParent(
+        const FCk_Handle& InTarget, const FCk_Handle& InOwner,
+        TSubclassOf<UCk_EntityScript_UE> InExpectedClass,
+        const FCk_Handle& InWorld, const FCk_Handle& InOwnerParent,
+        FCk_Handle& OutCarrier)
+    -> bool
+{
     const auto Target = InTarget;
     const auto Owner = InOwner;
     const auto World = InWorld;
+    const auto OwnerParent = InOwnerParent;
     OutCarrier = {};
     if (!ck::IsValid(Target) || !ck::IsValid(Owner) || !ck::IsValid(World) ||
+        !ck::IsValid(OwnerParent) ||
         !IsValid(InExpectedClass.Get()) ||
         UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(Target,
             ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
@@ -24,14 +39,22 @@ auto
             ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
         UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(World,
             ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+        UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(OwnerParent,
+            ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
         Target.Get_RegistryView().Get_RegistryHandle() != World.Get_RegistryView().Get_RegistryHandle() ||
         Owner.Get_RegistryView().Get_RegistryHandle() != World.Get_RegistryView().Get_RegistryHandle() ||
+        OwnerParent.Get_RegistryView().Get_RegistryHandle() != World.Get_RegistryView().Get_RegistryHandle() ||
         World != FCk_Handle{World.Get_RegistryView().Get_TransientEntity(),
-            World.Get_RegistryView().Get_RegistryHandle()} ||
-        !Target.Has<ck::FFragment_LifetimeOwner>() ||
+            World.Get_RegistryView().Get_RegistryHandle()})
+    { return false; }
+    if (OwnerParent != World &&
+        (!OwnerParent.Has<ck::FFragment_LifetimeOwner>() ||
+         OwnerParent.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != World))
+    { return false; }
+    if (!Target.Has<ck::FFragment_LifetimeOwner>() ||
         Target.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != Owner ||
         !Owner.Has<ck::FFragment_LifetimeOwner>() ||
-        Owner.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != World)
+        Owner.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != OwnerParent)
     { return false; }
     TArray<FCk_Handle> Children;
     if (!TryGet_AllocatedDirectLifetimeDependents(Target, World, Children) ||
@@ -74,28 +97,50 @@ auto
         bool& OutAllocated)
     -> bool
 {
+    return TryCheck_CapturedStationCarrierWithParent(
+        InCarrier, InTarget, InOwner, InWorld, InWorld, OutAllocated);
+}
+
+auto
+    UCk_EntityScriptGym_Spawn_Runtime_UE::
+    TryCheck_CapturedStationCarrierWithParent(
+        const FCk_Handle& InCarrier, const FCk_Handle& InTarget,
+        const FCk_Handle& InOwner, const FCk_Handle& InWorld,
+        const FCk_Handle& InOwnerParent, bool& OutAllocated)
+    -> bool
+{
     const auto Carrier = InCarrier;
     const auto Target = InTarget;
     const auto Owner = InOwner;
     const auto World = InWorld;
+    const auto OwnerParent = InOwnerParent;
     OutAllocated = false;
     if (!ck::IsValid(Target) || !ck::IsValid(Owner) || !ck::IsValid(World) ||
+        !ck::IsValid(OwnerParent) ||
         UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(Target,
             ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
         UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(Owner,
             ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
         UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(World,
             ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+        UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(OwnerParent,
+            ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
         Carrier == FCk_Handle{} ||
         Carrier.Get_RegistryView().Get_RegistryHandle() != Target.Get_RegistryView().Get_RegistryHandle() ||
         Target.Get_RegistryView().Get_RegistryHandle() != World.Get_RegistryView().Get_RegistryHandle() ||
         Owner.Get_RegistryView().Get_RegistryHandle() != World.Get_RegistryView().Get_RegistryHandle() ||
+        OwnerParent.Get_RegistryView().Get_RegistryHandle() != World.Get_RegistryView().Get_RegistryHandle() ||
         World != FCk_Handle{World.Get_RegistryView().Get_TransientEntity(),
-            World.Get_RegistryView().Get_RegistryHandle()} ||
-        !Target.Has<ck::FFragment_LifetimeOwner>() ||
+            World.Get_RegistryView().Get_RegistryHandle()})
+    { return false; }
+    if (OwnerParent != World &&
+        (!OwnerParent.Has<ck::FFragment_LifetimeOwner>() ||
+         OwnerParent.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != World))
+    { return false; }
+    if (!Target.Has<ck::FFragment_LifetimeOwner>() ||
         Target.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != Owner ||
         !Owner.Has<ck::FFragment_LifetimeOwner>() ||
-        Owner.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != World)
+        Owner.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != OwnerParent)
     { return false; }
     if (!Get_IsEntityAllocated(Carrier)) { return true; }
     if (!Carrier.Has<ck::FFragment_LifetimeOwner>() ||

@@ -25,6 +25,18 @@ public:
         TSubclassOf<UCk_EntityScript_UE> InExpectedClass,
         const FCk_Handle& InWorld, FCk_Handle& OutCarrier);
 
+    // Same carrier proof for a local cohort owner whose explicitly supplied
+    // parent is either the world root or a live direct child of that root.
+    // The original API above retains its strict direct-world-owner contract.
+    UFUNCTION(BlueprintPure,
+              DisplayName = "[Ck][EntityScriptGym] Try Capture Station Spawn Carrier With Parent",
+              Category = "Ck|Tests|EntityScriptGym")
+    static bool TryCapture_StationSpawnCarrierWithParent(
+        const FCk_Handle& InTarget, const FCk_Handle& InOwner,
+        TSubclassOf<UCk_EntityScript_UE> InExpectedClass,
+        const FCk_Handle& InWorld, const FCk_Handle& InOwnerParent,
+        FCk_Handle& OutCarrier);
+
     // After capture the request fragment may have been removed by the processor.
     // Proves allocated carrier ownership and leaf shape without reading that fragment.
     // False clears OutAllocated; true with OutAllocated=false means actually gone.
@@ -35,6 +47,14 @@ public:
         const FCk_Handle& InCarrier, const FCk_Handle& InTarget,
         const FCk_Handle& InOwner, const FCk_Handle& InWorld,
         bool& OutAllocated);
+
+    UFUNCTION(BlueprintPure,
+              DisplayName = "[Ck][EntityScriptGym] Try Check Captured Station Carrier With Parent",
+              Category = "Ck|Tests|EntityScriptGym")
+    static bool TryCheck_CapturedStationCarrierWithParent(
+        const FCk_Handle& InCarrier, const FCk_Handle& InTarget,
+        const FCk_Handle& InOwner, const FCk_Handle& InWorld,
+        const FCk_Handle& InOwnerParent, bool& OutAllocated);
 
     UFUNCTION(BlueprintPure,
               DisplayName = "[Ck][EntityScriptGym] Is Entity Allocated",
