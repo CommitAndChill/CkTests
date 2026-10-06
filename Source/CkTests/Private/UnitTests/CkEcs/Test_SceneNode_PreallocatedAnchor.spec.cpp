@@ -242,6 +242,26 @@ bool FCkSceneNodePreallocatedAnchor::RunTest(const FString& Parameters)
                     Parent.Get<ck::FFragment_SceneNode_PropagationState>()
                         .Get_QueueGeneration() == ParentGeneration);
         };
+        auto TearingDownPlain = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Parent);
+        auto TearingDownComponent = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Parent);
+        if (!TestTrue(TEXT("live raw leaves before world teardown rejection"),
+            Live(TearingDownPlain) && Live(TearingDownComponent) && !World->bIsTearingDown))
+        { return; }
+        bool PlainRejectedDuringTeardown = false;
+        bool ComponentRejectedDuringTeardown = false;
+        {
+            const bool OriginalTeardown = World->bIsTearingDown;
+            const auto RestoreWorldTeardown = ::ScopeExitSupport::FScopeGuardSyntaxSupport() +
+                [World, OriginalTeardown]() { World->bIsTearingDown = OriginalTeardown; };
+            World->bIsTearingDown = true;
+            PlainRejectedDuringTeardown = Reject(TearingDownPlain, ParentTransform, State->Offset);
+            ComponentRejectedDuringTeardown =
+                Reject(TearingDownComponent, ParentTransform, State->Offset, Component);
+        }
+        TestTrue(TEXT("both Anchor overloads reject world teardown without partial state or observers"),
+            PlainRejectedDuringTeardown && ComponentRejectedDuringTeardown &&
+            NoSceneStage(TearingDownPlain) && NoSceneStage(TearingDownComponent) &&
+            !World->bIsTearingDown);
         FCk_Handle Default;
         TestTrue(TEXT("default raw rejects without output or callback"),
             Reject(Default, ParentTransform, State->Offset));
