@@ -51,6 +51,7 @@ public class CkTests : CkModuleRules
             "EnhancedInput",
             "RenderCore",
             "RHI",
+            "IrisCore", // Exact Iris transform-wire contract exercised by the gym fixture.
             // The CkJolt dynamic-mesh bake tests author a runtime FDynamicMesh3 (GeometryCore) on an
             // ADynamicMeshActor (GeometryFramework) — the exact runtime-generated geometry that bake serves.
             "GeometryCore",
