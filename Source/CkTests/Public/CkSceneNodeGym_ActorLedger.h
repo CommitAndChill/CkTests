@@ -7,6 +7,9 @@
 
 #include "CkSceneNodeGym_ActorLedger.generated.h"
 
+class UCk_SceneNodeGym_StopReceipt_UE;
+class UCk_SceneNodeGym_StopRuntime_UE;
+
 class AGameStateBase;
 class UWorld;
 
@@ -18,6 +21,7 @@ class CKTESTS_API UCk_SceneNodeGym_ActorLedger_UE final : public UActorComponent
     GENERATED_BODY()
 
     friend class UCk_SceneNodeGym_ActorLedgerRuntime_UE;
+    friend class UCk_SceneNodeGym_StopRuntime_UE;
     friend class ACk_SceneNodeGym_SourceActor_UE;
 
 private:
@@ -36,6 +40,7 @@ private:
     TWeakObjectPtr<AGameStateBase> Source;
     TWeakObjectPtr<UWorld> SourceWorld;
     UPROPERTY(Transient) TArray<TSubclassOf<AActor>> VisualClasses;
+    UPROPERTY(Transient) TObjectPtr<UCk_SceneNodeGym_StopReceipt_UE> StopReceipt;
     TArray<FRole> Roles;
     FDelegateHandle DestroyedHandle;
     FDelegateHandle RemovedHandle;
@@ -95,6 +100,7 @@ class CKTESTS_API UCk_SceneNodeGym_ActorLedgerRuntime_UE : public UBlueprintFunc
     GENERATED_BODY()
 
     friend class UCk_SceneNodeGym_ActorLedger_UE;
+    friend class UCk_SceneNodeGym_StopRuntime_UE;
 
 public:
     // VisualClasses fixes roles 1..17; role 0 is the plain nonvisual AActor scope.
