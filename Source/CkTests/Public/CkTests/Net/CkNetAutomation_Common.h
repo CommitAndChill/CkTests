@@ -52,6 +52,10 @@ namespace ck::auto_test::net
     CKTESTS_API auto TryGet_DedicatedServer(
         const FString& InTopology, bool& OutDedicatedServer) -> bool;
 
+    // Custom latent commands share the harness failure state.
+    CKTESTS_API auto Get_HasSessionFailed() -> bool;
+    CKTESTS_API auto FailSession(const FString& InMessage) -> void;
+
     // Returns the PIE world running as the server (ListenServer or DedicatedServer). nullptr if
     // no PIE session is active or no server world exists.
     CKTESTS_API auto Get_ServerWorld() -> UWorld*;
