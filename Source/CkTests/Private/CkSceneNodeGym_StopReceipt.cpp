@@ -12,7 +12,7 @@
 
 #include <variant>
 
-namespace
+namespace CkSceneNodeStopReceiptPrivate
 {
     bool HasPermittedPendingReset(const FCk_Handle_Timer& Timer)
     {
@@ -117,7 +117,7 @@ UCk_SceneNodeGym_StopReceipt_UE* UCk_SceneNodeGym_StopRuntime_UE::TryStop_KnownT
             !Timer.Has<ck::FFragment_Timer>() ||
             !Timer.Has<ck::FFragment_Timer_Params>() ||
             Timer.Has<ck::FTag_Timer_NeedsSetup>() ||
-            !HasPermittedPendingReset(Timer))
+            !CkSceneNodeStopReceiptPrivate::HasPermittedPendingReset(Timer))
         { return nullptr; }
         for (int32 J = 0; J < I; ++J)
         { if (Timers[J] == Timer) { return nullptr; } }
