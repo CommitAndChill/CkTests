@@ -13,6 +13,7 @@ class AGameStateBase;
 class UCk_SceneNodeGym_Motion_UE;
 class UCk_SceneNodeGym_ActorLedger_UE;
 class UCk_SceneNodeGym_FrameSampler_UE;
+class AActor;
 class UWorld;
 
 UENUM(BlueprintType)
@@ -23,8 +24,9 @@ enum class ECk_SceneNodeGym_RetirementState : uint8
     Unproven
 };
 
-// A single normal, fully constructed source generation. This receipt does not
-// release the SourceSerial claim or permit a new generation.
+// A single normal, fully constructed source generation. Complete is historical
+// evidence; a successor must revalidate the source and physical absence, then
+// consume the one-shot reservation. This receipt grants no direct release.
 UCLASS()
 class CKTESTS_API UCk_SceneNodeGym_Retirement_UE final : public UObject
 {
@@ -54,6 +56,7 @@ class CKTESTS_API UCk_SceneNodeGym_Retirement_UE final : public UObject
     bool bDestroyIssued = false;
     bool bQuiescenceObserved = false;
     bool bInObserve = false;
+    bool bSuccessorAttempted = false;
 
     UFUNCTION() void OnSourceEndPlay(AActor* Actor, EEndPlayReason::Type Reason);
     void OnWorldCleanup(UWorld* InWorld, bool bSessionEnded, bool bCleanupResources);
@@ -75,6 +78,14 @@ public:
     static UCk_SceneNodeGym_Retirement_UE* TryBeginCompleted(
         UCk_SceneNodeGym_Motion_UE* Motion);
 
+    // Only a fully retired, exact generation may consume this one-shot
+    // successor admission. A failed post-reservation creation remains occupied.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Gym|SceneNode")
+    static UCk_SceneNodeGym_ActorLedger_UE* TryBeginSuccessor(
+        AGameStateBase* ExpectedSource,
+        UCk_SceneNodeGym_Retirement_UE* CompleteReceipt,
+        const TArray<TSubclassOf<AActor>>& VisualClasses);
+
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     static ECk_SceneNodeGym_RetirementState Get_State(
         const UCk_SceneNodeGym_Retirement_UE* Receipt);
@@ -92,5 +103,6 @@ private:
         int32 Role, AActor*& OutActor);
     static bool HasNoUnknownScopedActors(const UCk_SceneNodeGym_Retirement_UE* Receipt);
     static bool HasSafeSweepContext(const UCk_SceneNodeGym_Retirement_UE* Receipt);
+    static bool HasRetiredPhysicalProof(const UCk_SceneNodeGym_Retirement_UE* Receipt);
     static void Observe(UCk_SceneNodeGym_Retirement_UE* Receipt, float DeltaSeconds);
 };
