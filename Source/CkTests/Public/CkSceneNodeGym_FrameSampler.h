@@ -24,6 +24,19 @@ struct CKTESTS_API FCkSceneNodeGym_Frame
     UPROPERTY(BlueprintReadOnly) TArray<FTransform> WorldPoses;
 };
 
+// Source-only value receipt from the same committed observation as Frame.
+// These authored-graph inputs are not part of the visual wire payload.
+USTRUCT(BlueprintType)
+struct CKTESTS_API FCkSceneNodeGym_SourceDisplayData
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadOnly) int32 Generation = 0;
+    UPROPERTY(BlueprintReadOnly) int64 FrameSerial = 0;
+    UPROPERTY(BlueprintReadOnly) TArray<FTransform> RootWorldTransforms;
+    UPROPERTY(BlueprintReadOnly) TArray<FTransform> NodeLocalOffsets;
+};
+
 UCLASS()
 class CKTESTS_API UCk_SceneNodeGym_FrameSampler_UE final : public UObject
 {
@@ -40,6 +53,7 @@ class CKTESTS_API UCk_SceneNodeGym_FrameSampler_UE final : public UObject
     TWeakObjectPtr<UWorld> World;
     int32 Generation = 0;
     FCkSceneNodeGym_Frame Latest;
+    FCkSceneNodeGym_SourceDisplayData LatestSourceDisplay;
     uint64 PublishedEngineFrame = 0;
     FDelegateHandle PostTickHandle;
     FDelegateHandle WorldCleanupHandle;
@@ -73,6 +87,12 @@ public:
     static bool TryCopyLatestFrame(
         const UCk_SceneNodeGym_FrameSampler_UE* Sampler,
         FCkSceneNodeGym_Frame& OutFrame);
+
+    // Clears output first. Available only with the same current source frame.
+    UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
+    static bool TryCopyLatestSourceDisplayData(
+        const UCk_SceneNodeGym_FrameSampler_UE* Sampler,
+        FCkSceneNodeGym_SourceDisplayData& OutData);
 
     // Closes/unbinds synchronously, then attempts Motion producer Stop.
     UFUNCTION(BlueprintCallable, Category="Ck|Tests|Gym|SceneNode")

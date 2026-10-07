@@ -4,6 +4,8 @@
 #include "CkSceneNodeGym_Motion.h"
 #include "CkEcsExt/Transform/CkTransform_Fragment.h"
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
+#include "CkEcsExt/SceneNode/CkSceneNode_Fragment.h"
+#include "CkEcsExt/SceneNode/CkSceneNode_Utils.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "CoreGlobals.h"
@@ -47,6 +49,7 @@ void UCk_SceneNodeGym_FrameSampler_UE::CloseAndUnbind()
     bClosed = true;
     bHasFrame = false;
     Latest = {};
+    LatestSourceDisplay = {};
     PublishedEngineFrame = 0;
     if (PostTickHandle.IsValid())
     {
@@ -188,10 +191,20 @@ void UCk_SceneNodeGym_FrameSamplerRuntime_UE::Sample(
         (Sampler->bHasFrame &&
             (Sampler->Latest.Generation != Sampler->Generation ||
              Sampler->Latest.FrameSerial == 0 ||
-             Sampler->Latest.WorldPoses.Num() != CkSceneNodeFrameSamplerPrivate::VisualCount)) ||
+             Sampler->Latest.WorldPoses.Num() != CkSceneNodeFrameSamplerPrivate::VisualCount ||
+             Sampler->LatestSourceDisplay.Generation != Sampler->Generation ||
+             Sampler->LatestSourceDisplay.FrameSerial != Sampler->Latest.FrameSerial ||
+             Sampler->LatestSourceDisplay.RootWorldTransforms.Num() !=
+                 CkSceneNodeFrameSamplerPrivate::RootCount ||
+             Sampler->LatestSourceDisplay.NodeLocalOffsets.Num() !=
+                 CkSceneNodeFrameSamplerPrivate::NodeCount)) ||
         (!Sampler->bHasFrame &&
             (Sampler->Latest.FrameSerial != 0 ||
-             !Sampler->Latest.WorldPoses.IsEmpty())))
+             !Sampler->Latest.WorldPoses.IsEmpty() ||
+             Sampler->LatestSourceDisplay.Generation != 0 ||
+             Sampler->LatestSourceDisplay.FrameSerial != 0 ||
+             !Sampler->LatestSourceDisplay.RootWorldTransforms.IsEmpty() ||
+             !Sampler->LatestSourceDisplay.NodeLocalOffsets.IsEmpty())))
     { Fail(Sampler); return; }
     auto* const Motion = Sampler->Motion.Get();
     auto* const Ledger = Sampler->Ledger.Get();
@@ -216,18 +229,37 @@ void UCk_SceneNodeGym_FrameSamplerRuntime_UE::Sample(
 
     FTransform RootPoses[CkSceneNodeFrameSamplerPrivate::RootCount];
     FTransform NodePoses[CkSceneNodeFrameSamplerPrivate::NodeCount];
+    FCk_Handle SourceRoots[CkSceneNodeFrameSamplerPrivate::RootCount];
+    FCk_Handle SourceNodes[CkSceneNodeFrameSamplerPrivate::NodeCount];
+    FTransform SourceRootWorlds[CkSceneNodeFrameSamplerPrivate::RootCount];
+    FTransform SourceNodeOffsets[CkSceneNodeFrameSamplerPrivate::NodeCount];
+    if (Motion->Slots.Num() != CkSceneNodeFrameSamplerPrivate::RootCount ||
+        Motion->Nodes.Num() != CkSceneNodeFrameSamplerPrivate::NodeCount)
+    { Fail(Sampler); return; }
     for (int32 I = 0; I < CkSceneNodeFrameSamplerPrivate::RootCount; ++I)
     {
         RootPoses[I] = InitialComponentPoses[CkSceneNodeFrameSamplerPrivate::RootRole[I] - 1];
+        SourceRoots[I] = Motion->Slots[I].Root;
+        if (!ck::IsValid(SourceRoots[I]) ||
+            !SourceRoots[I].Has<ck::FFragment_Transform>())
+        { Fail(Sampler); return; }
+        SourceRootWorlds[I] = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(
+            UCk_Utils_Transform_UE::Cast(SourceRoots[I]));
+        if (!SourceRootWorlds[I].IsValid()) { Fail(Sampler); return; }
     }
     for (int32 I = 0; I < CkSceneNodeFrameSamplerPrivate::NodeCount; ++I)
     {
-        const auto& Node = Motion->Nodes[I];
-        if (!ck::IsValid(Node) || !Node.Has<ck::FFragment_Transform>())
+        SourceNodes[I] = Motion->Nodes[I];
+        const auto& Node = SourceNodes[I];
+        if (!ck::IsValid(Node) ||
+            !Node.Has_All<ck::FFragment_SceneNode, ck::FFragment_Transform>())
         { Fail(Sampler); return; }
         NodePoses[I] = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(
             UCk_Utils_Transform_UE::Cast(Node));
-        if (!NodePoses[I].IsValid()) { Fail(Sampler); return; }
+        SourceNodeOffsets[I] = UCk_Utils_SceneNode_UE::Get_Offset(
+            UCk_Utils_SceneNode_UE::Cast(Node));
+        if (!NodePoses[I].IsValid() || !SourceNodeOffsets[I].IsValid())
+        { Fail(Sampler); return; }
     }
 
     // Actor writes can invoke external callbacks. The only atomic operation
@@ -252,6 +284,11 @@ void UCk_SceneNodeGym_FrameSamplerRuntime_UE::Sample(
     Candidate.Generation = Sampler->Generation;
     Candidate.FrameSerial = Sampler->Latest.FrameSerial + 1;
     Candidate.WorldPoses.Reserve(CkSceneNodeFrameSamplerPrivate::VisualCount);
+    FCkSceneNodeGym_SourceDisplayData SourceCandidate;
+    SourceCandidate.Generation = Candidate.Generation;
+    SourceCandidate.FrameSerial = Candidate.FrameSerial;
+    SourceCandidate.RootWorldTransforms.Reserve(CkSceneNodeFrameSamplerPrivate::RootCount);
+    SourceCandidate.NodeLocalOffsets.Reserve(CkSceneNodeFrameSamplerPrivate::NodeCount);
     if (!HasCurrentContext(Sampler)) { Fail(Sampler); return; }
     for (int32 I = 0; I < CkSceneNodeFrameSamplerPrivate::RootCount; ++I)
     {
@@ -289,7 +326,45 @@ void UCk_SceneNodeGym_FrameSamplerRuntime_UE::Sample(
     }
     if (!HasCurrentContext(Sampler) || Candidate.WorldPoses.Num() != CkSceneNodeFrameSamplerPrivate::VisualCount)
     { Fail(Sampler); return; }
+    if (Motion->Slots.Num() != CkSceneNodeFrameSamplerPrivate::RootCount ||
+        Motion->Nodes.Num() != CkSceneNodeFrameSamplerPrivate::NodeCount)
+    { Fail(Sampler); return; }
+    for (int32 I = 0; I < CkSceneNodeFrameSamplerPrivate::RootCount; ++I)
+    {
+        const auto& Root = Motion->Slots[I].Root;
+        if (Root != SourceRoots[I] || !ck::IsValid(Root) ||
+            !Root.Has<ck::FFragment_Transform>())
+        { Fail(Sampler); return; }
+        const FTransform Current = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(
+            UCk_Utils_Transform_UE::Cast(Root));
+        if (!Current.IsValid() || !Current.Equals(SourceRootWorlds[I], 0.0))
+        { Fail(Sampler); return; }
+        SourceCandidate.RootWorldTransforms.Add(Current);
+    }
+    for (int32 I = 0; I < CkSceneNodeFrameSamplerPrivate::NodeCount; ++I)
+    {
+        const auto& Node = Motion->Nodes[I];
+        if (Node != SourceNodes[I] || !ck::IsValid(Node) ||
+            !Node.Has_All<ck::FFragment_SceneNode, ck::FFragment_Transform>())
+        { Fail(Sampler); return; }
+        const FTransform CurrentWorld = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(
+            UCk_Utils_Transform_UE::Cast(Node));
+        const FTransform CurrentOffset = UCk_Utils_SceneNode_UE::Get_Offset(
+            UCk_Utils_SceneNode_UE::Cast(Node));
+        if (!CurrentWorld.IsValid() ||
+            !CurrentWorld.Equals(NodePoses[I], 0.0) ||
+            !CurrentOffset.IsValid() ||
+            !CurrentOffset.Equals(SourceNodeOffsets[I], 0.0))
+        { Fail(Sampler); return; }
+        SourceCandidate.NodeLocalOffsets.Add(CurrentOffset);
+    }
+    if (!HasCurrentContext(Sampler) ||
+        SourceCandidate.RootWorldTransforms.Num() != CkSceneNodeFrameSamplerPrivate::RootCount ||
+        SourceCandidate.NodeLocalOffsets.Num() != CkSceneNodeFrameSamplerPrivate::NodeCount)
+    { Fail(Sampler); return; }
+    Sampler->bHasFrame = false;
     Sampler->Latest = MoveTemp(Candidate);
+    Sampler->LatestSourceDisplay = MoveTemp(SourceCandidate);
     Sampler->PublishedEngineFrame = GFrameCounter;
     Sampler->bHasFrame = true;
 }
@@ -304,6 +379,10 @@ bool UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
         Sampler->Latest.Generation != Sampler->Generation ||
         Sampler->Latest.FrameSerial <= 0 ||
         Sampler->Latest.WorldPoses.Num() != CkSceneNodeFrameSamplerPrivate::VisualCount ||
+        Sampler->LatestSourceDisplay.Generation != Sampler->Latest.Generation ||
+        Sampler->LatestSourceDisplay.FrameSerial != Sampler->Latest.FrameSerial ||
+        Sampler->LatestSourceDisplay.RootWorldTransforms.Num() != CkSceneNodeFrameSamplerPrivate::RootCount ||
+        Sampler->LatestSourceDisplay.NodeLocalOffsets.Num() != CkSceneNodeFrameSamplerPrivate::NodeCount ||
         GFrameCounter < Sampler->PublishedEngineFrame ||
         GFrameCounter - Sampler->PublishedEngineFrame > 1)
     { return false; }
@@ -323,6 +402,21 @@ bool UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
     for (const auto& Pose : Sampler->Latest.WorldPoses)
     { if (!Pose.IsValid()) { return false; } }
     OutFrame = Sampler->Latest;
+    return true;
+}
+
+bool UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestSourceDisplayData(
+    const UCk_SceneNodeGym_FrameSampler_UE* Sampler,
+    FCkSceneNodeGym_SourceDisplayData& OutData)
+{
+    OutData = {};
+    FCkSceneNodeGym_Frame Frame;
+    if (!TryCopyLatestFrame(Sampler, Frame)) { return false; }
+    for (const auto& Pose : Sampler->LatestSourceDisplay.RootWorldTransforms)
+    { if (!Pose.IsValid()) { return false; } }
+    for (const auto& Offset : Sampler->LatestSourceDisplay.NodeLocalOffsets)
+    { if (!Offset.IsValid()) { return false; } }
+    OutData = Sampler->LatestSourceDisplay;
     return true;
 }
 
