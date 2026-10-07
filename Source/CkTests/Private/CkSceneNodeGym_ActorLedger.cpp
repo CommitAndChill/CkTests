@@ -15,11 +15,26 @@ namespace CkSceneNodeActorLedgerPrivate
 {
     constexpr int32 RoleCount = 18;
 
-    // A removed/destroyed instance component cannot erase a source claim.
-    // Weak serials are pruned only after the actual Source UObject is gone;
-    // there is intentionally no generation reset or public release in this
-    // construction-only slice.
-    TArray<TWeakObjectPtr<AGameStateBase>> ClaimedSources;
+    // The source serial remains claimed across completed generations. An
+    // awaiting reservation is occupied even if NewObject or binding fails.
+    struct FSourceClaim
+    {
+        TWeakObjectPtr<AGameStateBase> Source;
+        TWeakObjectPtr<UCk_SceneNodeGym_ActorLedger_UE> CurrentLedger;
+        int32 LastIssuedGeneration = 0;
+        bool bAwaitingLedger = false;
+    };
+    TArray<FSourceClaim> ClaimedSources;
+
+    int32 FindClaim(const TWeakObjectPtr<AGameStateBase>& Source)
+    {
+        for (int32 I = 0; I < ClaimedSources.Num(); ++I)
+        {
+            if (ClaimedSources[I].Source.HasSameIndexAndSerialNumber(Source))
+            { return I; }
+        }
+        return INDEX_NONE;
+    }
 
     bool HasDelayedSpawnNotification()
     {
@@ -242,7 +257,7 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasLiveSourceContext(
         !Source->GetInstanceComponents().Contains(
             const_cast<UCk_SceneNodeGym_ActorLedger_UE*>(Ledger)))
     { return false; }
-    return true;
+    return HasExactCurrentClaim(Ledger);
 }
 
 bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasCurrentSource(
@@ -250,6 +265,128 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasCurrentSource(
 {
     return HasLiveSourceContext(Ledger) && !Ledger->bClosed &&
         CkSceneNodeActorLedgerPrivate::HasDelayedSpawnNotification();
+}
+
+bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasExactCurrentClaim(
+    const UCk_SceneNodeGym_ActorLedger_UE* Ledger)
+{
+    if (!IsInGameThread() || !IsValid(Ledger) ||
+        Ledger->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+        Ledger->Source.IsStale())
+    { return false; }
+    const int32 Index = CkSceneNodeActorLedgerPrivate::FindClaim(Ledger->Source);
+    if (Index == INDEX_NONE) { return false; }
+    const auto& Claim = CkSceneNodeActorLedgerPrivate::ClaimedSources[Index];
+    return !Claim.bAwaitingLedger && Claim.LastIssuedGeneration == Ledger->Generation &&
+        Claim.CurrentLedger.HasSameIndexAndSerialNumber(
+            TWeakObjectPtr<UCk_SceneNodeGym_ActorLedger_UE>{
+                const_cast<UCk_SceneNodeGym_ActorLedger_UE*>(Ledger)});
+}
+
+bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasReservedClaim(
+    AGameStateBase* Source, int32 Generation)
+{
+    if (!IsInGameThread() || !IsValid(Source) || Generation <= 0) { return false; }
+    const int32 Index = CkSceneNodeActorLedgerPrivate::FindClaim(
+        TWeakObjectPtr<AGameStateBase>{Source});
+    return Index != INDEX_NONE &&
+        CkSceneNodeActorLedgerPrivate::ClaimedSources[Index].bAwaitingLedger &&
+        CkSceneNodeActorLedgerPrivate::ClaimedSources[Index].LastIssuedGeneration == Generation;
+}
+
+bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryReserveSuccessorClaim(
+    const UCk_SceneNodeGym_ActorLedger_UE* OldLedger, int32 NextGeneration)
+{
+    if (!HasExactCurrentClaim(OldLedger) ||
+        OldLedger->Generation >= MAX_int32 ||
+        NextGeneration != OldLedger->Generation + 1)
+    { return false; }
+    const int32 Index = CkSceneNodeActorLedgerPrivate::FindClaim(OldLedger->Source);
+    if (Index == INDEX_NONE) { return false; }
+    auto& Claim = CkSceneNodeActorLedgerPrivate::ClaimedSources[Index];
+    Claim.LastIssuedGeneration = NextGeneration;
+    Claim.CurrentLedger.Reset();
+    Claim.bAwaitingLedger = true;
+    return true;
+}
+
+bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasSafeSourceWorld(
+    AGameStateBase* Source, UWorld*& OutWorld)
+{
+    OutWorld = nullptr;
+    if (!IsInGameThread() || !IsValid(Source) ||
+        Source->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+        Source->IsActorBeingDestroyed() || !Source->HasAuthority() ||
+        !Source->HasActorBegunPlay() ||
+        !CkSceneNodeActorLedgerPrivate::HasDelayedSpawnNotification())
+    { return false; }
+    UWorld* const World = Source->GetWorld();
+    if (!IsValid(World) || World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+        World->bIsTearingDown || !World->IsGameWorld() ||
+        World->GetNetMode() == NM_Client || !IsValid(World->GetAuthGameMode()) ||
+        World->GetGameState() != Source)
+    { return false; }
+    OutWorld = World;
+    return true;
+}
+
+bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasSafeVisualClasses(
+    const TArray<TSubclassOf<AActor>>& VisualClasses)
+{
+    if (!IsInGameThread() ||
+        VisualClasses.Num() != CkSceneNodeActorLedgerPrivate::RoleCount - 1)
+    { return false; }
+    for (const auto& Class : VisualClasses)
+    {
+        UClass* const Type = Class.Get();
+        if (!IsValid(Type) ||
+            !Type->IsChildOf(ACk_SceneNodeGym_SourceActor_UE::StaticClass()) ||
+            !CkSceneNodeActorLedgerPrivate::HasSafeClassDefault(Type))
+        { return false; }
+    }
+    return CkSceneNodeActorLedgerPrivate::HasSafeClassDefault(AActor::StaticClass());
+}
+
+bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasNoLedgerComponents(
+    AGameStateBase* Source,
+    UCk_SceneNodeGym_ActorLedger_UE* AllowedNewLedger)
+{
+    if (!IsInGameThread() || !IsValid(Source) ||
+        Source->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed))
+    { return false; }
+    // NewObject with a Source actor Outer registers a Native component in
+    // OwnedComponents during PostInitProperties, before AddInstanceComponent.
+    // Only this exact, still-unregistered raw return is permissible here.
+    if (AllowedNewLedger != nullptr &&
+        (!IsValid(AllowedNewLedger) ||
+         AllowedNewLedger->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+         AllowedNewLedger->GetClass() != UCk_SceneNodeGym_ActorLedger_UE::StaticClass() ||
+         AllowedNewLedger->GetOuter() != Source ||
+         AllowedNewLedger->GetOwner() != Source ||
+         AllowedNewLedger->IsRegistered() ||
+         Source->GetInstanceComponents().Contains(AllowedNewLedger) ||
+         !Source->GetComponents().Contains(AllowedNewLedger)))
+    { return false; }
+    for (UActorComponent* const Component : Source->GetInstanceComponents())
+    {
+        if (!IsValid(Component) ||
+            Component->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+            Component == AllowedNewLedger ||
+            Component->GetClass() == UCk_SceneNodeGym_ActorLedger_UE::StaticClass())
+        { return false; }
+    }
+    bool SawAllowed = false;
+    for (UActorComponent* const Component : Source->GetComponents())
+    {
+        if (!IsValid(Component) ||
+            Component->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed))
+        { return false; }
+        if (Component == AllowedNewLedger)
+        { SawAllowed = true; continue; }
+        if (Component->GetClass() == UCk_SceneNodeGym_ActorLedger_UE::StaticClass())
+        { return false; }
+    }
+    return AllowedNewLedger == nullptr || SawAllowed;
 }
 
 bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::IsSafePose(const FTransform& Pose)
@@ -281,60 +418,56 @@ UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryBeginActorGeneration(
     AGameStateBase* Source, int32 Generation,
     const TArray<TSubclassOf<AActor>>& VisualClasses)
 {
-    if (!IsInGameThread() || !IsValid(Source) || Generation <= 0 ||
-        VisualClasses.Num() != CkSceneNodeActorLedgerPrivate::RoleCount - 1 ||
-        Source->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
-        Source->IsActorBeingDestroyed() || !Source->HasAuthority() ||
-        !Source->HasActorBegunPlay() || !CkSceneNodeActorLedgerPrivate::HasDelayedSpawnNotification())
+    UWorld* World = nullptr;
+    if (Generation <= 0 || !HasSafeSourceWorld(Source, World) ||
+        !HasSafeVisualClasses(VisualClasses) || !HasNoLedgerComponents(Source))
     { return nullptr; }
-    UWorld* const World = Source->GetWorld();
-    if (!IsValid(World) || World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
-        World->bIsTearingDown || !World->IsGameWorld() ||
-        World->GetNetMode() == NM_Client || !IsValid(World->GetAuthGameMode()) ||
-        World->GetGameState() != Source)
+    CkSceneNodeActorLedgerPrivate::ClaimedSources.RemoveAll(
+        [](const CkSceneNodeActorLedgerPrivate::FSourceClaim& Prior)
+        { return Prior.Source.IsStale(false); });
+    const TWeakObjectPtr<AGameStateBase> ClaimSource{Source};
+    if (CkSceneNodeActorLedgerPrivate::FindClaim(ClaimSource) != INDEX_NONE)
     { return nullptr; }
-    for (const auto& Class : VisualClasses)
-    {
-        UClass* const Type = Class.Get();
-        if (!IsValid(Type) ||
-            !Type->IsChildOf(ACk_SceneNodeGym_SourceActor_UE::StaticClass()) ||
-            !CkSceneNodeActorLedgerPrivate::HasSafeClassDefault(Type))
-        { return nullptr; }
-    }
-    if (!CkSceneNodeActorLedgerPrivate::HasSafeClassDefault(AActor::StaticClass())) { return nullptr; }
-    for (UActorComponent* const Component : Source->GetInstanceComponents())
-    {
-        if (!IsValid(Component) ||
-            Component->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
-            Component->GetClass() == UCk_SceneNodeGym_ActorLedger_UE::StaticClass())
-        { return nullptr; }
-    }
-    for (UActorComponent* const Component : Source->GetComponents())
-    {
-        if (!IsValid(Component) ||
-            Component->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
-            Component->GetClass() == UCk_SceneNodeGym_ActorLedger_UE::StaticClass())
-        { return nullptr; }
-    }
-
-    CkSceneNodeActorLedgerPrivate::ClaimedSources.RemoveAll([](const TWeakObjectPtr<AGameStateBase>& Prior)
-    { return Prior.IsStale(false); });
-    const TWeakObjectPtr<AGameStateBase> Claim{Source};
-    for (const auto& Prior : CkSceneNodeActorLedgerPrivate::ClaimedSources)
-    {
-        if (Prior.HasSameIndexAndSerialNumber(Claim)) { return nullptr; }
-    }
     // Reserve before NewObject. Even an opaque allocation or registration
     // failure must not let a second ledger reinterpret this source generation.
+    CkSceneNodeActorLedgerPrivate::FSourceClaim Claim;
+    Claim.Source = ClaimSource;
+    Claim.LastIssuedGeneration = Generation;
+    Claim.bAwaitingLedger = true;
     CkSceneNodeActorLedgerPrivate::ClaimedSources.Add(Claim);
+    return CreateReservedLedger(Source, World, Generation, VisualClasses);
+}
 
+UCk_SceneNodeGym_ActorLedger_UE*
+UCk_SceneNodeGym_ActorLedgerRuntime_UE::CreateReservedLedger(
+    AGameStateBase* Source, UWorld* World, int32 Generation,
+    const TArray<TSubclassOf<AActor>>& VisualClasses)
+{
+    UWorld* CurrentWorld = nullptr;
+    if (!HasReservedClaim(Source, Generation) ||
+        !HasSafeSourceWorld(Source, CurrentWorld) || CurrentWorld != World ||
+        !HasSafeVisualClasses(VisualClasses) || !HasNoLedgerComponents(Source))
+    { return nullptr; }
     auto* const Ledger = NewObject<UCk_SceneNodeGym_ActorLedger_UE>(Source);
     if (!IsValid(Ledger)) { return nullptr; }
+    // NewObject can run engine callbacks. Re-find by Source serial; no array
+    // reference survives that boundary. Publish the exact ledger before any
+    // component registration or world delegate can observe it.
+    if (!HasReservedClaim(Source, Generation) ||
+        !HasSafeSourceWorld(Source, CurrentWorld) || CurrentWorld != World ||
+        !HasNoLedgerComponents(Source, Ledger) ||
+        !HasSafeVisualClasses(VisualClasses))
+    { return nullptr; }
+    const int32 ClaimIndex = CkSceneNodeActorLedgerPrivate::FindClaim(
+        TWeakObjectPtr<AGameStateBase>{Source});
+    if (ClaimIndex == INDEX_NONE) { return nullptr; }
     Ledger->Source = Source;
     Ledger->SourceWorld = World;
     Ledger->Generation = Generation;
     Ledger->VisualClasses = VisualClasses;
     Ledger->Roles.SetNum(CkSceneNodeActorLedgerPrivate::RoleCount);
+    CkSceneNodeActorLedgerPrivate::ClaimedSources[ClaimIndex].CurrentLedger = Ledger;
+    CkSceneNodeActorLedgerPrivate::ClaimedSources[ClaimIndex].bAwaitingLedger = false;
     Source->AddInstanceComponent(Ledger);
     Ledger->DestroyedHandle = World->AddOnActorDestroyedHandler(
         FOnActorDestroyed::FDelegate::CreateUObject(Ledger,

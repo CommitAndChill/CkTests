@@ -16,6 +16,7 @@
 #include "Engine/Level.h"
 #include "GameFramework/GameStateBase.h"
 #include "HAL/PlatformTime.h"
+#include "UObject/StrongObjectPtr.h"
 
 namespace ck_scene_node_gym_retirement
 {
@@ -371,6 +372,37 @@ bool UCk_SceneNodeGym_RetirementRuntime_UE::HasExactAllocatedClosure(
     return true;
 }
 
+bool UCk_SceneNodeGym_RetirementRuntime_UE::HasRetiredPhysicalProof(
+    const UCk_SceneNodeGym_Retirement_UE* R)
+{
+    if (!IsInGameThread() || !ck_scene_node_gym_retirement::Live(R) ||
+        !ck_scene_node_gym_retirement::Live(R->World.Get()) ||
+        R->World.Get()->bIsTearingDown ||
+        R->Known.Num() != ck_scene_node_gym_retirement::KnownCount ||
+        R->Actors.Num() != ck_scene_node_gym_retirement::ActorCount ||
+        !ck::IsValid(R->WorldRoot) ||
+        UCk_Utils_EcsWorld_Subsystem_UE::TryGet_TransientEntityForWorld(
+            *R->World.Get()) != R->WorldRoot ||
+        !HasExactAllocatedClosure(R, false))
+    { return false; }
+    for (const auto& H : R->Known)
+    {
+        if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(H))
+        { return false; }
+    }
+    int32 Present = 0;
+    const bool LevelCensusComplete = ck_scene_node_gym_retirement::ForEachLoadedActor(
+        R->World.Get(), [&](AActor* Actor)
+        {
+            for (const auto& Frozen : R->Actors)
+            {
+                if (ck_scene_node_gym_retirement::SameActor(Frozen, Actor))
+                { ++Present; }
+            }
+        });
+    return LevelCensusComplete && Present == 0 && HasNoUnknownScopedActors(R);
+}
+
 bool UCk_SceneNodeGym_RetirementRuntime_UE::HasKnownActorInWorld(
     const UCk_SceneNodeGym_Retirement_UE* R, int32 Role, AActor*& OutActor)
 {
@@ -672,6 +704,81 @@ UCk_SceneNodeGym_RetirementRuntime_UE::TryBeginCompleted(
         (!HasClosedContext(R) || !ck_scene_node_gym_retirement::Live(World)))
     { Fail(R, TEXT("RetirementCloseFailed")); }
     return R;
+}
+
+UCk_SceneNodeGym_ActorLedger_UE*
+UCk_SceneNodeGym_RetirementRuntime_UE::TryBeginSuccessor(
+    AGameStateBase* ExpectedSource,
+    UCk_SceneNodeGym_Retirement_UE* R,
+    const TArray<TSubclassOf<AActor>>& VisualClasses)
+{
+    if (!IsInGameThread() || !ck_scene_node_gym_retirement::Live(R) ||
+        !ck_scene_node_gym_retirement::Live(ExpectedSource) ||
+        !R->Source.HasSameIndexAndSerialNumber(
+            TWeakObjectPtr<AGameStateBase>{ExpectedSource}) ||
+        R->Source.Get() != ExpectedSource ||
+        R->bSuccessorAttempted ||
+        R->State != ECk_SceneNodeGym_RetirementState::Complete ||
+        !R->FailureReason.IsNone() || !R->bQuiescenceObserved ||
+        !R->bDestroyIssued || R->bInObserve || R->PostTickHandle.IsValid() ||
+        R->WorldCleanupHandle.IsValid() || R->Generation <= 0 ||
+        R->Generation >= MAX_int32 || !HasClosedContext(R) ||
+        !HasRetiredPhysicalProof(R) ||
+        !UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasSafeVisualClasses(VisualClasses))
+    { return nullptr; }
+
+    auto* const OldLedger = R->Ledger.Get();
+    auto* const Source = R->Source.Get();
+    auto* const World = R->World.Get();
+    UWorld* CurrentWorld = nullptr;
+    if (!ck_scene_node_gym_retirement::Live(OldLedger) ||
+        !ck_scene_node_gym_retirement::Live(Source) ||
+        !ck_scene_node_gym_retirement::Live(World) ||
+        OldLedger->bOpaqueAllocation || OldLedger->bUnknownOwnedActor ||
+        OldLedger->bWorldTeardown ||
+        !UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasExactCurrentClaim(OldLedger) ||
+        !UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasSafeSourceWorld(
+            Source, CurrentWorld) || CurrentWorld != World ||
+        !Source->GetInstanceComponents().Contains(OldLedger))
+    { return nullptr; }
+
+    // Keep the operation inputs alive across RemoveInstanceComponent and
+    // DestroyComponent, either of which may synchronously call external code.
+    TStrongObjectPtr<UCk_SceneNodeGym_Retirement_UE> RetainedReceipt(R);
+    TStrongObjectPtr<UCk_SceneNodeGym_ActorLedger_UE> RetainedOldLedger(OldLedger);
+    TStrongObjectPtr<AGameStateBase> RetainedSource(Source);
+    TStrongObjectPtr<UWorld> RetainedWorld(World);
+    TArray<TStrongObjectPtr<UClass>> RetainedClasses;
+    RetainedClasses.Reserve(VisualClasses.Num());
+    for (const auto& Class : VisualClasses)
+    { RetainedClasses.Emplace(Class.Get()); }
+
+    const int32 NextGeneration = R->Generation + 1;
+    // This reservation has no callback. A rejection above leaves receipt and
+    // claim unchanged; every failure below leaves a monotone occupied claim.
+    if (!UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryReserveSuccessorClaim(
+            OldLedger, NextGeneration))
+    { return nullptr; }
+    R->bSuccessorAttempted = true;
+
+    OldLedger->UnbindWorldCallbacks();
+    Source->RemoveInstanceComponent(OldLedger);
+    OldLedger->DestroyComponent();
+    // The old component is historical after DestroyComponent. Do not read it.
+    if (!UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasReservedClaim(
+            Source, NextGeneration) ||
+        !UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasSafeSourceWorld(
+            Source, CurrentWorld) || CurrentWorld != World ||
+        !UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasNoLedgerComponents(Source) ||
+        !HasRetiredPhysicalProof(R))
+    { return nullptr; }
+
+    TArray<TSubclassOf<AActor>> FrozenClasses;
+    FrozenClasses.Reserve(RetainedClasses.Num());
+    for (const auto& Type : RetainedClasses)
+    { FrozenClasses.Add(Type.Get()); }
+    return UCk_SceneNodeGym_ActorLedgerRuntime_UE::CreateReservedLedger(
+        Source, World, NextGeneration, FrozenClasses);
 }
 
 ECk_SceneNodeGym_RetirementState

@@ -114,8 +114,9 @@ class CKTESTS_API UCk_SceneNodeGym_ActorLedgerRuntime_UE : public UBlueprintFunc
 public:
     // VisualClasses fixes roles 1..17; role 0 is the plain nonvisual AActor scope.
     // The source retains the returned component even if the caller drops it.
-    // A private weak Source serial claim prevents a second begin even if that
-    // component is removed; this slice has no re-claim or release operation.
+    // A private weak Source serial claim prevents a second initial begin even
+    // if that component is removed. Only a completed retirement can reserve
+    // the next generation through RetirementRuntime; there is no public reset.
     UFUNCTION(BlueprintCallable, Category="Ck|Tests|Gym|SceneNode")
     static UCk_SceneNodeGym_ActorLedger_UE* TryBeginActorGeneration(
         AGameStateBase* Source, int32 Generation,
@@ -171,6 +172,17 @@ public:
 private:
     static bool HasLiveSourceContext(const UCk_SceneNodeGym_ActorLedger_UE* Ledger);
     static bool HasCurrentSource(const UCk_SceneNodeGym_ActorLedger_UE* Ledger);
+    static bool HasExactCurrentClaim(const UCk_SceneNodeGym_ActorLedger_UE* Ledger);
+    static bool HasReservedClaim(AGameStateBase* Source, int32 Generation);
+    static bool TryReserveSuccessorClaim(const UCk_SceneNodeGym_ActorLedger_UE* OldLedger,
+        int32 NextGeneration);
+    static bool HasSafeSourceWorld(AGameStateBase* Source, UWorld*& OutWorld);
+    static bool HasSafeVisualClasses(const TArray<TSubclassOf<AActor>>& VisualClasses);
+    static bool HasNoLedgerComponents(AGameStateBase* Source,
+        UCk_SceneNodeGym_ActorLedger_UE* AllowedNewLedger = nullptr);
+    static UCk_SceneNodeGym_ActorLedger_UE* CreateReservedLedger(
+        AGameStateBase* Source, UWorld* World, int32 Generation,
+        const TArray<TSubclassOf<AActor>>& VisualClasses);
     static bool HasExactCapturedRoles(const UCk_SceneNodeGym_ActorLedger_UE* Ledger,
         bool bRequireComplete);
     static bool IsSafePose(const FTransform& Pose);
