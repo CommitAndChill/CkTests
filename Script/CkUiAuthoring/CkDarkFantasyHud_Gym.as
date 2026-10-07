@@ -64,10 +64,22 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
         Actions.Add("OpenWheel");
         auto ItemActions = TArray<FString>(); ItemActions.Add("SelectInteraction"); ItemActions.Add("ActivateInteraction");
         auto Regions = TArray<FString>(); Regions.Add("main");
+        const auto FontDirectory = FPaths::CombinePaths(Directory, "Fonts");
+        const auto FallbackFile = FPaths::CombinePaths(FPaths::EngineContentDir(), "Slate/Fonts/DroidSansFallback.ttf");
+        auto DisplayFont = FCk_UI_AuthoredFontFamily("fantasy-display",
+            FPaths::CombinePaths(FontDirectory, "MarcellusSC-Regular.ttf"));
+        DisplayFont.Set_FallbackRegularFile(FallbackFile);
+        auto UiFont = FCk_UI_AuthoredFontFamily("fantasy-ui",
+            FPaths::CombinePaths(FontDirectory, "SourceSans3-Regular.ttf"));
+        UiFont.Set_BoldFile(FPaths::CombinePaths(FontDirectory, "SourceSans3-Bold.ttf"));
+        UiFont.Set_FallbackRegularFile(FallbackFile);
+        UiFont.Set_FallbackBoldFile(FallbackFile);
+        auto Fonts = TArray<FCk_UI_AuthoredFontFamily>(); Fonts.Add(DisplayFont); Fonts.Add(UiFont);
         auto Config = FCk_UI_AuthoredSession_Config();
         Config.Set_Regions(Regions); Config.Set_Text(Texts); Config.Set_Number(Numbers); Config.Set_Bool(Bools);
         Config.Set_Collections(Collections); Config.Set_Images(Images); Config.Set_Actions(Actions);
-        Config.Set_ItemActions(ItemActions); Config.Set_RegisterHudControls(true); Config.Set_RegisterRadialControls(true);
+        Config.Set_ItemActions(ItemActions); Config.Set_FontFamilies(Fonts);
+        Config.Set_RegisterHudControls(true); Config.Set_RegisterRadialControls(true);
         auto Errors = TArray<FString>();
         if (!_Session.TryInitialize(Config, Errors))
         { DoErrors(Errors); _StartupError = _SourceError; Request_Shutdown(); return false; }
