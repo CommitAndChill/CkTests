@@ -178,11 +178,22 @@ namespace ck_dark_fantasy_proof
         {
             Pump(); Pixels.Reset();
             if (!Slate.TakeScreenshot(Target.ToSharedRef(), Pixels, Size) || Size.X <= 0 || Size.Y <= 0
-                || Pixels.Num() < Size.X * Size.Y) { return false; }
+                || Pixels.Num() < Size.X * Size.Y)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Dark fantasy capture %s failed: requested %dx%d, actual %dx%d, pixels %d"),
+                    *InName, InDesired.X, InDesired.Y, Size.X, Size.Y, Pixels.Num());
+                return false;
+            }
             if (Size.X == InDesired.X && Size.Y == InDesired.Y) { break; }
             Window->Resize(Window->GetClientSizeInScreen() + FVector2D(InDesired.X - Size.X, InDesired.Y - Size.Y));
         }
-        if (Size.X != InDesired.X || Size.Y != InDesired.Y) { return false; }
+        if (Size.X != InDesired.X || Size.Y != InDesired.Y)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Dark fantasy capture %s could not resize: requested %dx%d, actual %dx%d, client %.0fx%.0f"),
+                *InName, InDesired.X, InDesired.Y, Size.X, Size.Y,
+                Window->GetClientSizeInScreen().X, Window->GetClientSizeInScreen().Y);
+            return false;
+        }
         const FString Directory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation/DarkFantasyHudProof"));
         IFileManager::Get().MakeDirectory(*Directory, true);
         return FImageUtils::SaveImageByExtension(*FPaths::Combine(Directory, InName + TEXT(".png")),
@@ -367,7 +378,8 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
                 Owner->TryGetRecords(TEXT("Interactions"), Seed) && Seed.Num() == 8)) { return; }
             if (!GUsingNullRHI)
             {
-                for (const auto Size : {FIntPoint{1280, 720}, FIntPoint{1920, 1080}, FIntPoint{2560, 1440}})
+                // Leave room for the PIE window chrome on a 2560x1440 desktop.
+                for (const auto Size : {FIntPoint{1280, 720}, FIntPoint{1920, 1080}, FIntPoint{2400, 1350}})
                 { TestTrue(TEXT("Production open-wheel native screenshot"), Capture(World, *State,
                     FString::Printf(TEXT("open-%dx%d"), Size.X, Size.Y), Size)); }
             }
