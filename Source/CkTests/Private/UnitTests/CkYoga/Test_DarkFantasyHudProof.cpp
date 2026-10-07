@@ -369,13 +369,21 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
             const auto Root = State->View->GetRegion(TEXT("main"));
             State->Wheel = Find<SCkUiRadialSelector>(Root, TEXT("SCkUiRadialSelector"));
             const auto Graphic = Find<SImage>(Root, TEXT("SImage"));
-            const auto Meter = Find<SCkUiHudMeter>(Root, TEXT("SCkUiHudMeter"));
-            if (!TestTrue(TEXT("Production script realizes native wheel, image, and meter"), State->Wheel.IsValid()
-                && Graphic.IsValid() && Meter.IsValid() && ImageSize(Graphic).X > 0.0 && ImageSize(Graphic).Y > 0.0)) { return; }
+            const auto Orb = Find<SCkUiHudOrb>(Root, TEXT("SCkUiHudOrb"));
+            const auto Ability = Find<SCkUiHudAbility>(Root, TEXT("SCkUiHudAbility"));
+            if (!TestTrue(TEXT("Production script realizes native wheel, graphic, liquid orb, and ability"), State->Wheel.IsValid()
+                && Graphic.IsValid() && Orb.IsValid() && Ability.IsValid()
+                && ImageSize(Graphic).X > 0.0 && ImageSize(Graphic).Y > 0.0)) { return; }
             TestEqual(TEXT("Production native wheel carries authored id"), State->Wheel->GetTag(), FName(TEXT("interaction-wheel")));
             TArray<FCk_UI_AuthoredRecord> Seed;
             if (!TestTrue(TEXT("Production script seeds eight reflected interaction records"),
                 Owner->TryGetRecords(TEXT("Interactions"), Seed) && Seed.Num() == 8)) { return; }
+            TestTrue(TEXT("Production wheel records carry live image resources"), Seed.ContainsByPredicate([](const auto& Record)
+            {
+                return Record.Get_Fields().ContainsByPredicate([](const auto& Field)
+                { return Field.Get_Name() == TEXT("image") && Field.Get_Kind() == ECk_UI_AuthoredFieldKind::Image
+                    && IsValid(Field.Get_Texture()); });
+            }));
             if (!GUsingNullRHI)
             {
                 // Leave room for the PIE window chrome on a 2560x1440 desktop.
@@ -503,13 +511,14 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
                         case ECk_UI_AuthoredFieldKind::Text: SameRecords = BeforeField.Get_Text().EqualTo(AfterField.Get_Text()); break;
                         case ECk_UI_AuthoredFieldKind::Number: SameRecords = BeforeField.Get_Number() == AfterField.Get_Number(); break;
                         case ECk_UI_AuthoredFieldKind::Bool: SameRecords = BeforeField.Get_Bool() == AfterField.Get_Bool(); break;
+                        case ECk_UI_AuthoredFieldKind::Image: SameRecords = BeforeField.Get_Texture() == AfterField.Get_Texture(); break;
                         default: SameRecords = false; break;
                     }
                 }
             }
             TestTrue(TEXT("Rejected numeric sector mode preserves interaction records and collection revision"), SameRecords);
             Errors.Reset();
-            const FString InvalidFontStyles = SourceStyles.Replace(TEXT("-ck-radial-label-font-size: 17px"),
+            const FString InvalidFontStyles = SourceStyles.Replace(TEXT("-ck-radial-label-font-size: 21px"),
                 TEXT("-ck-radial-label-font-size: 0px"));
             TestFalse(TEXT("Out-of-domain radial label font size rejects source"),
                 Owner->TryReload(SourceMarkup, InvalidFontStyles, Errors));
