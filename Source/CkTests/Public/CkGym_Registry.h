@@ -3,10 +3,24 @@
 #include "CoreMinimal.h"
 
 #include <GameFramework/GameModeBase.h>
+#include <GameFramework/GameStateBase.h>
+#include <Engine/LocalPlayer.h>
+#include <Containers/Ticker.h>
 #include <Subsystems/GameInstanceSubsystem.h>
 #include <Templates/SubclassOf.h>
 
 #include "CkGym_Registry.generated.h"
+
+class ACkGym_PlayerController_UE;
+class AGameStateBase;
+class ULocalPlayer;
+class UWorld;
+
+UENUM(BlueprintType)
+enum class ECkGym_TravelResult : uint8
+{
+    None, Queued, Accepted, Rejected, Landed, TravelFailed, TimedOut,
+};
 
 // --------------------------------------------------------------------------------------------------------------------
 //
@@ -55,6 +69,8 @@ class CKTESTS_API UCkGym_Registry_Subsystem : public UGameInstanceSubsystem
     GENERATED_BODY()
 
 public:
+    virtual void Deinitialize() override;
+
     // Dedupes by DisplayName so duplicate registrations on hot-reload or level re-entry are idempotent.
     auto
     Register(
@@ -86,6 +102,47 @@ public:
     Find_GymIndexByName(
         const FString& InName) const -> int32;
 
+    // Replaces a client replica only after validating the complete published catalog.
+    auto
+    TryReplaceReplica(
+        const UWorld* InWorld,
+        const TArray<FCkGym_Entry>& InEntries,
+        int32 InCurrentIndex,
+        bool InSuppressHUD) -> bool;
+
+    static auto
+    IsValidCatalog(
+        const TArray<FCkGym_Entry>& InEntries,
+        int32 InCurrentIndex) -> bool;
+
+    // Called only after the destination GameMode has actually landed.
+    auto
+    TryRecordLandedGym(
+        const UWorld* InWorld) -> bool;
+
+    // A successful return means UWorld accepted ServerTravel; current/recents change on landing.
+    auto
+    TryRequest_TravelToGym(
+        UWorld* InWorld,
+        int32 InIndex,
+        ACkGym_PlayerController_UE* InRequester = nullptr,
+        int32 InRequestId = 0) -> bool;
+
+    auto
+    TryRequest_TravelToGymByName(
+        UWorld* InWorld,
+        const FString& InName,
+        ACkGym_PlayerController_UE* InRequester = nullptr,
+        int32 InRequestId = 0) -> bool;
+
+    auto TryBeginLocalTravel(ULocalPlayer* InPlayer, const FString& InName, int32& OutRequestId) -> bool;
+    auto TryApplyLocalTravelResult(ULocalPlayer* InPlayer, int32 InRequestId,
+        ECkGym_TravelResult InResult, const FString& InDetail) -> bool;
+    auto GetLocalTravelResult(const ULocalPlayer* InPlayer) const -> ECkGym_TravelResult;
+    auto GetLocalTravelDetail(const ULocalPlayer* InPlayer) const -> FString;
+    auto ResolveLocalTravelOnCatalog(const UWorld* InWorld, const AGameStateBase* InState,
+        const TArray<FCkGym_Entry>& InEntries, int32 InCurrentIndex) -> void;
+
     // ServerTravels to the entry at the (wrapped) index, persisting CurrentGymIndex, LastGymName,
     // and the per-user recents list.
     auto
@@ -109,7 +166,13 @@ public:
         const FString& InVisited,
         int32 InCap) -> TArray<FString>;
 
+    static auto ChooseLandedIndex(const TArray<FCkGym_Entry>& InEntries,
+        const UClass* InLandedGameModeClass, const FString& InLandedLevel,
+        const FString& InPendingName, const FString& InDefaultLevel) -> int32;
+
 private:
+    auto HasReadableReplica() const -> bool;
+
     UPROPERTY(Transient)
     TArray<FCkGym_Entry> _Entries;
 
@@ -128,4 +191,31 @@ private:
     // would re-resolve the preference and yank the user back to the pinned gym whenever they travel
     // anywhere else. GameInstance lifetime = survives ServerTravel, resets per PIE run.
     bool _StartupResolveConsumed = false;
+
+    FString _PendingGymName;
+    TWeakObjectPtr<UWorld> _PendingSourceWorld;
+    TWeakObjectPtr<ACkGym_PlayerController_UE> _PendingRequester;
+    int32 _PendingRequestId = 0;
+    double _PendingDeadlineSeconds = 0.0;
+    FDelegateHandle _TravelFailureHandle;
+    FTSTicker::FDelegateHandle _PendingTickerHandle;
+
+    struct FLocalTravelTicket
+    {
+        int32 RequestId = 0;
+        FString Name;
+        TWeakObjectPtr<UWorld> SourceWorld;
+        TWeakObjectPtr<AGameStateBase> SourceState;
+        ECkGym_TravelResult Result = ECkGym_TravelResult::None;
+        FString Detail;
+        double DeadlineSeconds = 0.0;
+    };
+    TMap<TWeakObjectPtr<ULocalPlayer>, FLocalTravelTicket> _LocalTickets;
+    int32 _NextLocalRequestId = 0;
+    FTSTicker::FDelegateHandle _LocalTicketTickerHandle;
+
+    auto ClearPendingTravel() -> void;
+    auto HandlePendingTravelFailure(UWorld* InWorld, const FString& InError) -> void;
+    auto PollPendingTravel(float InDeltaSeconds) -> bool;
+    auto PollLocalTravelTickets(float InDeltaSeconds) -> bool;
 };

@@ -116,6 +116,15 @@ public:
         const UObject* InWorldContextObject,
         const FString& InName);
 
+    // Queues a request from the exact owning local controller supplied by a PC, LocalPlayer,
+    // or Pawn. True means locally admitted; authoritative travel acceptance is asynchronous.
+    UFUNCTION(BlueprintCallable, Category = "Ck|Utils|GymRegistry",
+              DisplayName = "[Ck][GymRegistry] Try Travel To Gym From Player")
+    static bool
+    TryRequest_TravelToGymFromPlayer(
+        const UObject* InPlayerContext,
+        const FString& InName);
+
     UFUNCTION(BlueprintCallable, Category = "Ck|Utils|GymRegistry",
               DisplayName = "[Ck][GymRegistry] Travel To Next Gym",
               meta = (WorldContext = "InWorldContextObject"))

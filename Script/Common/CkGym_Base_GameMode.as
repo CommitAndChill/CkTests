@@ -3,6 +3,7 @@ class ACk_Gym_Base_GameMode : ACk_GameMode_UE
     // Override these in derived gym classes
     default PlayerControllerClass = ACk_Gym_Base_PlayerController;
     default DefaultPawnClass = ACk_Gym_Base_Pawn;
+    default GameStateClass = ACkGym_GameState_UE;
     // The shared gym control panel HUD - it also arms the switchboard's Tab open, so every gym
     // world gets the Tab menu; a gym that declares no control rows just gets the Tab hint.
     default HUDClass = ACkGym_ControlPanelHUD;
@@ -29,6 +30,7 @@ class ACk_Gym_Base_GameMode : ACk_GameMode_UE
         if (UCk_Utils_GymRegistry_UE::Get_HasConsumedStartupResolve())
         {
             UCk_Utils_GymRegistry_UE::Request_Set_SuppressHUDDuringStartup(false);
+            Request_PublishGymCatalog();
             return;
         }
 
@@ -43,6 +45,7 @@ class ACk_Gym_Base_GameMode : ACk_GameMode_UE
         {
             // No saved target, or we already start on it - cycler menu / HUD as usual.
             UCk_Utils_GymRegistry_UE::Request_Set_SuppressHUDDuringStartup(false);
+            Request_PublishGymCatalog();
             return;
         }
 
@@ -51,6 +54,7 @@ class ACk_Gym_Base_GameMode : ACk_GameMode_UE
         // the brief transition. The destination's BeginPlay lifts it via the
         // consumed branch above.
         UCk_Utils_GymRegistry_UE::Request_Set_SuppressHUDDuringStartup(true);
+        Request_PublishGymCatalog();
 
         _StartupTravelIndex = StartupIndex;
         System::SetTimer(this, n"DoStartupTravel", 0.01, false);
@@ -65,5 +69,24 @@ class ACk_Gym_Base_GameMode : ACk_GameMode_UE
         }
 
         CkGym_Cycler::Request_TravelToGym(_StartupTravelIndex);
+    }
+
+    private void Request_PublishGymCatalog()
+    {
+        TArray<ACkGym_GameState_UE> States;
+        GetAllActorsOfClass(ACkGym_GameState_UE, States);
+        if (States.Num() != 1)
+        {
+            ck::Error("[Gym] Exactly one shared gym GameState is required; catalog was not published");
+            return;
+        }
+        auto GymState = States[0];
+        if (ck::Is_NOT_Valid(GymState))
+        {
+            ck::Error("[Gym] Shared gym GameState is unavailable; catalog was not published");
+            return;
+        }
+        if (GymState.PublishGymCatalog() == false)
+        { ck::Error("[Gym] Shared gym catalog publication was rejected"); }
     }
 }
