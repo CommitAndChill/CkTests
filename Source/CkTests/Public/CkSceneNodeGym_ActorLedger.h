@@ -9,6 +9,8 @@
 
 class UCk_SceneNodeGym_StopReceipt_UE;
 class UCk_SceneNodeGym_StopRuntime_UE;
+class UCk_SceneNodeGym_EcsRoots_UE;
+class UCk_SceneNodeGym_EcsRootsRuntime_UE;
 
 class AGameStateBase;
 class UWorld;
@@ -22,6 +24,7 @@ class CKTESTS_API UCk_SceneNodeGym_ActorLedger_UE final : public UActorComponent
 
     friend class UCk_SceneNodeGym_ActorLedgerRuntime_UE;
     friend class UCk_SceneNodeGym_StopRuntime_UE;
+    friend class UCk_SceneNodeGym_EcsRootsRuntime_UE;
     friend class ACk_SceneNodeGym_SourceActor_UE;
 
 private:
@@ -41,6 +44,8 @@ private:
     TWeakObjectPtr<UWorld> SourceWorld;
     UPROPERTY(Transient) TArray<TSubclassOf<AActor>> VisualClasses;
     UPROPERTY(Transient) TObjectPtr<UCk_SceneNodeGym_StopReceipt_UE> StopReceipt;
+    UPROPERTY(Transient) TObjectPtr<UCk_SceneNodeGym_EcsRoots_UE> EcsRoots;
+    bool bEcsRootsAttempted = false;
     TArray<FRole> Roles;
     FDelegateHandle DestroyedHandle;
     FDelegateHandle RemovedHandle;
@@ -101,6 +106,7 @@ class CKTESTS_API UCk_SceneNodeGym_ActorLedgerRuntime_UE : public UBlueprintFunc
 
     friend class UCk_SceneNodeGym_ActorLedger_UE;
     friend class UCk_SceneNodeGym_StopRuntime_UE;
+    friend class UCk_SceneNodeGym_EcsRootsRuntime_UE;
 
 public:
     // VisualClasses fixes roles 1..17; role 0 is the plain nonvisual AActor scope.
