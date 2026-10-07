@@ -165,6 +165,12 @@ namespace ck_net_automation_common
 
 namespace ck::auto_test::net
 {
+    auto Get_HasSessionFailed() -> bool
+    { return ck_net_automation_common::GSessionFailed; }
+
+    auto FailSession(const FString& InMessage) -> void
+    { ck_net_automation_common::FailSession(InMessage); }
+
     auto Get_TopologyTestCases(TArray<FString>& OutNames, TArray<FString>& OutCommands) -> void
     {
         OutNames.Add(TEXT("ListenServer"));
