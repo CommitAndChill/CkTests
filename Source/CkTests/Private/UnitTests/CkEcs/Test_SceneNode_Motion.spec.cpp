@@ -1,9 +1,11 @@
 #include "CkSceneNode_MotionTestAccess.h"
+#include "CkSceneNode_FrameSamplerTestAccess.h"
 
 #include "CkSceneNode_ActorLedgerProbe.h"
 #include "CkSceneNodeGym_ActorLedger.h"
 #include "CkSceneNodeGym_EcsRoots.h"
 #include "CkSceneNodeGym_NodeGraph.h"
+#include "CkSceneNodeGym_FrameSampler.h"
 #include "CkSceneNodeGym_QueueRuntime.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
@@ -37,8 +39,12 @@ namespace ck_scene_node_motion_test
         FTransform VisibleCube;
     };
 
+    struct FState;
+    void RemoveSamplerObservers(FState& S);
+
     struct FState
     {
+        ~FState() { RemoveSamplerObservers(*this); }
         TWeakObjectPtr<UWorld> World;
         TWeakObjectPtr<AGameStateBase> Source;
         TWeakObjectPtr<UCk_SceneNodeGym_ActorLedger_UE> Ledger;
@@ -58,6 +64,26 @@ namespace ck_scene_node_motion_test
         TArray<int32> FirstIssued;
         uint64 StableFrame = 0;
         TArray<int32> IssuedAtClose;
+        TStrongObjectPtr<UCk_SceneNodeGym_FrameSampler_UE> Sampler;
+        FDelegateHandle FrameObserver;
+        FDelegateHandle ComponentObserver;
+        TWeakObjectPtr<USceneComponent> ObservedComponent;
+        int64 ObservedFrameSerial = 0;
+        uint64 ObservedEngineFrame = 0;
+        FCkSceneNodeGym_Frame FirstFrame;
+        FCkSceneNodeGym_Frame LastFrame;
+        TArray<int32> FirstFrameIssues;
+        int32 ObservedFrames = 0;
+        int32 PassiveWritesAfterInvalidation = 0;
+        bool bSawInSample = false;
+        bool bReentrantGetterRejected = false;
+        bool bReentrantLossDestroyed = false;
+        bool bFrameObservationFailed = false;
+        FString FrameFailure;
+        FTransform LaterPassivePose;
+        bool bLaterPassiveCaptured = false;
+        TArray<FTransform> FrozenVisiblePoses;
+        TArray<FTransform> FrozenPassivePoses;
     };
 
     void Fail(FAutomationTestBase* Test, const TCHAR* Reason)
@@ -315,6 +341,547 @@ namespace ck_scene_node_motion_test
             { return false; }
         }
         return true;
+    }
+
+    constexpr int32 SamplerNodeRole[11] =
+        {2, 4, 6, 7, 8, 9, 11, 12, 14, 15, 17};
+
+    bool IsClearedFrame(const FCkSceneNodeGym_Frame& Frame)
+    {
+        return Frame.Generation == 0 && Frame.FrameSerial == 0 &&
+            Frame.WorldPoses.IsEmpty();
+    }
+
+    FCkSceneNodeGym_Frame PoisonedFrame()
+    {
+        FCkSceneNodeGym_Frame Frame;
+        Frame.Generation = 71;
+        Frame.FrameSerial = 89;
+        Frame.WorldPoses.Add(FTransform::Identity);
+        return Frame;
+    }
+
+    bool CaptureAllVisiblePoses(const FState& S, TArray<FTransform>& Out)
+    {
+        Out.Reset();
+        if (S.Visuals.Num() != 17) { return false; }
+        TArray<FTransform> Candidate;
+        Candidate.Reserve(17);
+        for (const auto& Weak : S.Visuals)
+        {
+            const auto* Actor = Weak.Get();
+            if (!IsValid(Actor) || !IsValid(Actor->Cube) ||
+                !Actor->Cube->IsRegistered())
+            { return false; }
+            const FTransform Pose = Actor->Cube->GetComponentTransform();
+            if (!Pose.IsValid()) { return false; }
+            Candidate.Add(Pose);
+        }
+        Out = MoveTemp(Candidate);
+        return true;
+    }
+
+    bool SameAllVisiblePoses(const FState& S, const TArray<FTransform>& Frozen)
+    {
+        TArray<FTransform> Actual;
+        if (!CaptureAllVisiblePoses(S, Actual) || Frozen.Num() != 17)
+        { return false; }
+        for (int32 I = 0; I < 17; ++I)
+        { if (!Actual[I].Equals(Frozen[I], 0.0)) { return false; } }
+        return true;
+    }
+
+    bool CaptureRemainingPassivePoses(const FState& S, int32 ExcludedA,
+        int32 ExcludedB, TArray<FTransform>& Out)
+    {
+        Out.Reset();
+        TArray<FTransform> Candidate;
+        Candidate.Reserve(11);
+        for (const int32 Role : SamplerNodeRole)
+        {
+            if (Role == ExcludedA || Role == ExcludedB)
+            { Candidate.Add(FTransform::Identity); continue; }
+            auto* Actor = S.Visuals.IsValidIndex(Role - 1)
+                ? S.Visuals[Role - 1].Get() : nullptr;
+            if (!IsValid(Actor) || !IsValid(Actor->Cube) ||
+                !Actor->Cube->IsRegistered())
+            { return false; }
+            const FTransform Pose = Actor->Cube->GetComponentTransform();
+            if (!Pose.IsValid()) { return false; }
+            Candidate.Add(Pose);
+        }
+        Out = MoveTemp(Candidate);
+        return Out.Num() == 11;
+    }
+
+    bool SameRemainingPassivePoses(const FState& S, int32 ExcludedA,
+        int32 ExcludedB, const TArray<FTransform>& Frozen)
+    {
+        TArray<FTransform> Actual;
+        if (Frozen.Num() != 11 ||
+            !CaptureRemainingPassivePoses(S, ExcludedA, ExcludedB, Actual))
+        { return false; }
+        for (int32 I = 0; I < 11; ++I)
+        { if (!Actual[I].Equals(Frozen[I], 0.0)) { return false; } }
+        return true;
+    }
+
+    void RemoveSamplerObservers(FState& S)
+    {
+        if (S.FrameObserver.IsValid())
+        {
+            FWorldDelegates::OnWorldTickEnd.Remove(S.FrameObserver);
+            S.FrameObserver.Reset();
+        }
+        if (S.ComponentObserver.IsValid())
+        {
+            auto* Component = S.ObservedComponent.Get();
+            if (IsValid(Component))
+            { Component->TransformUpdated.Remove(S.ComponentObserver); }
+            S.ComponentObserver.Reset();
+            S.ObservedComponent.Reset();
+        }
+    }
+
+    void ObserveCurrentSamplerFrame(FState& S, UWorld* World)
+    {
+        if (S.bFrameObservationFailed || World != S.World.Get() ||
+            !S.Sampler.IsValid())
+        { return; }
+        uint64 Published = 0;
+        int64 Serial = 0;
+        bool bSampling = false;
+        bool bClosed = true;
+        if (!FCk_SceneNodeFrameSampler_TestAccess::TryCapture(
+                S.Sampler.Get(), Published, Serial, bSampling, bClosed) ||
+            bSampling || bClosed || Published != GFrameCounter ||
+            Serial <= S.ObservedFrameSerial)
+        { return; } // multicast order is not assumed
+        auto Reject = [&S](const TCHAR* Reason)
+        {
+            S.bFrameObservationFailed = true;
+            S.FrameFailure = Reason;
+        };
+        FCkSceneNodeGym_Frame Frame;
+        if (!UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                S.Sampler.Get(), Frame) || Frame.Generation != 1 ||
+            Frame.FrameSerial != Serial || Frame.WorldPoses.Num() != 17)
+        { Reject(TEXT("current-frame value receipt was incomplete")); return; }
+        for (int32 Role = 1; Role <= 17; ++Role)
+        {
+            auto* Actor = S.Visuals.IsValidIndex(Role - 1)
+                ? S.Visuals[Role - 1].Get() : nullptr;
+            if (!IsValid(Actor) || !IsValid(Actor->Cube) ||
+                !Actor->Cube->IsRegistered() ||
+                !Frame.WorldPoses[Role - 1].IsValid() ||
+                !Frame.WorldPoses[Role - 1].Equals(
+                    Actor->Cube->GetComponentTransform(), 0.0))
+            { Reject(TEXT("receipt pose differed from an actual registered visual")); return; }
+        }
+        for (int32 I = 0; I < 11; ++I)
+        {
+            const auto Node = S.NodeHandles[I];
+            if (!ck::IsValid(Node) || !Node.Has<ck::FFragment_Transform>())
+            { Reject(TEXT("source node disappeared during current-frame observation")); return; }
+            const FTransform Solved = UCk_Utils_Transform_UE::
+                Get_EntityCurrentTransform(UCk_Utils_Transform_UE::Cast(Node));
+            if (!Solved.IsValid() || !Frame.WorldPoses[SamplerNodeRole[I] - 1]
+                .Equals(Solved, 0.01))
+            { Reject(TEXT("receipt passive pose differed from current solved node")); return; }
+        }
+        TArray<FSlot> Slots;
+        if (!RawIdentityRetained(S, &Slots) || Slots.Num() != 6)
+        { Reject(TEXT("source timer identities changed during sample")); return; }
+        for (const auto& Slot : Slots)
+        {
+            if (Slot.IssuedMotionUpdateCount < 1)
+            { Reject(TEXT("frame published without actual timer-issued motion")); return; }
+        }
+        if (S.ObservedFrames == 0)
+        {
+            S.FirstFrame = Frame;
+            S.FirstFrameIssues.Reset(6);
+            for (const auto& Slot : Slots)
+            { S.FirstFrameIssues.Add(Slot.IssuedMotionUpdateCount); }
+        }
+        else if (S.ObservedFrames == 1)
+        {
+            if (GFrameCounter <= S.ObservedEngineFrame ||
+                S.FirstFrameIssues.Num() != 6)
+            { Reject(TEXT("second receipt was not from a later engine frame")); return; }
+            for (int32 I = 0; I < 6; ++I)
+            {
+                if (Slots[I].IssuedMotionUpdateCount <= S.FirstFrameIssues[I])
+                { Reject(TEXT("a producer did not issue motion across receipt frames")); return; }
+            }
+        }
+        S.LastFrame = MoveTemp(Frame);
+        S.ObservedFrameSerial = Serial;
+        S.ObservedEngineFrame = GFrameCounter;
+        ++S.ObservedFrames;
+    }
+
+    enum class ESamplerCase : uint8
+    {
+        Production,
+        ReentrantActorLoss,
+        UnregisteredChild
+    };
+
+    void RunSampler(FAutomationTestBase* Test, const FString& Parameters,
+        ESamplerCase Case)
+    {
+        const auto S = MakeShared<FState>();
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+            2, TEXT("/Engine/Maps/Entry"), Parameters));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 60.0f));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([]()
+        {
+            const auto* Server = ck::auto_test::net::Get_ServerWorld();
+            const auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+            return IsValid(Server) && IsValid(Client) &&
+                IsValid(Server->GetGameState()) &&
+                Server->GetGameState()->HasActorBegunPlay() &&
+                IsValid(Client->GetGameState());
+        }), 15.0, TEXT("FrameSampler authority and client worlds become ready")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (!SetupActorsAndRoots(*S, World))
+            { Fail(Test, TEXT("FrameSampler could not construct real actors and ECS roots")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                (IsValid(S->Roots.Get()) &&
+                 UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsConstructionComplete(
+                     S->Roots.Get()));
+        }), 20.0, TEXT("FrameSampler six real WithActor roots complete")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !CaptureRootsAndBeginGraph(*S))
+            { Fail(Test, TEXT("FrameSampler eleven-node graph admission failed")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                (IsValid(S->Graph.Get()) &&
+                 UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_IsConstructionComplete(
+                     S->Graph.Get()));
+        }), 20.0, TEXT("FrameSampler eleven nodes settle")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !CaptureNodes(*S) ||
+                !ReadPose(*S, S->DormantPose))
+            { Fail(Test, TEXT("FrameSampler could not capture dormant real poses")); return; }
+            S->Motion.Reset(UCk_SceneNodeGym_MotionRuntime_UE::TryBeginDormant(
+                S->Graph.Get()));
+            if (!S->Motion.IsValid() ||
+                UCk_SceneNodeGym_MotionRuntime_UE::Get_IsFailed(S->Motion.Get()))
+            { Fail(Test, TEXT("FrameSampler six paused producers failed admission")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                (S->Motion.IsValid() &&
+                 UCk_SceneNodeGym_MotionRuntime_UE::Get_IsDormantReady(
+                     S->Motion.Get()));
+        }), 20.0, TEXT("FrameSampler six producers become dormant")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !CaptureMotion(*S) ||
+                !UCk_SceneNodeGym_MotionRuntime_UE::TryActivateOnce(S->Motion.Get()))
+            { Fail(Test, TEXT("FrameSampler genuine six-Resume admission failed")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                (S->Motion.IsValid() &&
+                 UCk_SceneNodeGym_MotionRuntime_UE::Get_IsActive(S->Motion.Get()));
+        }), 20.0, TEXT("FrameSampler genuine six Resume receipts become active")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+            TArray<FSlot> Slots;
+            if (!RawIdentityRetained(*S, &Slots) || Slots.Num() != 6)
+            { return false; }
+            for (const auto& Slot : Slots)
+            { if (Slot.IssuedMotionUpdateCount < 1) { return false; } }
+            return true;
+        }), 20.0, TEXT("all six authored motion callbacks issue before sampling")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !RawIdentityRetained(*S))
+            { Fail(Test, TEXT("FrameSampler source identities changed before begin")); return; }
+            S->Sampler.Reset(UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
+                S->Motion.Get()));
+            if (!S->Sampler.IsValid())
+            { Fail(Test, TEXT("FrameSampler actual active source rejected")); return; }
+            FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+            if (UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                    S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
+                UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
+                    S->Motion.Get()) != nullptr)
+            { Fail(Test, TEXT("FrameSampler published before post-tick or admitted retry")); return; }
+            const TWeakPtr<FState> WeakS = S;
+            S->FrameObserver = FWorldDelegates::OnWorldTickEnd.AddLambda(
+                [WeakS](UWorld* Observed, ELevelTick Tick, float)
+            {
+                const auto State = WeakS.Pin();
+                if (State.IsValid() && Tick == LEVELTICK_All)
+                { ObserveCurrentSamplerFrame(*State, Observed); }
+            });
+            if (!S->FrameObserver.IsValid())
+            { Fail(Test, TEXT("FrameSampler post-tick observer could not bind")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                S->bFrameObservationFailed || S->ObservedFrames >= 2;
+        }), 20.0, TEXT("two actual current-frame complete seventeen-pose receipts")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S, Case](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            FPose Actual;
+            if (World != S->World.Get() || S->bFrameObservationFailed ||
+                S->ObservedFrames < 2 || S->FirstFrame.FrameSerial <= 0 ||
+                S->LastFrame.FrameSerial <= S->FirstFrame.FrameSerial ||
+                !ReadPose(*S, Actual) || !MotionChanged(S->DormantPose, Actual) ||
+                !RawIdentityRetained(*S))
+            {
+                Fail(Test, S->bFrameObservationFailed
+                    ? *S->FrameFailure : TEXT("FrameSampler lacked two complete moving frames"));
+                return;
+            }
+            RemoveSamplerObservers(*S); // observation phase is complete
+            if (Case == ESamplerCase::Production)
+            {
+                if (!UCk_SceneNodeGym_FrameSamplerRuntime_UE::Request_Close(
+                        S->Sampler.Get()))
+                { Fail(Test, TEXT("FrameSampler explicit close rejected")); return; }
+                FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                if (UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                        S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
+                        S->Motion.Get()) != nullptr)
+                { Fail(Test, TEXT("closed FrameSampler exposed a frame or admitted retry")); }
+                return;
+            }
+            auto* Role2 = S->Visuals.IsValidIndex(1) ? S->Visuals[1].Get() : nullptr;
+            if (!IsValid(Role2) || !IsValid(Role2->Cube) ||
+                !Role2->Cube->IsRegistered())
+            { Fail(Test, TEXT("FrameSampler role-two visual was not live")); return; }
+            if (Case == ESamplerCase::ReentrantActorLoss)
+            {
+                S->ObservedComponent = Role2->Cube;
+                const TWeakPtr<FState> WeakS = S;
+                S->ComponentObserver = Role2->Cube->TransformUpdated.AddLambda(
+                    [WeakS](USceneComponent* Changed, EUpdateTransformFlags,
+                        ETeleportType)
+                {
+                    const auto S = WeakS.Pin();
+                    if (!S.IsValid()) { return; }
+                    if (S->bSawInSample || !S->Sampler.IsValid() ||
+                        Changed != S->ObservedComponent.Get())
+                    { return; }
+                    uint64 Published = 0;
+                    int64 Serial = 0;
+                    bool bSampling = false;
+                    bool bClosed = true;
+                    if (!FCk_SceneNodeFrameSampler_TestAccess::TryCapture(
+                            S->Sampler.Get(), Published, Serial, bSampling, bClosed) ||
+                        !bSampling || bClosed)
+                    { return; }
+                    S->bSawInSample = true;
+                    FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                    S->bReentrantGetterRejected =
+                        !UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                            S->Sampler.Get(), Empty) && IsClearedFrame(Empty);
+                    auto* LaterPassive = S->Visuals.IsValidIndex(5)
+                        ? S->Visuals[5].Get() : nullptr;
+                    if (IsValid(LaterPassive) && IsValid(LaterPassive->Cube) &&
+                        LaterPassive->Cube->IsRegistered())
+                    {
+                        S->LaterPassivePose =
+                            LaterPassive->Cube->GetComponentTransform();
+                        S->bLaterPassiveCaptured =
+                            S->LaterPassivePose.IsValid();
+                    }
+                    S->bLaterPassiveCaptured = S->bLaterPassiveCaptured &&
+                        CaptureRemainingPassivePoses(*S, 2, 4,
+                            S->FrozenPassivePoses);
+                    auto* Later = S->Visuals.IsValidIndex(3)
+                        ? S->Visuals[3].Get() : nullptr;
+                    S->bReentrantLossDestroyed = IsValid(Later) && Later->Destroy();
+                });
+            }
+            else
+            {
+                auto* Role4 = S->Visuals.IsValidIndex(3)
+                    ? S->Visuals[3].Get() : nullptr;
+                if (!IsValid(Role4) || !IsValid(Role4->Cube) ||
+                    !Role4->Cube->IsRegistered())
+                { Fail(Test, TEXT("later passive visual missing before unregister")); return; }
+                S->ObservedComponent = Role4->Cube;
+                const TWeakPtr<FState> WeakS = S;
+                S->ComponentObserver = Role4->Cube->TransformUpdated.AddLambda(
+                    [WeakS](USceneComponent*, EUpdateTransformFlags, ETeleportType)
+                    {
+                        const auto S = WeakS.Pin();
+                        if (S.IsValid()) { ++S->PassiveWritesAfterInvalidation; }
+                    });
+                S->LaterPassivePose = Role4->Cube->GetComponentTransform();
+                S->bLaterPassiveCaptured = S->LaterPassivePose.IsValid() &&
+                    CaptureRemainingPassivePoses(*S, 2, 0,
+                        S->FrozenPassivePoses);
+                Role2->Cube->UnregisterComponent();
+                FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                if (Role2->Cube->IsRegistered() ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                        S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
+                { Fail(Test, TEXT("unregistered child remained readable before next sample")); }
+            }
+            if (!S->ComponentObserver.IsValid())
+            { Fail(Test, TEXT("FrameSampler component observer could not bind")); }
+        })));
+        if (Case == ESamplerCase::Production)
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+                FCk_NetAutoTest_Condition::CreateLambda([S]()
+            {
+                return ck::auto_test::net::Get_HasSessionFailed() ||
+                    (UCk_SceneNodeGym_MotionRuntime_UE::Get_IsStopped(
+                        S->Motion.Get()) && KnownQueuesDrained(*S));
+            }), 20.0, TEXT("closed sampler obtains six real Stop receipts and drains known queues")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+            {
+                TArray<FSlot> Slots;
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+                if (World != S->World.Get() || !ReadPose(*S, S->StoppedPose) ||
+                    !RawIdentityRetained(*S, &Slots) || !KnownQueuesDrained(*S) ||
+                    !CaptureAllVisiblePoses(*S, S->FrozenVisiblePoses))
+                { Fail(Test, TEXT("stopped sampler lost current queue or pose evidence")); return; }
+                S->IssuedAtClose.Reset(6);
+                for (const auto& Slot : Slots)
+                { S->IssuedAtClose.Add(Slot.IssuedMotionUpdateCount); }
+                S->StableFrame = GFrameCounter;
+            })));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+                FCk_NetAutoTest_Condition::CreateLambda([S]()
+            { return ck::auto_test::net::Get_HasSessionFailed() ||
+                GFrameCounter >= S->StableFrame + 2; }),
+                15.0, TEXT("two later frames after sampler closure")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+            {
+                FPose Later;
+                TArray<FSlot> Slots;
+                FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+                if (World != S->World.Get() || !ReadPose(*S, Later) ||
+                    !SamePose(S->StoppedPose, Later) || !KnownQueuesDrained(*S) ||
+                    !SameAllVisiblePoses(*S, S->FrozenVisiblePoses) ||
+                    !RawIdentityRetained(*S, &Slots) ||
+                    Slots.Num() != 6 || S->IssuedAtClose.Num() != 6 ||
+                    !UCk_SceneNodeGym_MotionRuntime_UE::Get_IsStopped(S->Motion.Get()) ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                        S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
+                { Fail(Test, TEXT("closed sampler wrote poses or exposed a later frame")); return; }
+                for (int32 I = 0; I < 6; ++I)
+                { if (Slots[I].IssuedMotionUpdateCount != S->IssuedAtClose[I])
+                  { Fail(Test, TEXT("sampler producer issued motion after close")); return; } }
+            })));
+        }
+        else
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+                FCk_NetAutoTest_Condition::CreateLambda([S, Case]()
+            {
+                return ck::auto_test::net::Get_HasSessionFailed() ||
+                    (Case == ESamplerCase::ReentrantActorLoss && S->bSawInSample) ||
+                    (S->Sampler.IsValid() &&
+                     !UCk_SceneNodeGym_MotionRuntime_UE::Get_IsActive(
+                         S->Motion.Get()));
+            }), 20.0, TEXT("real invalidation reaches sampler production callback")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([Test, S, Case](UWorld* World)
+            {
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+                FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                uint64 Published = 0;
+                int64 Serial = 0;
+                bool bSampling = false;
+                bool bClosed = false;
+                if (World != S->World.Get() || !RawIdentityRetained(*S) ||
+                    !FCk_SceneNodeFrameSampler_TestAccess::TryCapture(
+                        S->Sampler.Get(), Published, Serial, bSampling, bClosed) ||
+                    !bClosed || bSampling ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                        S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
+                        S->Motion.Get()) != nullptr ||
+                    !S->bLaterPassiveCaptured ||
+                    (Case == ESamplerCase::ReentrantActorLoss &&
+                     (!S->bSawInSample || !S->bReentrantGetterRejected ||
+                      !S->bReentrantLossDestroyed)) ||
+                    (Case == ESamplerCase::UnregisteredChild &&
+                     S->PassiveWritesAfterInvalidation != 0))
+                { Fail(Test, TEXT("invalid sampler published, retried or wrote a later passive visual")); }
+                RemoveSamplerObservers(*S);
+                S->StableFrame = GFrameCounter;
+            })));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+                FCk_NetAutoTest_Condition::CreateLambda([S]()
+            { return ck::auto_test::net::Get_HasSessionFailed() ||
+                GFrameCounter >= S->StableFrame + 2; }),
+                15.0, TEXT("two later frames after invalid sampler closure")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+            {
+                FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+                auto* LaterPassive = S->Visuals.IsValidIndex(
+                    S->bReentrantLossDestroyed ? 5 : 3)
+                    ? S->Visuals[S->bReentrantLossDestroyed ? 5 : 3].Get()
+                    : nullptr;
+                if (World != S->World.Get() || !RawIdentityRetained(*S) ||
+                    !S->bLaterPassiveCaptured || !IsValid(LaterPassive) ||
+                    !IsValid(LaterPassive->Cube) ||
+                    !LaterPassive->Cube->IsRegistered() ||
+                    !LaterPassive->Cube->GetComponentTransform().Equals(
+                        S->LaterPassivePose, 0.0) ||
+                    !SameRemainingPassivePoses(*S, 2,
+                        S->bReentrantLossDestroyed ? 4 : 0,
+                        S->FrozenPassivePoses) ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                        S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
+                        S->Motion.Get()) != nullptr ||
+                    S->PassiveWritesAfterInvalidation != 0)
+                { Fail(Test, TEXT("invalid sampler recovered publication after two frames")); }
+            })));
+        }
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([S](UWorld*)
+        { RemoveSamplerObservers(*S); })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     }
 
     void Run(FAutomationTestBase* Test, const FString& Parameters,
@@ -696,6 +1263,38 @@ CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeMotionClosingDuringResume,
 bool FCkSceneNodeMotionClosingDuringResume::RunTest(const FString& Parameters)
 {
     ck_scene_node_motion_test::Run(this, Parameters, false, true);
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeFrameSamplerProduction,
+    "Ck.SceneNode.Network.Motion.FrameSampler.Production",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FCkSceneNodeFrameSamplerProduction::RunTest(const FString& Parameters)
+{
+    ck_scene_node_motion_test::RunSampler(this, Parameters,
+        ck_scene_node_motion_test::ESamplerCase::Production);
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeFrameSamplerReentrantActorLoss,
+    "Ck.SceneNode.Network.Motion.FrameSampler.ReentrantActorLoss",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FCkSceneNodeFrameSamplerReentrantActorLoss::RunTest(
+    const FString& Parameters)
+{
+    ck_scene_node_motion_test::RunSampler(this, Parameters,
+        ck_scene_node_motion_test::ESamplerCase::ReentrantActorLoss);
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeFrameSamplerUnregisteredChild,
+    "Ck.SceneNode.Network.Motion.FrameSampler.UnregisteredChild",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FCkSceneNodeFrameSamplerUnregisteredChild::RunTest(
+    const FString& Parameters)
+{
+    ck_scene_node_motion_test::RunSampler(this, Parameters,
+        ck_scene_node_motion_test::ESamplerCase::UnregisteredChild);
     return true;
 }
 
