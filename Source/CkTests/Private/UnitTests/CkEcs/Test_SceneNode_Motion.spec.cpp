@@ -404,6 +404,22 @@ namespace ck_scene_node_motion_test
         return Frame;
     }
 
+    bool IsClearedSourceDisplay(const FCkSceneNodeGym_SourceDisplayData& Data)
+    {
+        return Data.Generation == 0 && Data.FrameSerial == 0 &&
+            Data.RootWorldTransforms.IsEmpty() && Data.NodeLocalOffsets.IsEmpty();
+    }
+
+    FCkSceneNodeGym_SourceDisplayData PoisonedSourceDisplay()
+    {
+        FCkSceneNodeGym_SourceDisplayData Data;
+        Data.Generation = 71;
+        Data.FrameSerial = 89;
+        Data.RootWorldTransforms.Add(FTransform::Identity);
+        Data.NodeLocalOffsets.Add(FTransform::Identity);
+        return Data;
+    }
+
     bool CaptureAllVisiblePoses(const FState& S, TArray<FTransform>& Out)
     {
         Out.Reset();
@@ -514,11 +530,43 @@ namespace ck_scene_node_motion_test
             S.FrameFailure = Reason;
         };
         FCkSceneNodeGym_Frame Frame;
+        FCkSceneNodeGym_SourceDisplayData SourceDisplay;
         if (!UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                 S.Sampler.Get(), Frame) ||
+            !UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestSourceDisplayData(
+                S.Sampler.Get(), SourceDisplay) ||
             Frame.Generation != S.ExpectedGeneration ||
-            Frame.FrameSerial != Serial || Frame.WorldPoses.Num() != 17)
+            Frame.FrameSerial != Serial || Frame.WorldPoses.Num() != 17 ||
+            SourceDisplay.Generation != Frame.Generation ||
+            SourceDisplay.FrameSerial != Frame.FrameSerial ||
+            SourceDisplay.RootWorldTransforms.Num() != 6 ||
+            SourceDisplay.NodeLocalOffsets.Num() != 11)
         { Reject(TEXT("current-frame value receipt was incomplete")); return; }
+        for (int32 I = 0; I < 6; ++I)
+        {
+            const auto Root = S.RootHandles[I];
+            if (!ck::IsValid(Root) || !Root.Has<ck::FFragment_Transform>())
+            { Reject(TEXT("source root disappeared during display receipt")); return; }
+            const FTransform Actual = UCk_Utils_Transform_UE::
+                Get_EntityCurrentTransform(UCk_Utils_Transform_UE::Cast(Root));
+            if (!Actual.IsValid() ||
+                !SourceDisplay.RootWorldTransforms[I].IsValid() ||
+                !SourceDisplay.RootWorldTransforms[I].Equals(Actual, 0.0))
+            { Reject(TEXT("source root display value differed from actual ECS")); return; }
+        }
+        for (int32 I = 0; I < 11; ++I)
+        {
+            const auto Node = S.NodeHandles[I];
+            if (!ck::IsValid(Node) ||
+                !Node.Has_All<ck::FFragment_SceneNode, ck::FFragment_Transform>())
+            { Reject(TEXT("source node disappeared during display receipt")); return; }
+            const FTransform Actual = UCk_Utils_SceneNode_UE::Get_Offset(
+                UCk_Utils_SceneNode_UE::Cast(Node));
+            if (!Actual.IsValid() ||
+                !SourceDisplay.NodeLocalOffsets[I].IsValid() ||
+                !SourceDisplay.NodeLocalOffsets[I].Equals(Actual, 0.0))
+            { Reject(TEXT("source local offset differed from actual SceneNode")); return; }
+        }
         for (int32 Role = 1; Role <= 17; ++Role)
         {
             auto* Actor = S.Visuals.IsValidIndex(Role - 1)
@@ -1129,8 +1177,12 @@ namespace ck_scene_node_motion_test
             if (!S->Sampler.IsValid())
             { Fail(Test, TEXT("FrameSampler actual active source rejected")); return; }
             FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+            FCkSceneNodeGym_SourceDisplayData EmptySource = PoisonedSourceDisplay();
             if (UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                     S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
+                UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestSourceDisplayData(
+                    S->Sampler.Get(), EmptySource) ||
+                !IsClearedSourceDisplay(EmptySource) ||
                 UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
                     S->Motion.Get()) != nullptr)
             { Fail(Test, TEXT("FrameSampler published before post-tick or admitted retry")); return; }
@@ -1173,8 +1225,12 @@ namespace ck_scene_node_motion_test
                         S->Sampler.Get()))
                 { Fail(Test, TEXT("FrameSampler explicit close rejected")); return; }
                 FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                FCkSceneNodeGym_SourceDisplayData EmptySource = PoisonedSourceDisplay();
                 if (UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                         S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestSourceDisplayData(
+                        S->Sampler.Get(), EmptySource) ||
+                    !IsClearedSourceDisplay(EmptySource) ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
                         S->Motion.Get()) != nullptr)
                 { Fail(Test, TEXT("closed FrameSampler exposed a frame or admitted retry")); }
@@ -1207,9 +1263,13 @@ namespace ck_scene_node_motion_test
                     { return; }
                     S->bSawInSample = true;
                     FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                    FCkSceneNodeGym_SourceDisplayData EmptySource = PoisonedSourceDisplay();
                     S->bReentrantGetterRejected =
                         !UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
-                            S->Sampler.Get(), Empty) && IsClearedFrame(Empty);
+                            S->Sampler.Get(), Empty) && IsClearedFrame(Empty) &&
+                        !UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestSourceDisplayData(
+                            S->Sampler.Get(), EmptySource) &&
+                        IsClearedSourceDisplay(EmptySource);
                     auto* LaterPassive = S->Visuals.IsValidIndex(5)
                         ? S->Visuals[5].Get() : nullptr;
                     if (IsValid(LaterPassive) && IsValid(LaterPassive->Cube) &&
