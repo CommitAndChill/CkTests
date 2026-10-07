@@ -29,6 +29,7 @@ class CKTESTS_API UCk_SceneNodeGym_FrameSampler_UE final : public UObject
 {
     GENERATED_BODY()
     friend class UCk_SceneNodeGym_FrameSamplerRuntime_UE;
+    friend class UCk_SceneNodeGym_RetirementRuntime_UE;
 #if WITH_DEV_AUTOMATION_TESTS
     friend struct FCk_SceneNodeFrameSampler_TestAccess;
 #endif

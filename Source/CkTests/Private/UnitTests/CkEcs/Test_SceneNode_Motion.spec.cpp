@@ -1,5 +1,8 @@
 #include "CkSceneNode_MotionTestAccess.h"
 #include "CkSceneNode_FrameSamplerTestAccess.h"
+#include "CkSceneNode_EcsRootsTestAccess.h"
+#include "CkSceneNode_NodeGraphTestAccess.h"
+#include "CkSceneNode_RetirementTestAccess.h"
 
 #include "CkSceneNode_ActorLedgerProbe.h"
 #include "CkSceneNodeGym_ActorLedger.h"
@@ -7,8 +10,11 @@
 #include "CkSceneNodeGym_NodeGraph.h"
 #include "CkSceneNodeGym_FrameSampler.h"
 #include "CkSceneNodeGym_QueueRuntime.h"
+#include "CkSceneNodeGym_Retirement.h"
+#include "CkEntityScriptGym_Runtime.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
+#include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/Net/CkNet_Fragment.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 #include "CkEcsExt/SceneNode/CkSceneNode_Fragment.h"
@@ -18,6 +24,7 @@
 #include "CkTimer/CkTimer_Fragment.h"
 #include "CkTimer/CkTimer_Utils.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/Level.h"
 #include "Engine/World.h"
 #include "GameFramework/GameStateBase.h"
 #include "Misc/AutomationTest.h"
@@ -41,10 +48,17 @@ namespace ck_scene_node_motion_test
 
     struct FState;
     void RemoveSamplerObservers(FState& S);
+    void RemoveRetirementActorObserver(FState& S);
+    bool RetirementReceiptMatchesFrozen(const FState& S,
+        bool bRequireQuiescentDestroy);
 
     struct FState
     {
-        ~FState() { RemoveSamplerObservers(*this); }
+        ~FState()
+        {
+            RemoveSamplerObservers(*this);
+            RemoveRetirementActorObserver(*this);
+        }
         TWeakObjectPtr<UWorld> World;
         TWeakObjectPtr<AGameStateBase> Source;
         TWeakObjectPtr<UCk_SceneNodeGym_ActorLedger_UE> Ledger;
@@ -84,6 +98,23 @@ namespace ck_scene_node_motion_test
         bool bLaterPassiveCaptured = false;
         TArray<FTransform> FrozenVisiblePoses;
         TArray<FTransform> FrozenPassivePoses;
+        TStrongObjectPtr<UCk_SceneNodeGym_Retirement_UE> Retirement;
+        TArray<FCk_Handle> RetirementKnown;
+        TArray<FCk_Handle> RetirementParents;
+        TArray<TWeakObjectPtr<AActor>> RetirementActors;
+        FCk_Handle ForeignChild;
+        int64 RetirementLastFrameSerial = 0;
+        int32 RetirementWorldTicks = 0;
+        int32 RetirementTickAtStop = 0;
+        TArray<int32> RetirementIssuedAtClose;
+        FPose RetirementStoppedPose;
+        TArray<FTransform> RetirementVisiblePoses;
+        FDelegateHandle RetirementActorDestroyedObserver;
+        TWeakObjectPtr<AActor> ReentrantUnexpectedActor;
+        bool bReentrantRoleTwoDestroyed = false;
+        bool bReentrantPrerequisitesMet = false;
+        bool bReentrantUnknownSpawned = false;
+        TArray<FTransform> ReentrantRemainingVisualPoses;
     };
 
     void Fail(FAutomationTestBase* Test, const TCHAR* Reason)
@@ -443,6 +474,14 @@ namespace ck_scene_node_motion_test
         }
     }
 
+    void RemoveRetirementActorObserver(FState& S)
+    {
+        if (!S.RetirementActorDestroyedObserver.IsValid()) { return; }
+        if (auto* World = S.World.Get())
+        { World->RemoveOnActorDestroyedHandler(S.RetirementActorDestroyedObserver); }
+        S.RetirementActorDestroyedObserver.Reset();
+    }
+
     void ObserveCurrentSamplerFrame(FState& S, UWorld* World)
     {
         if (S.bFrameObservationFailed || World != S.World.Get() ||
@@ -519,6 +558,378 @@ namespace ck_scene_node_motion_test
         S.ObservedFrameSerial = Serial;
         S.ObservedEngineFrame = GFrameCounter;
         ++S.ObservedFrames;
+    }
+
+    bool CollectRetirementCreators(const FState& S,
+        TArray<FCk_Handle>& OutKnown, TArray<FCk_Handle>& OutParents,
+        bool bRequireCurrentAllocation = true)
+    {
+        OutKnown.Reset();
+        OutParents.Reset();
+        FCk_Handle RecordedWorld;
+        FCk_Handle Owner;
+        TArray<FCk_SceneNodeEcsRoots_TestAccess::FSlot> RootSlots;
+        TArray<FCk_SceneNodeNodeGraph_TestAccess::FSlot> NodeSlots;
+        int32 GraphGeneration = 0;
+        if (!FCk_SceneNodeEcsRoots_TestAccess::TryCapture(S.Roots.Get(),
+                RecordedWorld, Owner, RootSlots) || RecordedWorld != S.WorldRoot ||
+            !FCk_SceneNodeNodeGraph_TestAccess::TryCapture(S.Graph.Get(),
+                GraphGeneration, NodeSlots) || GraphGeneration != S.Generation ||
+            RootSlots.Num() != 6 || NodeSlots.Num() != 11 ||
+            S.Frozen.Num() != 6 || Owner == FCk_Handle{})
+        { return false; }
+        auto Add = [&OutKnown, &OutParents](const FCk_Handle& H,
+            const FCk_Handle& Parent)
+        { OutKnown.Add(H); OutParents.Add(Parent); };
+        Add(Owner, S.WorldRoot);
+        for (int32 I = 0; I < 6; ++I)
+        {
+            if (!RootSlots[I].bAllocationAttempted || !RootSlots[I].bIssued ||
+                !RootSlots[I].bReturned || !RootSlots[I].bCallback ||
+                !RootSlots[I].bSucceeded || RootSlots[I].Target != S.RootHandles[I] ||
+                RootSlots[I].Carrier == FCk_Handle{})
+            { return false; }
+            Add(RootSlots[I].Target, Owner);
+        }
+        for (int32 I = 0; I < 6; ++I)
+        { Add(RootSlots[I].Carrier, RootSlots[I].Target); }
+        for (int32 I = 0; I < 11; ++I)
+        {
+            if (!NodeSlots[I].bAllocationAttempted || !NodeSlots[I].bComposed ||
+                NodeSlots[I].Raw != S.NodeHandles[I])
+            { return false; }
+            Add(NodeSlots[I].Raw, NodeSlots[I].Parent);
+        }
+        for (int32 I = 0; I < 6; ++I)
+        { Add(S.Frozen[I].Raw, S.RootHandles[I]); }
+        if (OutKnown.Num() != 30 || OutParents.Num() != 30)
+        { return false; }
+        for (int32 I = 0; I < 30; ++I)
+        {
+            if (OutKnown[I] == FCk_Handle{} ||
+                OutParents[I] == FCk_Handle{} ||
+                OutKnown[I] == OutParents[I])
+            { return false; }
+            for (int32 J = 0; J < I; ++J)
+            { if (OutKnown[I] == OutKnown[J]) { return false; } }
+            if (!bRequireCurrentAllocation) { continue; }
+            const bool Allocated = UCk_EntityScriptGym_Spawn_Runtime_UE::
+                Get_IsEntityAllocated(OutKnown[I]);
+            if ((I >= 7 && I < 13) ? Allocated : !Allocated)
+            { return false; }
+            if (Allocated && (!OutKnown[I].Has<ck::FFragment_LifetimeOwner>() ||
+                OutKnown[I].Get<ck::FFragment_LifetimeOwner>().Get_Entity() !=
+                    OutParents[I]))
+            { return false; }
+        }
+        return true;
+    }
+
+    bool FreezeRetirementInputs(FState& S)
+    {
+        if (!CollectRetirementCreators(S, S.RetirementKnown,
+                S.RetirementParents) || S.Visuals.Num() != 17 ||
+            !UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryProve_CurrentCohort(
+                S.Ledger.Get(), true))
+        { return false; }
+        S.RetirementActors.Reset(18);
+        for (int32 Role = 0; Role < 18; ++Role)
+        {
+            AActor* Actor = nullptr;
+            if (!UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryGet_FinishedRole(
+                    S.Ledger.Get(), Role, Actor) || !IsValid(Actor) ||
+                Actor->GetWorld() != S.World.Get() ||
+                (Role > 0 && Actor != S.Visuals[Role - 1].Get()))
+            { return false; }
+            S.RetirementActors.Add(Actor);
+        }
+        S.RetirementLastFrameSerial = S.LastFrame.FrameSerial;
+        return S.RetirementActors.Num() == 18 &&
+            S.RetirementLastFrameSerial > S.FirstFrame.FrameSerial;
+    }
+
+    bool SameRetirementCreators(const FState& S)
+    {
+        TArray<FCk_Handle> Known;
+        TArray<FCk_Handle> Parents;
+        if (!CollectRetirementCreators(S, Known, Parents, false) ||
+            Known != S.RetirementKnown || Parents != S.RetirementParents)
+        { return false; }
+        return true;
+    }
+
+    bool AllRetirementEntitiesGone(const FState& S)
+    {
+        if (S.RetirementKnown.Num() != 30) { return false; }
+        for (const auto& H : S.RetirementKnown)
+        { if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(H))
+          { return false; } }
+        return true;
+    }
+
+    bool HasReadableRetirementWorldLevels(const UWorld* World)
+    {
+        if (!IsInGameThread() || !IsValid(World) ||
+            World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+            World->bIsTearingDown || !World->IsGameWorld() ||
+            !IsValid(World->PersistentLevel) ||
+            World->PersistentLevel->HasAnyFlags(
+                RF_BeginDestroyed | RF_FinishDestroyed))
+        { return false; }
+        for (const ULevel* Level : World->GetLevels())
+        { if (!IsValid(Level) || Level->HasAnyFlags(
+                RF_BeginDestroyed | RF_FinishDestroyed))
+          { return false; } }
+        return true;
+    }
+
+    bool ActorSerialInWorld(const UWorld* World,
+        const TWeakObjectPtr<AActor>& Frozen)
+    {
+        if (!HasReadableRetirementWorldLevels(World))
+        { return false; }
+        auto ContainsFrozen = [&Frozen](const ULevel* Level)
+        {
+            for (const TObjectPtr<AActor>& Entry : Level->Actors)
+            {
+                AActor* const Raw = Entry.Get();
+                if (Raw == nullptr) { continue; }
+                const TWeakObjectPtr<AActor> Current(Raw);
+                if (Frozen.HasSameIndexAndSerialNumber(Current))
+                { return true; }
+            }
+            return false;
+        };
+        if (ContainsFrozen(World->PersistentLevel)) { return true; }
+        for (const ULevel* Level : World->GetLevels())
+        { if (Level != World->PersistentLevel && ContainsFrozen(Level))
+          { return true; } }
+        return false;
+    }
+
+    bool AllRetirementActorsWorldAbsent(const FState& S)
+    {
+        if (!HasReadableRetirementWorldLevels(S.World.Get()) ||
+            S.RetirementActors.Num() != 18)
+        { return false; }
+        for (const auto& Frozen : S.RetirementActors)
+        { if (ActorSerialInWorld(S.World.Get(), Frozen)) { return false; } }
+        return true;
+    }
+
+    bool AllRetirementRootActorsGone(const FState& S)
+    {
+        if (!HasReadableRetirementWorldLevels(S.World.Get()) ||
+            S.RetirementActors.Num() != 18)
+        { return false; }
+        constexpr int32 RootRoles[6] = {1, 3, 5, 10, 13, 16};
+        for (const int32 Role : RootRoles)
+        { if (ActorSerialInWorld(S.World.Get(), S.RetirementActors[Role]))
+          { return false; } }
+        return true;
+    }
+
+    bool ReentrantResidualActorsSurvive(const FState& S)
+    {
+        if (!IsValid(S.World.Get()) || S.RetirementActors.Num() != 18 ||
+            !S.bReentrantRoleTwoDestroyed ||
+            ActorSerialInWorld(S.World.Get(), S.RetirementActors[2]))
+        { return false; }
+        constexpr int32 RootRoles[6] = {1, 3, 5, 10, 13, 16};
+        for (const int32 Role : RootRoles)
+        { if (ActorSerialInWorld(S.World.Get(), S.RetirementActors[Role]))
+          { return false; } }
+        for (int32 Role = 0; Role < 18; ++Role)
+        {
+            if (Role == 2) { continue; }
+            bool bRoot = false;
+            for (const int32 RootRole : RootRoles)
+            { bRoot |= Role == RootRole; }
+            if (bRoot) { continue; }
+            auto* const Actor = S.RetirementActors[Role].Get();
+            if (!IsValid(Actor) || Actor->IsActorBeingDestroyed() ||
+                !ActorSerialInWorld(S.World.Get(), S.RetirementActors[Role]))
+            { return false; }
+        }
+        auto* const Scope = S.RetirementActors[0].Get();
+        auto* const Unknown = S.ReentrantUnexpectedActor.Get();
+        return IsValid(Scope) && IsValid(Unknown) &&
+            !Unknown->IsActorBeingDestroyed() &&
+            Unknown->GetWorld() == S.World.Get() &&
+            Unknown->GetOwner() == Scope &&
+            ActorSerialInWorld(S.World.Get(), S.ReentrantUnexpectedActor) &&
+            UCk_SceneNodeGym_ActorLedgerRuntime_UE::Get_CapturedCount(
+                S.Ledger.Get()) == 18;
+    }
+
+    bool OnlyRoleTwoDestroyRequested(const FState& S)
+    {
+        TArray<bool> Requested;
+        if (!FCk_SceneNodeRetirement_TestAccess::TryCaptureDestroyRequested(
+                S.Retirement.Get(), Requested) || Requested.Num() != 18)
+        { return false; }
+        for (int32 Role = 0; Role < 18; ++Role)
+        { if (Requested[Role] != (Role == 2)) { return false; } }
+        return true;
+    }
+
+    bool CaptureReentrantRemainingVisualPoses(const FState& S,
+        TArray<FTransform>& Out)
+    {
+        Out.Reset();
+        if (S.Visuals.Num() != 17) { return false; }
+        constexpr int32 RootRoles[6] = {1, 3, 5, 10, 13, 16};
+        TArray<FTransform> Candidate;
+        Candidate.Reserve(10);
+        for (int32 Role = 1; Role <= 17; ++Role)
+        {
+            if (Role == 2) { continue; }
+            bool bRoot = false;
+            for (const int32 RootRole : RootRoles)
+            { bRoot |= Role == RootRole; }
+            if (bRoot) { continue; }
+            auto* Actor = S.Visuals[Role - 1].Get();
+            if (!IsValid(Actor) || !IsValid(Actor->Cube) ||
+                !Actor->Cube->IsRegistered())
+            { return false; }
+            const FTransform Pose = Actor->Cube->GetComponentTransform();
+            if (!Pose.IsValid()) { return false; }
+            Candidate.Add(Pose);
+        }
+        if (Candidate.Num() != 10) { return false; }
+        Out = MoveTemp(Candidate);
+        return true;
+    }
+
+    bool SameReentrantRemainingVisualPoses(const FState& S,
+        const TArray<FTransform>& Frozen)
+    {
+        TArray<FTransform> Actual;
+        if (Frozen.Num() != 10 ||
+            !CaptureReentrantRemainingVisualPoses(S, Actual))
+        { return false; }
+        for (int32 I = 0; I < 10; ++I)
+        { if (!Actual[I].Equals(Frozen[I], 0.0)) { return false; } }
+        return true;
+    }
+
+    bool AllOriginalRetirementMembersSurvive(const FState& S)
+    {
+        if (S.RetirementKnown.Num() != 30 ||
+            S.RetirementActors.Num() != 18)
+        { return false; }
+        for (int32 I = 0; I < 30; ++I)
+        {
+            const bool Allocated = UCk_EntityScriptGym_Spawn_Runtime_UE::
+                Get_IsEntityAllocated(S.RetirementKnown[I]);
+            if ((I >= 7 && I < 13) ? Allocated : !Allocated)
+            { return false; }
+        }
+        for (int32 Role = 0; Role < 18; ++Role)
+        {
+            AActor* Actor = nullptr;
+            if (!UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryGet_FinishedRole(
+                    S.Ledger.Get(), Role, Actor) || !IsValid(Actor) ||
+                !S.RetirementActors[Role].HasSameIndexAndSerialNumber(
+                    TWeakObjectPtr<AActor>(Actor)) ||
+                Actor->GetWorld() != S.World.Get() ||
+                Actor->IsActorBeingDestroyed())
+            { return false; }
+        }
+        return true;
+    }
+
+    bool ForeignChildSurvives(const FState& S)
+    {
+        return S.ForeignChild != FCk_Handle{} &&
+            UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                S.ForeignChild) &&
+            S.ForeignChild.Has<ck::FFragment_LifetimeOwner>() &&
+            S.ForeignChild.Get<ck::FFragment_LifetimeOwner>()
+                .Get_Entity() == S.NodeHandles[0];
+    }
+
+    bool StartRetirementTickCounter(const TSharedPtr<FState>& S)
+    {
+        if (!S.IsValid() || S->FrameObserver.IsValid()) { return false; }
+        const TWeakPtr<FState> WeakS = S;
+        S->FrameObserver = FWorldDelegates::OnWorldTickEnd.AddLambda(
+            [WeakS](UWorld* World, ELevelTick Tick, float)
+        {
+            const auto State = WeakS.Pin();
+            if (State.IsValid() && Tick == LEVELTICK_All &&
+                World == State->World.Get())
+            { ++State->RetirementWorldTicks; }
+        });
+        return S->FrameObserver.IsValid();
+    }
+
+    bool BindReentrantUnknownActor(const TSharedPtr<FState>& S)
+    {
+        auto* World = S.IsValid() ? S->World.Get() : nullptr;
+        if (!IsValid(World) || S->RetirementActors.Num() != 18 ||
+            S->RetirementActorDestroyedObserver.IsValid())
+        { return false; }
+        const TWeakPtr<FState> WeakS = S;
+        S->RetirementActorDestroyedObserver = World->AddOnActorDestroyedHandler(
+            FOnActorDestroyed::FDelegate::CreateLambda([WeakS](AActor* Destroyed)
+        {
+            const auto State = WeakS.Pin();
+            if (!State.IsValid() || State->bReentrantRoleTwoDestroyed ||
+                Destroyed == nullptr || State->RetirementActors.Num() != 18 ||
+                !State->RetirementActors[2].HasSameIndexAndSerialNumber(
+                    TWeakObjectPtr<AActor>(Destroyed)))
+            { return; }
+            State->bReentrantRoleTwoDestroyed = true;
+            State->bReentrantPrerequisitesMet =
+                State->Retirement.IsValid() &&
+                UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                    State->Retirement.Get()) ==
+                    ECk_SceneNodeGym_RetirementState::Pending &&
+                RetirementReceiptMatchesFrozen(*State, true) &&
+                AllRetirementEntitiesGone(*State) &&
+                AllRetirementRootActorsGone(*State);
+            if (!State->bReentrantPrerequisitesMet) { return; }
+            auto* Scope = State->RetirementActors[0].Get();
+            auto* SourceWorld = State->World.Get();
+            if (!IsValid(Scope) || !IsValid(SourceWorld) ||
+                Scope->IsActorBeingDestroyed() ||
+                !ActorSerialInWorld(SourceWorld, State->RetirementActors[0]))
+            { return; }
+            FActorSpawnParameters Params;
+            Params.Owner = Scope;
+            auto* Unexpected = SourceWorld->SpawnActor<AActor>(
+                AActor::StaticClass(), FTransform::Identity, Params);
+            State->ReentrantUnexpectedActor = Unexpected;
+            State->bReentrantUnknownSpawned = IsValid(Unexpected) &&
+                Unexpected->GetOwner() == Scope &&
+                Unexpected->GetWorld() == SourceWorld;
+        }));
+        return S->RetirementActorDestroyedObserver.IsValid();
+    }
+
+    bool RetirementReceiptMatchesFrozen(const FState& S,
+        bool bRequireQuiescentDestroy)
+    {
+        TArray<FCk_Handle> Known;
+        TArray<FCk_Handle> Parents;
+        TArray<TWeakObjectPtr<AActor>> Actors;
+        bool bQuiescenceObserved = false;
+        bool bDestroyIssued = false;
+        if (!FCk_SceneNodeRetirement_TestAccess::TryCapture(
+                S.Retirement.Get(), Known, Parents, Actors,
+                bQuiescenceObserved, bDestroyIssued) ||
+            Known != S.RetirementKnown || Parents != S.RetirementParents ||
+            Actors.Num() != S.RetirementActors.Num())
+        { return false; }
+        for (int32 I = 0; I < Actors.Num(); ++I)
+        {
+            if (!Actors[I].HasSameIndexAndSerialNumber(S.RetirementActors[I]))
+            { return false; }
+        }
+        return bRequireQuiescentDestroy
+            ? bQuiescenceObserved && bDestroyIssued
+            : !bQuiescenceObserved && !bDestroyIssued;
     }
 
     enum class ESamplerCase : uint8
@@ -881,6 +1292,361 @@ namespace ck_scene_node_motion_test
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
             FCk_NetAutoTest_ServerAction::CreateLambda([S](UWorld*)
         { RemoveSamplerObservers(*S); })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    }
+
+    enum class ERetirementCase : uint8
+    {
+        Production,
+        ForeignAllocatedDescendant,
+        ReentrantUnexpectedActor
+    };
+
+    void RunRetirement(FAutomationTestBase* Test, const FString& Parameters,
+        ERetirementCase Case)
+    {
+        const auto S = MakeShared<FState>();
+        const bool bForeignAllocatedDescendant =
+            Case == ERetirementCase::ForeignAllocatedDescendant;
+        const bool bReentrantUnexpectedActor =
+            Case == ERetirementCase::ReentrantUnexpectedActor;
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+            2, TEXT("/Engine/Maps/Entry"), Parameters));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 60.0f));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([]()
+        {
+            const auto* Server = ck::auto_test::net::Get_ServerWorld();
+            const auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+            return IsValid(Server) && IsValid(Client) &&
+                IsValid(Server->GetGameState()) &&
+                Server->GetGameState()->HasActorBegunPlay() &&
+                IsValid(Client->GetGameState());
+        }), 15.0, TEXT("Retirement real authority and client worlds become ready")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (!SetupActorsAndRoots(*S, World))
+            { Fail(Test, TEXT("Retirement could not construct actual eighteen actors and six roots")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                (IsValid(S->Roots.Get()) &&
+                 UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsConstructionComplete(
+                     S->Roots.Get()));
+        }), 20.0, TEXT("Retirement six actual WithActor roots complete")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !CaptureRootsAndBeginGraph(*S))
+            { Fail(Test, TEXT("Retirement eleven-node graph admission failed")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                (IsValid(S->Graph.Get()) &&
+                 UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_IsConstructionComplete(
+                     S->Graph.Get()));
+        }), 20.0, TEXT("Retirement eleven actual graph nodes settle")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !CaptureNodes(*S) ||
+                !ReadPose(*S, S->DormantPose))
+            { Fail(Test, TEXT("Retirement dormant source graph was incomplete")); return; }
+            S->Motion.Reset(UCk_SceneNodeGym_MotionRuntime_UE::TryBeginDormant(
+                S->Graph.Get()));
+            if (!S->Motion.IsValid() ||
+                UCk_SceneNodeGym_MotionRuntime_UE::Get_IsFailed(S->Motion.Get()))
+            { Fail(Test, TEXT("Retirement six paused producers failed admission")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                (S->Motion.IsValid() &&
+                 UCk_SceneNodeGym_MotionRuntime_UE::Get_IsDormantReady(
+                     S->Motion.Get()));
+        }), 20.0, TEXT("Retirement six captured timers become dormant")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !CaptureMotion(*S) ||
+                !UCk_SceneNodeGym_MotionRuntime_UE::TryActivateOnce(S->Motion.Get()))
+            { Fail(Test, TEXT("Retirement six genuine Resume requests rejected")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                (S->Motion.IsValid() &&
+                 UCk_SceneNodeGym_MotionRuntime_UE::Get_IsActive(S->Motion.Get()));
+        }), 20.0, TEXT("Retirement six real Resume receipts become active")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !RawIdentityRetained(*S))
+            { Fail(Test, TEXT("Retirement source identities changed before sampling")); return; }
+            S->Sampler.Reset(UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
+                S->Motion.Get()));
+            if (!S->Sampler.IsValid())
+            { Fail(Test, TEXT("Retirement actual active sampler rejected")); return; }
+            const TWeakPtr<FState> WeakS = S;
+            S->FrameObserver = FWorldDelegates::OnWorldTickEnd.AddLambda(
+                [WeakS](UWorld* Observed, ELevelTick Tick, float)
+            {
+                const auto State = WeakS.Pin();
+                if (State.IsValid() && Tick == LEVELTICK_All)
+                { ObserveCurrentSamplerFrame(*State, Observed); }
+            });
+            if (!S->FrameObserver.IsValid())
+            { Fail(Test, TEXT("Retirement exact-world sampler observer did not bind")); }
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                S->bFrameObservationFailed || S->ObservedFrames >= 2;
+        }), 20.0, TEXT("Retirement two real current-frame seventeen-pose publications")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda(
+                [Test, S, bForeignAllocatedDescendant,
+                    bReentrantUnexpectedActor](UWorld* World)
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            FPose Current;
+            TArray<FSlot> Slots;
+            if (World != S->World.Get() || S->bFrameObservationFailed ||
+                S->ObservedFrames < 2 || S->FirstFrame.FrameSerial <= 0 ||
+                S->LastFrame.FrameSerial <= S->FirstFrame.FrameSerial)
+            { Fail(Test, S->bFrameObservationFailed
+                ? *S->FrameFailure
+                : TEXT("Retirement current-frame presentation evidence was incomplete"));
+              return; }
+            if (!ReadPose(*S, Current) ||
+                !MotionChanged(S->DormantPose, Current))
+            { Fail(Test, TEXT("Retirement real source pose had no verified motion"));
+              return; }
+            if (!RawIdentityRetained(*S, &Slots) || Slots.Num() != 6)
+            { Fail(Test, TEXT("Retirement six actual timer identities changed"));
+              return; }
+            if (!UCk_SceneNodeGym_MotionRuntime_UE::Get_IsActive(
+                    S->Motion.Get()))
+            { Fail(Test, TEXT("Retirement source Motion was not active"));
+              return; }
+            if (!FreezeRetirementInputs(*S))
+            { Fail(Test, TEXT("Retirement thirty creators or eighteen actors failed freeze"));
+              return; }
+            RemoveSamplerObservers(*S);
+            S->RetirementIssuedAtClose.Reset(6);
+            for (const auto& Slot : Slots)
+            { S->RetirementIssuedAtClose.Add(Slot.IssuedMotionUpdateCount); }
+            if (bForeignAllocatedDescendant)
+            {
+                const auto Parent = S->NodeHandles[0];
+                if (!ck::IsValid(Parent) ||
+                    !Parent.Has<ck::FFragment_LifetimeOwner>())
+                { Fail(Test, TEXT("Retirement foreign-child parent was not a real live node")); return; }
+                S->ForeignChild = UCk_Utils_EntityLifetime_UE::
+                    Request_CreateEntity(Parent);
+                if (!ForeignChildSurvives(*S))
+                { Fail(Test, TEXT("Retirement failed to create a real unknown direct descendant")); return; }
+            }
+            if (bReentrantUnexpectedActor && !BindReentrantUnknownActor(S))
+            { Fail(Test, TEXT("Retirement real actor-destroy callback did not bind")); return; }
+            S->Retirement.Reset(
+                UCk_SceneNodeGym_RetirementRuntime_UE::TryBeginCompleted(
+                    S->Motion.Get()));
+            if (!S->Retirement.IsValid() ||
+                UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                    S->Retirement.Get()) !=
+                    (bForeignAllocatedDescendant
+                        ? ECk_SceneNodeGym_RetirementState::Unproven
+                        : ECk_SceneNodeGym_RetirementState::Pending))
+            { Fail(Test, TEXT("Retirement one-shot receipt did not enter expected state")); return; }
+            FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+            if (UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                    S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
+                UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
+                    S->Motion.Get()) != nullptr ||
+                UCk_SceneNodeGym_RetirementRuntime_UE::TryBeginCompleted(
+                    S->Motion.Get()) != nullptr ||
+                !RetirementReceiptMatchesFrozen(*S, false) ||
+                !SameRetirementCreators(*S) ||
+                !AllOriginalRetirementMembersSurvive(*S) ||
+                !StartRetirementTickCounter(S))
+            { Fail(Test, TEXT("Retirement closure left publication open or admitted retry")); return; }
+            if (bForeignAllocatedDescendant &&
+                (UCk_SceneNodeGym_RetirementRuntime_UE::Get_FailureReason(
+                    S->Retirement.Get()) != FName(TEXT("CompletedFreezeRejected")) ||
+                 !AllOriginalRetirementMembersSurvive(*S) ||
+                 !ForeignChildSurvives(*S)))
+            { Fail(Test, TEXT("Retirement adopted or destroyed the foreign child or known graph")); }
+        })));
+        if (bForeignAllocatedDescendant)
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+                FCk_NetAutoTest_Condition::CreateLambda([S]()
+            {
+                return ck::auto_test::net::Get_HasSessionFailed() ||
+                    KnownQueuesDrained(*S);
+            }), 20.0, TEXT("rejected retirement drains previously issued known requests")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+            {
+                TArray<FSlot> Slots;
+                FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+                if (World != S->World.Get() ||
+                    !RetirementReceiptMatchesFrozen(*S, false) ||
+                    !AllOriginalRetirementMembersSurvive(*S) ||
+                    !RawIdentityRetained(*S, &Slots) || Slots.Num() != 6 ||
+                    !ForeignChildSurvives(*S) ||
+                    !ReadPose(*S, S->RetirementStoppedPose) ||
+                    !CaptureAllVisiblePoses(*S, S->RetirementVisiblePoses) ||
+                    UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                        S->Retirement.Get()) !=
+                        ECk_SceneNodeGym_RetirementState::Unproven ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                        S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
+                { Fail(Test, TEXT("unproven retirement changed known ownership or visual state")); return; }
+                S->RetirementTickAtStop = S->RetirementWorldTicks;
+            })));
+        }
+        else if (bReentrantUnexpectedActor)
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+                FCk_NetAutoTest_Condition::CreateLambda([S]()
+            {
+                return ck::auto_test::net::Get_HasSessionFailed() ||
+                    (S->Retirement.IsValid() &&
+                     UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                         S->Retirement.Get()) !=
+                         ECk_SceneNodeGym_RetirementState::Pending);
+            }), 25.0, TEXT("real Role2 destruction injects unknown scope-owned actor")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+            {
+                TArray<FSlot> Slots;
+                FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+                if (World != S->World.Get() || !S->Retirement.IsValid() ||
+                    !S->bReentrantRoleTwoDestroyed ||
+                    !S->bReentrantPrerequisitesMet ||
+                    !S->bReentrantUnknownSpawned ||
+                    UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                        S->Retirement.Get()) !=
+                        ECk_SceneNodeGym_RetirementState::Unproven ||
+                    UCk_SceneNodeGym_RetirementRuntime_UE::Get_FailureReason(
+                        S->Retirement.Get()).IsNone() ||
+                    !RetirementReceiptMatchesFrozen(*S, true) ||
+                    !AllRetirementEntitiesGone(*S) ||
+                    !ReentrantResidualActorsSurvive(*S) ||
+                    !OnlyRoleTwoDestroyRequested(*S) ||
+                    !RawIdentityRetained(*S, &Slots) || Slots.Num() != 6 ||
+                    !CaptureReentrantRemainingVisualPoses(*S,
+                        S->ReentrantRemainingVisualPoses) ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                        S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
+                { Fail(Test, TEXT("reentrant unknown actor did not stop retirement after Role2")); return; }
+                S->RetirementTickAtStop = S->RetirementWorldTicks;
+            })));
+        }
+        else
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+                FCk_NetAutoTest_Condition::CreateLambda([S]()
+            {
+                return ck::auto_test::net::Get_HasSessionFailed() ||
+                    (S->Retirement.IsValid() &&
+                     UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                         S->Retirement.Get()) !=
+                         ECk_SceneNodeGym_RetirementState::Pending);
+            }), 25.0, TEXT("normal retirement observes actual stopped queues and completes")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
+            {
+                TArray<FSlot> Slots;
+                FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+                if (World != S->World.Get() || !S->Retirement.IsValid() ||
+                    UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                        S->Retirement.Get()) !=
+                        ECk_SceneNodeGym_RetirementState::Complete ||
+                    !UCk_SceneNodeGym_RetirementRuntime_UE::Get_FailureReason(
+                        S->Retirement.Get()).IsNone() ||
+                    !RetirementReceiptMatchesFrozen(*S, true) ||
+                    !AllRetirementEntitiesGone(*S) ||
+                    !AllRetirementActorsWorldAbsent(*S) ||
+                    !RawIdentityRetained(*S, &Slots) || Slots.Num() != 6 ||
+                    UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                        S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
+                { Fail(Test, TEXT("normal retirement lacked complete thirty-plus-eighteen absence")); return; }
+                S->RetirementTickAtStop = S->RetirementWorldTicks;
+            })));
+        }
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
+            FCk_NetAutoTest_Condition::CreateLambda([S]()
+        {
+            return ck::auto_test::net::Get_HasSessionFailed() ||
+                S->RetirementWorldTicks >= S->RetirementTickAtStop + 2;
+        }), 15.0, TEXT("two later ticks of the exact authority world after retirement")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda(
+                [Test, S, bForeignAllocatedDescendant,
+                    bReentrantUnexpectedActor](UWorld* World)
+        {
+            TArray<FSlot> Slots;
+            FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
+            if (World != S->World.Get() || !RawIdentityRetained(*S, &Slots) ||
+                Slots.Num() != 6 || S->RetirementIssuedAtClose.Num() != 6 ||
+                UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
+                    S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
+            { Fail(Test, TEXT("retirement changed a frozen creator or republished")); return; }
+            for (int32 I = 0; I < 6; ++I)
+            { if (Slots[I].IssuedMotionUpdateCount != S->RetirementIssuedAtClose[I])
+              { Fail(Test, TEXT("producer issued motion after retirement closure")); return; } }
+            if (bForeignAllocatedDescendant)
+            {
+                FPose Later;
+                if (UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                        S->Retirement.Get()) !=
+                        ECk_SceneNodeGym_RetirementState::Unproven ||
+                    !AllOriginalRetirementMembersSurvive(*S) ||
+                    !ForeignChildSurvives(*S) || !ReadPose(*S, Later) ||
+                    !SamePose(S->RetirementStoppedPose, Later) ||
+                    !SameAllVisiblePoses(*S, S->RetirementVisiblePoses))
+                { Fail(Test, TEXT("rejected retirement mutated the foreign or known cohort")); }
+            }
+            else if (bReentrantUnexpectedActor)
+            {
+                if (UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                        S->Retirement.Get()) !=
+                        ECk_SceneNodeGym_RetirementState::Unproven ||
+                    !RetirementReceiptMatchesFrozen(*S, true) ||
+                    !AllRetirementEntitiesGone(*S) ||
+                    !ReentrantResidualActorsSurvive(*S) ||
+                    !OnlyRoleTwoDestroyRequested(*S) ||
+                    !SameReentrantRemainingVisualPoses(*S,
+                        S->ReentrantRemainingVisualPoses))
+                { Fail(Test, TEXT("reentrant retirement destroyed a later actor or resumed")); }
+            }
+            else if (UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+                    S->Retirement.Get()) !=
+                    ECk_SceneNodeGym_RetirementState::Complete ||
+                !AllRetirementEntitiesGone(*S) ||
+                !AllRetirementActorsWorldAbsent(*S))
+            { Fail(Test, TEXT("completed retirement reintroduced an entity or actor")); }
+            RemoveSamplerObservers(*S);
+        })));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     }
 
@@ -1295,6 +2061,36 @@ bool FCkSceneNodeFrameSamplerUnregisteredChild::RunTest(
 {
     ck_scene_node_motion_test::RunSampler(this, Parameters,
         ck_scene_node_motion_test::ESamplerCase::UnregisteredChild);
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeRetirementProduction,
+    "Ck.SceneNode.Network.Motion.Retirement.Production",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FCkSceneNodeRetirementProduction::RunTest(const FString& Parameters)
+{
+    ck_scene_node_motion_test::RunRetirement(this, Parameters,
+        ck_scene_node_motion_test::ERetirementCase::Production);
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeRetirementForeignChild,
+    "Ck.SceneNode.Network.Motion.Retirement.ForeignAllocatedDescendant",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FCkSceneNodeRetirementForeignChild::RunTest(const FString& Parameters)
+{
+    ck_scene_node_motion_test::RunRetirement(this, Parameters,
+        ck_scene_node_motion_test::ERetirementCase::ForeignAllocatedDescendant);
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeRetirementReentrantActor,
+    "Ck.SceneNode.Network.Motion.Retirement.ReentrantUnexpectedActor",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FCkSceneNodeRetirementReentrantActor::RunTest(const FString& Parameters)
+{
+    ck_scene_node_motion_test::RunRetirement(this, Parameters,
+        ck_scene_node_motion_test::ERetirementCase::ReentrantUnexpectedActor);
     return true;
 }
 

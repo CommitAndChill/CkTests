@@ -22,6 +22,7 @@ class CKTESTS_API UCk_SceneNodeGym_NodeGraph_UE final : public UObject
     GENERATED_BODY()
     friend class UCk_SceneNodeGym_NodeGraphRuntime_UE;
     friend class UCk_SceneNodeGym_MotionRuntime_UE;
+    friend class UCk_SceneNodeGym_RetirementRuntime_UE;
 #if WITH_DEV_AUTOMATION_TESTS
     friend struct FCk_SceneNodeNodeGraph_TestAccess;
 #endif

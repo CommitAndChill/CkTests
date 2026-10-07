@@ -24,6 +24,7 @@ class CKTESTS_API UCk_SceneNodeGym_ActorLedger_UE final : public UActorComponent
 
     friend class UCk_SceneNodeGym_ActorLedgerRuntime_UE;
     friend class UCk_SceneNodeGym_StopRuntime_UE;
+    friend class UCk_SceneNodeGym_RetirementRuntime_UE;
     friend class UCk_SceneNodeGym_EcsRootsRuntime_UE;
     friend class ACk_SceneNodeGym_SourceActor_UE;
 
@@ -80,6 +81,7 @@ class CKTESTS_API ACk_SceneNodeGym_SourceActor_UE : public AActor
     GENERATED_BODY()
 
     friend class UCk_SceneNodeGym_ActorLedgerRuntime_UE;
+    friend class UCk_SceneNodeGym_RetirementRuntime_UE;
 
 private:
     TWeakObjectPtr<UCk_SceneNodeGym_ActorLedger_UE> Ledger;
@@ -107,6 +109,7 @@ class CKTESTS_API UCk_SceneNodeGym_ActorLedgerRuntime_UE : public UBlueprintFunc
     friend class UCk_SceneNodeGym_ActorLedger_UE;
     friend class UCk_SceneNodeGym_StopRuntime_UE;
     friend class UCk_SceneNodeGym_EcsRootsRuntime_UE;
+    friend class UCk_SceneNodeGym_RetirementRuntime_UE;
 
 public:
     // VisualClasses fixes roles 1..17; role 0 is the plain nonvisual AActor scope.
