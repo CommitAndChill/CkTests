@@ -9,6 +9,7 @@
 #include "Engine/World.h"
 #include "FileHelpers.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/WorldSettings.h"
 #include "GameFramework/PlayerState.h" // PlayerState identity (UniqueId/PlayerId) — remote-client<->world correlation
 #include "PlayInEditorDataTypes.h"
 #include "Settings/LevelEditorPlaySettings.h"
@@ -89,11 +90,22 @@ namespace ck_net_automation_common
 
     TOptional<FPlaySettings_Snapshot> GPlaySettings_Snapshot;
     FDelegateHandle                   GPlaySettings_RestoreHandle;
+    TWeakObjectPtr<AWorldSettings> GGameMode_WorldSettings;
+    TStrongObjectPtr<UClass> GGameMode_OriginalClass;
+    bool GHasGameModeOverride = false;
 
     auto
         Restore_PlaySettings()
         -> void
     {
+        if (GHasGameModeOverride)
+        {
+            if (auto* WorldSettings = GGameMode_WorldSettings.Get(); ck::IsValid(WorldSettings))
+            { WorldSettings->DefaultGameMode = GGameMode_OriginalClass.Get(); }
+            GGameMode_WorldSettings.Reset();
+            GGameMode_OriginalClass.Reset();
+            GHasGameModeOverride = false;
+        }
         if (GPlaySettings_RestoreHandle.IsValid())
         {
             FEditorDelegates::EndPIE.Remove(GPlaySettings_RestoreHandle);
@@ -304,12 +316,29 @@ namespace ck::auto_test::net
     // ----------------------------------------------------------------------------------------------------------------
 
     auto
-        Get_RemoteClientPlayerController(
+        TryGet_RemoteClientPlayerController(
             UWorld* InServerWorld,
             int32 ClientIdx)
         -> APlayerController*
     {
-        if (!HasUsableWorld(InServerWorld))
+        if (ClientIdx < 0 || !HasUsableWorld(InServerWorld))
+        { return nullptr; }
+        if (InServerWorld->WorldType != EWorldType::PIE)
+        { return nullptr; }
+        const auto ServerMode = InServerWorld->GetNetMode();
+        if (ServerMode != NM_ListenServer && ServerMode != NM_DedicatedServer)
+        { return nullptr; }
+        if (ck_net_automation_common::GOwnsSession &&
+            ((ck_net_automation_common::GRequireExactTopology &&
+              ServerMode != ck_net_automation_common::GExpectedServerMode) ||
+             Get_AllPIEWorlds().Num() != ck_net_automation_common::GExpectedTotalWorlds ||
+             Get_NumClientWorlds() != ck_net_automation_common::GExpectedTotalWorlds - 1))
+        { return nullptr; }
+        auto* ClientWorld = Get_ClientWorld(ClientIdx);
+        if (ck::Is_NOT_Valid(ClientWorld))
+        { return nullptr; }
+        auto* ClientLocalPC = ClientWorld->GetFirstPlayerController();
+        if (ck::Is_NOT_Valid(ClientLocalPC) || NOT ClientLocalPC->IsLocalController())
         { return nullptr; }
 
         // On a listen server, the local player's PlayerController has no UNetConnection; each
@@ -318,67 +347,64 @@ namespace ck::auto_test::net
         for (auto It = InServerWorld->GetPlayerControllerIterator(); It; ++It)
         {
             auto* PC = It->Get();
-            if (ck::Is_NOT_Valid(PC, ck::IsValid_Policy_NullptrOnly{}))
+            if (ck::Is_NOT_Valid(PC) || NOT PC->HasActorBegunPlay())
             { continue; }
 
             if (PC->GetNetConnection() != nullptr)
             { RemotePCs.Add(PC); }
         }
 
-        // Single-remote-client fast path (every 2-world net test): iterator order is unambiguous — this
-        // preserves the exact historical behavior (index into iterator order).
-        if (RemotePCs.Num() <= 1)
-        {
-            if (RemotePCs.IsValidIndex(ClientIdx) == false)
-            {
-                Log_Error(TEXT("Get_RemoteClientPlayerController: no remote client PC at index [{}] (found [{}] net-connection PCs on server)"),
-                    ClientIdx, RemotePCs.Num());
-                return nullptr;
-            }
-            return RemotePCs[ClientIdx];
-        }
-
-        // >1 remote client: the server's PlayerControllerIterator order is NOT correlated to Get_ClientWorld's
-        // PIEInstance order. Correlate by player identity so index N refers to the SAME client on both sides.
+        const auto ExpectedRemoteCount = Get_NumClientWorlds();
+        if (RemotePCs.Num() != ExpectedRemoteCount)
+        { return nullptr; }
+        // The server's PlayerControllerIterator order is NOT correlated to Get_ClientWorld's
+        // PIEInstance order. Correlate every result by player identity, even while connecting.
         // The server-side remote PC's PlayerState and the client world's local PC's PlayerState are the same
         // replicated actor, so their identity matches once replicated.
-        auto* ClientWorld = Get_ClientWorld(ClientIdx);
-        if (ck::Is_NOT_Valid(ClientWorld, ck::IsValid_Policy_NullptrOnly{}))
-        {
-            Log_Error(TEXT("Get_RemoteClientPlayerController: no client world at index [{}] to correlate against"), ClientIdx);
-            return nullptr;
-        }
-
-        auto* ClientLocalPC = ClientWorld->GetFirstPlayerController();
-        APlayerState* ClientPS = ClientLocalPC != nullptr ? ClientLocalPC->PlayerState.Get() : nullptr;
-        if (ClientPS == nullptr)
-        {
-            Log_Error(TEXT("Get_RemoteClientPlayerController: client world [{}] has no local PlayerState yet"), ClientIdx);
-            return nullptr;
-        }
+        APlayerState* ClientPS = ClientLocalPC->PlayerState.Get();
+        if (ck::Is_NOT_Valid(ClientPS))
+        { return nullptr; }
 
         const auto ClientUniqueId = ClientPS->GetUniqueId();
         const auto ClientPlayerId = ClientPS->GetPlayerId();
 
+        auto* MatchedPC = static_cast<APlayerController*>(nullptr);
         for (auto* PC : RemotePCs)
         {
-            APlayerState* ServerPS = PC->PlayerState;
-            if (ServerPS == nullptr)
-            { continue; }
+            APlayerState* ServerPS = PC->PlayerState.Get();
+            if (ck::Is_NOT_Valid(ServerPS))
+            { return nullptr; }
 
             // Prefer the replicated unique net id; fall back to the GameMode-assigned PlayerId (int32, always
             // replicated) — a NULL online subsystem in PIE may not populate a valid UniqueId.
-            const auto MatchesUniqueId = ClientUniqueId.IsValid() && ServerPS->GetUniqueId().IsValid()
-                && ServerPS->GetUniqueId() == ClientUniqueId;
-            const auto MatchesPlayerId = ServerPS->GetPlayerId() == ClientPlayerId;
+            const auto CanCompareUniqueIds = ClientUniqueId.IsValid() && ServerPS->GetUniqueId().IsValid();
+            const auto MatchesUniqueId = CanCompareUniqueIds && ServerPS->GetUniqueId() == ClientUniqueId;
+            const auto MatchesPlayerId = NOT CanCompareUniqueIds && ClientPlayerId >= 0 &&
+                ServerPS->GetPlayerId() == ClientPlayerId;
 
             if (MatchesUniqueId || MatchesPlayerId)
-            { return PC; }
+            {
+                if (MatchedPC != nullptr)
+                { return nullptr; }
+                MatchedPC = PC;
+            }
         }
+        return MatchedPC;
+    }
 
-        Log_Error(TEXT("Get_RemoteClientPlayerController: no server-side remote PC matched client world [{}] identity (UniqueId valid=[{}], PlayerId=[{}]; [{}] remote PCs) — identity not replicated yet?"),
-            ClientIdx, ClientUniqueId.IsValid(), ClientPlayerId, RemotePCs.Num());
-        return nullptr;
+    auto
+        Get_RemoteClientPlayerController(
+            UWorld* InServerWorld,
+            int32 ClientIdx)
+        -> APlayerController*
+    {
+        auto* Controller = TryGet_RemoteClientPlayerController(InServerWorld, ClientIdx);
+        if (Controller == nullptr)
+        {
+            Log_Error(TEXT("Get_RemoteClientPlayerController: remote client [{}] has no ready, uniquely correlated server controller"),
+                ClientIdx);
+        }
+        return Controller;
     }
 }
 
@@ -404,12 +430,45 @@ bool
     auto* Settings = GetMutableDefault<ULevelEditorPlaySettings>();
     if (Settings == nullptr)
     { FailSession(TEXT("Cannot resolve editor play settings")); return true; }
+    if (_GameModeClass.Get() != nullptr)
+    {
+        const auto ClassIsValid = ck::IsValid(_GameModeClass.Get()) &&
+            _GameModeClass->IsChildOf(AGameModeBase::StaticClass());
+        if (NOT ClassIsValid)
+        {
+            FailSession(TEXT("Network test requires a valid GameMode class"));
+            return true;
+        }
+    }
     if (!_MapPath.IsEmpty() && !FEditorFileUtils::LoadMap(_MapPath, false, false))
     { FailSession(ck::Format_UE(TEXT("Failed to load network test map [{}]"), _MapPath)); return true; }
+    auto* EditorWorldSettings = static_cast<AWorldSettings*>(nullptr);
+    if (_GameModeClass.Get() != nullptr)
+    {
+        auto* EditorWorld = GUnrealEd->GetEditorWorldContext().World();
+        if (ck::Is_NOT_Valid(EditorWorld))
+        {
+            FailSession(TEXT("Cannot stage an authored GameMode without a valid editor world"));
+            return true;
+        }
+        EditorWorldSettings = EditorWorld->GetWorldSettings();
+        if (ck::Is_NOT_Valid(EditorWorldSettings))
+        {
+            FailSession(TEXT("Cannot stage an authored GameMode without editor WorldSettings"));
+            return true;
+        }
+    }
     GRequireExactTopology = !_Topology.IsEmpty();
     GExpectedServerMode = DedicatedServer ? NM_DedicatedServer : NM_ListenServer;
     GExpectedTotalWorlds = _NumClients;
     Override_PlaySettings(Settings, _NumClients, DedicatedServer);
+    if (EditorWorldSettings != nullptr)
+    {
+        GGameMode_WorldSettings = EditorWorldSettings;
+        GGameMode_OriginalClass.Reset(EditorWorldSettings->DefaultGameMode.Get());
+        GHasGameModeOverride = true;
+        EditorWorldSettings->DefaultGameMode = _GameModeClass.Get();
+    }
     FRequestPlaySessionParams Params{};
     Params.WorldType = EPlaySessionWorldType::PlayInEditor;
     GOwnsSession = true;
@@ -587,7 +646,8 @@ bool
     FCk_Latent_AssertCondition::
     Update()
 {
-    if (ck_net_automation_common::GSessionFailed) { return true; }
+    if (ck_net_automation_common::GSessionFailed && NOT _RunAfterSessionFailure)
+    { return true; }
     if (_Test == nullptr)
     { return true; }
 

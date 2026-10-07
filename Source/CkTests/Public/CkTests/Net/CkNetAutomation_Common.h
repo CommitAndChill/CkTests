@@ -6,6 +6,7 @@
 
 #include "Misc/AutomationTest.h"
 #include "UObject/StrongObjectPtr.h"
+#include <GameFramework/GameModeBase.h>
 
 #include "CkTests/Net/CkAutoTest_NetSubject_Utils.h"
 
@@ -82,6 +83,9 @@ namespace ck::auto_test::net
     // PIEInstance order, so the result is CORRELATED by player identity (PlayerState UniqueId, PlayerId
     // fallback) to the SAME client as Get_ClientWorld(ClientIdx); returns nullptr (loud) if that identity
     // has not replicated yet, rather than silently binding the wrong client.
+    // Quiet, unique client-world identity correlation for readiness polling.
+    CKTESTS_API auto TryGet_RemoteClientPlayerController(
+        UWorld* InServerWorld, int32 ClientIdx) -> class APlayerController*;
     CKTESTS_API auto Get_RemoteClientPlayerController(UWorld* InServerWorld, int32 ClientIdx) -> class APlayerController*;
 }
 
@@ -101,8 +105,10 @@ class CKTESTS_API FCk_Latent_StartPIEMultiClient : public IAutomationLatentComma
 public:
     FCk_Latent_StartPIEMultiClient(
         int32 InNumClients, const FString& InMapPath,
-        const FString& InTopology = FString{})
-        : _NumClients(InNumClients), _MapPath(InMapPath), _Topology(InTopology) {}
+        const FString& InTopology = FString{},
+        TSubclassOf<AGameModeBase> InGameModeClass = nullptr)
+        : _NumClients(InNumClients), _MapPath(InMapPath), _Topology(InTopology),
+          _GameModeClass(InGameModeClass.Get()) {}
 
     virtual ~FCk_Latent_StartPIEMultiClient() = default;
     virtual bool Update() override;
@@ -111,6 +117,7 @@ private:
     int32 _NumClients = 1;
     FString _MapPath;
     FString _Topology;
+    TStrongObjectPtr<UClass> _GameModeClass;
 };
 
 class CKTESTS_API FCk_Latent_WaitForPIEReady : public IAutomationLatentCommand
@@ -198,8 +205,10 @@ public:
     FCk_Latent_AssertCondition(
         FAutomationTestBase* InTest,
         const FCk_NetAutoTest_Assertion& InAssertion,
-        const FString& InMessage)
-        : _Test(InTest), _Assertion(InAssertion), _Message(InMessage) {}
+        const FString& InMessage,
+        bool InRunAfterSessionFailure = false)
+        : _Test(InTest), _Assertion(InAssertion), _Message(InMessage),
+          _RunAfterSessionFailure(InRunAfterSessionFailure) {}
 
     virtual ~FCk_Latent_AssertCondition() = default;
     virtual bool Update() override;
@@ -208,6 +217,7 @@ private:
     FAutomationTestBase* _Test = nullptr;
     FCk_NetAutoTest_Assertion _Assertion;
     FString _Message;
+    bool _RunAfterSessionFailure = false;
 };
 
 // Poll-until-converged latent command. Calls the supplied Condition once per frame; advances
