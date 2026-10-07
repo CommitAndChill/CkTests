@@ -9,6 +9,8 @@
 
 class UCk_SceneNodeGym_EcsRoots_UE;
 class UCk_SceneNodeGym_NodeGraphRuntime_UE;
+class UCk_SceneNodeGym_Motion_UE;
+class UCk_SceneNodeGym_MotionRuntime_UE;
 class UCk_SceneNodeGym_ActorLedger_UE;
 class UStaticMeshComponent;
 
@@ -19,6 +21,7 @@ class CKTESTS_API UCk_SceneNodeGym_NodeGraph_UE final : public UObject
 {
     GENERATED_BODY()
     friend class UCk_SceneNodeGym_NodeGraphRuntime_UE;
+    friend class UCk_SceneNodeGym_MotionRuntime_UE;
 #if WITH_DEV_AUTOMATION_TESTS
     friend struct FCk_SceneNodeNodeGraph_TestAccess;
 #endif
@@ -40,12 +43,15 @@ class CKTESTS_API UCk_SceneNodeGym_NodeGraph_UE final : public UObject
     int32 Generation = 0;
     bool bFailed = false;
     bool bUnproven = false;
+    UPROPERTY(Transient) TObjectPtr<UCk_SceneNodeGym_Motion_UE> Motion;
+    bool bMotionAttempted = false;
 };
 
 UCLASS()
 class CKTESTS_API UCk_SceneNodeGym_NodeGraphRuntime_UE final : public UBlueprintFunctionLibrary
 {
     GENERATED_BODY()
+    friend class UCk_SceneNodeGym_MotionRuntime_UE;
 public:
     // One attempt, fixed authored topology. A return value may be a retained
     // failed record; null means no record was created or allocation was opaque.
