@@ -11,6 +11,8 @@
 
 class UCk_SceneNodeGym_ActorLedger_UE;
 class UCk_SceneNodeGym_EcsRootsRuntime_UE;
+class UCk_SceneNodeGym_NodeGraph_UE;
+class UCk_SceneNodeGym_NodeGraphRuntime_UE;
 
 // This is the only SceneNode source script class admitted by this recorder.
 // Unlike generic WithActor, its CDO is nonreplicated before spawn injection.
@@ -40,6 +42,7 @@ class CKTESTS_API UCk_SceneNodeGym_EcsRoots_UE final : public UObject
 {
     GENERATED_BODY()
     friend class UCk_SceneNodeGym_EcsRootsRuntime_UE;
+    friend class UCk_SceneNodeGym_NodeGraphRuntime_UE;
     friend class UCk_SceneNodeGym_EcsRootReceiver_UE;
 #if WITH_DEV_AUTOMATION_TESTS
     friend struct FCk_SceneNodeEcsRoots_TestAccess;
@@ -66,6 +69,8 @@ class CKTESTS_API UCk_SceneNodeGym_EcsRoots_UE final : public UObject
     int32 Generation = 0;
     bool bFailed = false;
     bool bUnproven = false;
+    UPROPERTY(Transient) TObjectPtr<UCk_SceneNodeGym_NodeGraph_UE> NodeGraph;
+    bool bNodeGraphAttempted = false;
 };
 
 UCLASS()
@@ -73,6 +78,7 @@ class CKTESTS_API UCk_SceneNodeGym_EcsRootsRuntime_UE final : public UBlueprintF
 {
     GENERATED_BODY()
     friend class UCk_SceneNodeGym_EcsRootReceiver_UE;
+    friend class UCk_SceneNodeGym_NodeGraphRuntime_UE;
 public:
     // Caller supplies a pre-materialized native source-only subclass. This
     // claims one attempt before any ECS allocation; a failed attempt is final.
