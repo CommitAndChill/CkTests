@@ -19,8 +19,8 @@
         1080
       ],
       [
-        2560,
-        1440
+        2400,
+        1350
       ]
     ]
   },
@@ -37,20 +37,36 @@
     ],
     "Number": [
       "HealthFraction",
-      "ManaFraction"
+      "ManaFraction",
+      "SkillCooldown",
+      "CooldownReady",
+      "CooldownFlurry",
+      "CooldownStrike"
     ],
     "Bool": [
       "WheelOpen"
     ],
     "Image": [
       "Minimap",
-      "HudFrame"
+      "HudFrame",
+      "OrbBezel",
+      "OrbHealth",
+      "OrbEnergy",
+      "WheelVignette",
+      "AbilityCut",
+      "AbilityFlurry",
+      "AbilityShadow",
+      "AbilityDash",
+      "AbilityStrike",
+      "AbilityPierce"
     ]
   },
   "actions": [
     "OpenWheel",
     "CloseWheel",
-    "ActivateSelection"
+    "ActivateSelection",
+    "ResetFixture",
+    "AdvanceCooldown"
   ],
   "itemActions": [
     "SelectInteraction",
@@ -64,7 +80,8 @@
         "angle": "Number",
         "cooldown": "Number",
         "enabled": "Bool",
-        "queued": "Bool"
+        "queued": "Bool",
+        "image": "Image"
       },
       "keys": [
         "greet",
@@ -77,14 +94,14 @@
         "leave"
       ],
       "angles": [
+        -90,
+        -45,
         0,
         45,
         90,
         135,
         180,
-        225,
-        270,
-        315
+        225
       ],
       "minimumAngularSeparation": 15,
       "initialCooldown": 0,
@@ -114,10 +131,100 @@
       "binding": "HudFrame",
       "widget": "ornamental-frame",
       "size": [
-        960,
-        347
+        1050,
+        300
       ],
-      "purpose": "Transparent decoration only"
+      "purpose": "Transparent frame and six slot apertures; slot alignment is currently matched by authored dimensions"
+    },
+    "orb-bezel.png": {
+      "binding": "OrbBezel",
+      "widget": "health-orb, mana-orb",
+      "purpose": "Transparent ornamental orb frame"
+    },
+    "orb-health.png": {
+      "binding": "OrbHealth",
+      "widget": "health-orb",
+      "purpose": "Live vertically clipped red liquid art"
+    },
+    "orb-energy.png": {
+      "binding": "OrbEnergy",
+      "widget": "mana-orb",
+      "purpose": "Live vertically clipped violet liquid art"
+    },
+    "wheel-vignette.png": {
+      "binding": "WheelVignette",
+      "widget": "wheel-vignette",
+      "purpose": "Translucent interaction-wheel backdrop"
+    },
+    "ability-cut.png": {
+      "binding": "AbilityCut",
+      "widget": "ability-cut",
+      "purpose": "Native cooldown tile image"
+    },
+    "ability-flurry.png": {
+      "binding": "AbilityFlurry",
+      "widget": "ability-flurry",
+      "purpose": "Native cooldown tile image"
+    },
+    "ability-shadow.png": {
+      "binding": "AbilityShadow",
+      "widget": "ability-shadow",
+      "purpose": "Native cooldown tile image"
+    },
+    "ability-dash.png": {
+      "binding": "AbilityDash",
+      "widget": "ability-dash",
+      "purpose": "Native cooldown tile image"
+    },
+    "ability-strike.png": {
+      "binding": "AbilityStrike",
+      "widget": "ability-strike",
+      "purpose": "Native cooldown tile image"
+    },
+    "ability-pierce.png": {
+      "binding": "AbilityPierce",
+      "widget": "ability-pierce",
+      "purpose": "Native cooldown tile image"
+    },
+    "wheel-empty.png": {
+      "binding": "Interactions.image",
+      "widget": "interaction-wheel",
+      "purpose": "Image field for the empty keyed interaction"
+    },
+    "wheel-thanks.png": {
+      "binding": "Interactions.image",
+      "widget": "interaction-wheel",
+      "purpose": "Image field for the thanks keyed interaction"
+    },
+    "wheel-bye.png": {
+      "binding": "Interactions.image",
+      "widget": "interaction-wheel",
+      "purpose": "Image field for the bye keyed interaction"
+    },
+    "wheel-cheer.png": {
+      "binding": "Interactions.image",
+      "widget": "interaction-wheel",
+      "purpose": "Image field for the cheer keyed interaction"
+    },
+    "wheel-follow.png": {
+      "binding": "Interactions.image",
+      "widget": "interaction-wheel",
+      "purpose": "Image field for the follow keyed interaction"
+    },
+    "wheel-help.png": {
+      "binding": "Interactions.image",
+      "widget": "interaction-wheel",
+      "purpose": "Image field for the help keyed interaction"
+    },
+    "wheel-sorry.png": {
+      "binding": "Interactions.image",
+      "widget": "interaction-wheel",
+      "purpose": "Image field for the sorry keyed interaction"
+    },
+    "wheel-taunt.png": {
+      "binding": "Interactions.image",
+      "widget": "interaction-wheel",
+      "purpose": "Image field for the taunt keyed interaction"
     }
   },
   "ownership": {
@@ -126,7 +233,7 @@
     "script": "State, keyed interaction records, actions, requests and lifecycle",
     "native": "Generic reflected session, HUD and radial controls"
   },
-  "verification": "100-node source contract and 7 selector checks, Development build, 35/35 DX11 UiAuthoring compatibility tests, and native 720p/1080p/1440p captures; DX12 and cooked packaging open",
+  "verification": "Development editor build; CollectionImage roundtrip test; three focused DarkFantasy tests passed with real DX11 renderer and 720p/1080p/1350p captures; final wider 243-test run passed 240 and failed three other UI-authoring tests; DX12 and cooked packaging remain open",
   "schemaVersion": 1,
   "nodeCount": 100,
   "nodes": [
@@ -329,60 +436,6 @@
       "scope": "main-region"
     },
     {
-      "id": "wheel-zone",
-      "tag": "column",
-      "parentId": "fantasy-root",
-      "scope": "main-region"
-    },
-    {
-      "id": "interaction-wheel",
-      "tag": "radial-selector",
-      "parentId": "wheel-zone",
-      "scope": "main-region"
-    },
-    {
-      "id": "wheel-center",
-      "tag": "column",
-      "parentId": "interaction-wheel",
-      "scope": "main-region"
-    },
-    {
-      "id": "center-top-space",
-      "tag": "column",
-      "parentId": "wheel-center",
-      "scope": "main-region"
-    },
-    {
-      "id": "wheel-heading",
-      "tag": "text",
-      "parentId": "wheel-center",
-      "scope": "main-region"
-    },
-    {
-      "id": "wheel-selection",
-      "tag": "text",
-      "parentId": "wheel-center",
-      "scope": "main-region"
-    },
-    {
-      "id": "activate-selection",
-      "tag": "button",
-      "parentId": "wheel-center",
-      "scope": "main-region"
-    },
-    {
-      "id": "close-wheel",
-      "tag": "button",
-      "parentId": "wheel-center",
-      "scope": "main-region"
-    },
-    {
-      "id": "center-bottom-space",
-      "tag": "column",
-      "parentId": "wheel-center",
-      "scope": "main-region"
-    },
-    {
       "id": "chat-zone",
       "tag": "column",
       "parentId": "playfield",
@@ -444,50 +497,32 @@
     },
     {
       "id": "health-orb",
-      "tag": "overlay",
+      "tag": "hud-orb",
       "parentId": "health-panel",
       "scope": "main-region"
     },
     {
-      "id": "health-meter",
-      "tag": "hud-meter",
-      "parentId": "health-orb",
+      "id": "potion-hint",
+      "tag": "row",
+      "parentId": "health-panel",
       "scope": "main-region"
     },
     {
-      "id": "health-labels",
+      "id": "potion-keycap",
       "tag": "column",
-      "parentId": "health-orb",
-      "scope": "main-region"
-    },
-    {
-      "id": "health-top-space",
-      "tag": "column",
-      "parentId": "health-labels",
-      "scope": "main-region"
-    },
-    {
-      "id": "health-title",
-      "tag": "text",
-      "parentId": "health-labels",
-      "scope": "main-region"
-    },
-    {
-      "id": "health-value",
-      "tag": "text",
-      "parentId": "health-labels",
-      "scope": "main-region"
-    },
-    {
-      "id": "health-bottom-space",
-      "tag": "column",
-      "parentId": "health-labels",
+      "parentId": "potion-hint",
       "scope": "main-region"
     },
     {
       "id": "potion-key",
       "tag": "text",
-      "parentId": "health-panel",
+      "parentId": "potion-keycap",
+      "scope": "main-region"
+    },
+    {
+      "id": "potion-count",
+      "tag": "text",
+      "parentId": "potion-hint",
       "scope": "main-region"
     },
     {
@@ -515,21 +550,21 @@
       "scope": "main-region"
     },
     {
-      "id": "skill-1-glyph",
-      "tag": "text",
+      "id": "ability-cut",
+      "tag": "hud-ability",
       "parentId": "skill-1",
       "scope": "main-region"
     },
     {
-      "id": "skill-1-label",
-      "tag": "text",
+      "id": "skill-1-keycap",
+      "tag": "column",
       "parentId": "skill-1",
       "scope": "main-region"
     },
     {
       "id": "skill-1-key",
       "tag": "text",
-      "parentId": "skill-1",
+      "parentId": "skill-1-keycap",
       "scope": "main-region"
     },
     {
@@ -539,21 +574,21 @@
       "scope": "main-region"
     },
     {
-      "id": "skill-2-glyph",
-      "tag": "text",
+      "id": "ability-flurry",
+      "tag": "hud-ability",
       "parentId": "skill-2",
       "scope": "main-region"
     },
     {
-      "id": "skill-2-label",
-      "tag": "text",
+      "id": "skill-2-keycap",
+      "tag": "column",
       "parentId": "skill-2",
       "scope": "main-region"
     },
     {
       "id": "skill-2-key",
       "tag": "text",
-      "parentId": "skill-2",
+      "parentId": "skill-2-keycap",
       "scope": "main-region"
     },
     {
@@ -563,21 +598,21 @@
       "scope": "main-region"
     },
     {
-      "id": "skill-3-glyph",
-      "tag": "text",
+      "id": "ability-shadow",
+      "tag": "hud-ability",
       "parentId": "skill-3",
       "scope": "main-region"
     },
     {
-      "id": "skill-3-label",
-      "tag": "text",
+      "id": "skill-3-keycap",
+      "tag": "column",
       "parentId": "skill-3",
       "scope": "main-region"
     },
     {
       "id": "skill-3-key",
       "tag": "text",
-      "parentId": "skill-3",
+      "parentId": "skill-3-keycap",
       "scope": "main-region"
     },
     {
@@ -587,21 +622,21 @@
       "scope": "main-region"
     },
     {
-      "id": "skill-4-glyph",
-      "tag": "text",
+      "id": "ability-dash",
+      "tag": "hud-ability",
       "parentId": "skill-4",
       "scope": "main-region"
     },
     {
-      "id": "skill-4-label",
-      "tag": "text",
+      "id": "skill-4-keycap",
+      "tag": "column",
       "parentId": "skill-4",
       "scope": "main-region"
     },
     {
       "id": "skill-4-key",
       "tag": "text",
-      "parentId": "skill-4",
+      "parentId": "skill-4-keycap",
       "scope": "main-region"
     },
     {
@@ -611,21 +646,21 @@
       "scope": "main-region"
     },
     {
-      "id": "skill-left-glyph",
-      "tag": "text",
+      "id": "ability-strike",
+      "tag": "hud-ability",
       "parentId": "skill-left",
       "scope": "main-region"
     },
     {
-      "id": "skill-left-label",
-      "tag": "text",
+      "id": "skill-left-keycap",
+      "tag": "column",
       "parentId": "skill-left",
       "scope": "main-region"
     },
     {
       "id": "skill-left-key",
       "tag": "text",
-      "parentId": "skill-left",
+      "parentId": "skill-left-keycap",
       "scope": "main-region"
     },
     {
@@ -635,21 +670,21 @@
       "scope": "main-region"
     },
     {
-      "id": "skill-right-glyph",
-      "tag": "text",
+      "id": "ability-pierce",
+      "tag": "hud-ability",
       "parentId": "skill-right",
       "scope": "main-region"
     },
     {
-      "id": "skill-right-label",
-      "tag": "text",
+      "id": "skill-right-keycap",
+      "tag": "column",
       "parentId": "skill-right",
       "scope": "main-region"
     },
     {
       "id": "skill-right-key",
       "tag": "text",
-      "parentId": "skill-right",
+      "parentId": "skill-right-keycap",
       "scope": "main-region"
     },
     {
@@ -659,9 +694,15 @@
       "scope": "main-region"
     },
     {
+      "id": "evade-keycap",
+      "tag": "column",
+      "parentId": "utility-row",
+      "scope": "main-region"
+    },
+    {
       "id": "evade-hint",
       "tag": "text",
-      "parentId": "utility-row",
+      "parentId": "evade-keycap",
       "scope": "main-region"
     },
     {
@@ -671,8 +712,8 @@
       "scope": "main-region"
     },
     {
-      "id": "inventory-hint",
-      "tag": "text",
+      "id": "advance-cooldown",
+      "tag": "button",
       "parentId": "utility-row",
       "scope": "main-region"
     },
@@ -684,50 +725,116 @@
     },
     {
       "id": "mana-orb",
-      "tag": "overlay",
+      "tag": "hud-orb",
       "parentId": "mana-panel",
       "scope": "main-region"
     },
     {
-      "id": "mana-meter",
-      "tag": "hud-meter",
-      "parentId": "mana-orb",
-      "scope": "main-region"
-    },
-    {
-      "id": "mana-labels",
+      "id": "resource-keycap",
       "tag": "column",
-      "parentId": "mana-orb",
-      "scope": "main-region"
-    },
-    {
-      "id": "mana-top-space",
-      "tag": "column",
-      "parentId": "mana-labels",
-      "scope": "main-region"
-    },
-    {
-      "id": "mana-title",
-      "tag": "text",
-      "parentId": "mana-labels",
-      "scope": "main-region"
-    },
-    {
-      "id": "mana-value",
-      "tag": "text",
-      "parentId": "mana-labels",
-      "scope": "main-region"
-    },
-    {
-      "id": "mana-bottom-space",
-      "tag": "column",
-      "parentId": "mana-labels",
+      "parentId": "mana-panel",
       "scope": "main-region"
     },
     {
       "id": "resource-hint",
       "tag": "text",
-      "parentId": "mana-panel",
+      "parentId": "resource-keycap",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-zone",
+      "tag": "column",
+      "parentId": "fantasy-root",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-dots",
+      "tag": "row",
+      "parentId": "wheel-zone",
+      "scope": "main-region"
+    },
+    {
+      "id": "dot-active",
+      "tag": "text",
+      "parentId": "wheel-dots",
+      "scope": "main-region"
+    },
+    {
+      "id": "dot-two",
+      "tag": "text",
+      "parentId": "wheel-dots",
+      "scope": "main-region"
+    },
+    {
+      "id": "dot-three",
+      "tag": "text",
+      "parentId": "wheel-dots",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-stage",
+      "tag": "overlay",
+      "parentId": "wheel-zone",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-vignette",
+      "tag": "hud-graphic",
+      "parentId": "wheel-stage",
+      "scope": "main-region"
+    },
+    {
+      "id": "interaction-wheel",
+      "tag": "radial-selector",
+      "parentId": "wheel-stage",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-center",
+      "tag": "column",
+      "parentId": "interaction-wheel",
+      "scope": "main-region"
+    },
+    {
+      "id": "center-top-space",
+      "tag": "column",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "center-disc",
+      "tag": "column",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "close-wheel",
+      "tag": "button",
+      "parentId": "center-disc",
+      "scope": "main-region"
+    },
+    {
+      "id": "wheel-close-label",
+      "tag": "text",
+      "parentId": "center-disc",
+      "scope": "main-region"
+    },
+    {
+      "id": "center-bottom-space",
+      "tag": "column",
+      "parentId": "wheel-center",
+      "scope": "main-region"
+    },
+    {
+      "id": "customize-shell",
+      "tag": "column",
+      "parentId": "wheel-zone",
+      "scope": "main-region"
+    },
+    {
+      "id": "customize-wheel",
+      "tag": "button",
+      "parentId": "customize-shell",
       "scope": "main-region"
     }
   ]

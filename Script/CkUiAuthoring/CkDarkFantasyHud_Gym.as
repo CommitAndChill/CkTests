@@ -7,8 +7,27 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
     UPROPERTY() private UTexture2D _Backdrop;
     UPROPERTY() private UTexture2D _Minimap;
     UPROPERTY() private UTexture2D _FrameTexture;
+    UPROPERTY() private UTexture2D _OrbBezel;
+    UPROPERTY() private UTexture2D _OrbHealth;
+    UPROPERTY() private UTexture2D _OrbEnergy;
+    UPROPERTY() private UTexture2D _WheelVignette;
+    UPROPERTY() private UTexture2D _AbilityCut;
+    UPROPERTY() private UTexture2D _AbilityFlurry;
+    UPROPERTY() private UTexture2D _AbilityShadow;
+    UPROPERTY() private UTexture2D _AbilityDash;
+    UPROPERTY() private UTexture2D _AbilityStrike;
+    UPROPERTY() private UTexture2D _AbilityPierce;
+    UPROPERTY() private UTexture2D _WheelTaunt;
+    UPROPERTY() private UTexture2D _WheelThanks;
+    UPROPERTY() private UTexture2D _WheelBye;
+    UPROPERTY() private UTexture2D _WheelCheer;
+    UPROPERTY() private UTexture2D _WheelFollow;
+    UPROPERTY() private UTexture2D _WheelHelp;
+    UPROPERTY() private UTexture2D _WheelSorry;
+    UPROPERTY() private UTexture2D _WheelEmpty;
     private float32 _Health = 0.82f;
     private float32 _Mana = 0.68f;
+    private float32 _SkillCooldown = 0.62f;
     private bool _WheelOpen = true;
     private FString _SelectedKey = "greet";
     private FString _LastAction = "Choose an interaction";
@@ -32,9 +51,33 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
         _Backdrop = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "dungeon-backdrop.png"));
         _Minimap = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "sewer-minimap.png"));
         _FrameTexture = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "ornamental-hud-frame.png"));
+        _OrbBezel = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "orb-bezel.png"));
+        _OrbHealth = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "orb-health.png"));
+        _OrbEnergy = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "orb-energy.png"));
+        _WheelVignette = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-vignette.png"));
+        _AbilityCut = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "ability-cut.png"));
+        _AbilityFlurry = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "ability-flurry.png"));
+        _AbilityShadow = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "ability-shadow.png"));
+        _AbilityDash = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "ability-dash.png"));
+        _AbilityStrike = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "ability-strike.png"));
+        _AbilityPierce = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "ability-pierce.png"));
+        _WheelTaunt = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-taunt.png"));
+        _WheelThanks = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-thanks.png"));
+        _WheelBye = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-bye.png"));
+        _WheelCheer = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-cheer.png"));
+        _WheelFollow = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-follow.png"));
+        _WheelHelp = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-help.png"));
+        _WheelSorry = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-sorry.png"));
+        _WheelEmpty = Rendering::ImportFileAsTexture2D(FPaths::CombinePaths(Directory, "wheel-empty.png"));
         if (!ck::IsValid(_Session) || !ck::IsValid(_Surface) || !ck::IsValid(Scale)
             || !ck::IsValid(Frame) || !ck::IsValid(Root) || !ck::IsValid(BackdropScale)
-            || !ck::IsValid(Image) || !ck::IsValid(_Backdrop) || !ck::IsValid(_Minimap) || !ck::IsValid(_FrameTexture))
+            || !ck::IsValid(Image) || !ck::IsValid(_Backdrop) || !ck::IsValid(_Minimap) || !ck::IsValid(_FrameTexture)
+            || !ck::IsValid(_OrbBezel) || !ck::IsValid(_OrbHealth) || !ck::IsValid(_OrbEnergy)
+            || !ck::IsValid(_WheelVignette) || !ck::IsValid(_AbilityCut) || !ck::IsValid(_AbilityFlurry)
+            || !ck::IsValid(_AbilityShadow) || !ck::IsValid(_AbilityDash) || !ck::IsValid(_AbilityStrike)
+            || !ck::IsValid(_AbilityPierce) || !ck::IsValid(_WheelTaunt) || !ck::IsValid(_WheelThanks)
+            || !ck::IsValid(_WheelBye) || !ck::IsValid(_WheelCheer) || !ck::IsValid(_WheelFollow)
+            || !ck::IsValid(_WheelHelp) || !ck::IsValid(_WheelSorry) || !ck::IsValid(_WheelEmpty))
         { _StartupError = "Required HUD widget or art construction failed"; Request_Shutdown(); return false; }
 
         auto Schema = TArray<FCk_UI_AuthoredFieldSchema>();
@@ -44,24 +87,39 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
         Schema.Add(FCk_UI_AuthoredFieldSchema("cooldown", ECk_UI_AuthoredFieldKind::Number));
         Schema.Add(FCk_UI_AuthoredFieldSchema("enabled", ECk_UI_AuthoredFieldKind::Bool));
         Schema.Add(FCk_UI_AuthoredFieldSchema("queued", ECk_UI_AuthoredFieldKind::Bool));
+        Schema.Add(FCk_UI_AuthoredFieldSchema("image", ECk_UI_AuthoredFieldKind::Image));
         auto Interactions = FCk_UI_AuthoredCollection("Interactions");
         Interactions.Set_Schema(Schema); Interactions.Set_Records(DoRecords());
         auto Collections = TArray<FCk_UI_AuthoredCollection>(); Collections.Add(Interactions);
         auto Texts = TArray<FCk_UI_AuthoredText>();
         Texts.Add(FCk_UI_AuthoredText("Selection", FText::FromString(_SelectedKey)));
-        Texts.Add(FCk_UI_AuthoredText("SelectionLabel", FText::FromString("GREET")));
+        Texts.Add(FCk_UI_AuthoredText("SelectionLabel", FText::FromString("Empty")));
         Texts.Add(FCk_UI_AuthoredText("HealthText", FText::FromString("820 / 1000")));
         Texts.Add(FCk_UI_AuthoredText("ManaText", FText::FromString("340 / 500")));
         Texts.Add(FCk_UI_AuthoredText("ActionStatus", FText::FromString(_LastAction)));
         auto Numbers = TArray<FCk_UI_AuthoredNumber>();
         Numbers.Add(FCk_UI_AuthoredNumber("HealthFraction", _Health));
         Numbers.Add(FCk_UI_AuthoredNumber("ManaFraction", _Mana));
+        Numbers.Add(FCk_UI_AuthoredNumber("SkillCooldown", _SkillCooldown));
+        Numbers.Add(FCk_UI_AuthoredNumber("CooldownReady", 0.0f));
+        Numbers.Add(FCk_UI_AuthoredNumber("CooldownFlurry", 0.24f));
+        Numbers.Add(FCk_UI_AuthoredNumber("CooldownStrike", 0.78f));
         auto Bools = TArray<FCk_UI_AuthoredBool>(); Bools.Add(FCk_UI_AuthoredBool("WheelOpen", _WheelOpen));
         auto Images = TArray<FCk_UI_AuthoredImage>();
         auto Map = FCk_UI_AuthoredImage("Minimap"); Map.Set_Texture(_Minimap); Images.Add(Map);
         auto Ornament = FCk_UI_AuthoredImage("HudFrame"); Ornament.Set_Texture(_FrameTexture); Images.Add(Ornament);
+        auto Bezel = FCk_UI_AuthoredImage("OrbBezel"); Bezel.Set_Texture(_OrbBezel); Images.Add(Bezel);
+        auto HealthArt = FCk_UI_AuthoredImage("OrbHealth"); HealthArt.Set_Texture(_OrbHealth); Images.Add(HealthArt);
+        auto EnergyArt = FCk_UI_AuthoredImage("OrbEnergy"); EnergyArt.Set_Texture(_OrbEnergy); Images.Add(EnergyArt);
+        auto Vignette = FCk_UI_AuthoredImage("WheelVignette"); Vignette.Set_Texture(_WheelVignette); Images.Add(Vignette);
+        auto Cut = FCk_UI_AuthoredImage("AbilityCut"); Cut.Set_Texture(_AbilityCut); Images.Add(Cut);
+        auto Flurry = FCk_UI_AuthoredImage("AbilityFlurry"); Flurry.Set_Texture(_AbilityFlurry); Images.Add(Flurry);
+        auto Shadow = FCk_UI_AuthoredImage("AbilityShadow"); Shadow.Set_Texture(_AbilityShadow); Images.Add(Shadow);
+        auto Dash = FCk_UI_AuthoredImage("AbilityDash"); Dash.Set_Texture(_AbilityDash); Images.Add(Dash);
+        auto Strike = FCk_UI_AuthoredImage("AbilityStrike"); Strike.Set_Texture(_AbilityStrike); Images.Add(Strike);
+        auto Pierce = FCk_UI_AuthoredImage("AbilityPierce"); Pierce.Set_Texture(_AbilityPierce); Images.Add(Pierce);
         auto Actions = TArray<FString>(); Actions.Add("CloseWheel"); Actions.Add("ActivateSelection");
-        Actions.Add("OpenWheel");
+        Actions.Add("OpenWheel"); Actions.Add("ResetFixture"); Actions.Add("AdvanceCooldown");
         auto ItemActions = TArray<FString>(); ItemActions.Add("SelectInteraction"); ItemActions.Add("ActivateInteraction");
         auto Regions = TArray<FString>(); Regions.Add("main");
         const auto FontDirectory = FPaths::CombinePaths(Directory, "Fonts");
@@ -118,10 +176,17 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
     }
     private FString DoLabel(const FString& InKey) const
     {
-        if (InKey == "greet") { return "GREET"; } if (InKey == "thanks") { return "THANKS"; }
-        if (InKey == "follow") { return "FOLLOW ME"; } if (InKey == "wait") { return "WAIT HERE"; }
-        if (InKey == "help") { return "HELP"; } if (InKey == "trade") { return "TRADE"; }
-        if (InKey == "inspect") { return "INSPECT"; } if (InKey == "leave") { return "LEAVE"; } return "";
+        if (InKey == "greet") { return "Empty"; } if (InKey == "thanks") { return "Thanks"; }
+        if (InKey == "follow") { return "Bye"; } if (InKey == "wait") { return "Cheer"; }
+        if (InKey == "help") { return "Follow"; } if (InKey == "trade") { return "Help"; }
+        if (InKey == "inspect") { return "Sorry"; } if (InKey == "leave") { return "Taunt"; } return "";
+    }
+    private UTexture2D DoWheelArt(int32 InIndex) const
+    {
+        if (InIndex == 0) { return _WheelEmpty; } if (InIndex == 1) { return _WheelThanks; }
+        if (InIndex == 2) { return _WheelBye; } if (InIndex == 3) { return _WheelCheer; }
+        if (InIndex == 4) { return _WheelFollow; } if (InIndex == 5) { return _WheelHelp; }
+        if (InIndex == 6) { return _WheelSorry; } return _WheelTaunt;
     }
     private TArray<FCk_UI_AuthoredRecord> DoRecords() const
     {
@@ -134,13 +199,15 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
             auto Glyph = FCk_UI_AuthoredFieldValue("glyph", ECk_UI_AuthoredFieldKind::Text);
             Glyph.Set_Text(FText::FromString(f"{Index + 1}")); Fields.Add(Glyph);
             auto Angle = FCk_UI_AuthoredFieldValue("angle", ECk_UI_AuthoredFieldKind::Number);
-            Angle.Set_Number(float32(Index * 45)); Fields.Add(Angle);
+            Angle.Set_Number(float32(Index * 45 - 90)); Fields.Add(Angle);
             auto Cooldown = FCk_UI_AuthoredFieldValue("cooldown", ECk_UI_AuthoredFieldKind::Number);
             Cooldown.Set_Number(0.0f); Fields.Add(Cooldown);
             auto Enabled = FCk_UI_AuthoredFieldValue("enabled", ECk_UI_AuthoredFieldKind::Bool);
             Enabled.Set_Bool(true); Fields.Add(Enabled);
             auto Queued = FCk_UI_AuthoredFieldValue("queued", ECk_UI_AuthoredFieldKind::Bool);
             Queued.Set_Bool(false); Fields.Add(Queued);
+            auto Art = FCk_UI_AuthoredFieldValue("image", ECk_UI_AuthoredFieldKind::Image);
+            Art.Set_Texture(DoWheelArt(Index)); Fields.Add(Art);
             auto Record = FCk_UI_AuthoredRecord(Keys[Index]); Record.Set_Fields(Fields); Records.Add(Record);
         }
         return Records;
@@ -173,6 +240,14 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
         const auto Candidate = Math::Clamp(_Mana + InDelta, 0.0f, 1.0f);
         if (!_Session.TrySetNumber("ManaFraction", Candidate)) { return false; }
         _Mana = Candidate; _Session.TrySetText("ManaText", FText::FromString(f"{Math::RoundToInt(_Mana * 500)} / 500")); return true;
+    }
+    UFUNCTION()
+    bool Request_AdvanceCooldown()
+    {
+        if (!DoReady()) { return false; }
+        const float32 Candidate = _SkillCooldown <= 0.0f ? 1.0f : Math::Max(0.0f, _SkillCooldown - 0.25f);
+        if (!_Session.TrySetNumber("SkillCooldown", Candidate)) { return false; }
+        _SkillCooldown = Candidate; return true;
     }
     UFUNCTION()
     bool Request_Select(const FString& InKey)
@@ -213,6 +288,7 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
         auto Errors = TArray<FString>();
         if (!_Session.TrySetRecords("Interactions", DoRecords(), Errors)) { DoErrors(Errors); return false; }
         DoSetHealth(0.82f); Request_ChangeMana(0.68f - _Mana); Request_ShowWheel(true); Request_Select("greet");
+        if (_Session.TrySetNumber("SkillCooldown", 0.62f)) { _SkillCooldown = 0.62f; }
         _LastAction = "Choose an interaction"; _Session.TrySetText("ActionStatus", FText::FromString(_LastAction));
         _ActivationCount = 0; _SelectionCount = 0; return true;
     }
@@ -237,6 +313,8 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
         if (InAction == "CloseWheel") { Request_ShowWheel(false); }
         else if (InAction == "OpenWheel") { Request_ShowWheel(true); }
         else if (InAction == "ActivateSelection") { Request_Activate(); }
+        else if (InAction == "ResetFixture") { Request_Reset(); }
+        else if (InAction == "AdvanceCooldown") { Request_AdvanceCooldown(); }
     }
     UFUNCTION()
     private void DoOnItemAction(const FString& InAction, const FString& InKey)
@@ -300,6 +378,7 @@ class ACk_DarkFantasyHud_PlayerController : ACk_Gym_Base_PlayerController
         Rows.Add(CkGym_Control::Action(EKeys::Seven, "7", "Reset fixture", Ready));
         Rows.Add(CkGym_Control::Action(EKeys::Eight, "8", "Reload HTML / CSS", Ready));
         Rows.Add(CkGym_Control::Action(EKeys::Nine, "9", "Reject invalid source", Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::Zero, "0", "Advance spell cooldown", Ready));
         Rows.Add(CkGym_Control::Status("Wheel", "Mouse hover/select; click/Enter activate"));
         if (ck::IsValid(_Hud)) { const auto Error = _Hud.Get_SourceError(); Rows.Add(CkGym_Control::Status("Source", Error.IsEmpty() ? "accepted" : Error, !Error.IsEmpty())); }
         Rows.Add(CkGym_Control::Status("Gyms", "Tab: selector  H: panel")); return Rows;
@@ -322,6 +401,7 @@ class ACk_DarkFantasyHud_PlayerController : ACk_Gym_Base_PlayerController
         else if (InRowIndex == 7) { _Hud.Request_Reset(); }
         else if (InRowIndex == 8) { _Hud.Request_Reload(); }
         else if (InRowIndex == 9) { _Hud.Request_InvalidSource(); }
+        else if (InRowIndex == 10) { _Hud.Request_AdvanceCooldown(); }
     }
     UFUNCTION(BlueprintOverride)
     void EndPlay(EEndPlayReason InReason)

@@ -55,60 +55,52 @@
     </row>
     <row id="bottom-hud" class="bottom-hud">
      <column id="health-panel" class="orb-panel">
-      <overlay id="health-orb" class="orb">
-       <hud-meter id="health-meter" value-bind="HealthFraction" class="health-meter" />
-       <column id="health-labels" class="orb-labels">
-        <column id="health-top-space" class="grow" />
-        <text id="health-title" class="orb-title">LIFE</text>
-        <text id="health-value" bind="HealthText" class="orb-value" />
-        <column id="health-bottom-space" class="grow" />
-       </column>
-      </overlay>
-      <text id="potion-key" class="small gold centered">Q / POTION  4/4</text>
+      <hud-orb id="health-orb" value-bind="HealthFraction" liquid-bind="OrbHealth" frame-bind="OrbBezel" class="orb" />
+      <row id="potion-hint" class="potion-hint">
+       <column id="potion-keycap" class="keycap-box"><text id="potion-key" class="keycap">Q</text></column>
+       <text id="potion-count" class="potion-count">9/9</text>
+      </row>
      </column>
      <column id="hotbar-panel" class="hotbar-panel">
-      <text id="hotbar-caption" class="small gold centered">SHADOWS ANSWER YOUR CALL</text>
+      <text id="hotbar-caption" class="hotbar-caption">Gained Berserk</text>
       <row id="hotbar" class="hotbar">
-       <column id="skill-1" class="skill"><text id="skill-1-glyph" class="skill-glyph">/</text><text id="skill-1-label" class="skill-name">CUT</text><text id="skill-1-key" class="skill-key">1</text></column>
-       <column id="skill-2" class="skill"><text id="skill-2-glyph" class="skill-glyph">X</text><text id="skill-2-label" class="skill-name">FLURRY</text><text id="skill-2-key" class="skill-key">2</text></column>
-       <column id="skill-3" class="skill"><text id="skill-3-glyph" class="skill-glyph">+</text><text id="skill-3-label" class="skill-name">SHADOW</text><text id="skill-3-key" class="skill-key">3</text></column>
-       <column id="skill-4" class="skill"><text id="skill-4-glyph" class="skill-glyph">V</text><text id="skill-4-label" class="skill-name">DASH</text><text id="skill-4-key" class="skill-key">4</text></column>
-       <column id="skill-left" class="skill"><text id="skill-left-glyph" class="skill-glyph">I</text><text id="skill-left-label" class="skill-name">STRIKE</text><text id="skill-left-key" class="skill-key">LMB</text></column>
-       <column id="skill-right" class="skill"><text id="skill-right-glyph" class="skill-glyph">*</text><text id="skill-right-label" class="skill-name">PIERCE</text><text id="skill-right-key" class="skill-key">RMB</text></column>
+       <column id="skill-1" class="skill"><hud-ability id="ability-cut" cooldown-bind="CooldownReady" image-bind="AbilityCut" class="skill-art" /><column id="skill-1-keycap" class="keycap-box"><text id="skill-1-key" class="skill-key">1</text></column></column>
+       <column id="skill-2" class="skill"><hud-ability id="ability-flurry" cooldown-bind="CooldownFlurry" image-bind="AbilityFlurry" class="skill-art" /><column id="skill-2-keycap" class="keycap-box"><text id="skill-2-key" class="skill-key">2</text></column></column>
+       <column id="skill-3" class="skill"><hud-ability id="ability-shadow" cooldown-bind="SkillCooldown" image-bind="AbilityShadow" class="skill-art" /><column id="skill-3-keycap" class="keycap-box"><text id="skill-3-key" class="skill-key">3</text></column></column>
+       <column id="skill-4" class="skill"><hud-ability id="ability-dash" cooldown-bind="CooldownReady" image-bind="AbilityDash" class="skill-art" /><column id="skill-4-keycap" class="keycap-box"><text id="skill-4-key" class="skill-key">4</text></column></column>
+       <column id="skill-left" class="skill"><hud-ability id="ability-strike" cooldown-bind="CooldownStrike" image-bind="AbilityStrike" class="skill-art" /><column id="skill-left-keycap" class="keycap-box"><text id="skill-left-key" class="skill-key">R</text></column></column>
+       <column id="skill-right" class="skill"><hud-ability id="ability-pierce" cooldown-bind="CooldownReady" image-bind="AbilityPierce" class="skill-art" /><column id="skill-right-keycap" class="keycap-box"><text id="skill-right-key" class="skill-key">T</text></column></column>
       </row>
       <row id="utility-row" class="utility-row">
-       <text id="evade-hint" class="small muted utility-hint">SPACE EVADE</text>
-       <button id="open-wheel" action="OpenWheel" class="open-button">OPEN WHEEL</button>
-       <text id="inventory-hint" class="small muted utility-hint">I BAG</text>
+       <column id="evade-keycap" class="keycap-box utility-keycap"><text id="evade-hint" class="keycap utility-hint">SPACE</text></column>
+       <button id="open-wheel" action="OpenWheel" class="open-button">WHEEL</button>
+       <button id="advance-cooldown" action="AdvanceCooldown" class="open-button">CAST</button>
       </row>
      </column>
      <column id="mana-panel" class="orb-panel">
-      <overlay id="mana-orb" class="orb">
-       <hud-meter id="mana-meter" value-bind="ManaFraction" class="mana-meter" />
-       <column id="mana-labels" class="orb-labels">
-        <column id="mana-top-space" class="grow" />
-        <text id="mana-title" class="orb-title">ENERGY</text>
-        <text id="mana-value" bind="ManaText" class="orb-value" />
-        <column id="mana-bottom-space" class="grow" />
-       </column>
-      </overlay>
-      <text id="resource-hint" class="small gold centered">SHADOW ATTUNEMENT</text>
+      <hud-orb id="mana-orb" value-bind="ManaFraction" liquid-bind="OrbEnergy" frame-bind="OrbBezel" class="orb" />
+      <column id="resource-keycap" class="keycap-box"><text id="resource-hint" class="keycap resource-hint">T</text></column>
      </column>
     </row>
    </column>
-   <column id="wheel-zone" class="wheel-zone">
-    <radial-selector id="interaction-wheel" items-bind="Interactions" selection-bind="Selection" select="SelectInteraction" activate="ActivateInteraction" visible="WheelOpen" class="interaction-wheel">
-     <slot name="content">
-      <column id="wheel-center" class="wheel-center">
-       <column id="center-top-space" class="grow" />
-       <text id="wheel-heading" class="wheel-heading">INTERACT</text>
-       <text id="wheel-selection" bind="SelectionLabel" class="wheel-selection" />
-       <button id="activate-selection" action="ActivateSelection" class="center-button">CONFIRM</button>
-       <button id="close-wheel" action="CloseWheel" class="close-button">CLOSE</button>
-       <column id="center-bottom-space" class="grow" />
-      </column>
-     </slot>
-    </radial-selector>
+   <column id="wheel-zone" visible="WheelOpen" class="wheel-zone">
+    <row id="wheel-dots" class="wheel-dots"><text id="dot-active" class="dot-active">●</text><text id="dot-two" class="dot-idle">●</text><text id="dot-three" class="dot-idle">●</text></row>
+    <overlay id="wheel-stage" class="wheel-stage">
+     <hud-graphic id="wheel-vignette" image-bind="WheelVignette" visible="WheelOpen" class="wheel-vignette" />
+     <radial-selector id="interaction-wheel" items-bind="Interactions" selection-bind="Selection" select="SelectInteraction" activate="ActivateInteraction" visible="WheelOpen" font-family="fantasy-ui" class="interaction-wheel">
+      <slot name="content">
+       <column id="wheel-center" class="wheel-center">
+        <column id="center-top-space" class="grow" />
+        <column id="center-disc" class="center-disc">
+         <button id="close-wheel" action="CloseWheel" class="close-button">E</button>
+         <text id="wheel-close-label" class="wheel-close-label">Close</text>
+        </column>
+        <column id="center-bottom-space" class="grow" />
+       </column>
+      </slot>
+     </radial-selector>
+    </overlay>
+    <column id="customize-shell" class="customize-shell"><button id="customize-wheel" action="ResetFixture" class="customize-button">CUSTOMIZE</button></column>
    </column>
   </overlay>
  </region>
