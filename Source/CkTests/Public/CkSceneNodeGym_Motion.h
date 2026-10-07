@@ -15,6 +15,7 @@ class UCk_SceneNodeGym_StopReceipt_UE;
 class UCk_SceneNodeGym_MotionRuntime_UE;
 class UCk_SceneNodeGym_FrameSampler_UE;
 class UCk_SceneNodeGym_FrameSamplerRuntime_UE;
+class UCk_SceneNodeGym_Retirement_UE;
 
 UCLASS()
 class CKTESTS_API UCk_SceneNodeGym_MotionReceiver_UE final : public UObject
@@ -37,6 +38,7 @@ class CKTESTS_API UCk_SceneNodeGym_Motion_UE final : public UObject
     GENERATED_BODY()
     friend class UCk_SceneNodeGym_MotionRuntime_UE;
     friend class UCk_SceneNodeGym_MotionReceiver_UE;
+    friend class UCk_SceneNodeGym_RetirementRuntime_UE;
     friend class UCk_SceneNodeGym_FrameSamplerRuntime_UE;
 #if WITH_DEV_AUTOMATION_TESTS
     friend struct FCk_SceneNodeMotion_TestAccess;
@@ -70,6 +72,8 @@ class CKTESTS_API UCk_SceneNodeGym_Motion_UE final : public UObject
     UPROPERTY(Transient) TObjectPtr<UCk_SceneNodeGym_StopReceipt_UE> StopReceipt;
     UPROPERTY(Transient) TObjectPtr<UCk_SceneNodeGym_FrameSampler_UE> FrameSampler;
     bool bFrameSamplerAttempted = false;
+    UPROPERTY(Transient) TObjectPtr<UCk_SceneNodeGym_Retirement_UE> Retirement;
+    bool bRetirementAttempted = false;
     bool bActivationAttempted = false;
     bool bEverActive = false;
     bool bClosed = false;

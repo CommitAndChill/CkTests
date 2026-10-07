@@ -43,6 +43,7 @@ class CKTESTS_API UCk_SceneNodeGym_EcsRoots_UE final : public UObject
     GENERATED_BODY()
     friend class UCk_SceneNodeGym_EcsRootsRuntime_UE;
     friend class UCk_SceneNodeGym_NodeGraphRuntime_UE;
+    friend class UCk_SceneNodeGym_RetirementRuntime_UE;
     friend class UCk_SceneNodeGym_EcsRootReceiver_UE;
 #if WITH_DEV_AUTOMATION_TESTS
     friend struct FCk_SceneNodeEcsRoots_TestAccess;
