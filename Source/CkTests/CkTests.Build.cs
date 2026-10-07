@@ -67,6 +67,10 @@ public class CkTests : CkModuleRules
         {
             RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "DarkFantasyHudProof", Resource), StagedFileType.NonUFS);
         }
+        foreach (var Font in new[] { "MarcellusSC-Regular.ttf", "SourceSans3-Regular.ttf", "SourceSans3-Bold.ttf", "OFL_MarcellusSC.txt", "OFL_SourceSans3.txt" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "DarkFantasyHudProof", "Fonts", Font), StagedFileType.NonUFS);
+        }
 
         PublicDependencyModuleNames.AddRange(new string[]
         {
