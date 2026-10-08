@@ -28,6 +28,9 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
     private float32 _Health = 0.82f;
     private float32 _Mana = 0.68f;
     private float32 _SkillCooldown = 0.62f;
+    private float32 _ShadowRemaining = 6.2f;
+    private float32 _FlurryRemaining = 1.92f;
+    private float32 _StrikeRemaining = 9.36f;
     private bool _WheelOpen = true;
     private FString _SelectedKey = "greet";
     private FString _LastAction = "Choose an interaction";
@@ -102,8 +105,12 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
         Numbers.Add(FCk_UI_AuthoredNumber("ManaFraction", _Mana));
         Numbers.Add(FCk_UI_AuthoredNumber("SkillCooldown", _SkillCooldown));
         Numbers.Add(FCk_UI_AuthoredNumber("CooldownReady", 0.0f));
-        Numbers.Add(FCk_UI_AuthoredNumber("CooldownFlurry", 0.24f));
-        Numbers.Add(FCk_UI_AuthoredNumber("CooldownStrike", 0.78f));
+        Numbers.Add(FCk_UI_AuthoredNumber("CooldownFlurry", _FlurryRemaining / 8.0f));
+        Numbers.Add(FCk_UI_AuthoredNumber("CooldownStrike", _StrikeRemaining / 12.0f));
+        Numbers.Add(FCk_UI_AuthoredNumber("RemainingReady", 0.0f));
+        Numbers.Add(FCk_UI_AuthoredNumber("RemainingShadow", _ShadowRemaining));
+        Numbers.Add(FCk_UI_AuthoredNumber("RemainingFlurry", _FlurryRemaining));
+        Numbers.Add(FCk_UI_AuthoredNumber("RemainingStrike", _StrikeRemaining));
         auto Bools = TArray<FCk_UI_AuthoredBool>(); Bools.Add(FCk_UI_AuthoredBool("WheelOpen", _WheelOpen));
         auto Images = TArray<FCk_UI_AuthoredImage>();
         auto Map = FCk_UI_AuthoredImage("Minimap"); Map.Set_Texture(_Minimap); Images.Add(Map);
@@ -245,9 +252,31 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
     bool Request_AdvanceCooldown()
     {
         if (!DoReady()) { return false; }
-        const float32 Candidate = _SkillCooldown <= 0.0f ? 1.0f : Math::Max(0.0f, _SkillCooldown - 0.25f);
-        if (!_Session.TrySetNumber("SkillCooldown", Candidate)) { return false; }
-        _SkillCooldown = Candidate; return true;
+        return DoPublishCooldowns(10.0f, _FlurryRemaining, _StrikeRemaining);
+    }
+    private bool DoPublishCooldowns(float32 InShadow, float32 InFlurry, float32 InStrike)
+    {
+        if (!DoReady() || !Math::IsFinite(InShadow) || !Math::IsFinite(InFlurry)
+            || !Math::IsFinite(InStrike) || InShadow < 0.0f || InShadow > 10.0f
+            || InFlurry < 0.0f || InFlurry > 8.0f || InStrike < 0.0f || InStrike > 12.0f)
+        { return false; }
+        if (!_Session.TrySetNumber("RemainingShadow", InShadow)
+            || !_Session.TrySetNumber("RemainingFlurry", InFlurry)
+            || !_Session.TrySetNumber("RemainingStrike", InStrike)
+            || !_Session.TrySetNumber("SkillCooldown", InShadow / 10.0f)
+            || !_Session.TrySetNumber("CooldownFlurry", InFlurry / 8.0f)
+            || !_Session.TrySetNumber("CooldownStrike", InStrike / 12.0f))
+        {
+            // Retire the whole surface if a required binding disappears; never run a partial timer update.
+            _SourceError = "Required cooldown binding update failed";
+            Request_Shutdown();
+            return false;
+        }
+        _ShadowRemaining = InShadow;
+        _FlurryRemaining = InFlurry;
+        _StrikeRemaining = InStrike;
+        _SkillCooldown = InShadow / 10.0f;
+        return true;
     }
     UFUNCTION()
     bool Request_Select(const FString& InKey)
@@ -288,7 +317,7 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
         auto Errors = TArray<FString>();
         if (!_Session.TrySetRecords("Interactions", DoRecords(), Errors)) { DoErrors(Errors); return false; }
         DoSetHealth(0.82f); Request_ChangeMana(0.68f - _Mana); Request_ShowWheel(true); Request_Select("greet");
-        if (_Session.TrySetNumber("SkillCooldown", 0.62f)) { _SkillCooldown = 0.62f; }
+        if (!DoPublishCooldowns(6.2f, 1.92f, 9.36f)) { return false; }
         _LastAction = "Choose an interaction"; _Session.TrySetText("ActionStatus", FText::FromString(_LastAction));
         _ActivationCount = 0; _SelectionCount = 0; return true;
     }
@@ -332,6 +361,19 @@ class UCk_DarkFantasyHud_Widget : UUserWidget
     {
         if (ck::IsValid(_Session)) { _Session.Request_Release(); }
         if (ck::IsValid(_Surface)) { _Surface.ReleaseView(); } RemoveFromParent();
+    }
+    UFUNCTION(BlueprintOverride)
+    void Tick(FGeometry InGeometry, float InDeltaTime)
+    {
+        if (!DoReady() || !Math::IsFinite(InDeltaTime) || InDeltaTime <= 0.0f)
+        { return; }
+        const float32 Delta = float32(Math::Clamp(InDeltaTime, 0.0, 12.0));
+        const float32 Shadow = Math::Max(0.0f, _ShadowRemaining - Delta);
+        const float32 Flurry = Math::Max(0.0f, _FlurryRemaining - Delta);
+        const float32 Strike = Math::Max(0.0f, _StrikeRemaining - Delta);
+        if (Shadow == _ShadowRemaining && Flurry == _FlurryRemaining && Strike == _StrikeRemaining)
+        { return; }
+        DoPublishCooldowns(Shadow, Flurry, Strike);
     }
     UFUNCTION(BlueprintOverride)
     void Destruct() { if (ck::IsValid(_Session)) { _Session.Request_Release(); } }
@@ -378,7 +420,7 @@ class ACk_DarkFantasyHud_PlayerController : ACk_Gym_Base_PlayerController
         Rows.Add(CkGym_Control::Action(EKeys::Seven, "7", "Reset fixture", Ready));
         Rows.Add(CkGym_Control::Action(EKeys::Eight, "8", "Reload HTML / CSS", Ready));
         Rows.Add(CkGym_Control::Action(EKeys::Nine, "9", "Reject invalid source", Ready));
-        Rows.Add(CkGym_Control::Action(EKeys::Zero, "0", "Advance spell cooldown", Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::Zero, "0", "Restart shadow cooldown (10s)", Ready));
         Rows.Add(CkGym_Control::Status("Wheel", "Mouse hover/select; click/Enter activate"));
         if (ck::IsValid(_Hud)) { const auto Error = _Hud.Get_SourceError(); Rows.Add(CkGym_Control::Status("Source", Error.IsEmpty() ? "accepted" : Error, !Error.IsEmpty())); }
         Rows.Add(CkGym_Control::Status("Gyms", "Tab: selector  H: panel")); return Rows;
