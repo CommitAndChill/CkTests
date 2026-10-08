@@ -1,4 +1,18 @@
 <ui version="1">
+ <template name="spell-slot">
+  <param name="art" type="image-binding" />
+  <param name="cooldown" type="number-binding" />
+  <param name="remaining" type="number-binding" />
+  <param name="key" type="text" />
+  <column id="slot" class="skill">
+   <column id="frame" class="spell-frame">
+    <column id="inlay" class="spell-inlay">
+     <hud-ability id="art" image-bind-param="art" cooldown-bind-param="cooldown" remaining-bind-param="remaining" font-family="fantasy-ui" class="skill-art" />
+    </column>
+   </column>
+   <key-hint id="key" label-param="key" font-family="fantasy-ui" class="key-hint" />
+  </column>
+ </template>
  <region name="main">
   <overlay id="fantasy-root">
    <hud-graphic id="ornamental-frame" image-bind="HudFrame" class="ornamental-frame" />
@@ -57,29 +71,29 @@
      <column id="health-panel" class="orb-panel">
       <hud-orb id="health-orb" value-bind="HealthFraction" liquid-bind="OrbHealth" frame-bind="OrbBezel" class="orb" />
       <row id="potion-hint" class="potion-hint">
-       <column id="potion-keycap" class="keycap-box"><text id="potion-key" class="keycap">Q</text></column>
+       <key-hint id="potion-key" label="Q" font-family="fantasy-ui" class="key-hint" />
        <text id="potion-count" class="potion-count">9/9</text>
       </row>
      </column>
      <column id="hotbar-panel" class="hotbar-panel">
       <text id="hotbar-caption" class="hotbar-caption">Gained Berserk</text>
       <row id="hotbar" class="hotbar">
-       <column id="skill-1" class="skill"><hud-ability id="ability-cut" cooldown-bind="CooldownReady" image-bind="AbilityCut" class="skill-art" /><column id="skill-1-keycap" class="keycap-box"><text id="skill-1-key" class="skill-key">1</text></column></column>
-       <column id="skill-2" class="skill"><hud-ability id="ability-flurry" cooldown-bind="CooldownFlurry" image-bind="AbilityFlurry" class="skill-art" /><column id="skill-2-keycap" class="keycap-box"><text id="skill-2-key" class="skill-key">2</text></column></column>
-       <column id="skill-3" class="skill"><hud-ability id="ability-shadow" cooldown-bind="SkillCooldown" image-bind="AbilityShadow" class="skill-art" /><column id="skill-3-keycap" class="keycap-box"><text id="skill-3-key" class="skill-key">3</text></column></column>
-       <column id="skill-4" class="skill"><hud-ability id="ability-dash" cooldown-bind="CooldownReady" image-bind="AbilityDash" class="skill-art" /><column id="skill-4-keycap" class="keycap-box"><text id="skill-4-key" class="skill-key">4</text></column></column>
-       <column id="skill-left" class="skill"><hud-ability id="ability-strike" cooldown-bind="CooldownStrike" image-bind="AbilityStrike" class="skill-art" /><column id="skill-left-keycap" class="keycap-box"><text id="skill-left-key" class="skill-key">R</text></column></column>
-       <column id="skill-right" class="skill"><hud-ability id="ability-pierce" cooldown-bind="CooldownReady" image-bind="AbilityPierce" class="skill-art" /><column id="skill-right-keycap" class="keycap-box"><text id="skill-right-key" class="skill-key">T</text></column></column>
+       <use id="skill-1" template="spell-slot" art-bind="AbilityCut" cooldown-bind="CooldownReady" remaining-bind="RemainingReady" key="1" />
+       <use id="skill-2" template="spell-slot" art-bind="AbilityFlurry" cooldown-bind="CooldownFlurry" remaining-bind="RemainingFlurry" key="2" />
+       <use id="skill-3" template="spell-slot" art-bind="AbilityShadow" cooldown-bind="SkillCooldown" remaining-bind="RemainingShadow" key="3" />
+       <use id="skill-4" template="spell-slot" art-bind="AbilityDash" cooldown-bind="CooldownReady" remaining-bind="RemainingReady" key="4" />
+       <use id="skill-left" template="spell-slot" art-bind="AbilityStrike" cooldown-bind="CooldownStrike" remaining-bind="RemainingStrike" key="R" />
+       <use id="skill-right" template="spell-slot" art-bind="AbilityPierce" cooldown-bind="CooldownReady" remaining-bind="RemainingReady" key="T" />
       </row>
       <row id="utility-row" class="utility-row">
-       <column id="evade-keycap" class="keycap-box utility-keycap"><text id="evade-hint" class="keycap utility-hint">SPACE</text></column>
+       <key-hint id="evade-hint" label="SPACE" font-family="fantasy-ui" class="key-hint utility-keycap" />
        <button id="open-wheel" action="OpenWheel" class="open-button">WHEEL</button>
        <button id="advance-cooldown" action="AdvanceCooldown" class="open-button">CAST</button>
       </row>
      </column>
      <column id="mana-panel" class="orb-panel">
       <hud-orb id="mana-orb" value-bind="ManaFraction" liquid-bind="OrbEnergy" frame-bind="OrbBezel" class="orb" />
-      <column id="resource-keycap" class="keycap-box"><text id="resource-hint" class="keycap resource-hint">T</text></column>
+      <key-hint id="resource-hint" label="T" font-family="fantasy-ui" class="key-hint" />
      </column>
     </row>
    </column>
@@ -92,7 +106,7 @@
        <column id="wheel-center" class="wheel-center">
         <column id="center-top-space" class="grow" />
         <column id="center-disc" class="center-disc">
-         <button id="close-wheel" action="CloseWheel" class="close-button">E</button>
+         <key-hint id="close-wheel" label="E" action="CloseWheel" font-family="fantasy-ui" class="key-hint wheel-key" />
          <text id="wheel-close-label" class="wheel-close-label">Close</text>
         </column>
         <column id="center-bottom-space" class="grow" />

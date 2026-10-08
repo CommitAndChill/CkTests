@@ -14,7 +14,22 @@ import xml.etree.ElementTree as ET
 
 
 CLASS_NAME = re.compile(r"^[a-z][a-z0-9-]*$")
+SOURCE_NAME = re.compile(r"^[A-Za-z_-][A-Za-z0-9_-]*$")
 CSS_RULE = re.compile(r"\.([a-z][a-z0-9-]*)\s*\{")
+PARAMETER_KINDS = {
+    "text", "number", "bool", "color", "text-binding", "image-binding",
+    "number-binding", "integer-binding", "bool-binding", "string-binding",
+    "color-binding", "search-binding", "native-binding", "collection-binding",
+    "float-series-binding", "action", "text-changed", "text-committed",
+    "bool-changed", "number-changed", "number-committed", "integer-committed",
+    "color-committed", "number-interaction", "string-changed",
+}
+BUILTIN_BIND_KINDS = {
+    "text": "text-binding", "button": "text-binding", "native": "native-binding",
+    "search": "search-binding", "image": "image-binding",
+    "repeat": "collection-binding", "table": "collection-binding",
+    "tree": "collection-binding",
+}
 
 
 def fail(message):
@@ -100,7 +115,122 @@ def authored_nodes(region):
     return records, used_classes
 
 
-def check_contract(path, records):
+def authored_templates(root, region):
+    """Check template signatures, local IDs, references and use arguments.
+
+    Native admission remains responsible for widget-specific property types and values.
+    """
+    templates = {}
+    for child in root:
+        if child is region:
+            continue
+        if child.tag != "template" or set(child.attrib) != {"name"}:
+            fail("ui may contain only named templates and one main region")
+        name = child.get("name", "").strip()
+        if not SOURCE_NAME.fullmatch(name) or name in templates:
+            fail(f"invalid or duplicate template {name!r}")
+        params = {}
+        reserved_attributes = {"id", "template", "class", "visible", "text"}
+        body = None
+        for part in child:
+            if part.tag == "param":
+                param_name = part.get("name", "").strip()
+                kind = part.get("type")
+                if (body is not None or set(part.attrib) != {"name", "type"}
+                        or not SOURCE_NAME.fullmatch(param_name)
+                        or param_name.endswith("-param") or param_name in params
+                        or kind not in PARAMETER_KINDS or len(params) >= 64
+                        or len(part) or (part.text or "").strip()):
+                    fail(f"invalid parameter in template {name!r}")
+                attribute = param_name + ("-bind" if kind.endswith("-binding") else "")
+                if attribute in reserved_attributes or attribute + "-param" in reserved_attributes:
+                    fail(f"template {name!r} has colliding parameter attribute")
+                reserved_attributes.update({attribute, attribute + "-param"})
+                params[param_name] = kind
+            elif body is None:
+                body = part
+            else:
+                fail(f"template {name!r} requires exactly one body root")
+        if body is None or (child.text or "").strip():
+            fail(f"template {name!r} requires exactly one body root")
+        local_nodes, classes = authored_nodes([body])
+        templates[name] = {"parameters": params, "nodes": local_nodes,
+                           "classes": classes, "body": body, "instances": []}
+
+    calls = {name: set() for name in templates}
+
+    def reference_matches(node, target, kind):
+        if target == "visible" or target == "visible-field":
+            return kind == "bool-binding"
+        if target == "bind":
+            return kind == BUILTIN_BIND_KINDS.get(node.tag)
+        if target.endswith("-bind") or target.endswith("-field"):
+            return kind.endswith("-binding")
+        return not kind.endswith("-binding")
+
+    def visit(node, current_template=None):
+        if node.tag == "use":
+            name = node.get("template")
+            if name not in templates:
+                fail(f"unknown template {name!r}")
+            params = templates[name]["parameters"]
+            expected = {key + ("-bind" if kind.endswith("-binding") else ""): kind
+                        for key, kind in params.items()}
+            supplied = {key: value for key, value in node.attrib.items()
+                        if key not in {"id", "template"}}
+            targets = [key[:-6] if key.endswith("-param") else key for key in supplied]
+            if (set(targets) != set(expected) or len(targets) != len(set(targets))
+                    or len(node) or (node.text or "").strip()):
+                fail(f"template use {node.get('id')!r} has missing or unsupported arguments")
+            if current_template is None:
+                templates[name]["instances"].append(node.get("id"))
+            else:
+                calls[current_template].add(name)
+            for argument, value in supplied.items():
+                target = argument[:-6] if argument.endswith("-param") else argument
+                if not value.strip():
+                    fail(f"template use {node.get('id')!r} has empty {argument!r}")
+                if argument.endswith("-param"):
+                    source = templates[current_template]["parameters"].get(value) if current_template else None
+                    if source != expected[target]:
+                        fail(f"type-mismatched template parameter {value!r}")
+        else:
+            for attr, value in node.attrib.items():
+                if not attr.endswith("-param"):
+                    continue
+                target = attr[:-6]
+                kind = templates[current_template]["parameters"].get(value) if current_template else None
+                if kind is None:
+                    fail(f"unknown template parameter {value!r}")
+                if not reference_matches(node, target, kind):
+                    fail(f"type-mismatched template parameter {value!r}")
+        for child in node:
+            visit(child, current_template)
+
+    for name, template in templates.items():
+        visit(template["body"], name)
+    for child in region:
+        visit(child)
+    visiting = set()
+    visited = set()
+
+    def check_cycle(name):
+        if name in visiting:
+            fail(f"recursive template {name!r}")
+        if name in visited:
+            return
+        visiting.add(name)
+        for called in calls[name]:
+            check_cycle(called)
+        visiting.remove(name)
+        visited.add(name)
+
+    for name in templates:
+        check_cycle(name)
+    return templates
+
+
+def check_contract(path, records, templates=None):
     try:
         contract = json.loads(read_text(path))
     except json.JSONDecodeError as exc:
@@ -133,6 +263,34 @@ def check_contract(path, records):
         fail("contract node identity mismatch: " + "; ".join(detail))
     if contract.get("nodeCount", len(nodes)) != len(nodes):
         fail("contract nodeCount does not match nodes array length")
+    if templates:
+        declared = contract.get("templates")
+        if not isinstance(declared, dict) or set(declared) != set(templates):
+            fail("contract template names do not match source")
+        for name, template in templates.items():
+            item = declared[name]
+            if not isinstance(item, dict):
+                fail(f"contract template {name!r} must be an object")
+            parameters = item.get("parameters")
+            if (not isinstance(parameters, dict)
+                    or any(not isinstance(value, str) for value in parameters.values())
+                    or {
+                    key: re.sub(r"(?<!^)(?=[A-Z])", "-", value).lower()
+                    for key, value in parameters.items()
+                    } != template["parameters"]):
+                fail(f"contract template {name!r} parameters do not match source")
+            local = item.get("localNodes")
+            expected_local = template["nodes"]
+            if (not isinstance(local, list) or any(not isinstance(node, dict) for node in local)
+                    or [
+                    (node.get("id"), node.get("tag"), node.get("parentId"))
+                    for node in local
+                    ] != [(node["id"], node["tag"], node["parentId"]) for node in expected_local]):
+                fail(f"contract template {name!r} local IDs do not match source")
+            if item.get("instances") != template["instances"]:
+                fail(f"contract template {name!r} instances do not match source")
+    elif contract.get("templates"):
+        fail("contract declares templates absent from source")
     return len(nodes)
 
 
@@ -149,25 +307,28 @@ def main(argv=None):
             fail(f"invalid markup XML {args.markup}: {exc}")
         if root.tag != "ui" or root.get("version") != "1":
             fail("markup must have <ui version=\"1\"> root")
-        regions = list(root)
-        if len(regions) != 1 or regions[0].tag != "region" or regions[0].get("name") != "main":
+        regions = [child for child in root if child.tag == "region"]
+        if len(regions) != 1 or regions[0].get("name") != "main":
             fail("markup must have exactly one <region name=\"main\">")
         if len(regions[0]) != 1:
             fail("main region must contain exactly one authored root")
         records, used = authored_nodes(regions[0])
+        templates = authored_templates(root, regions[0])
+        for template in templates.values():
+            used.update(template["classes"])
         declared = declared_css_classes(read_text(args.stylesheet))
         undefined = sorted(used - declared)
         if undefined:
             fail("undefined CSS classes: " + ", ".join(undefined))
-        contract_count = check_contract(args.contract, records) if args.contract else None
+        contract_count = check_contract(args.contract, records, templates) if args.contract else None
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     suffix = f"; contract {contract_count} nodes matched" if contract_count is not None else ""
     print(f"OK: {len(records)} authored IDs, {len(used)} CSS classes referenced, "
           f"{len(declared)} declared selectors{suffix}.")
-    print("Limits: XML structure, scoped IDs, top-level single .class CSS rules and "
-          "contract identity only; no declaration/value, binding or runtime validation.")
+    print("Limits: XML structure, scoped IDs, template signatures/uses, top-level single .class "
+          "CSS rules and contract identity only; no widget property/value or runtime validation.")
     return 0
 
 

@@ -27,6 +27,7 @@
 #include "Misc/ScopeExit.h"
 #include "RenderingThread.h"
 #include "RHIGlobals.h"
+#include "Styling/CoreStyle.h"
 #include "UObject/GarbageCollection.h"
 #include "UObject/StrongObjectPtr.h"
 #include "UObject/UnrealType.h"
@@ -55,6 +56,20 @@ namespace ck_dark_fantasy_proof
         for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
         {
             const auto Found = Find<TWidget>(ConstCastSharedRef<SWidget>(Children->GetChildAt(Index)), InType);
+            if (Found.IsValid()) { return Found; }
+        }
+        return {};
+    }
+
+    template <typename TWidget>
+    auto FindTagged(const TSharedRef<SWidget>& InRoot, const FString& InType, const FName InTag) -> TSharedPtr<TWidget>
+    {
+        if (InRoot->GetTypeAsString() == InType && InRoot->GetTag() == InTag)
+        { return StaticCastSharedRef<TWidget>(InRoot); }
+        const auto* Children = InRoot->GetChildren();
+        for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
+        {
+            const auto Found = FindTagged<TWidget>(ConstCastSharedRef<SWidget>(Children->GetChildAt(Index)), InType, InTag);
             if (Found.IsValid()) { return Found; }
         }
         return {};
@@ -160,6 +175,7 @@ namespace ck_dark_fantasy_proof
         TWeakObjectPtr<UCk_UI_AuthoredSession_UE> Owner;
         TSharedPtr<FCkUiView> View;
         TSharedPtr<SCkUiRadialSelector> Wheel;
+        TSharedPtr<SCkUiHudAbility> Ability;
         bool Restored = false;
     };
 
@@ -198,6 +214,58 @@ namespace ck_dark_fantasy_proof
         IFileManager::Get().MakeDirectory(*Directory, true);
         return FImageUtils::SaveImageByExtension(*FPaths::Combine(Directory, InName + TEXT(".png")),
             FImageView(Pixels.GetData(), Size.X, Size.Y, ERawImageFormat::BGRA8));
+    }
+
+    auto VerifyCooldownShadeRenders(FAutomationTestBase& InTest) -> bool
+    {
+        FSlateApplication& Slate = FSlateApplication::Get();
+        float Cooldown = 0.0f;
+        const TSharedRef<SCkUiHudAbility> Ability = SNew(SCkUiHudAbility);
+        Ability->Configure(TAttribute<float>::CreateLambda([&Cooldown]() { return Cooldown; }),
+            TAttribute<const FSlateBrush*>(FCoreStyle::Get().GetBrush(TEXT("WhiteBrush"))),
+            TAttribute<float>(0.0f), FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 16));
+        const TSharedRef<SWindow> Window = SNew(SWindow).ClientSize(FVector2D(80.0f, 80.0f))
+            .CreateTitleBar(false)[Ability];
+        Slate.AddWindow(Window, true);
+        ON_SCOPE_EXIT { Slate.DestroyWindowImmediately(Window); };
+
+        const auto Screenshot = [&Slate, &Ability](TArray<FColor>& OutPixels, FIntVector& OutSize) -> bool
+        {
+            Pump();
+            OutPixels.Reset();
+            OutSize = FIntVector::ZeroValue;
+            return Slate.TakeScreenshot(Ability, OutPixels, OutSize)
+                && OutSize.X >= 32 && OutSize.Y >= 32
+                && OutPixels.Num() >= OutSize.X * OutSize.Y;
+        };
+        const auto CenterBrightness = [](const TArray<FColor>& InPixels, const FIntVector& InSize) -> float
+        {
+            int32 Sum = 0;
+            for (int32 Y = InSize.Y / 2 - 2; Y <= InSize.Y / 2 + 2; ++Y)
+            {
+                for (int32 X = InSize.X / 2 - 2; X <= InSize.X / 2 + 2; ++X)
+                {
+                    const FColor& Pixel = InPixels[Y * InSize.X + X];
+                    Sum += Pixel.R + Pixel.G + Pixel.B;
+                }
+            }
+            return static_cast<float>(Sum) / 75.0f;
+        };
+
+        TArray<FColor> ReadyPixels;
+        FIntVector ReadySize = FIntVector::ZeroValue;
+        if (!InTest.TestTrue(TEXT("Ready native ability captures real pixels"), Screenshot(ReadyPixels, ReadySize)))
+        { return false; }
+        Cooldown = 1.0f;
+        TArray<FColor> ShadedPixels;
+        FIntVector ShadedSize = FIntVector::ZeroValue;
+        if (!InTest.TestTrue(TEXT("Full-cooldown native ability captures real pixels"), Screenshot(ShadedPixels, ShadedSize)))
+        { return false; }
+        const float ReadyBrightness = CenterBrightness(ReadyPixels, ReadySize);
+        const float ShadedBrightness = CenterBrightness(ShadedPixels, ShadedSize);
+        InTest.TestTrue(TEXT("White ability fixture renders brightly before cooldown"), ReadyBrightness > 170.0f);
+        return InTest.TestTrue(TEXT("Full cooldown shade darkens rendered ability center"),
+            ShadedBrightness < ReadyBrightness - 70.0f);
     }
 }
 
@@ -325,6 +393,7 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
 {
     using namespace ck_dark_fantasy_proof;
     if (!FSlateApplication::IsInitialized()) { AddError(TEXT("Fantasy gym proof requires Slate.")); return false; }
+    if (!GUsingNullRHI && !VerifyCooldownShadeRenders(*this)) { return false; }
     const auto State = MakeShared<FPieState>();
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/CkTests/TestGyms/TestGyms_CkTests_Level")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
@@ -374,7 +443,31 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
             if (!TestTrue(TEXT("Production script realizes native wheel, graphic, liquid orb, and ability"), State->Wheel.IsValid()
                 && Graphic.IsValid() && Orb.IsValid() && Ability.IsValid()
                 && ImageSize(Graphic).X > 0.0 && ImageSize(Graphic).Y > 0.0)) { return; }
+            State->Ability = Ability;
             TestEqual(TEXT("Production native wheel carries authored id"), State->Wheel->GetTag(), FName(TEXT("interaction-wheel")));
+            const auto ShadowAbility = FindTagged<SCkUiHudAbility>(Root, TEXT("SCkUiHudAbility"), TEXT("skill-3/art"));
+            TestTrue(TEXT("Spell-slot template realizes six native ability tiles"),
+                FindTagged<SCkUiHudAbility>(Root, TEXT("SCkUiHudAbility"), TEXT("skill-1/art")).IsValid()
+                && FindTagged<SCkUiHudAbility>(Root, TEXT("SCkUiHudAbility"), TEXT("skill-2/art")).IsValid()
+                && ShadowAbility.IsValid()
+                && FindTagged<SCkUiHudAbility>(Root, TEXT("SCkUiHudAbility"), TEXT("skill-4/art")).IsValid()
+                && FindTagged<SCkUiHudAbility>(Root, TEXT("SCkUiHudAbility"), TEXT("skill-left/art")).IsValid()
+                && FindTagged<SCkUiHudAbility>(Root, TEXT("SCkUiHudAbility"), TEXT("skill-right/art")).IsValid());
+            TestTrue(TEXT("Shared key-hint control realizes in template and independent HUD slots"),
+                FindTagged<SWidget>(Root, TEXT("SKeyHint"), TEXT("skill-1/key")).IsValid()
+                && FindTagged<SWidget>(Root, TEXT("SKeyHint"), TEXT("potion-key")).IsValid()
+                && FindTagged<SWidget>(Root, TEXT("SKeyHint"), TEXT("evade-hint")).IsValid());
+            if (ShadowAbility.IsValid())
+            {
+                TestTrue(TEXT("Production remaining-seconds binding updates native cooldown label"),
+                    Owner->TrySetNumber(TEXT("RemainingShadow"), 9.2f)
+                    && ShadowAbility->GetRemainingSeconds() == 10);
+                TestTrue(TEXT("Ready cooldown suppresses remaining-seconds label"),
+                    Owner->TrySetNumber(TEXT("SkillCooldown"), 0.0f)
+                    && ShadowAbility->GetRemainingSeconds() == 0);
+                TestTrue(TEXT("Cooldown model restores after label proof"),
+                    Owner->TrySetNumber(TEXT("SkillCooldown"), 0.62f));
+            }
             TArray<FCk_UI_AuthoredRecord> Seed;
             if (!TestTrue(TEXT("Production script seeds eight reflected interaction records"),
                 Owner->TryGetRecords(TEXT("Interactions"), Seed) && Seed.Num() == 8)) { return; }
@@ -390,6 +483,14 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
                 for (const auto Size : {FIntPoint{1280, 720}, FIntPoint{1920, 1080}, FIntPoint{2400, 1350}})
                 { TestTrue(TEXT("Production open-wheel native screenshot"), Capture(World, *State,
                     FString::Printf(TEXT("open-%dx%d"), Size.X, Size.Y), Size)); }
+                TestTrue(TEXT("Production orb animation first rendered frame"),
+                    Capture(World, *State, TEXT("orb-phase-a-1920x1080"), {1920, 1080}));
+                const float PhaseBeforeStep = Orb->GetAnimationPhase();
+                Orb->AdvancePresentation(0.5f);
+                TestTrue(TEXT("Production orb advances by authored motion speed for a known step"),
+                    FMath::IsNearlyEqual(Orb->GetAnimationPhase(), FMath::Fmod(PhaseBeforeStep + 0.175f, TWO_PI), 0.001f));
+                TestTrue(TEXT("Production orb animation second rendered frame"),
+                    Capture(World, *State, TEXT("orb-phase-b-1920x1080"), {1920, 1080}));
             }
 
             const auto Key = [&State](FKey InKey)
@@ -450,7 +551,9 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
             if (!TestTrue(TEXT("Production radial source fixtures load"),
                 FFileHelper::LoadFileToString(SourceMarkup, *FPaths::Combine(Directory, TEXT("DarkFantasyHudProof.ui.html")))
                 && FFileHelper::LoadFileToString(SourceStyles, *FPaths::Combine(Directory, TEXT("DarkFantasyHudProof.ui.css")))
-                && SourceStyles.Contains(TEXT("-ck-radial-sector-mode: 1")))) { return; }
+                && SourceStyles.Contains(TEXT("-ck-radial-sector-mode: 1"))
+                && SourceStyles.Contains(TEXT("-ck-hud-orb-motion-speed: 0.35"))
+                && SourceStyles.Contains(TEXT("-ck-hud-ability-font-size: 18px")))) { return; }
             if (!TestTrue(TEXT("Unmodified production radial source commits before negative style test"),
                 Owner->TryReload(SourceMarkup, SourceStyles, Errors))) { return; }
             const auto StyleRevision = Owner->Get_Revision();
@@ -528,6 +631,27 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
                 Owner->Get_IsUsable() && Owner->Get_Revision() == StyleRevision && Owner->Get_View() == State->View
                 && Root->GetChildren() != nullptr && Root->GetChildren()->Num() == 1
                 && Root->GetChildren()->GetChildAt(0) == AcceptedChild);
+            const auto RejectHudStyle = [this, Owner, &SourceMarkup, &SourceStyles, &Errors, StyleRevision,
+                &Root, AcceptedChild, State, Orb, ShadowAbility](const FString& InName, const FString& InOld, const FString& InNew,
+                    const FString& InDiagnostic)
+            {
+                Errors.Reset();
+                const FString InvalidStyles = SourceStyles.Replace(*InOld, *InNew);
+                TestFalse(*(InName + TEXT(" rejects")), Owner->TryReload(SourceMarkup, InvalidStyles, Errors));
+                TestTrue(*(InName + TEXT(" reports its style boundary")), Errors.ContainsByPredicate([&InDiagnostic](const FString& Error)
+                { return Error.Contains(InDiagnostic); }));
+                TestTrue(*(InName + TEXT(" preserves revision and mounted controls")),
+                    Owner->Get_IsUsable() && Owner->Get_Revision() == StyleRevision && Owner->Get_View() == State->View
+                    && Root->GetChildren() != nullptr && Root->GetChildren()->Num() == 1
+                    && Root->GetChildren()->GetChildAt(0) == AcceptedChild
+                    && Find<SCkUiRadialSelector>(Root, TEXT("SCkUiRadialSelector")) == State->Wheel
+                    && FindTagged<SCkUiHudOrb>(Root, TEXT("SCkUiHudOrb"), TEXT("health-orb")) == Orb
+                    && FindTagged<SCkUiHudAbility>(Root, TEXT("SCkUiHudAbility"), TEXT("skill-3/art")) == ShadowAbility);
+            };
+            RejectHudStyle(TEXT("Negative orb motion speed"), TEXT("-ck-hud-orb-motion-speed: 0.35"),
+                TEXT("-ck-hud-orb-motion-speed: -0.1"), TEXT("HUD style '-ck-hud-orb-motion-speed'"));
+            RejectHudStyle(TEXT("Out-of-range ability font size"), TEXT("-ck-hud-ability-font-size: 18px"),
+                TEXT("-ck-hud-ability-font-size: 49px"), TEXT("HUD style '-ck-hud-ability-font-size'"));
             CollectGarbage(RF_NoFlags);
             TestTrue(TEXT("Script reflected ownership survives collection"), State->Owner.IsValid()
                 && State->Owner.Get() == Session(World) && State->Owner->Get_IsUsable());
@@ -537,7 +661,8 @@ auto FCkDarkFantasy_Pie::RunTest(const FString&) -> bool
         FCk_NetAutoTest_Assertion::CreateLambda([State]() -> bool
         {
             const bool Retired = State->View.IsValid() && State->View->IsOwnerReleased()
-                && State->Wheel.IsValid() && State->Wheel->IsFrozen();
+                && State->Wheel.IsValid() && State->Wheel->IsFrozen()
+                && State->Ability.IsValid() && State->Ability->IsFrozen();
             CollectGarbage(RF_NoFlags);
             const bool Collected = !State->Owner.IsValid();
             State->Restore(); return Retired && Collected;

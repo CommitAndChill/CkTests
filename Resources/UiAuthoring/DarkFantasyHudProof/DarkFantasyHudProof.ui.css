@@ -29,7 +29,6 @@
 .wheel-center { width: 136px; height: 620px; horizontal-align: center; }
 .grow { flex-grow: 1; }
 .center-disc { width: 136px; height: 136px; padding: 28px 8px 12px 8px; background-color: #080909F5; border-color: #777A75; border-width: 2px; border-radius: 68px; horizontal-align: center; }
-.close-button { width: 28px; height: 31px; horizontal-align: center; font-family: fantasy-ui; font-size: 21px; font-weight: bold; -ck-button-background: #C8C4B8; -ck-button-color: #1F211F; -ck-button-border-color: #151616; -ck-button-outline-width: 1px; -ck-button-radius: 3px; -ck-button-padding-x: 0px; -ck-button-padding-y: 0px; -ck-button-hover-background: #E9E5D8; }
 .wheel-close-label { height: 34px; horizontal-align: center; font-family: fantasy-ui; font-size: 23px; color: #C5C4BF; text-wrap: nowrap; }
 .customize-shell { width: 228px; height: 52px; padding: 6px 15px 6px 15px; horizontal-align: center; background-color: #080909B8; }
 .customize-button { width: 180px; height: 40px; horizontal-align: center; font-family: fantasy-ui; font-size: 19px; -ck-button-background: #500C0AED; -ck-button-color: #D5C7B6; -ck-button-border-color: #B34C3A; -ck-button-outline-width: 2px; -ck-button-radius: 1px; -ck-button-padding-x: 8px; -ck-button-padding-y: 2px; -ck-button-hover-background: #8F1D14; }
@@ -39,19 +38,18 @@
 .action-line { color: #E0C58D; }
 .bottom-hud { width: 1010px; height: 222px; gap: 11px; horizontal-align: center; }
 .orb-panel { width: 240px; }
-.orb { width: 182px; height: 182px; horizontal-align: center; -ck-hud-orb-response: 0.16; }
+.orb { width: 182px; height: 182px; horizontal-align: center; -ck-hud-orb-response: 0.16; -ck-hud-orb-motion-speed: 0.35; }
 .potion-hint { width: 80px; height: 26px; gap: 8px; horizontal-align: center; }
 .potion-count { height: 22px; font-family: fantasy-ui; font-size: 16px; color: #E1DED4; text-wrap: nowrap; }
-.resource-hint { horizontal-align: center; vertical-align: center; }
-.hotbar-panel { width: 510px; padding: 60px 20px 0px 0px; gap: 4px; }
-.hotbar-caption { height: 24px; horizontal-align: center; font-family: fantasy-display; font-size: 17px; color: #ECE5D7; text-wrap: nowrap; }
-.hotbar { height: 96px; gap: 6px; horizontal-align: center; }
-.skill { width: 72px; height: 94px; }
-.skill-art { width: 72px; height: 72px; }
-.keycap-box { width: 22px; height: 20px; horizontal-align: center; background-color: #C8C3B38C; border-color: #44433FB0; border-width: 1px; border-radius: 2px; }
-.skill-key { horizontal-align: center; vertical-align: center; font-family: fantasy-ui; font-size: 12px; font-weight: bold; color: #1D1E1D; text-wrap: nowrap; }
-.keycap { horizontal-align: center; vertical-align: center; font-family: fantasy-ui; font-size: 12px; font-weight: bold; color: #1D1E1D; text-wrap: nowrap; }
+.hotbar-panel { width: 510px; padding: 60px 0px 0px 0px; gap: 4px; }
+.hotbar-caption { height: 24px; text-align: center; font-family: fantasy-display; font-size: 17px; color: #ECE5D7; text-wrap: nowrap; }
+.hotbar { width: 506px; height: 106px; padding: 4px 10px 4px 10px; gap: 6px; horizontal-align: center; background-color: #0C1115F5; }
+.skill { width: 76px; height: 98px; gap: 2px; }
+.spell-frame { width: 76px; height: 76px; padding: 4px; background-color: #22282A; border-color: #74654D; border-width: 1px; }
+.spell-inlay { width: 66px; height: 66px; padding: 1px; background-color: #080B0D; border-color: #A38A60; border-width: 1px; }
+.skill-art { width: 62px; height: 62px; -ck-hud-ability-font-size: 18px; }
+.key-hint { width: 22px; height: 20px; horizontal-align: center; -ck-key-hint-font-size: 12px; -ck-key-hint-foreground: #1D1E1D; -ck-key-hint-background: #C8C3B38C; -ck-key-hint-border-color: #44433FB0; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 2px; -ck-key-hint-padding-x: 0px; -ck-key-hint-padding-y: 0px; }
+.wheel-key { width: 28px; height: 31px; -ck-key-hint-font-size: 20px; -ck-key-hint-background: #C8C4B8CC; }
 .utility-row { height: 28px; gap: 8px; horizontal-align: center; }
-.utility-hint { font-size: 10px; }
-.utility-keycap { width: 48px; }
+.utility-keycap { width: 48px; -ck-key-hint-font-size: 10px; }
 .open-button { width: 72px; height: 22px; font-family: fantasy-ui; font-size: 11px; -ck-button-text-align: center; -ck-button-content-vertical-align: center; -ck-button-background: #1114178C; -ck-button-color: #CDC7B9; -ck-button-border-color: #5F626190; -ck-button-outline-width: 1px; -ck-button-radius: 1px; -ck-button-padding-x: 4px; -ck-button-padding-y: 0px; -ck-button-hover-background: #3E4342A0; }

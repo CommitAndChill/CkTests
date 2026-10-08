@@ -41,7 +41,11 @@
       "SkillCooldown",
       "CooldownReady",
       "CooldownFlurry",
-      "CooldownStrike"
+      "CooldownStrike",
+      "RemainingReady",
+      "RemainingShadow",
+      "RemainingFlurry",
+      "RemainingStrike"
     ],
     "Bool": [
       "WheelOpen"
@@ -134,7 +138,7 @@
         1050,
         300
       ],
-      "purpose": "Transparent frame and six slot apertures; slot alignment is currently matched by authored dimensions"
+      "purpose": "Backdrop ornament with six apertures; nested authored spell frames supply local geometry"
     },
     "orb-bezel.png": {
       "binding": "OrbBezel",
@@ -144,12 +148,12 @@
     "orb-health.png": {
       "binding": "OrbHealth",
       "widget": "health-orb",
-      "purpose": "Live vertically clipped red liquid art"
+      "purpose": "Circular liquid texture with animated UVs and fraction-clipped fill"
     },
     "orb-energy.png": {
       "binding": "OrbEnergy",
       "widget": "mana-orb",
-      "purpose": "Live vertically clipped violet liquid art"
+      "purpose": "Circular liquid texture with animated UVs and fraction-clipped fill"
     },
     "wheel-vignette.png": {
       "binding": "WheelVignette",
@@ -158,33 +162,33 @@
     },
     "ability-cut.png": {
       "binding": "AbilityCut",
-      "widget": "ability-cut",
-      "purpose": "Native cooldown tile image"
+      "widget": "skill-1/art (spell-slot template)",
+      "purpose": "Image-backed spell art beneath native radial cooldown mask and seconds label"
     },
     "ability-flurry.png": {
       "binding": "AbilityFlurry",
-      "widget": "ability-flurry",
-      "purpose": "Native cooldown tile image"
+      "widget": "skill-2/art (spell-slot template)",
+      "purpose": "Image-backed spell art beneath native radial cooldown mask and seconds label"
     },
     "ability-shadow.png": {
       "binding": "AbilityShadow",
-      "widget": "ability-shadow",
-      "purpose": "Native cooldown tile image"
+      "widget": "skill-3/art (spell-slot template)",
+      "purpose": "Image-backed spell art beneath native radial cooldown mask and seconds label"
     },
     "ability-dash.png": {
       "binding": "AbilityDash",
-      "widget": "ability-dash",
-      "purpose": "Native cooldown tile image"
+      "widget": "skill-4/art (spell-slot template)",
+      "purpose": "Image-backed spell art beneath native radial cooldown mask and seconds label"
     },
     "ability-strike.png": {
       "binding": "AbilityStrike",
-      "widget": "ability-strike",
-      "purpose": "Native cooldown tile image"
+      "widget": "skill-left/art (spell-slot template)",
+      "purpose": "Image-backed spell art beneath native radial cooldown mask and seconds label"
     },
     "ability-pierce.png": {
       "binding": "AbilityPierce",
-      "widget": "ability-pierce",
-      "purpose": "Native cooldown tile image"
+      "widget": "skill-right/art (spell-slot template)",
+      "purpose": "Image-backed spell art beneath native radial cooldown mask and seconds label"
     },
     "wheel-empty.png": {
       "binding": "Interactions.image",
@@ -231,11 +235,11 @@
     "html": "Widget tree, labels and hints",
     "css": "Layout and appearance",
     "script": "State, keyed interaction records, actions, requests and lifecycle",
-    "native": "Generic reflected session, HUD and radial controls"
+    "native": "Shared retained HUD, key-hint, and radial controls; custom vertex orb and cooldown geometry"
   },
-  "verification": "Development editor build; CollectionImage roundtrip test; three focused DarkFantasy tests passed with real DX11 renderer and 720p/1080p/1350p captures; final wider 243-test run passed 240 and failed three other UI-authoring tests; DX12 and cooked packaging remain open",
+  "verification": "2026-10-07 incremental editor build passed; UI-authoring 243/246 with same prior three failures; final DarkFantasy 3/3 after white-brush mesh fix including rendered cooldown pixel assertion; 18 Python validator tests and 79-ID source contract pass; DX11 captures, original DX12 config restored; cooked packaging unverified",
   "schemaVersion": 1,
-  "nodeCount": 100,
+  "nodeCount": 79,
   "nodes": [
     {
       "id": "fantasy-root",
@@ -508,15 +512,9 @@
       "scope": "main-region"
     },
     {
-      "id": "potion-keycap",
-      "tag": "column",
-      "parentId": "potion-hint",
-      "scope": "main-region"
-    },
-    {
       "id": "potion-key",
-      "tag": "text",
-      "parentId": "potion-keycap",
+      "tag": "key-hint",
+      "parentId": "potion-hint",
       "scope": "main-region"
     },
     {
@@ -545,146 +543,38 @@
     },
     {
       "id": "skill-1",
-      "tag": "column",
+      "tag": "use",
       "parentId": "hotbar",
-      "scope": "main-region"
-    },
-    {
-      "id": "ability-cut",
-      "tag": "hud-ability",
-      "parentId": "skill-1",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-1-keycap",
-      "tag": "column",
-      "parentId": "skill-1",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-1-key",
-      "tag": "text",
-      "parentId": "skill-1-keycap",
       "scope": "main-region"
     },
     {
       "id": "skill-2",
-      "tag": "column",
+      "tag": "use",
       "parentId": "hotbar",
-      "scope": "main-region"
-    },
-    {
-      "id": "ability-flurry",
-      "tag": "hud-ability",
-      "parentId": "skill-2",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-2-keycap",
-      "tag": "column",
-      "parentId": "skill-2",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-2-key",
-      "tag": "text",
-      "parentId": "skill-2-keycap",
       "scope": "main-region"
     },
     {
       "id": "skill-3",
-      "tag": "column",
+      "tag": "use",
       "parentId": "hotbar",
-      "scope": "main-region"
-    },
-    {
-      "id": "ability-shadow",
-      "tag": "hud-ability",
-      "parentId": "skill-3",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-3-keycap",
-      "tag": "column",
-      "parentId": "skill-3",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-3-key",
-      "tag": "text",
-      "parentId": "skill-3-keycap",
       "scope": "main-region"
     },
     {
       "id": "skill-4",
-      "tag": "column",
+      "tag": "use",
       "parentId": "hotbar",
-      "scope": "main-region"
-    },
-    {
-      "id": "ability-dash",
-      "tag": "hud-ability",
-      "parentId": "skill-4",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-4-keycap",
-      "tag": "column",
-      "parentId": "skill-4",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-4-key",
-      "tag": "text",
-      "parentId": "skill-4-keycap",
       "scope": "main-region"
     },
     {
       "id": "skill-left",
-      "tag": "column",
+      "tag": "use",
       "parentId": "hotbar",
-      "scope": "main-region"
-    },
-    {
-      "id": "ability-strike",
-      "tag": "hud-ability",
-      "parentId": "skill-left",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-left-keycap",
-      "tag": "column",
-      "parentId": "skill-left",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-left-key",
-      "tag": "text",
-      "parentId": "skill-left-keycap",
       "scope": "main-region"
     },
     {
       "id": "skill-right",
-      "tag": "column",
+      "tag": "use",
       "parentId": "hotbar",
-      "scope": "main-region"
-    },
-    {
-      "id": "ability-pierce",
-      "tag": "hud-ability",
-      "parentId": "skill-right",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-right-keycap",
-      "tag": "column",
-      "parentId": "skill-right",
-      "scope": "main-region"
-    },
-    {
-      "id": "skill-right-key",
-      "tag": "text",
-      "parentId": "skill-right-keycap",
       "scope": "main-region"
     },
     {
@@ -694,15 +584,9 @@
       "scope": "main-region"
     },
     {
-      "id": "evade-keycap",
-      "tag": "column",
-      "parentId": "utility-row",
-      "scope": "main-region"
-    },
-    {
       "id": "evade-hint",
-      "tag": "text",
-      "parentId": "evade-keycap",
+      "tag": "key-hint",
+      "parentId": "utility-row",
       "scope": "main-region"
     },
     {
@@ -730,15 +614,9 @@
       "scope": "main-region"
     },
     {
-      "id": "resource-keycap",
-      "tag": "column",
-      "parentId": "mana-panel",
-      "scope": "main-region"
-    },
-    {
       "id": "resource-hint",
-      "tag": "text",
-      "parentId": "resource-keycap",
+      "tag": "key-hint",
+      "parentId": "mana-panel",
       "scope": "main-region"
     },
     {
@@ -809,7 +687,7 @@
     },
     {
       "id": "close-wheel",
-      "tag": "button",
+      "tag": "key-hint",
       "parentId": "center-disc",
       "scope": "main-region"
     },
@@ -837,5 +715,87 @@
       "parentId": "customize-shell",
       "scope": "main-region"
     }
-  ]
+  ],
+  "templates": {
+    "spell-slot": {
+      "parameters": {
+        "art": "ImageBinding",
+        "cooldown": "NumberBinding",
+        "remaining": "NumberBinding",
+        "key": "Text"
+      },
+      "localNodes": [
+        {
+          "id": "slot",
+          "tag": "column",
+          "parentId": null
+        },
+        {
+          "id": "frame",
+          "tag": "column",
+          "parentId": "slot"
+        },
+        {
+          "id": "inlay",
+          "tag": "column",
+          "parentId": "frame"
+        },
+        {
+          "id": "art",
+          "tag": "hud-ability",
+          "parentId": "inlay"
+        },
+        {
+          "id": "key",
+          "tag": "key-hint",
+          "parentId": "slot"
+        }
+      ],
+      "instances": [
+        "skill-1",
+        "skill-2",
+        "skill-3",
+        "skill-4",
+        "skill-left",
+        "skill-right"
+      ]
+    }
+  },
+  "cooldowns": {
+    "shadow": {
+      "fraction": "SkillCooldown",
+      "remaining": "RemainingShadow",
+      "durationSeconds": 10,
+      "initialRemainingSeconds": 6.2
+    },
+    "flurry": {
+      "fraction": "CooldownFlurry",
+      "remaining": "RemainingFlurry",
+      "durationSeconds": 8,
+      "initialRemainingSeconds": 1.92
+    },
+    "strike": {
+      "fraction": "CooldownStrike",
+      "remaining": "RemainingStrike",
+      "durationSeconds": 12,
+      "initialRemainingSeconds": 9.36
+    },
+    "ready": {
+      "fraction": "CooldownReady",
+      "remaining": "RemainingReady",
+      "initialRemainingSeconds": 0
+    }
+  },
+  "animationPixelEvidence": {
+    "health": {
+      "changedPixels": 11737,
+      "sampledPixels": 17550,
+      "maxChannelDelta": 99
+    },
+    "mana": {
+      "changedPixels": 9890,
+      "sampledPixels": 18200,
+      "maxChannelDelta": 73
+    }
+  }
 }
