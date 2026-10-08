@@ -47,6 +47,7 @@ public class CkTests : CkModuleRules
             "NavigationSystem",
             "Projects",
             "GameplayTags",
+            "StructUtils", // Production Cue request payloads.
             "FunctionalTesting",
             "Gauntlet",
             "EnhancedInput",
