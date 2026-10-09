@@ -1336,6 +1336,25 @@ bool UCkSelectionGym_Mirror_UE::TryAcceptActive(UWorld* World,
         OutReason = TEXT("Exact client context unavailable");
         return false;
     }
+    // A false TryAdvance can mean settled SceneNode propagation is pending.
+    // Accept that outcome only when the exact captured session still stages
+    // the complete value supplied to this call.
+    const auto AcceptedStaging = [&](const FMirrorMutationLease& Lease)
+    {
+        const auto* Current = ProveMirrorMutationLease(Lease);
+        if (Current == nullptr ||
+            Current->Phase != ck::ESelectionMirrorPhase::Staging ||
+            !FCkSelectionGym_WireSnapshot::StaticStruct()->
+                CompareScriptStruct(&Current->Pending, &Snapshot, PPF_None))
+        { return false; }
+        OutReason.Reset();
+        return true;
+    };
+    const auto AcceptedAfterAdvance = [&](const FMirrorMutationLease& Lease)
+    {
+        if (TryAdvance(World, ExactGameState, OutReason)) { return true; }
+        return AcceptedStaging(Lease);
+    };
     const bool ValueValid = Preflight(Snapshot, MarkerClass, WallClass, OutReason);
     FCk_Handle AfterPreflight;
     if (!Context(World, ExactGameState, AfterPreflight) ||
@@ -1360,6 +1379,21 @@ bool UCkSelectionGym_Mirror_UE::TryAcceptActive(UWorld* World,
         const auto Lease = CaptureMirrorMutationLease(S);
         if (!Bound(S, World, ExactGameState, WorldRoot))
         { return FailValue(OutReason, TEXT("Mirror session failed or bound elsewhere")); }
+        // A world session retains one exact pair of authored visual classes.
+        if (S.MarkerClass.Get() != MarkerClass.Get() ||
+            S.WallClass.Get() != WallClass.Get())
+        { return FailValue(OutReason, TEXT("Mirror visual classes changed")); }
+        if (S.Phase == ck::ESelectionMirrorPhase::Staging ||
+            S.Phase == ck::ESelectionMirrorPhase::RetiringLeaf)
+        {
+            const auto* Current = ProveMirrorMutationLease(Lease);
+            if (Current != nullptr &&
+                (Current->Phase == ck::ESelectionMirrorPhase::Staging ||
+                 Current->Phase == ck::ESelectionMirrorPhase::RetiringLeaf) &&
+                FCkSelectionGym_WireSnapshot::StaticStruct()->
+                    CompareScriptStruct(&Current->Pending, &Snapshot, PPF_None))
+            { OutReason.Reset(); return true; }
+        }
         const bool NewGeneration =
             Snapshot.SourceGeneration > S.Installed.SourceGeneration ||
             (Snapshot.SourceGeneration == S.Installed.SourceGeneration &&
@@ -1396,11 +1430,21 @@ bool UCkSelectionGym_Mirror_UE::TryAcceptActive(UWorld* World,
             S.WallClass = WallClass;
             S.HasPendingActive = true;
             if (S.Phase == ck::ESelectionMirrorPhase::RetiringAll)
-            { return FailValue(OutReason, TEXT("Old bank physical retirement pending")); }
+            {
+                const auto* Queued = ProveMirrorMutationLease(Lease);
+                if (Queued == nullptr || !Queued->HasPendingActive ||
+                    Queued->Phase != ck::ESelectionMirrorPhase::RetiringAll ||
+                    !FCkSelectionGym_WireSnapshot::StaticStruct()->
+                        CompareScriptStruct(&Queued->Pending, &Snapshot, PPF_None))
+                { return FailClosedMirrorLease(Lease,
+                    TEXT("Queued generation changed before acceptance"), OutReason); }
+                OutReason.Reset();
+                return true;
+            }
             S.HasPendingActive = false;
             if (!StageNewBank(S, Snapshot, MarkerClass, WallClass, OutReason))
             { return false; }
-            return TryAdvance(World, ExactGameState, OutReason);
+            return AcceptedAfterAdvance(Lease);
         }
         if (S.Phase != ck::ESelectionMirrorPhase::Installed && !HoldingRetiring)
         {
@@ -1431,7 +1475,15 @@ bool UCkSelectionGym_Mirror_UE::TryAcceptActive(UWorld* World,
                     TEXT("Held bank failed full retirement preflight"), OutReason); }
                 return false;
             }
-            return FailValue(OutReason, TEXT("Old bank physical retirement pending"));
+            const auto* Queued = ProveMirrorMutationLease(Lease);
+            if (Queued == nullptr || !Queued->HasPendingActive ||
+                Queued->Phase != ck::ESelectionMirrorPhase::RetiringAll ||
+                !FCkSelectionGym_WireSnapshot::StaticStruct()->
+                    CompareScriptStruct(&Queued->Pending, &Snapshot, PPF_None))
+            { return FailClosedMirrorLease(Lease,
+                TEXT("Full retirement queue changed before acceptance"), OutReason); }
+            OutReason.Reset();
+            return true;
         }
         if (Snapshot.Sequence == S.Installed.Sequence &&
             Snapshot.SourceGeneration == S.Installed.SourceGeneration &&
@@ -1546,7 +1598,7 @@ bool UCkSelectionGym_Mirror_UE::TryAcceptActive(UWorld* World,
     const auto Lease = CaptureMirrorMutationLease(S);
     if (!StageNewBank(S, Snapshot, MarkerClass, WallClass, OutReason))
     { return false; }
-    return TryAdvance(World, ExactGameState, OutReason);
+    return AcceptedAfterAdvance(Lease);
 }
 
 bool UCkSelectionGym_Mirror_UE::TryFailCaptured(UWorld* World,
