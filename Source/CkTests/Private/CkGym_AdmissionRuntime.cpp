@@ -21,7 +21,7 @@ namespace ck_gym_admission_runtime
         if (!IsValid(World)) { return false; }
         if (!World->IsGameWorld()) { return false; }
         if (World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
-            World->IsBeingCleanedUp())
+            World->bIsTearingDown || World->IsBeingCleanedUp())
         { return false; }
         return UCk_Utils_EcsWorld_Subsystem_UE::
             TryGet_TransientEntityForWorld(*World) == Root;
@@ -41,13 +41,26 @@ namespace ck_gym_admission_runtime
     }
 }
 
+bool UCkGym_AdmissionRuntime_UE::TryGet_IsClosedUnproven(
+    const FCk_Handle& InWorldRoot, bool& OutClosed)
+{
+    OutClosed = true;
+    if (!ck_gym_admission_runtime::HasExactLiveWorldRoot(InWorldRoot))
+    { return false; }
+    if (!UCk_Utils_DynamicFragment_UE::Has_Fragment(
+            InWorldRoot, FCkGym_StationAdmission::StaticStruct()))
+    { OutClosed = false; return true; }
+    const auto* Slot = ck_gym_admission_runtime::TryReadSlot(InWorldRoot);
+    if (!Slot) { return false; }
+    OutClosed = Slot->ClosedUnproven;
+    return true;
+}
+
 bool UCkGym_AdmissionRuntime_UE::Get_IsClosedUnproven(
     const FCk_Handle& InWorldRoot)
 {
-    if (!ck_gym_admission_runtime::HasExactLiveWorldRoot(InWorldRoot))
-    { return false; }
-    const auto* Slot = ck_gym_admission_runtime::TryReadSlot(InWorldRoot);
-    return Slot && Slot->ClosedUnproven;
+    bool Closed = true;
+    return TryGet_IsClosedUnproven(InWorldRoot, Closed) && Closed;
 }
 
 bool UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(

@@ -376,6 +376,7 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     { return Invalid(TEXT("Active and staged outputs alias")); }
     if (!IsInGameThread() || !IsValid(World) || !World->IsGameWorld() ||
         World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+        World->bIsTearingDown || World->IsBeingCleanedUp() ||
         World->IsNetMode(NM_Client) || !IsValid(ExactGameState) ||
         ExactGameState->IsActorBeingDestroyed() ||
         World->GetGameState() != ExactGameState ||
