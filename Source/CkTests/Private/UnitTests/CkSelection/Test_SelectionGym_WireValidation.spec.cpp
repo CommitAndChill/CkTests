@@ -77,7 +77,18 @@ bool FCkSelectionWireActiveValues::RunTest(const FString&)
             !Reason.IsEmpty();
     };
 
+    auto LastChannel = Base;
+    LastChannel.Visuals[0].ObjectChannel = ECC_GameTraceChannel18;
+    TestTrue(TEXT("last serialized collision channel accepts"),
+        ck_selection_gym_wire::TryValidateActiveValue(LastChannel, Reason));
     auto Broken = Base;
+    Broken.Visuals[0].ObjectChannel = ECC_OverlapAll_Deprecated;
+    TestTrue(TEXT("deprecated collision flag is not a response-array channel"), Reject(Broken));
+    Broken.Visuals[0].ObjectChannel = ECC_MAX;
+    TestTrue(TEXT("collision channel sentinel rejects"), Reject(Broken));
+    Broken.Visuals[0].ObjectChannel = static_cast<ECollisionChannel>(255);
+    TestTrue(TEXT("unknown collision channel rejects"), Reject(Broken));
+    Broken = Base;
     Broken.Lifecycle = ECkSelectionGym_WireLifecycle::Failed;
     TestTrue(TEXT("terminal lifecycle cannot present an Active prefix"), Reject(Broken));
     Broken = Base;
