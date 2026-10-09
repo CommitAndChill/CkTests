@@ -29,6 +29,7 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("AppFramework"); // Exercise native color-picker behavior through authored controls.
         PrivateDependencyModuleNames.Add("ImageCore");
         PrivateDependencyModuleNames.Add("CkRuntimeMesh");
+        PrivateDependencyModuleNames.Add("Sockets"); // Inspect the active listen endpoint.
 
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.css"), StagedFileType.NonUFS);

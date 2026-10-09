@@ -9,9 +9,11 @@
 #include <Engine/GameInstance.h>
 #include <Engine/LocalPlayer.h>
 #include <Engine/Engine.h>
+#include <Engine/NetDriver.h>
 #include <Engine/World.h>
 #include <Containers/Ticker.h>
 #include <HAL/PlatformTime.h>
+#include <IPAddress.h>
 #include <Kismet/GameplayStatics.h>
 #include <Misc/PackageName.h>
 
@@ -454,6 +456,41 @@ auto
     const auto TravelURL = FString::Printf(TEXT("%s?game=%s"), *LongPackageName,
         *Entry.GameModeClass.Get()->GetPathName());
 
+    // ProcessServerTravel builds its destination URL from LastURL. A listen driver may
+    // have bound the next available port while LastURL still names the requested port.
+    if (!InWorld->NextURL.IsEmpty() || InWorld->IsInSeamlessTravel())
+    { return false; }
+    auto* Context = GEngine->GetWorldContextFromWorld(InWorld);
+    if (Context == nullptr || Context->World() != InWorld)
+    { return false; }
+    const auto NetMode = InWorld->GetNetMode();
+    if (NetMode != NM_Standalone && NetMode != NM_ListenServer && NetMode != NM_DedicatedServer)
+    { return false; }
+    const auto PreviousPort = Context->LastURL.Port;
+    auto BoundPort = PreviousPort;
+    if (NetMode != NM_Standalone)
+    {
+        auto* Driver = InWorld->GetNetDriver();
+        if (NOT IsValid(Driver) || Driver->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+            Driver->GetWorld() != InWorld || Driver->ServerConnection != nullptr)
+        { return false; }
+        const auto LocalAddr = Driver->GetLocalAddr();
+        if (NOT LocalAddr.IsValid())
+        { return false; }
+        BoundPort = LocalAddr->GetPort();
+        if (BoundPort < 1 || BoundPort > 65535)
+        { return false; }
+        Context->LastURL.Port = BoundPort;
+    }
+    const auto RestorePort = [&]()
+    {
+        if (BoundPort == PreviousPort || !IsValid(GEngine) || !IsValid(InWorld)) return;
+        auto* CurrentContext = GEngine->GetWorldContextFromWorld(InWorld);
+        if (CurrentContext == Context && CurrentContext->World() == InWorld &&
+            CurrentContext->LastURL.Port == BoundPort)
+        { CurrentContext->LastURL.Port = PreviousPort; }
+    };
+
     _PendingGymName = Entry.DisplayName;
     _PendingSourceWorld = InWorld;
     _PendingRequester = InRequester;
@@ -463,10 +500,13 @@ auto
         [this](UWorld* FailedWorld, ETravelFailure::Type, const FString& Error)
         { HandlePendingTravelFailure(FailedWorld, Error); });
     if (NOT InWorld->ServerTravel(TravelURL))
-    { ClearPendingTravel(); return false; }
+    {
+        RestorePort();
+        ClearPendingTravel();
+        return false;
+    }
     if (_PendingGymName.IsEmpty())
-    { return false; }
-
+    { RestorePort(); return false; }
     _PendingTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
         FTickerDelegate::CreateUObject(this, &UCkGym_Registry_Subsystem::PollPendingTravel), 1.0f);
     ck::tests::Log(TEXT("[GymRegistry] accepted ServerTravel {}"), TravelURL);
