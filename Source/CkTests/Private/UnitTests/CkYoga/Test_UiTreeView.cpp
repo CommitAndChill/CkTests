@@ -198,7 +198,24 @@ auto FCkUiTreeView_Runtime::RunTest(const FString&) -> bool
     const SCkUiTree::FNode Offscreen = Model->FindNode(TEXT("node-09000")); NativeTree->RequestScrollIntoView(Offscreen); Tick(Slate);
     TestTrue(TEXT("Offscreen tree node realizes through native tree scrolling"), NativeTree->WidgetFromItem(Offscreen).IsValid());
 
-    if (!TestTrue(TEXT("Tree selects stable child before retained reload"), Tree->TrySelectKey(FString(TEXT("node-00001")), true))) { return false; }
+    if (!TestTrue(TEXT("Deferred selection admits an explicit reveal of an offscreen stable key"),
+        Tree->TryRequestSelectKey(FString(TEXT("node-00001")), true, true))) { return false; }
+    const auto RevealedInsideViewport = [&NativeTree, &Model]() -> bool
+    {
+        const auto Target = Model->FindNode(TEXT("node-00001"));
+        const auto Row = Target.IsValid() ? NativeTree->WidgetFromItem(Target) : nullptr;
+        if (!Row.IsValid()) { return false; }
+        const FGeometry& Viewport = NativeTree->GetCachedGeometry();
+        const FGeometry& Cell = Row->AsWidget()->GetCachedGeometry();
+        const FVector2D Start = Viewport.AbsoluteToLocal(Cell.GetAbsolutePosition());
+        const FVector2D End = Viewport.AbsoluteToLocal(Cell.LocalToAbsolute(Cell.GetLocalSize()));
+        return Start.Y >= -1.0 && End.Y <= Viewport.GetLocalSize().Y + 1.0;
+    };
+    for (int32 Frame = 0; Frame < 20 && !RevealedInsideViewport(); ++Frame) { Tick(Slate); }
+    TestTrue(TEXT("Deferred reveal realizes the selected stable row inside the native viewport"),
+        Tree->GetSelectionRequestState() == ECkUiTreeSelectionRequestState::Applied
+            && Tree->GetSelectedKey() == TOptional<FString>{TEXT("node-00001")}
+            && RevealedInsideViewport());
     const TSet<FString> ExpandedBeforeReload = Tree->GetExpandedKeys(); const int64 Revision = View->GetRevision();
     TSharedPtr<SWidget> FocusedBeforeReload = Slate.GetUserFocusedWidget(0);
     if (!TestTrue(TEXT("Accepted tree reload succeeds"), View->TryReload(Markup(), Styles() + TEXT(" .fill { padding: 1px; }"), TEXT("UiTreeViewReload")).Succeeded)) { return false; }

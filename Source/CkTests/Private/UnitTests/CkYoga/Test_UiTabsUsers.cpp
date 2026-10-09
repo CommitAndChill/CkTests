@@ -35,7 +35,9 @@ namespace ck_tests_ui_tabs_users
 
     auto FindHeader(const TSharedRef<SWidget>& InRoot, const FString& InLabel) -> TSharedPtr<SButton>
     {
-        if (InRoot->GetTypeAsString() == TEXT("SButton") && ContainsText(InRoot, InLabel)) { return StaticCastSharedRef<SButton>(InRoot); }
+        if ((InRoot->GetTypeAsString() == TEXT("SButton")
+            || InRoot->GetTypeAsString() == TEXT("SCkUiTabsHeaderButton"))
+            && ContainsText(InRoot, InLabel)) { return StaticCastSharedRef<SButton>(InRoot); }
         const FChildren* Children = InRoot->GetChildren();
         for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
         {
