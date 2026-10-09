@@ -219,7 +219,7 @@ bool ck_selection_gym_wire::TryValidateActiveValue(
             !FinitePose(Visual.ActorPose) ||
             !FinitePose(Visual.MeshRelativePose) ||
             !FinitePose(Visual.LabelRelativePose) || Visual.Mesh.IsNull() ||
-            Visual.ObjectChannel.GetValue() >= ECC_MAX ||
+            Visual.ObjectChannel.GetValue() >= ECC_OverlapAll_Deprecated ||
             (Visual.VisibilityResponse != ECR_Ignore &&
              Visual.VisibilityResponse != ECR_Overlap &&
              Visual.VisibilityResponse != ECR_Block))
