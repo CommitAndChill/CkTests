@@ -24,6 +24,7 @@ namespace ck_combat_hud_art
             {TEXT("bf-map"), ECkCombatHudReplicaPiece::BfMap},
             {TEXT("bf-objective"), ECkCombatHudReplicaPiece::BfObjective},
             {TEXT("bf-grenade"), ECkCombatHudReplicaPiece::BfGrenade},
+            {TEXT("bf-kit"), ECkCombatHudReplicaPiece::BfKit},
             {TEXT("sk-compass"), ECkCombatHudReplicaPiece::SkCompass},
             {TEXT("sk-meter"), ECkCombatHudReplicaPiece::SkMeter},
             {TEXT("sk-eye"), ECkCombatHudReplicaPiece::SkEye},
@@ -235,14 +236,17 @@ namespace ck_combat_hud_art
             const float Radius = (X - 0.5f) / 0.48f;
             return 0.10f + 0.85f * Radius * Radius;
         };
-        P.Curve(0.02f, 0.98f, 64, Y, BlueDim, 5.0f);
+        P.Curve(0.02f, 0.98f, 64, Y, FLinearColor(0.01f, 0.04f, 0.07f, 0.86f), 14.0f);
+        P.Curve(0.02f, 0.98f, 64, Y, BlueDim, 10.0f);
         const float FillEnd = 0.02f + 0.96f * Value;
         if (Value > 0.0f)
         {
             const int32 FillSteps = FMath::Max(1, FMath::CeilToInt(64.0f * Value));
             P.Curve(0.02f, FillEnd, FillSteps, Y,
-                FLinearColor(0.42f, 0.90f, 1.0f, 0.30f), 6.0f);
-            P.Curve(0.02f, FillEnd, FillSteps, Y, Blue, 2.4f);
+                FLinearColor(0.12f, 0.57f, 0.78f, 0.85f), 10.0f);
+            P.Curve(0.02f, FillEnd, FillSteps, Y, Blue, 5.0f);
+            P.Curve(0.02f, FillEnd, FillSteps, [Y](float X) { return Y(X) - 0.065f; },
+                FLinearColor(0.68f, 0.96f, 1.0f, 0.88f), 1.2f);
         }
     }
 
@@ -259,10 +263,12 @@ namespace ck_combat_hud_art
             const float End = Start + 0.17f;
             const float Fill = FMath::Clamp(Value * 5.0f - Index, 0.0f, 1.0f);
             const float FillEnd = FMath::Lerp(Start, End, Fill);
-            P.Curve(Start, End, 8, Y, FLinearColor(0.34f, 0.11f, 0.12f, 0.72f), 5.0f);
+            P.Curve(Start, End, 8, Y, FLinearColor(0.16f, 0.025f, 0.035f, 0.86f), 10.0f);
             if (Fill > 0.0f)
             {
-                P.Curve(Start, FillEnd, FMath::Max(1, FMath::CeilToInt(8.0f * Fill)), Y, Red, 3.0f);
+                P.Curve(Start, FillEnd, FMath::Max(1, FMath::CeilToInt(8.0f * Fill)), Y, FLinearColor(0.58f, 0.045f, 0.055f), 8.0f);
+                P.Curve(Start, FillEnd, FMath::Max(1, FMath::CeilToInt(8.0f * Fill)),
+                    [Y](float X) { return Y(X) - 0.07f; }, Red, 1.5f);
             }
         }
     }
@@ -279,17 +285,83 @@ namespace ck_combat_hud_art
 
     void Power(const FPainter& P, const int32 Variant)
     {
-        P.Diamond(0.5f, 0.5f, 0.29f, 0.34f, BlueDim, 1.1f);
-        const float Phase = Variant * 0.31f;
-        for (int32 Index = 0; Index < 3 + Variant % 3; ++Index)
+        const FLinearColor Ink(0.36f, 0.88f, 1.0f);
+        const FLinearColor Halo(0.06f, 0.36f, 0.57f, 0.55f);
+        const auto Stroke = [&](float X0, float Y0, float X1, float Y1, float Width = 3.0f)
         {
-            const float Angle = Phase + Index * 2.0f * PI / (3 + Variant % 3);
-            const float X = FMath::Cos(Angle);
-            const float Y = FMath::Sin(Angle);
-            P.Line(0.5f + 0.08f * X, 0.5f + 0.08f * Y,
-                0.5f + 0.32f * X, 0.5f + 0.32f * Y, Blue, 1.5f);
+            P.Line(X0, Y0, X1, Y1, Halo, Width + 3.0f);
+            P.Line(X0, Y0, X1, Y1, Ink, Width);
+        };
+        switch (Variant)
+        {
+        case 0: // Biotic palm and fingers.
+            P.Arc(0.50f, 0.59f, 0.20f, 0.24f, 0.0f, PI, Ink, 4.0f);
+            for (int32 Finger = 0; Finger < 4; ++Finger)
+            {
+                const float X = 0.33f + Finger * 0.11f;
+                Stroke(X, 0.57f, X - 0.03f, 0.19f + FMath::Abs(Finger - 1.5f) * 0.07f, 4.0f);
+            }
+            Stroke(0.35f, 0.60f, 0.19f, 0.40f, 4.0f);
+            Stroke(0.43f, 0.78f, 0.57f, 0.78f, 4.0f);
+            break;
+        case 1:
+        case 7: // Accelerating projectile.
+            for (int32 Trail = 0; Trail < 3; ++Trail)
+            { Stroke(0.12f + Trail * 0.07f, 0.32f + Trail * 0.18f, 0.62f, 0.32f + Trail * 0.18f); }
+            Stroke(0.48f, 0.22f, 0.84f, 0.50f, 4.0f);
+            Stroke(0.84f, 0.50f, 0.48f, 0.78f, 4.0f);
+            break;
+        case 2: // Radial nova.
+            P.Arc(0.50f, 0.50f, 0.16f, 0.16f, 0.0f, TWO_PI, Ink, 3.0f, 24);
+            for (int32 Ray = 0; Ray < 8; ++Ray)
+            {
+                const float Angle = Ray * PI * 0.25f;
+                Stroke(0.50f + 0.24f * FMath::Cos(Angle), 0.50f + 0.24f * FMath::Sin(Angle),
+                    0.50f + 0.40f * FMath::Cos(Angle), 0.50f + 0.40f * FMath::Sin(Angle));
+            }
+            break;
+        case 3: // Electric discharge.
+            Stroke(0.57f, 0.10f, 0.32f, 0.50f, 4.0f);
+            Stroke(0.32f, 0.50f, 0.64f, 0.44f, 4.0f);
+            Stroke(0.64f, 0.44f, 0.43f, 0.89f, 4.0f);
+            Stroke(0.22f, 0.25f, 0.15f, 0.16f, 1.5f);
+            Stroke(0.77f, 0.70f, 0.85f, 0.80f, 1.5f);
+            break;
+        case 4: // Flame silhouette.
+            Stroke(0.48f, 0.12f, 0.32f, 0.42f, 4.0f);
+            Stroke(0.32f, 0.42f, 0.24f, 0.64f, 4.0f);
+            P.Arc(0.50f, 0.62f, 0.26f, 0.25f, 0.0f, PI, Ink, 4.0f, 24);
+            Stroke(0.76f, 0.62f, 0.68f, 0.30f, 4.0f);
+            Stroke(0.68f, 0.30f, 0.53f, 0.47f, 3.0f);
+            Stroke(0.53f, 0.47f, 0.48f, 0.12f, 3.0f);
+            Stroke(0.49f, 0.70f, 0.53f, 0.54f, 5.0f);
+            break;
+        case 5: // Defensive barrier.
+            Stroke(0.18f, 0.24f, 0.50f, 0.13f);
+            Stroke(0.50f, 0.13f, 0.82f, 0.24f);
+            Stroke(0.18f, 0.24f, 0.25f, 0.63f);
+            Stroke(0.82f, 0.24f, 0.75f, 0.63f);
+            Stroke(0.25f, 0.63f, 0.50f, 0.88f);
+            Stroke(0.75f, 0.63f, 0.50f, 0.88f);
+            Stroke(0.50f, 0.28f, 0.50f, 0.63f, 2.0f);
+            Stroke(0.33f, 0.46f, 0.67f, 0.46f, 2.0f);
+            break;
+        case 6: // Singularity spiral.
+            for (int32 Arm = 0; Arm < 3; ++Arm)
+            {
+                for (int32 Step = 0; Step < 18; ++Step)
+                {
+                    const float A0 = Arm * TWO_PI / 3.0f + Step * 0.12f;
+                    const float A1 = A0 + 0.12f;
+                    const float R0 = 0.10f + Step * 0.015f;
+                    const float R1 = R0 + 0.015f;
+                    Stroke(0.50f + R0 * FMath::Cos(A0), 0.50f + R0 * FMath::Sin(A0),
+                        0.50f + R1 * FMath::Cos(A1), 0.50f + R1 * FMath::Sin(A1), 2.0f);
+                }
+            }
+            break;
+        default: break;
         }
-        P.Diamond(0.5f, 0.5f, 0.08f, 0.10f, White, 1.2f);
     }
 
     void Rifle(const FPainter& P)
@@ -311,12 +383,17 @@ namespace ck_combat_hud_art
 
     void Reticle(const FPainter& P, const FLinearColor& Color)
     {
-        P.Line(0.16f, 0.27f, 0.07f, 0.27f, Color, 1.5f);
-        P.Line(0.07f, 0.27f, 0.07f, 0.73f, Color, 1.5f);
-        P.Line(0.07f, 0.73f, 0.16f, 0.73f, Color, 1.5f);
-        P.Line(0.84f, 0.27f, 0.93f, 0.27f, Color, 1.5f);
-        P.Line(0.93f, 0.27f, 0.93f, 0.73f, Color, 1.5f);
-        P.Line(0.93f, 0.73f, 0.84f, 0.73f, Color, 1.5f);
+        const auto Stroke = [&](float Ax, float Ay, float Bx, float By)
+        {
+            P.Line(Ax, Ay, Bx, By, FLinearColor(0.0f, 0.025f, 0.035f, 0.90f), 4.0f);
+            P.Line(Ax, Ay, Bx, By, Color, 1.5f);
+        };
+        Stroke(0.16f, 0.27f, 0.07f, 0.27f);
+        Stroke(0.07f, 0.27f, 0.07f, 0.73f);
+        Stroke(0.07f, 0.73f, 0.16f, 0.73f);
+        Stroke(0.84f, 0.27f, 0.93f, 0.27f);
+        Stroke(0.93f, 0.27f, 0.93f, 0.73f);
+        Stroke(0.93f, 0.73f, 0.84f, 0.73f);
     }
 
     void Grenade(const FPainter& P, const FLinearColor& Color)
@@ -332,36 +409,98 @@ namespace ck_combat_hud_art
 
     void BattlefieldMap(const FPainter& P, const float Value)
     {
-        P.Box(0.0f, 0.0f, 1.0f, 1.0f, FLinearColor(0.06f, 0.09f, 0.11f, 0.70f));
-        for (int32 Row = 0; Row < 7; ++Row)
+        const FLinearColor Ground(0.13f, 0.18f, 0.18f, 0.88f);
+        const FLinearColor Water(0.10f, 0.23f, 0.26f, 0.79f);
+        const FLinearColor Park(0.20f, 0.31f, 0.26f, 0.78f);
+        const FLinearColor Road(0.49f, 0.55f, 0.53f, 0.78f);
+        const FLinearColor Alley(0.30f, 0.36f, 0.35f, 0.73f);
+        P.Box(0.0f, 0.0f, 1.0f, 1.0f, Ground);
+        P.Box(0.00f, 0.00f, 0.30f, 0.23f, Water);
+        P.Box(0.00f, 0.20f, 0.21f, 0.17f, Water);
+        P.Box(0.00f, 0.34f, 0.12f, 0.17f, Water);
+        P.Box(0.62f, 0.02f, 0.32f, 0.17f, Park);
+        P.Box(0.72f, 0.16f, 0.25f, 0.12f, Park);
+        P.Box(0.04f, 0.75f, 0.23f, 0.20f, Park);
+        P.Line(0.09f, 0.00f, 0.34f, 0.28f, Road, 9.0f);
+        P.Line(0.34f, 0.28f, 0.59f, 0.48f, Road, 9.0f);
+        P.Line(0.59f, 0.48f, 1.00f, 0.69f, Road, 9.0f);
+        P.Line(0.25f, 0.00f, 0.36f, 0.45f, Road, 6.0f);
+        P.Line(0.36f, 0.45f, 0.30f, 1.00f, Road, 6.0f);
+        P.Line(0.00f, 0.58f, 0.38f, 0.55f, Road, 8.0f);
+        P.Line(0.38f, 0.55f, 0.76f, 0.44f, Road, 8.0f);
+        P.Line(0.76f, 0.44f, 1.00f, 0.33f, Road, 8.0f);
+        P.Line(0.63f, 0.00f, 0.57f, 0.44f, Road, 5.0f);
+        P.Line(0.57f, 0.44f, 0.72f, 1.00f, Road, 5.0f);
+        P.Line(0.00f, 0.84f, 0.32f, 0.74f, Alley, 4.0f);
+        P.Line(0.32f, 0.74f, 0.67f, 0.83f, Alley, 4.0f);
+        P.Line(0.67f, 0.83f, 1.00f, 0.89f, Alley, 4.0f);
+        P.Line(0.47f, 0.12f, 0.91f, 0.31f, Alley, 3.0f);
+        P.Line(0.14f, 0.41f, 0.54f, 0.34f, Alley, 3.0f);
+        struct FBlock { float X; float Y; float W; float H; };
+        constexpr FBlock Blocks[] = {
+            {0.38f, 0.08f, 0.08f, 0.09f}, {0.49f, 0.08f, 0.07f, 0.13f},
+            {0.72f, 0.31f, 0.07f, 0.08f}, {0.83f, 0.38f, 0.11f, 0.08f},
+            {0.44f, 0.27f, 0.07f, 0.06f}, {0.15f, 0.40f, 0.12f, 0.07f},
+            {0.42f, 0.62f, 0.11f, 0.08f}, {0.53f, 0.72f, 0.08f, 0.07f},
+            {0.80f, 0.58f, 0.10f, 0.08f}, {0.80f, 0.74f, 0.08f, 0.06f},
+            {0.40f, 0.88f, 0.12f, 0.06f}, {0.11f, 0.63f, 0.10f, 0.07f}
+        };
+        for (const FBlock& Block : Blocks)
         {
-            for (int32 Column = 0; Column < 7; ++Column)
-            {
-                const float X = 0.04f + Column * 0.135f;
-                const float Y = 0.03f + Row * 0.137f;
-                const float Shade = 0.17f + 0.035f * ((Row * 7 + Column * 3) % 5);
-                P.Box(X, Y, 0.10f, 0.085f, FLinearColor(Shade, Shade, Shade, 0.57f));
-            }
+            P.Box(Block.X, Block.Y, Block.W, Block.H, FLinearColor(0.07f, 0.11f, 0.12f, 0.86f));
+            P.Line(Block.X, Block.Y, Block.X + Block.W, Block.Y,
+                FLinearColor(0.67f, 0.70f, 0.65f, 0.42f), 1.0f);
         }
-        for (int32 Index = 1; Index < 7; ++Index)
-        {
-            const float Offset = Index / 7.0f;
-            P.Line(Offset, 0.0f, Offset, 1.0f, FLinearColor(0.36f, 0.39f, 0.40f, 0.40f), 1.0f);
-            P.Line(0.0f, Offset, 1.0f, Offset, FLinearColor(0.36f, 0.39f, 0.40f, 0.40f), 1.0f);
-        }
-        P.Line(0.0f, 0.0f, 1.0f, 0.0f, Blue, 1.4f);
-        P.Line(1.0f, 0.0f, 1.0f, 1.0f, Blue, 1.4f);
-        P.Line(1.0f, 1.0f, 0.0f, 1.0f, Blue, 1.4f);
-        P.Line(0.0f, 1.0f, 0.0f, 0.0f, Blue, 1.4f);
+        P.Line(0.02f, 0.02f, 0.98f, 0.02f, Blue, 1.5f);
+        P.Line(0.98f, 0.02f, 0.98f, 0.98f, Blue, 1.5f);
+        P.Line(0.98f, 0.98f, 0.02f, 0.98f, Blue, 1.5f);
+        P.Line(0.02f, 0.98f, 0.02f, 0.02f, Blue, 1.5f);
         const float Phase = Value * 2.0f * PI;
-        P.Diamond(0.20f, 0.22f, 0.036f, 0.036f, Blue, 2.0f);
-        P.Diamond(0.78f, 0.73f, 0.036f, 0.036f, Amber, 2.0f);
-        P.Box(0.65f + 0.08f * FMath::Cos(Phase), 0.31f + 0.07f * FMath::Sin(Phase),
-            0.028f, 0.028f, Red);
-        P.Box(0.30f, 0.70f, 0.027f, 0.027f, FLinearColor(0.20f, 1.0f, 0.40f));
+        P.Diamond(0.22f, 0.56f, 0.038f, 0.038f, Blue, 2.2f);
+        P.Diamond(0.79f, 0.47f, 0.038f, 0.038f, Amber, 2.2f);
+        P.Diamond(0.46f, 0.78f, 0.027f, 0.027f, Blue, 1.8f);
+        P.Box(0.66f + 0.07f * FMath::Cos(Phase), 0.29f + 0.07f * FMath::Sin(Phase),
+            0.024f, 0.024f, Amber);
+        P.Box(0.31f, 0.68f, 0.025f, 0.025f, FLinearColor(0.53f, 0.96f, 0.48f));
+        P.Box(0.35f, 0.71f, 0.016f, 0.016f, FLinearColor(0.53f, 0.96f, 0.48f));
         P.Line(0.50f, 0.44f, 0.56f, 0.57f, White, 2.0f);
         P.Line(0.56f, 0.57f, 0.50f, 0.53f, White, 2.0f);
         P.Line(0.50f, 0.53f, 0.50f, 0.44f, White, 2.0f);
+    }
+
+    void BattlefieldKit(const FPainter& P, const int32 Variant)
+    {
+        const FLinearColor Squad(0.55f, 0.91f, 0.49f);
+        P.Box(0.05f, 0.05f, 0.90f, 0.90f, FLinearColor(0.02f, 0.08f, 0.05f, 0.72f));
+        P.Line(0.08f, 0.08f, 0.92f, 0.08f, Squad, 1.0f);
+        P.Line(0.08f, 0.92f, 0.92f, 0.92f, Squad, 1.0f);
+        switch (Variant)
+        {
+        case 0:
+            P.Line(0.20f, 0.35f, 0.50f, 0.67f, Squad, 2.0f);
+            P.Line(0.50f, 0.67f, 0.80f, 0.35f, Squad, 2.0f);
+            P.Line(0.20f, 0.53f, 0.50f, 0.85f, Squad, 2.0f);
+            P.Line(0.50f, 0.85f, 0.80f, 0.53f, Squad, 2.0f);
+            break;
+        case 1:
+            P.Box(0.42f, 0.22f, 0.16f, 0.56f, Squad);
+            P.Box(0.22f, 0.42f, 0.56f, 0.16f, Squad);
+            break;
+        case 2:
+            P.Box(0.27f, 0.24f, 0.46f, 0.52f, Squad);
+            P.Box(0.32f, 0.29f, 0.36f, 0.42f, FLinearColor(0.02f, 0.08f, 0.05f));
+            P.Line(0.36f, 0.43f, 0.64f, 0.43f, Squad, 1.6f);
+            P.Line(0.36f, 0.57f, 0.64f, 0.57f, Squad, 1.6f);
+            break;
+        case 3:
+            P.Arc(0.50f, 0.50f, 0.27f, 0.27f, 0.0f, TWO_PI, Squad, 1.5f, 24);
+            P.Line(0.50f, 0.14f, 0.50f, 0.40f, Squad, 1.5f);
+            P.Line(0.50f, 0.60f, 0.50f, 0.86f, Squad, 1.5f);
+            P.Line(0.14f, 0.50f, 0.40f, 0.50f, Squad, 1.5f);
+            P.Line(0.60f, 0.50f, 0.86f, 0.50f, Squad, 1.5f);
+            break;
+        default: break;
+        }
     }
 
     void Compass(const FPainter& P, const float Value)
@@ -393,8 +532,14 @@ namespace ck_combat_hud_art
         P.Line(0.99f, 0.51f, 0.95f, 0.72f, Metal, 1.4f);
         P.Line(0.08f, 0.35f, 0.92f, 0.35f, FLinearColor(0.22f, 0.22f, 0.23f), 1.0f);
         P.Line(0.08f, 0.67f, 0.92f, 0.67f, FLinearColor(0.22f, 0.22f, 0.23f), 1.0f);
-        P.Line(0.5f - 0.43f * Value, 0.51f, 0.5f, 0.51f, Fill, 4.0f);
-        P.Line(0.5f, 0.51f, 0.5f + 0.43f * Value, 0.51f, Fill, 4.0f);
+        P.Line(0.5f - 0.43f * Value, 0.51f, 0.5f + 0.43f * Value, 0.51f,
+            Fill * FLinearColor(0.43f, 0.43f, 0.43f, 1.0f), 6.0f);
+        P.Line(0.5f - 0.43f * Value, 0.47f, 0.5f + 0.43f * Value, 0.47f, Fill, 2.0f);
+        for (const float End : {0.035f, 0.965f})
+        {
+            P.Diamond(End, 0.51f, 0.019f, 0.23f, Metal, 1.0f);
+            P.Diamond(End, 0.51f, 0.009f, 0.12f, FLinearColor(0.79f, 0.80f, 0.76f), 0.8f);
+        }
         P.Diamond(0.5f, 0.51f, 0.010f, 0.27f, White, 1.1f);
     }
 
@@ -437,6 +582,8 @@ void SCkCombatHudReplicaArt::Configure(const ECkCombatHudReplicaPiece InPiece, c
     _Variant = InVariant;
     _Value = MoveTemp(InValue);
     _OpacityBinding = MoveTemp(InOpacity);
+    SetClipping(InPiece == ECkCombatHudReplicaPiece::BfMap
+        ? EWidgetClipping::ClipToBounds : EWidgetClipping::Inherit);
     Invalidate(EInvalidateWidgetReason::Layout | EInvalidateWidgetReason::Paint);
 }
 
@@ -488,6 +635,7 @@ auto SCkCombatHudReplicaArt::ComputeDesiredSize(float) const -> FVector2D
     case ECkCombatHudReplicaPiece::BfMap: return FVector2D(210.0f, 210.0f);
     case ECkCombatHudReplicaPiece::BfObjective: return FVector2D(28.0f, 28.0f);
     case ECkCombatHudReplicaPiece::BfGrenade: return FVector2D(28.0f, 28.0f);
+    case ECkCombatHudReplicaPiece::BfKit: return FVector2D(26.0f, 26.0f);
     case ECkCombatHudReplicaPiece::SkCompass: return FVector2D(600.0f, 28.0f);
     case ECkCombatHudReplicaPiece::SkMeter: return FVector2D(450.0f, 20.0f);
     case ECkCombatHudReplicaPiece::SkEye: return FVector2D(48.0f, 24.0f);
@@ -515,17 +663,30 @@ auto SCkCombatHudReplicaArt::OnPaint(const FPaintArgs&, const FGeometry& InGeome
     case ECkCombatHudReplicaPiece::MeReticle: Reticle(P, Blue); break;
     case ECkCombatHudReplicaPiece::MeGrenade: Grenade(P, Blue); break;
     case ECkCombatHudReplicaPiece::Crosshair:
-        P.Line(0.5f, 0.04f, 0.5f, 0.34f, White, 1.1f);
-        P.Line(0.5f, 0.66f, 0.5f, 0.96f, White, 1.1f);
-        P.Line(0.04f, 0.5f, 0.34f, 0.5f, White, 1.1f);
-        P.Line(0.66f, 0.5f, 0.96f, 0.5f, White, 1.1f);
+        for (const float Thickness : {3.2f, 1.3f})
+        {
+            const FLinearColor Color = Thickness > 2.0f
+                ? FLinearColor(0.01f, 0.04f, 0.05f, 0.92f) : White;
+            P.Line(0.5f, 0.04f, 0.5f, 0.34f, Color, Thickness);
+            P.Line(0.5f, 0.66f, 0.5f, 0.96f, Color, Thickness);
+            P.Line(0.04f, 0.5f, 0.34f, 0.5f, Color, Thickness);
+            P.Line(0.66f, 0.5f, 0.96f, 0.5f, Color, Thickness);
+        }
         break;
     case ECkCombatHudReplicaPiece::BfMap: BattlefieldMap(P, _Displayed); break;
     case ECkCombatHudReplicaPiece::BfObjective:
-        P.Diamond(0.5f, 0.5f, 0.37f, 0.37f, _Variant % 2 == 0 ? Blue : Amber, 2.0f);
-        P.Arc(0.5f, 0.5f, 0.12f, 0.17f, 0.25f * PI, 1.75f * PI, White, 1.4f, 16);
+        P.Diamond(0.5f, 0.44f, 0.33f, 0.33f, FLinearColor(0.01f, 0.05f, 0.07f, 0.90f), 5.0f);
+        P.Diamond(0.5f, 0.44f, 0.33f, 0.33f, _Variant % 2 == 0 ? Blue : Amber, 2.4f);
+        P.Arc(0.5f, 0.44f, 0.11f, 0.17f, 0.25f * PI, 1.75f * PI, White, 1.8f, 24);
+        P.Line(0.50f, 0.77f, 0.50f, 0.96f, White, 1.5f);
         break;
-    case ECkCombatHudReplicaPiece::BfGrenade: Grenade(P, White); break;
+    case ECkCombatHudReplicaPiece::BfGrenade:
+        P.Box(0.37f, 0.34f, 0.28f, 0.51f, FLinearColor(0.02f, 0.05f, 0.05f, 0.75f));
+        Grenade(P, White);
+        P.Line(0.35f, 0.53f, 0.66f, 0.53f, White, 1.0f);
+        P.Arc(0.69f, 0.22f, 0.13f, 0.09f, 0.0f, PI, White, 1.4f, 12);
+        break;
+    case ECkCombatHudReplicaPiece::BfKit: BattlefieldKit(P, _Variant); break;
     case ECkCombatHudReplicaPiece::SkCompass: Compass(P, _Displayed); break;
     case ECkCombatHudReplicaPiece::SkMeter: SkyrimMeter(P, _Displayed, _Variant); break;
     case ECkCombatHudReplicaPiece::SkEye: Eye(P, _Displayed); break;

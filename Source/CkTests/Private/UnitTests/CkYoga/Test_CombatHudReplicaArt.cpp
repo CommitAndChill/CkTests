@@ -104,7 +104,7 @@ auto FCkCombatHudReplicaArtNative::RunTest(const FString&) -> bool
 
     const TCHAR* Pieces[] = { TEXT("me-shield"), TEXT("me-health"), TEXT("me-cooldown"),
         TEXT("me-power"), TEXT("me-rifle"), TEXT("me-reticle"), TEXT("me-grenade"),
-        TEXT("crosshair"), TEXT("bf-map"), TEXT("bf-objective"), TEXT("bf-grenade"),
+        TEXT("crosshair"), TEXT("bf-map"), TEXT("bf-objective"), TEXT("bf-grenade"), TEXT("bf-kit"),
         TEXT("sk-compass"), TEXT("sk-meter"), TEXT("sk-eye"), TEXT("damage") };
     for (const TCHAR* Piece : Pieces)
     {

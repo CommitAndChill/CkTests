@@ -332,6 +332,8 @@ auto FCkCombatHudProofModel::Advance(float InDeltaSeconds) -> bool
 
 auto FCkCombatHudProofModel::Get_Visible(const FString& InName) const -> bool
 {
+    if (InName == TEXT("ObjectiveFriendly")) { return _Theme == ECk_CombatHudProof_Theme::Tactical && _ObjectiveCaptured; }
+    if (InName == TEXT("ObjectiveHostile")) { return _Theme == ECk_CombatHudProof_Theme::Tactical && !_ObjectiveCaptured; }
     if (InName == TEXT("ShowReload")) { return _State.Get_Reloading(); }
     if (InName == TEXT("ShowDamage")) { return _State.Get_DamageOpacity() > 0.0f; }
     if (InName == TEXT("ShowLowHealth")) { return _State.Get_Health() <= 20.0f; }
@@ -367,7 +369,7 @@ auto FCkCombatHudProofModel::PopulateBindings(FCkUiView::FDataBindings& InOutDat
         InOutData.Text.Add(Key, TAttribute<FText>::CreateLambda([Weak, Key]()
         { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->Get_Text(Key) : FText::GetEmpty(); }));
     }
-    for (const auto* Name : {TEXT("ShowReload"), TEXT("ShowDamage"), TEXT("ShowLowHealth"),
+    for (const auto* Name : {TEXT("ObjectiveFriendly"), TEXT("ObjectiveHostile"), TEXT("ShowReload"), TEXT("ShowDamage"), TEXT("ShowLowHealth"),
         TEXT("ShowTarget"), TEXT("ShowSneak"), TEXT("ShowArrows"), TEXT("ShowInteraction"),
         TEXT("ShowKillFeed"), TEXT("ShowCapture"), TEXT("ShowObjective"), TEXT("ShowNoAmmo")})
     {
