@@ -11,6 +11,7 @@
 #include "CkEcsExt/Transform/CkTransform_Fragment.h"
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 #include "CkPoi/CkPoi_Utils.h"
+#include "CkPoi/CkPoi_Fragment.h"
 #include "CkPoiDisplayDefinition/CkPoiDisplayDefinition_Utils.h"
 #include "CkPmg/CkPmg_Utils_BasicShapes.h"
 #include "CkPmg/CkPmg_Fragment.h"
@@ -44,6 +45,15 @@ namespace ck_compass_catalog_test
         TArray<FCkCompassGym_SourceRow> PingRows;
         FString PingFailure;
         TArray<FCkCompassGym_SourceReceipt> Receipts;
+        TArray<FCkCompassGym_SourceReceipt> OriginalNine;
+        TArray<FCkCompassGym_SourceReceipt> StagedStress;
+        TArray<FCkCompassGym_SourceReceipt> RetiringStress;
+        TArray<FCkCompassGym_SourceRow> PhaseActiveRows;
+        TArray<FCkCompassGym_SourceRow> PhaseStagedRows;
+        FString PhaseFailure;
+        ECkCompassGym_CatalogOutcome PhaseOutcome =
+            ECkCompassGym_CatalogOutcome::Pending;
+        FCk_Handle UnexpectedStressChild;
         TWeakObjectPtr<AGameStateBase> GameState;
         FCk_Handle_PoiDisplayDefinition WaypointDisplay;
         ECkCompassGym_CatalogOutcome LastOutcome = ECkCompassGym_CatalogOutcome::Pending;
@@ -122,6 +132,40 @@ namespace ck_compass_catalog_test
         return true;
     }
 
+    auto StageStress(FRun& Run) -> bool
+    {
+        const auto Category = Tag(TEXT("Poi.Category.Stress"));
+        if (!Category.IsValid() || Run.Receipts.Num() != 9 ||
+            !Run.StagedStress.IsEmpty()) { return false; }
+        Run.StagedStress.Reserve(500);
+        for (int32 Index = 0; Index < 500; ++Index)
+        {
+            FCkCompassGym_SourceReceipt Receipt;
+            Receipt.CatalogId = 10000 + Index;
+            Receipt.Kind = ECkCompassGym_SourceKind::Stress;
+            Receipt.ExpectedCategory = Category;
+            Receipt.Host = UCk_Utils_EntityLifetime_UE::
+                Request_CreateEntity(Run.SourceRoot);
+            // Capture the raw first return before subsequent composition.
+            Run.StagedStress.Add(Receipt);
+            if (!Allocated(Receipt.Host)) { return false; }
+            UCk_Utils_Transform_UE::Add(Receipt.Host,
+                FTransform(FRotator::ZeroRotator,
+                    FVector(10.0 * Index, 5000.0, 100.0)),
+                ECk_Replication::DoesNotReplicate);
+            if (!Receipt.Host.Has<ck::FFragment_Transform>() ||
+                Receipt.Host.Has<ck::FTag_Poi>() ||
+                !Receipt.Host.Has<ck::FFragment_LifetimeOwner>() ||
+                Receipt.Host.Get<ck::FFragment_LifetimeOwner>()
+                    .Get_Entity() != Run.SourceRoot)
+            { return false; }
+            const auto Tagged = UCk_Utils_EntityTag_UE::
+                Add_UsingGameplayTag(Receipt.Host, Category);
+            if (!Allocated(Tagged)) { return false; }
+        }
+        return Run.StagedStress.Num() == 500;
+    }
+
     auto Read(UWorld* World, const FRun& Run,
         const TArray<FCkCompassGym_SourceReceipt>& Receipts,
         bool CompositionComplete, TArray<FCkCompassGym_SourceRow>& OutRows,
@@ -130,6 +174,27 @@ namespace ck_compass_catalog_test
         return UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
             World, Run.GameState.Get(), Run.SourceRoot,
             CompositionComplete, Receipts, OutRows, OutFailure);
+    }
+
+    auto ReadTransaction(UWorld* World, const FRun& Run,
+        const TArray<FCkCompassGym_SourceReceipt>& Active,
+        const TArray<FCkCompassGym_SourceReceipt>& Staged,
+        const TArray<FCkCompassGym_SourceReceipt>& Retiring,
+        bool CompositionComplete,
+        TArray<FCkCompassGym_SourceRow>& OutActive,
+        TArray<FCkCompassGym_SourceRow>& OutStaged,
+        FString& OutFailure) -> ECkCompassGym_CatalogOutcome
+    {
+        return UCkCompassGym_SourceCatalog::TryGet_SourceCatalogTransaction(
+            World, Run.GameState.Get(), Run.SourceRoot, CompositionComplete,
+            Active, Staged, Retiring, OutActive, OutStaged, OutFailure);
+    }
+
+    auto DirectChildren(const FCk_Handle& Parent, const FCk_Handle& WorldRoot,
+        TArray<FCk_Handle>& Out) -> bool
+    {
+        return UCk_EntityScriptGym_Spawn_Runtime_UE::
+            TryGet_AllocatedDirectLifetimeDependents(Parent, WorldRoot, Out);
     }
 }
 
@@ -274,6 +339,352 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
                     Row.Marker.Segments == 12 && Row.Marker.Rings == 12 &&
                     Row.Marker.Lines.Num() == 96);
             }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->LastOutcome != ECkCompassGym_CatalogOutcome::Complete ||
+                Run->LastRows.Num() != 9) { return; }
+            Run->OriginalNine = Run->Receipts;
+            if (!TestTrue(TEXT("500 stress hosts retained before phase observation"),
+                StageStress(*Run))) { return; }
+            TArray<FCkCompassGym_SourceRow> Active, Staged;
+            Active.AddDefaulted();
+            Staged.AddDefaulted();
+            FString Failure;
+            const auto Pending = ReadTransaction(World, *Run, Run->Receipts,
+                Run->StagedStress, {}, false, Active, Staged, Failure);
+            TestTrue(TEXT("staging composition Pending publishes neither active nor staged prefix"),
+                Pending == ECkCompassGym_CatalogOutcome::Pending &&
+                Active.IsEmpty() && Staged.IsEmpty());
+            Active.AddDefaulted();
+            Staged.AddDefaulted();
+            Failure.Reset();
+            const auto Deferred = ReadTransaction(World, *Run, Run->Receipts,
+                Run->StagedStress, {}, true, Active, Staged, Failure);
+            TestTrue(TEXT("deferred stress category Pending publishes no prefix"),
+                Deferred == ECkCompassGym_CatalogOutcome::Pending &&
+                Active.IsEmpty() && Staged.IsEmpty());
+            Active.AddDefaulted();
+            Failure.Reset();
+            const auto Strict = Read(World, *Run, Run->Receipts,
+                true, Active, Failure);
+            TestTrue(TEXT("legacy strict catalog rejects 500 unclaimed staged hosts"),
+                Strict == ECkCompassGym_CatalogOutcome::Invalid &&
+                Active.IsEmpty() && !Failure.IsEmpty());
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            if (Run->StagedStress.Num() != 500) { return true; }
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            Run->PhaseActiveRows.AddDefaulted();
+            Run->PhaseStagedRows.AddDefaulted();
+            Run->PhaseOutcome = ReadTransaction(World, *Run,
+                Run->Receipts, Run->StagedStress, {}, true,
+                Run->PhaseActiveRows, Run->PhaseStagedRows,
+                Run->PhaseFailure);
+            return Run->PhaseOutcome != ECkCompassGym_CatalogOutcome::Pending;
+        }), 60.0, TEXT("500 deferred EntityTag categories materialized for staged proof")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("staged phase proves exactly 9 active and 500 stress rows"),
+                Run->PhaseOutcome == ECkCompassGym_CatalogOutcome::Complete &&
+                Run->PhaseActiveRows.Num() == 9 &&
+                Run->PhaseStagedRows.Num() == 500 &&
+                Run->OriginalNine.Num() == 9 &&
+                Run->StagedStress.Num() == 500)) { return; }
+            bool StableNine = Run->Receipts.Num() == 9;
+            for (int32 Index = 0; Index < 9 && StableNine; ++Index)
+            {
+                StableNine = Run->Receipts[Index].CatalogId ==
+                    Run->OriginalNine[Index].CatalogId &&
+                    Run->Receipts[Index].Host == Run->OriginalNine[Index].Host &&
+                    Run->Receipts[Index].Marker ==
+                        Run->OriginalNine[Index].Marker;
+            }
+            TestTrue(TEXT("original nine IDs and retained handles did not change"),
+                StableNine);
+            const auto StressTag = Tag(TEXT("Poi.Category.Stress"));
+            bool AllStaged = true;
+            for (int32 Index = 0; Index < 500 && AllStaged; ++Index)
+            {
+                const auto& Receipt = Run->StagedStress[Index];
+                const auto& Row = Run->PhaseStagedRows[Index];
+                AllStaged = Allocated(Receipt.Host) &&
+                    Receipt.CatalogId == 10000 + Index &&
+                    !Receipt.Host.Has<ck::FTag_Poi>() &&
+                    UCk_Utils_EntityTag_UE::Get_AllTagsAsContainer(
+                        Receipt.Host).HasTagExact(StressTag) &&
+                    Row.CatalogId == Receipt.CatalogId &&
+                    Row.Kind == ECkCompassGym_SourceKind::Stress &&
+                    Row.Category == StressTag && !Row.HasMarker &&
+                    !Row.HasDisplay;
+            }
+            TestTrue(TEXT("staged rows match all 500 real, unexposed stress hosts"),
+                AllStaged);
+            if (AllStaged)
+            {
+                for (auto& Receipt : Run->StagedStress)
+                { Receipt.Admitted = true; }
+            }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->PhaseOutcome != ECkCompassGym_CatalogOutcome::Complete ||
+                Run->StagedStress.Num() != 500) { return; }
+            auto RejectPhase = [this, World, Run](
+                const TCHAR* Label,
+                const TArray<FCkCompassGym_SourceReceipt>& Active,
+                const TArray<FCkCompassGym_SourceReceipt>& Staged,
+                const TArray<FCkCompassGym_SourceReceipt>& Retiring)
+            {
+                for (const bool Complete : {true, false})
+                {
+                    TArray<FCk_Handle> BeforeRoot, AfterRoot;
+                    TArray<FCk_Handle> BeforeChild, AfterChild;
+                    const bool Before = DirectChildren(Run->SourceRoot,
+                        Run->WorldRoot, BeforeRoot) &&
+                        DirectChildren(Run->StagedStress[0].Host,
+                            Run->WorldRoot, BeforeChild);
+                    TArray<FCkCompassGym_SourceRow> ActiveRows, StagedRows;
+                    ActiveRows.AddDefaulted();
+                    StagedRows.AddDefaulted();
+                    FString Failure;
+                    const auto Outcome = ReadTransaction(World, *Run,
+                        Active, Staged, Retiring, Complete,
+                        ActiveRows, StagedRows, Failure);
+                    const bool After = DirectChildren(Run->SourceRoot,
+                        Run->WorldRoot, AfterRoot) &&
+                        DirectChildren(Run->StagedStress[0].Host,
+                            Run->WorldRoot, AfterChild);
+                    bool SetsUnchanged =
+                        BeforeRoot.Num() == AfterRoot.Num() &&
+                        BeforeChild.Num() == AfterChild.Num();
+                    for (const auto& Child : BeforeRoot)
+                    { if (!AfterRoot.Contains(Child)) { SetsUnchanged = false; break; } }
+                    for (const auto& Child : BeforeChild)
+                    { if (!AfterChild.Contains(Child)) { SetsUnchanged = false; break; } }
+                    const auto StressTag = Tag(TEXT("Poi.Category.Stress"));
+                    bool TagsUnchanged = true;
+                    for (const auto& Receipt : Run->StagedStress)
+                    {
+                        if (!Allocated(Receipt.Host) ||
+                            Receipt.Host.Has<ck::FTag_Poi>() ||
+                            !UCk_Utils_EntityTag_UE::Get_AllTagsAsContainer(
+                                Receipt.Host).HasTagExact(StressTag))
+                        { TagsUnchanged = false; break; }
+                    }
+                    const FString CaseName = FString::Printf(TEXT("%s (%s)"),
+                        Label, Complete ? TEXT("complete") : TEXT("composing"));
+                    TestTrue(CaseName,
+                        Before && After &&
+                        Outcome == ECkCompassGym_CatalogOutcome::Invalid &&
+                        ActiveRows.IsEmpty() && StagedRows.IsEmpty() &&
+                        !Failure.IsEmpty() &&
+                        SetsUnchanged && TagsUnchanged);
+                }
+            };
+            auto Bad = Run->StagedStress;
+            Bad.Pop();
+            RejectPhase(TEXT("partial staged ledger rejects without mutation"),
+                Run->Receipts, Bad, {});
+            Bad = Run->StagedStress;
+            Bad[1].CatalogId = Bad[0].CatalogId;
+            RejectPhase(TEXT("duplicate staged ID rejects without mutation"),
+                Run->Receipts, Bad, {});
+            Bad = Run->StagedStress;
+            Bad[1].Host = Bad[0].Host;
+            RejectPhase(TEXT("duplicate staged handle rejects without mutation"),
+                Run->Receipts, Bad, {});
+            Bad = Run->StagedStress;
+            Bad[0].Host = Run->WorldRoot;
+            RejectPhase(TEXT("foreign staged handle rejects without mutation"),
+                Run->Receipts, Bad, {});
+            Bad = Run->StagedStress;
+            Bad[0].Host = Run->Receipts[0].Host;
+            RejectPhase(TEXT("active/staged handle alias rejects without mutation"),
+                Run->Receipts, Bad, {});
+            RejectPhase(TEXT("aliased staged and retiring ledgers reject"),
+                Run->Receipts, Run->StagedStress, Run->StagedStress);
+            TArray<FCkCompassGym_SourceRow> AliasedOutput;
+            AliasedOutput.AddDefaulted();
+            FString AliasFailure;
+            const auto AliasOutcome = ReadTransaction(World, *Run,
+                Run->Receipts, Run->StagedStress, {}, true,
+                AliasedOutput, AliasedOutput, AliasFailure);
+            TestTrue(TEXT("same output array rejects a valid 9+500 source atomically"),
+                AliasOutcome == ECkCompassGym_CatalogOutcome::Invalid &&
+                AliasedOutput.IsEmpty() &&
+                AliasFailure.Contains(TEXT("outputs alias")));
+            Run->UnexpectedStressChild =
+                UCk_Utils_EntityLifetime_UE::Request_CreateEntity(
+                    Run->StagedStress[0].Host);
+            if (TestTrue(TEXT("real unexpected staged child allocated"),
+                Allocated(Run->UnexpectedStressChild)))
+            {
+                RejectPhase(TEXT("unexpected staged child rejects without mutation"),
+                    Run->Receipts, Run->StagedStress, {});
+                UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(
+                    Run->UnexpectedStressChild);
+            }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        { return !Allocated(Run->UnexpectedStressChild); }),
+        30.0, TEXT("unexpected staged dependent physically removed")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->PhaseOutcome != ECkCompassGym_CatalogOutcome::Complete ||
+                Run->StagedStress.Num() != 500) { return; }
+            TArray<FCkCompassGym_SourceRow> Active, Staged;
+            FString Failure;
+            const auto Restored = ReadTransaction(World, *Run,
+                Run->Receipts, Run->StagedStress, {}, true,
+                Active, Staged, Failure);
+            if (!TestTrue(TEXT("staged 9+500 proof restored after child removal"),
+                Restored == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9 && Staged.Num() == 500)) { return; }
+            // Fixture membership preparation uses the same FCk_Handle primitive
+            // as Poi::Add. This test does not claim an ordered commit scheduler.
+            for (auto& Receipt : Run->StagedStress)
+            {
+                if (!TestTrue(TEXT("stress host remains unexposed before admission"),
+                    Allocated(Receipt.Host) &&
+                    !Receipt.Host.Has<ck::FTag_Poi>())) { return; }
+                Receipt.Host.Add<ck::FTag_Poi>();
+            }
+            Run->Receipts.Append(Run->StagedStress);
+            Run->StagedStress.Reset();
+            Active.Reset();
+            Staged.Reset();
+            Failure.Reset();
+            const auto ActiveOutcome = ReadTransaction(World, *Run,
+                Run->Receipts, {}, {}, true, Active, Staged, Failure);
+            TestTrue(TEXT("admitted real 500 stress tags yield complete 509 active rows"),
+                ActiveOutcome == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 509 && Staged.IsEmpty());
+            Active.AddDefaulted();
+            Failure.Reset();
+            const auto Strict = Read(World, *Run, Run->Receipts,
+                true, Active, Failure);
+            TestTrue(TEXT("legacy strict catalog independently accepts 509 active rows"),
+                Strict == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 509);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->Receipts.Num() != 509) { return; }
+            const auto StressTag = Tag(TEXT("Poi.Category.Stress"));
+            Run->RetiringStress.Reserve(500);
+            for (int32 Index = 9; Index < 509; ++Index)
+            {
+                auto Receipt = Run->Receipts[Index];
+                if (!TestTrue(TEXT("retiring stress host allocated before tag withdrawal"),
+                    Allocated(Receipt.Host) &&
+                    Receipt.Host.Has<ck::FTag_Poi>())) { return; }
+                Receipt.Host.Try_Remove<ck::FTag_Poi>();
+                UCk_Utils_EntityTag_UE::Request_TryRemove_UsingGameplayTag(
+                    Receipt.Host, StressTag, {});
+                Run->RetiringStress.Add(Receipt);
+            }
+            Run->Receipts.SetNum(9);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            if (Run->RetiringStress.Num() != 500) { return true; }
+            const auto StressTag = Tag(TEXT("Poi.Category.Stress"));
+            for (const auto& Receipt : Run->RetiringStress)
+            {
+                if (!Allocated(Receipt.Host) ||
+                    Receipt.Host.Has<ck::FTag_Poi>() ||
+                    UCk_Utils_EntityTag_UE::Get_AllTagsAsContainer(
+                        Receipt.Host).HasTagExact(StressTag))
+                { return false; }
+            }
+            return true;
+        }), 60.0, TEXT("real deferred stress category withdrawals materialized")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->RetiringStress.Num() != 500) { return; }
+            TArray<FCkCompassGym_SourceRow> Active, Staged;
+            Active.AddDefaulted();
+            Staged.AddDefaulted();
+            FString Failure;
+            const auto Retiring = ReadTransaction(World, *Run,
+                Run->Receipts, {}, Run->RetiringStress,
+                true, Active, Staged, Failure);
+            TestTrue(TEXT("withdrawn 500 allocated retirees expose only original nine"),
+                Retiring == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9 && Staged.IsEmpty());
+            for (auto& Receipt : Run->RetiringStress)
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Receipt.Host); }
+            Active.AddDefaulted();
+            Staged.AddDefaulted();
+            Failure.Reset();
+            const auto Initiated = ReadTransaction(World, *Run,
+                Run->Receipts, {}, Run->RetiringStress,
+                true, Active, Staged, Failure);
+            TestTrue(TEXT("all 500 initiated pending-kill retirees remain accounted"),
+                Initiated == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9 && Staged.IsEmpty());
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            if (Run->RetiringStress.Num() != 500) { return true; }
+            for (const auto& Receipt : Run->RetiringStress)
+            { if (Allocated(Receipt.Host)) { return false; } }
+            return true;
+        }), 60.0, TEXT("all 500 retiring stress hosts physically deallocated")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->RetiringStress.Num() != 500) { return; }
+            TArray<FCkCompassGym_SourceRow> Active, Staged;
+            FString Failure;
+            const auto Retired = ReadTransaction(World, *Run,
+                Run->Receipts, {}, Run->RetiringStress,
+                true, Active, Staged, Failure);
+            TestTrue(TEXT("frozen 500 physically absent receipts still prove nine"),
+                Retired == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9 && Staged.IsEmpty());
+            Active.AddDefaulted();
+            Failure.Reset();
+            const auto Strict = Read(World, *Run, Run->Receipts,
+                true, Active, Failure);
+            TestTrue(TEXT("legacy strict nine restored after real retirement"),
+                Strict == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9);
+            bool StableNine = Run->OriginalNine.Num() == 9 &&
+                Run->Receipts.Num() == 9;
+            for (int32 Index = 0; Index < 9 && StableNine; ++Index)
+            {
+                StableNine = Run->Receipts[Index].CatalogId ==
+                    Run->OriginalNine[Index].CatalogId &&
+                    Run->Receipts[Index].Host ==
+                        Run->OriginalNine[Index].Host &&
+                    Run->Receipts[Index].Marker ==
+                        Run->OriginalNine[Index].Marker;
+            }
+            TestTrue(TEXT("original nine retained identities survive stress cycle"),
+                StableNine);
+            Run->RetiringStress.Reset();
+            Run->StagedStress.Reset();
+            Run->PhaseActiveRows.Reset();
+            Run->PhaseStagedRows.Reset();
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->Receipts.Num() != 9) { return; }
             auto Reject = [this, World, Run](
                 const TCHAR* Label, TArray<FCkCompassGym_SourceReceipt> Receipts)
             {
