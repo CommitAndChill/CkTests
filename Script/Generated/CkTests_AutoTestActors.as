@@ -9616,6 +9616,58 @@ class ACk_AutoTest_RewindHistory_RewindFindsPastPose_Actor : ACk_AutoTestRunner
     }
 }
 
+class ACk_AutoTest_RuntimeConvexGym_ChildrenOutliveSourceAndEachOther_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 30.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeConvexGym_ChildrenOutliveSourceAndEachOther");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_RuntimeConvexGym_CommitWithoutImpulseDoesNotPushHalvesApart_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 30.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeConvexGym_CommitWithoutImpulseDoesNotPushHalvesApart");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_RuntimeConvexGym_PartialCompositionKeepsSourceAndDestroysBothHalves_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 30.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeConvexGym_PartialCompositionKeepsSourceAndDestroysBothHalves");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_RuntimeConvexGym_StaleCompletionsAfterResetLeaveNoBodies_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 30.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeConvexGym_StaleCompletionsAfterResetLeaveNoBodies");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
 class ACk_AutoTest_RuntimeMesh_SliceParity_Actor : ACk_AutoTestRunner
 {
     default _TimeoutSeconds = 20.0f;
@@ -9623,6 +9675,31 @@ class ACk_AutoTest_RuntimeMesh_SliceParity_Actor : ACk_AutoTestRunner
     TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
     {
         auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeMesh_SliceParity");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_RuntimeMeshGym_RegistryListsRuntimeMeshAndRuntimeConvex_Actor : ACk_AutoTestRunner
+{
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeMeshGym_RegistryListsRuntimeMeshAndRuntimeConvex");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_RuntimeMeshGym_ResetDuringPendingCutCommitsNothing_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 20.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeMeshGym_ResetDuringPendingCutCommitsNothing");
         TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
         ResolvedClass = Path.TryLoadClass();
         return ResolvedClass;

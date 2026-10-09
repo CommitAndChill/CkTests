@@ -65,6 +65,7 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Jolt Springs",       ACk_JoltGym_Springs_GameMode,            "", "CkJolt");
         CkGym_Cycler::RegisterProjectGym("Jolt Static Bake",   ACk_JoltGym_StaticBake_GameMode,         "", "CkJolt");
         CkGym_Cycler::RegisterProjectGym("Jolt Stress",        ACk_JoltGym_Stress_GameMode,             "", "CkJolt");
+        CkGym_Cycler::RegisterProjectGym("Runtime Convex",     ACk_RuntimeConvexGym_GameMode,           "", "CkJolt");
         CkGym_Cycler::RegisterProjectGym("Messaging",          ACk_MessagingGym_GameMode,               "", "CkMessaging");
         CkGym_Cycler::RegisterProjectGym("Minimap",            ACk_MinimapGym_GameMode,                 "", "CkMinimap");
         CkGym_Cycler::RegisterProjectGym("Net Two-Player",     ACk_NetGym_TwoPlayer_GameMode,           "", "CkEcs");
@@ -77,6 +78,7 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Procedural Animation Surface Traversal", ACk_ProceduralAnimationGym_GameMode, "", "CkProceduralAnimation");
         CkGym_Cycler::RegisterProjectGym("Render Target",      ACk_RenderTargetGym_GameMode,            "", "CkRenderTarget");
         CkGym_Cycler::RegisterProjectGym("Replication",        ACk_ReplicationGym_GameMode,             "", "CkEcs");
+        CkGym_Cycler::RegisterProjectGym("Runtime Mesh",       ACk_RuntimeMeshGym_GameMode,             "", "CkRuntimeMesh");
         CkGym_Cycler::RegisterProjectGym("Scene Node",         ACk_SceneNodeGym_GameMode,               "", "CkEcsExt");
         CkGym_Cycler::RegisterProjectGym("Scene Node + Tween", ACk_SceneNodeTweenGym_GameMode,          "", "CkEcsExt");
         CkGym_Cycler::RegisterProjectGym("Selection",          ACk_SelectionGym_GameMode,               "", "CkSelection");
