@@ -370,21 +370,26 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     const TArray<FCkCompassGym_SourceReceipt>& Receipts,
     const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
     const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+    const TArray<FCkCompassGym_SourceReceipt>& StagedPingReceipts,
     const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringPingReceipts,
     TArray<FCkCompassGym_SourceRow>& OutRows,
     TArray<FCkCompassGym_SourceRow>& OutStagedRows,
+    TArray<FCkCompassGym_SourceRow>& OutStagedPingRows,
     FString& OutFailureReason)
 {
     using namespace ck_compass_catalog;
     OutRows.Reset();
     OutStagedRows.Reset();
+    OutStagedPingRows.Reset();
     OutFailureReason.Reset();
     auto Invalid = [&OutFailureReason](const TCHAR* Why) {
         OutFailureReason = Why;
         return ECkCompassGym_CatalogOutcome::Invalid;
     };
-    if (PhaseAware && &OutRows == &OutStagedRows)
-    { return Invalid(TEXT("Active and staged outputs alias")); }
+    if (PhaseAware && (&OutRows == &OutStagedRows ||
+        &OutRows == &OutStagedPingRows ||
+        &OutStagedRows == &OutStagedPingRows))
+    { return Invalid(TEXT("Source row outputs alias")); }
     if (!IsInGameThread() || !IsValid(World) || !World->IsGameWorld() ||
         World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
         World->bIsTearingDown || World->IsBeingCleanedUp() ||
@@ -403,11 +408,17 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     { return Invalid(TEXT("Source root lifetime census failed")); }
     bool InactivePending = false;
     TArray<FCkCompassGym_SourceRow> StagedRows;
+    TArray<FCkCompassGym_SourceRow> StagedPingRows;
     TArray<FCk_Handle> InactiveParentHandles;
+    TArray<FCkCompassGym_SourceReceipt> ProofReceipts = Receipts;
+    ProofReceipts.Append(StagedPingReceipts);
+    TArray<FCk_Handle> StagedPingHosts;
+    StagedPingHosts.Reserve(StagedPingReceipts.Num());
     if (!PhaseAware)
     {
-        if (!FrozenRetiringPingReceipts.IsEmpty())
-        { return Invalid(TEXT("Retiring Ping requires phase-aware source query")); }
+        if (!StagedPingReceipts.IsEmpty() ||
+            !FrozenRetiringPingReceipts.IsEmpty())
+        { return Invalid(TEXT("Ping phases require phase-aware source query")); }
         if (Hosts.Num() != Receipts.Num())
         { return Invalid(TEXT("Unclaimed or missing source host")); }
     }
@@ -429,7 +440,7 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
         }
         TArray<int64> AllIds;
         TArray<FCk_Handle> AllHandles;
-        for (const auto& R : Receipts)
+        for (const auto& R : ProofReceipts)
         {
             if (R.CatalogId <= 0 || R.Host == FCk_Handle{} ||
                 AllIds.Contains(R.CatalogId) || AllHandles.Contains(R.Host))
@@ -437,6 +448,19 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
             AllIds.Add(R.CatalogId);
             AllHandles.Add(R.Host);
         }
+        const auto StagePingTag = FGameplayTag::RequestGameplayTag(
+            FName(TEXT("Poi.Category.Ping")), false);
+        if (!StagedPingReceipts.IsEmpty() && !StagePingTag.IsValid())
+        { return Invalid(TEXT("Staged Ping tag not registered")); }
+        for (const auto& R : StagedPingReceipts)
+        {
+            if (R.Kind != ECkCompassGym_SourceKind::Ping || R.Admitted ||
+                R.ExpectedCategory != StagePingTag ||
+                !Live(R.Host) || R.Host.Has<ck::FTag_Poi>())
+            { return Invalid(TEXT("Staged Ping receipt or exposure invalid")); }
+            StagedPingHosts.Add(R.Host);
+        }
+        StagedPingRows.Reserve(StagedPingReceipts.Num());
         StagedRows.Reserve(StagedStressReceipts.Num());
         TArray<FCk_Handle> AllocatedRetiring;
         const auto StressTag = FGameplayTag::RequestGameplayTag(
@@ -524,7 +548,7 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
         { return Invalid(TEXT("Frozen retiring stress membership changed")); }
         TArray<FCk_Handle> AllocatedRetiringPings;
         TArray<FCk_Handle> ClaimedEntities;
-        for (const auto& R : Receipts)
+        for (const auto& R : ProofReceipts)
         {
             ClaimedEntities.Add(R.Host);
             if (R.Marker != FCk_Handle{}) { ClaimedEntities.Add(R.Marker); }
@@ -603,7 +627,7 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
             }
             AllocatedRetiringPings.Add(R.Host);
         }
-        if (Hosts.Num() != Receipts.Num() + StagedStressReceipts.Num() +
+        if (Hosts.Num() != ProofReceipts.Num() + StagedStressReceipts.Num() +
                 AllocatedRetiring.Num() + AllocatedRetiringPings.Num())
         { return Invalid(TEXT("Source root allocated cohort count mismatch")); }
         for (const auto& Host : Hosts)
@@ -614,7 +638,7 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     }
     TArray<int64> PreflightIds;
     TArray<FCk_Handle> PreflightHosts;
-    for (const auto& R : Receipts)
+    for (const auto& R : ProofReceipts)
     {
         const bool NeedsMarker = MarkerKind(R.Kind);
         const bool NeedsTimer = R.Kind == ECkCompassGym_SourceKind::Ping;
@@ -681,7 +705,7 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
         (PreflightRings != 8 || PreflightWaypoints != 1 ||
          (PreflightStress != 0 && PreflightStress != 500)))
     { return Invalid(TEXT("Complete source kind counts invalid")); }
-    if (!ProveOwnerCensus(SourceRoot, WorldRoot, Hosts, Receipts,
+    if (!ProveOwnerCensus(SourceRoot, WorldRoot, Hosts, ProofReceipts,
             FrozenRetiringPingReceipts,
             InactiveParentHandles))
     { return Invalid(TEXT("Source owner census differs from reverse membership")); }
@@ -696,17 +720,29 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
         FName(TEXT("Poi.Consumer.Compass")), false);
     if (!CategoryRoot.IsValid() || !Disabled.IsValid() || !Consumer.IsValid())
     { return Invalid(TEXT("Required POI tags not registered")); }
-    for (const auto& R : Receipts)
+    for (const auto& R : ProofReceipts)
     {
+        const bool IsStagedPing = StagedPingHosts.Contains(R.Host);
         if (!R.ExpectedCategory.MatchesTag(CategoryRoot) ||
             R.Host.Has_Any<ck::FFragment_VisibleRange_Params,
                 ck::FFragment_VisibleRange, ck::FTag_VisibleRange_Hidden>())
         { return Invalid(TEXT("POI receipt, ownership, or feature invalid")); }
         const bool HasPoi = R.Host.Has<ck::FTag_Poi>();
         const bool HasTransform = R.Host.Has<ck::FFragment_Transform>();
-        if ((!HasPoi || !HasTransform) && (CompositionComplete || R.Admitted))
-        { return Invalid(TEXT("Composed POI lost feature or transform")); }
-        if (!HasPoi || !HasTransform) { AnyPending = true; }
+        if (IsStagedPing)
+        {
+            if (HasPoi)
+            { return Invalid(TEXT("Staged Ping became POI-visible")); }
+            if (!HasTransform && CompositionComplete)
+            { return Invalid(TEXT("Composed staged Ping transform absent")); }
+            if (!HasTransform) { AnyPending = true; }
+        }
+        else
+        {
+            if ((!HasPoi || !HasTransform) && (CompositionComplete || R.Admitted))
+            { return Invalid(TEXT("Composed POI lost feature or transform")); }
+            if (!HasPoi || !HasTransform) { AnyPending = true; }
+        }
         FVector HostLocation = FVector::ZeroVector;
         if (HasTransform)
         {
@@ -821,7 +857,8 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
             else if (Outcome != ECkCompassGym_CatalogOutcome::Complete)
             { return Invalid(TEXT("Source marker physical proof failed")); }
         }
-        Stage.Add(MoveTemp(Row));
+        if (IsStagedPing) { StagedPingRows.Add(MoveTemp(Row)); }
+        else { Stage.Add(MoveTemp(Row)); }
     }
     if (AnyPending) { return ECkCompassGym_CatalogOutcome::Pending; }
     Stage.Sort([](const auto& A, const auto& B) {
@@ -832,6 +869,10 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
         return A.CatalogId < B.CatalogId;
     });
     OutStagedRows = MoveTemp(StagedRows);
+    StagedPingRows.Sort([](const auto& A, const auto& B) {
+        return A.CatalogId < B.CatalogId;
+    });
+    OutStagedPingRows = MoveTemp(StagedPingRows);
     return ECkCompassGym_CatalogOutcome::Complete;
 }
 
@@ -842,10 +883,11 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
 {
     const TArray<FCkCompassGym_SourceReceipt> EmptyReceipts;
     TArray<FCkCompassGym_SourceRow> UnusedStagedRows;
+    TArray<FCkCompassGym_SourceRow> UnusedStagedPingRows;
     return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
         CompositionComplete, false, Receipts, EmptyReceipts, EmptyReceipts,
-        EmptyReceipts,
-        OutRows, UnusedStagedRows,
+        EmptyReceipts, EmptyReceipts,
+        OutRows, UnusedStagedRows, UnusedStagedPingRows,
         OutFailureReason);
 }
 
@@ -879,9 +921,33 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::
         TArray<FCkCompassGym_SourceRow>& OutStagedRows,
         FString& OutFailureReason)
 {
+    const TArray<FCkCompassGym_SourceReceipt> EmptyStagedPings;
+    TArray<FCkCompassGym_SourceRow> UnusedStagedPingRows;
+    return TryGet_SourceCatalogTransactionWithPingPhases(World,
+        ExactGameState, SourceRoot, CompositionComplete, ActiveReceipts,
+        StagedStressReceipts, FrozenRetiringStressReceipts,
+        EmptyStagedPings, FrozenRetiringPingReceipts,
+        OutActiveRows, OutStagedRows, UnusedStagedPingRows,
+        OutFailureReason);
+}
+
+ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::
+    TryGet_SourceCatalogTransactionWithPingPhases(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        bool CompositionComplete,
+        const TArray<FCkCompassGym_SourceReceipt>& ActiveReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedPingReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringPingReceipts,
+        TArray<FCkCompassGym_SourceRow>& OutActiveRows,
+        TArray<FCkCompassGym_SourceRow>& OutStagedStressRows,
+        TArray<FCkCompassGym_SourceRow>& OutStagedPingRows,
+        FString& OutFailureReason)
+{
     return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
         CompositionComplete, true, ActiveReceipts, StagedStressReceipts,
-        FrozenRetiringStressReceipts, FrozenRetiringPingReceipts,
-        OutActiveRows, OutStagedRows,
-        OutFailureReason);
+        FrozenRetiringStressReceipts, StagedPingReceipts,
+        FrozenRetiringPingReceipts, OutActiveRows,
+        OutStagedStressRows, OutStagedPingRows, OutFailureReason);
 }
