@@ -30,6 +30,8 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("AppFramework"); // Exercise native color-picker behavior through authored controls.
         PrivateDependencyModuleNames.Add("ImageCore");
         PrivateDependencyModuleNames.Add("Sockets"); // Inspect the active listen endpoint.
+        // Exercise native settings widgets and exact platform input-device ownership.
+        PrivateDependencyModuleNames.AddRange(new string[] { "CkGameSettings", "ApplicationCore" });
         // Read the Compass gym's actual POI, display and range state.
         PrivateDependencyModuleNames.AddRange(new string[] { "CkPoi", "CkVisibleRange", "CkCompass" });
 
