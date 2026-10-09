@@ -149,16 +149,17 @@ namespace ck_tests_camera_authored
     };
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_Camera_AuthoredInspectorComposition,
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkTest_Camera_AuthoredInspectorComposition,
     "Ck.UiAuthoring.EcsDebugger.CameraInspector.AuthoredComposition", ck_tests_camera_authored::kFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkTest_Camera_AuthoredInspectorComposition::RunTest(const FString&)
+bool FCkTest_Camera_AuthoredInspectorComposition::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_camera_authored;
     const auto Scenario = MakeShared<FScenario>();
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
+        FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, Scenario](UWorld* World)
         {
             Scenario->Owner = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(World);
@@ -452,7 +453,8 @@ bool FCkTest_Camera_AuthoredInspectorComposition::RunTest(const FString&)
                 bBeforeCompositionLoss);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(2));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
+        FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, Scenario](UWorld*)
         {
             if (NOT TestTrue(TEXT("Camera retains its orientation-control composition through teardown coverage"),
