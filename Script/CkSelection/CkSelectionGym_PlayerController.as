@@ -22,38 +22,193 @@ class ACk_SelectionGym_LabelMarker : AActor
         LabelText.SetText(FText::FromString(InLabel));
     }
 }
+USTRUCT()
+struct FCkSelectionGym_ControlAck
+{
+    UPROPERTY() int32 Serial = 0;
+    UPROPERTY() int64 SourceGeneration = 0;
+    UPROPERTY() int64 ScenarioGeneration = 0;
+    UPROPERTY() int32 Action = 0;
+    // 0: none; 1: authority physical source completed; 2: rejected.
+    UPROPERTY() int32 Result = 0;
+    UPROPERTY() int64 CompletedScenarioGeneration = 0;
+    UPROPERTY() int64 CompletedSequence = 0;
+    UPROPERTY() int32 CompletedScenario = -1;
+}
 
 class ACk_SelectionGym_PlayerController : ACk_Gym_Base_PlayerController
 {
-    private FVector _Origin = FVector::ZeroVector;
-    private FCk_Handle _ScenarioRoot;
-    private TArray<FCk_Handle> _TransientFixtureRoots;
-    private FCk_Handle _MovingCandidate;
-    private FCk_Handle _RespawnCandidate;
-    private FCk_Handle_Transform _MovingTransform;
-    private AActor _MovingVisual;
-    private AActor _RespawnVisual;
-    private TArray<AActor> _Visuals;
-    private AActor _OcclusionWall;
-    private int32 _ActiveScenario = 0;
-    private float _MovingElapsed = 0.0f;
-    private bool _TickStarted = false;
+    UPROPERTY(Replicated) FCkSelectionGym_ControlAck LastControlAck;
+
+    private bool _Admitted = false;
+    private bool _Ending = false;
+    private bool _LocalFailed = false;
+    private bool _StationsBound = false;
+    private bool _Positioned = false;
+    private bool _PawnCaptured = false;
+    private bool _StateCaptured = false;
+    private bool _CatalogCaptured = false;
+    private bool _ServerPending = false;
+    private double _BootstrapStartedSeconds = 0.0;
+    private int32 _RequestedSerial = 0;
+    private int32 _PendingSerial = 0;
+    private int64 _PendingSourceGeneration = 0;
+    private int64 _PendingScenarioGeneration = 0;
+    private int32 _PendingAction = -1;
+    private int32 _CatalogIndex = -1;
+    private FCkGym_Entry _CatalogEntry;
+    private UWorld _BoundWorld;
+    private ACk_SelectionGym_GameState _BoundState;
+    private FCk_Handle _Station;
+    private FCk_Handle _StationCohort;
+    private APawn _BoundPawn;
+
+    FCk_Handle Get_StationLifetimeOwner() override
+    { return IsLocalController() ? ck::ToEntity(this) : FCk_Handle(); }
+    FString Get_StationTag(FString Tag) override
+    { return f"{Tag}_{GetName()}"; }
+
+    private bool IsDirect(FCk_Handle Child, FCk_Handle Parent)
+    {
+        return ck::IsValid(Child) && ck::IsValid(Parent) &&
+            !utils_entity_lifetime::Get_IsPendingDestroy(
+                Child, ECk_EntityLifetime_DestructionPhase::BeginDestroy) &&
+            utils_entity_lifetime::Has_LifetimeOwner(Child) &&
+            utils_entity_lifetime::Get_LifetimeOwner(Child) == Parent;
+    }
+
+    private ACk_SelectionGym_GameState Get_ExactState()
+    {
+        auto World = GetWorld();
+        if (!_Admitted || _Ending || IsActorBeingDestroyed() ||
+            ck::Is_NOT_Valid(World) || World != _BoundWorld) { return nullptr; }
+        auto State = Cast<ACk_SelectionGym_GameState>(World.GetGameState());
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != World ||
+            State.GetClass() != ACk_SelectionGym_GameState ||
+            State.IsActorBeingDestroyed() ||
+            (_StateCaptured && State != _BoundState)) { return nullptr; }
+        if (HasAuthority())
+        {
+            auto Mode = Gameplay::GetGameMode();
+            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != World ||
+                Mode.GetClass() != ACk_SelectionGym_GameMode) { return nullptr; }
+        }
+        if (!State.Get_HasPublishedCatalog()) { return nullptr; }
+        auto Entries = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (Index < 0 || Index >= Entries.Num()) { return nullptr; }
+        auto Entry = Entries[Index];
+        if (Entry.DisplayName != "Selection" ||
+            Entry.GameModeClass != ACk_SelectionGym_GameMode ||
+            (_CatalogCaptured && (Index != _CatalogIndex ||
+                Entry.DisplayName != _CatalogEntry.DisplayName ||
+                Entry.GameModeClass != _CatalogEntry.GameModeClass ||
+                Entry.LevelName != _CatalogEntry.LevelName ||
+                Entry.Category != _CatalogEntry.Category ||
+                Entry.HintCode != _CatalogEntry.HintCode))) { return nullptr; }
+        return State;
+    }
+
+    private bool CaptureStateIfReady()
+    {
+        auto World = GetWorld();
+        auto Observed = ck::IsValid(World) ? Cast<ACk_SelectionGym_GameState>(World.GetGameState()) : nullptr;
+        if (ck::IsValid(Observed) && Observed.GetWorld() == World &&
+            Observed.GetClass() == ACk_SelectionGym_GameState &&
+            !Observed.IsActorBeingDestroyed() && !_StateCaptured)
+        { _BoundState = Observed; _StateCaptured = true; }
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State)) { return false; }
+        if (!_StateCaptured) { _BoundState = State; _StateCaptured = true; }
+        if (!_CatalogCaptured)
+        {
+            _CatalogIndex = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+            _CatalogEntry = UCk_Utils_GymRegistry_UE::Get_GymRegistry()[_CatalogIndex];
+            _CatalogCaptured = true;
+        }
+        return true;
+    }
+
+    private bool HasExactPawn()
+    {
+        auto Pawn = GetControlledPawn();
+        return _PawnCaptured && ck::IsValid(Pawn) &&
+            Pawn == _BoundPawn && Pawn.GetWorld() == _BoundWorld &&
+            !Pawn.IsActorBeingDestroyed() &&
+            Pawn.GetClass() == ACk_Gym_Base_Pawn &&
+            Pawn.GetController() == this;
+    }
+
+    private bool CapturePawnIfReady()
+    {
+        if (_PawnCaptured) { return HasExactPawn(); }
+        auto Pawn = GetControlledPawn();
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetWorld() != _BoundWorld ||
+            Pawn.IsActorBeingDestroyed() ||
+            Pawn.GetClass() != ACk_Gym_Base_Pawn ||
+            Pawn.GetController() != this) { return false; }
+        _BoundPawn = Pawn; _PawnCaptured = true;
+        return HasExactPawn();
+    }
+
+    private bool CheckStation(bool Bind)
+    {
+        if (!IsLocalController() || !HasExactPawn()) { return false; }
+        auto ControllerEntity = ck::ToEntity(this);
+        auto WorldRoot = ck::TransientEntity();
+        if (ck::Is_NOT_Valid(ControllerEntity) || ck::Is_NOT_Valid(WorldRoot) ||
+            utils_entity_lifetime::Get_WorldForEntity(WorldRoot) != _BoundWorld)
+        { return false; }
+        auto Matches = utils_entity_tag::ForEach_Entity(
+            WorldRoot, FName(Get_StationTag("Gym.Selection")));
+        if (Matches.Num() != 1 || ck::Is_NOT_Valid(Matches[0]) ||
+            !Matches[0].Has_Fragment(FCkGym_Station_Anchors) ||
+            !utils_entity_lifetime::Has_LifetimeOwner(Matches[0])) { return false; }
+        auto Station = Matches[0];
+        auto Cohort = utils_entity_lifetime::Get_LifetimeOwner(Station);
+        if (!IsDirect(Station, Cohort) || !IsDirect(Cohort, ControllerEntity) ||
+            (Station.Get_Fragment(FCkGym_Station_Anchors).FootprintCenter -
+                FVector::ZeroVector).SizeSquared() > 1.0 ||
+            (_StationsBound && (Station != _Station || Cohort != _StationCohort)))
+        { return false; }
+        auto Script = Cast<UCk_EntityScript_GymStation>(
+            UCk_Utils_EntityScript_UE::TryGet_EntityScript(Station));
+        if (ck::Is_NOT_Valid(Script) ||
+            UCk_GymStation_VisibleRuntime_UE::TryGet_StationEntity(Script) != Station)
+        { return false; }
+        if (Bind && !_StationsBound)
+        { _Station = Station; _StationCohort = Cohort; _StationsBound = true; }
+        return _StationsBound;
+    }
+
+    private void CloseLocal(FString Reason)
+    {
+        if (_LocalFailed) { return; }
+        _LocalFailed = true;
+        // The current catalog may already be gone. Close only the exact
+        // previously captured GameState in its captured world.
+        if (_StateCaptured && ck::IsValid(_BoundState) &&
+            _BoundState.GetWorld() == _BoundWorld)
+        {
+            if (HasAuthority()) { _BoundState.Request_Fail(Reason); }
+            else { _BoundState.Request_CloseClient(Reason); }
+        }
+        ck::Trace(f"Selection local presentation closed: {Reason}");
+    }
 
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
-        if (HasAuthority() == false)
-        { return TArray<FCkGym_Station_SpawnParams_Payload>(); }
-
-        auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
+        TArray<FCkGym_Station_SpawnParams_Payload> Stations;
+        if (!IsLocalController()) { return Stations; }
         auto Station = FCkGym_Station_SpawnParams_Payload();
-        Station.Tags.Add(n"Gym.Selection");
+        Station.Tags.Add(FName(Get_StationTag("Gym.Selection")));
+        Station.Transform = FTransform(FRotator(0.0, 180.0, 0.0), FVector::ZeroVector);
         Station.Title = FText::FromString("DEBUG OVERLAY SELECTION");
         Station.AutoSize = true;
-
-        auto Description = TArray<FText>();
-        Description.Add(FText::FromString("Five ECS fixture banks exercise root labels, context roots, hierarchy, visibility, and lifecycle."));
+        TArray<FText> Description;
+        Description.Add(FText::FromString("Five shared ECS fixture banks exercise root labels, context roots, hierarchy, visibility, and lifecycle."));
         Description.Add(FText::FromString("Enable the Debug Overlay, then use Select / Next / Prev / Family while changing scenarios."));
-        Description.Add(FText::FromString("Panel numbers replace the complete fixture bank; [R] rebuilds the active bank."));
+        Description.Add(FText::FromString("Panel numbers replace the complete shared bank; [R] rebuilds it and [X] respawns the lifecycle target."));
         Station.Description = Description;
         Stations.Add(Station);
         return Stations;
@@ -61,251 +216,235 @@ class ACk_SelectionGym_PlayerController : ACk_Gym_Base_PlayerController
 
     void Request_StartGym() override
     {
-        if (HasAuthority() == false)
-        { return; }
+        if (_Ending || _Admitted) { return; }
+        _BoundWorld = GetWorld();
+        if (ck::Is_NOT_Valid(_BoundWorld)) { _LocalFailed = true; return; }
+        _Admitted = true;
+        _BootstrapStartedSeconds = UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds();
+        CaptureStateIfReady();
+    }
 
-        _Origin = Get_StationAnchorLocation("Gym.Selection", ECk_GymStation_Anchor::FootprintCenter);
-        DoSelectScenario(0);
-
-        if (_TickStarted == false)
+    UFUNCTION(BlueprintOverride) void Tick(float DeltaSeconds)
+    {
+        if (!_Admitted || _Ending || _LocalFailed) { return; }
+        if (ck::Is_NOT_Valid(_BoundWorld) || GetWorld() != _BoundWorld ||
+            IsActorBeingDestroyed()) { CloseLocal("Controller world changed"); return; }
+        if (!CaptureStateIfReady())
         {
-            _TickStarted = true;
-            utils_timer::Create_Tick(ck::ToEntity(this), FCk_Delegate_Timer(this, n"OnFixtureTick"));
+            auto Current = Cast<ACk_SelectionGym_GameState>(
+                _BoundWorld.GetGameState());
+            if (_CatalogCaptured ||
+                (_StateCaptured && (ck::Is_NOT_Valid(_BoundState) ||
+                    Current != _BoundState ||
+                    _BoundState.IsActorBeingDestroyed())) ||
+                UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds() -
+                    _BootstrapStartedSeconds >= 20.0)
+            { CloseLocal("Selection GameState or catalog did not converge"); }
+            return; // initial catalog/replication bootstrap is asynchronous
+        }
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State)) { CloseLocal("Selection state changed"); return; }
+        if (State.Get_HasSessionFailure())
+        { CloseLocal("Shared Selection session failed"); return; }
+        if (!CapturePawnIfReady())
+        {
+            if (_PawnCaptured ||
+                UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds() -
+                    _BootstrapStartedSeconds >= 20.0)
+            { CloseLocal("Selection pawn did not converge or changed"); }
+            return;
+        }
+        if (HasAuthority()) { State.Request_EnsureSharedDemo(); }
+        if (!IsLocalController()) { return; }
+        if (!CheckStation(!_StationsBound))
+        { CloseLocal("Local Selection station changed"); return; }
+        FCkSelectionGym_WireSnapshot Frame;
+        // Retiring and client mirror installation temporarily have no complete
+        // presentation. The GameState owns their bounded terminal failure latch.
+        if (!State.TryGetPresentation(Frame)) { return; }
+        if (Frame.Lifecycle != ECkSelectionGym_WireLifecycle::Active ||
+            Frame.SourceGeneration <= 0 || Frame.ScenarioGeneration <= 0 ||
+            Frame.Scenario < 0 || Frame.Scenario > 4)
+        { CloseLocal("Selection presentation is malformed"); return; }
+        if (!_Positioned)
+        {
+            _BoundPawn.SetActorLocation(FVector(650.0, 0.0, 320.0));
+            if (!HasExactPawn()) { CloseLocal("Local pawn changed during placement"); return; }
+            SetControlRotation(FRotator(-12.0, 180.0, 0.0));
+            if (!HasExactPawn()) { CloseLocal("Local pawn changed during view placement"); return; }
+            _Positioned = true;
         }
     }
 
-    UFUNCTION(BlueprintOverride)
-    void EndPlay(EEndPlayReason EndPlayReason)
+    private bool TryReadyFrame(FCkSelectionGym_WireSnapshot&out Frame)
     {
-        DoClearScenario();
+        Frame = FCkSelectionGym_WireSnapshot();
+        if (!_Admitted || _Ending || _LocalFailed || !IsLocalController() ||
+            !_Positioned || !CheckStation(false) || !HasExactPawn() ||
+            _RequestedSerial != LastControlAck.Serial) { return false; }
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State) || State.Get_HasSessionFailure() ||
+            !State.TryGetPresentation(Frame) ||
+            Frame.Lifecycle != ECkSelectionGym_WireLifecycle::Active ||
+            Frame.SourceGeneration <= 0 || Frame.ScenarioGeneration <= 0 ||
+            Frame.Scenario < 0 || Frame.Scenario > 4) { return false; }
+        if (LastControlAck.Result != 1) { return true; }
+        if (LastControlAck.CompletedScenarioGeneration <= 0 ||
+            LastControlAck.CompletedSequence <= 0 ||
+            LastControlAck.CompletedScenario < 0 ||
+            LastControlAck.CompletedScenario > 4 ||
+            Frame.SourceGeneration != LastControlAck.SourceGeneration) { return false; }
+        return Frame.ScenarioGeneration >
+                LastControlAck.CompletedScenarioGeneration ||
+            (Frame.ScenarioGeneration ==
+                LastControlAck.CompletedScenarioGeneration &&
+             Frame.Sequence >= LastControlAck.CompletedSequence &&
+             Frame.Scenario == LastControlAck.CompletedScenario);
     }
 
-    private void DoSelectScenario(int32 InScenario)
+    UFUNCTION(BlueprintPure) bool Get_IsLocalPresentationReady()
     {
-        _ActiveScenario = InScenario;
-        DoClearScenario();
-        _ScenarioRoot = utils_entity_lifetime::Request_CreateEntity(ck::TransientEntity());
-        _ScenarioRoot.Set_DebugName(n"Selection.Gym.FixtureRoot");
-
-        if (InScenario == 0) { DoBuildTopology(); }
-        else if (InScenario == 1) { DoBuildDistanceAndOverlap(); }
-        else if (InScenario == 2) { DoBuildMixedHierarchy(); }
-        else if (InScenario == 3) { DoBuildVisibilityAndOcclusion(); }
-        else { DoBuildMovingRespawn(); }
-
-        DoPositionViewer();
+        FCkSelectionGym_WireSnapshot Frame;
+        return TryReadyFrame(Frame);
     }
 
-    private void DoBuildTopology()
+    UFUNCTION(Server) void Server_RequestSelectionControl(
+        int32 Serial, int64 SourceGeneration, int64 ScenarioGeneration, int32 Action)
     {
-        DoCreateTransientCandidate("Transient Root A", n"Selection.Topology.TransientA", FVector(-500.0f, -220.0f, 120.0f));
-        DoCreateTransientCandidate("Transient Root B", n"Selection.Topology.TransientB", FVector(-500.0f, 220.0f, 120.0f));
-
-        auto OrdinaryParent = selection_gym::Create_OrdinaryChild(_ScenarioRoot, n"Selection.Topology.OrdinaryParent");
-        auto Nested = selection_gym::Create_Candidate(
-            OrdinaryParent,
-            n"Selection.Topology.NestedIndependent",
-            _Origin + FVector(-720.0f, 0.0f, 120.0f));
-        DoCreateVisual("Nested independent root", _Origin + FVector(-720.0f, 0.0f, 120.0f));
-        Nested.Set_DebugName(n"Selection.Topology.NestedIndependent");
-    }
-
-    private void DoBuildDistanceAndOverlap()
-    {
-        DoCreateCandidate("Centered near", n"Selection.Distance.CenteredNear", FVector(-500.0f, 0.0f, 120.0f));
-        DoCreateCandidate("Co-located A", n"Selection.Distance.CoLocatedA", FVector(-620.0f, -130.0f, 120.0f));
-        DoCreateCandidate("Co-located B", n"Selection.Distance.CoLocatedB", FVector(-620.0f, -130.0f, 120.0f));
-        DoCreateCandidate("Centered far", n"Selection.Distance.CenteredFar", FVector(-2400.0f, 0.0f, 120.0f));
-    }
-
-    private void DoBuildMixedHierarchy()
-    {
-        auto CompositeLocation = _Origin + FVector(-600.0f, 0.0f, 120.0f);
-        selection_gym::Create_CompositeCandidate(_ScenarioRoot, CompositeLocation);
-        DoCreateVisual("Composite root", CompositeLocation);
-        DoCreateVisual("SceneNode descendant", CompositeLocation + FVector(0.0f, 150.0f, 100.0f));
-        DoCreateVisual("Ordinary child", CompositeLocation + FVector(0.0f, -150.0f, 0.0f));
-        DoCreateVisual("No-transform descendant", CompositeLocation + FVector(0.0f, -150.0f, 150.0f));
-    }
-
-    private void DoBuildVisibilityAndOcclusion()
-    {
-        auto Parent = selection_gym::Create_Candidate(
-            _ScenarioRoot,
-            n"Selection.Visibility.OffscreenParent",
-            _Origin + FVector(900.0f, 0.0f, 120.0f));
-        DoCreateVisual("Offscreen parent", _Origin + FVector(900.0f, 0.0f, 120.0f));
-
-        selection_gym::Create_OrdinaryTransformChild(
-            Parent,
-            n"Selection.Visibility.VisibleChild",
-            _Origin + FVector(-600.0f, -180.0f, 120.0f));
-        DoCreateVisual("Visible ordinary child promotes parent", _Origin + FVector(-600.0f, -180.0f, 120.0f));
-
-        DoCreateCandidate("Occluded root", n"Selection.Visibility.Occluded", FVector(-900.0f, 180.0f, 120.0f));
-        _OcclusionWall = SpawnActor(ACk_Gym_ObstacleWall, _Origin + FVector(-550.0f, 180.0f, 150.0f), FRotator::ZeroRotator);
-        if (ck::IsValid(_OcclusionWall))
-        { _OcclusionWall.SetActorScale3D(FVector(0.25f, 2.4f, 2.0f)); }
-    }
-
-    private void DoBuildMovingRespawn()
-    {
-        auto StartLocation = _Origin + FVector(-650.0f, 0.0f, 120.0f);
-        _MovingCandidate = selection_gym::Create_Candidate(_ScenarioRoot, n"Selection.Lifecycle.Moving", StartLocation);
-        _MovingTransform = _MovingCandidate.As_Transform();
-        _MovingVisual = DoCreateVisual("Moving root", StartLocation);
-
-        _RespawnCandidate = selection_gym::Create_Candidate(
-            _ScenarioRoot,
-            n"Selection.Lifecycle.Respawnable",
-            _Origin + FVector(-650.0f, 260.0f, 120.0f));
-        _RespawnVisual = DoCreateVisual("Delete / respawn root", _Origin + FVector(-650.0f, 260.0f, 120.0f));
-    }
-
-    private void DoCreateCandidate(FString InLabel, FName InDebugName, FVector InOffset)
-    {
-        auto Location = _Origin + InOffset;
-        selection_gym::Create_Candidate(_ScenarioRoot, InDebugName, Location);
-        DoCreateVisual(InLabel, Location);
-    }
-
-    private void DoCreateTransientCandidate(FString InLabel, FName InDebugName, FVector InOffset)
-    {
-        auto Location = _Origin + InOffset;
-        auto Candidate = selection_gym::Create_Candidate(ck::TransientEntity(), InDebugName, Location);
-        _TransientFixtureRoots.Add(Candidate);
-        DoCreateVisual(InLabel, Location);
-    }
-
-    private AActor DoCreateVisual(FString InLabel, FVector InLocation)
-    {
-        auto Visual = Cast<ACk_SelectionGym_LabelMarker>(SpawnActor(ACk_SelectionGym_LabelMarker, InLocation));
-        if (ck::Is_NOT_Valid(Visual))
+        if (!HasAuthority() || !_Admitted || _Ending || _ServerPending ||
+            Serial <= 0 || LastControlAck.Serial >= 2147483647 ||
+            Serial != LastControlAck.Serial + 1 || Action < 0 || Action > 6)
+        { return; } // malformed/replayed RPC never advances the acknowledged serial
+        FCkSelectionGym_ControlAck Rejected;
+        Rejected.Serial = Serial;
+        Rejected.SourceGeneration = SourceGeneration;
+        Rejected.ScenarioGeneration = ScenarioGeneration;
+        Rejected.Action = Action;
+        Rejected.Result = 2;
+        auto State = Get_ExactState();
+        FCkSelectionGym_WireSnapshot Frame;
+        if (ck::Is_NOT_Valid(State) || !HasExactPawn() ||
+            !State.TryGetPresentation(Frame) ||
+            Frame.Lifecycle != ECkSelectionGym_WireLifecycle::Active ||
+            SourceGeneration <= 0 || ScenarioGeneration <= 0 ||
+            SourceGeneration != Frame.SourceGeneration ||
+            ScenarioGeneration != Frame.ScenarioGeneration ||
+            (Action == 6 && Frame.Scenario != 4))
+        { LastControlAck = Rejected; ForceNetUpdate(); return; }
+        _ServerPending = true;
+        _PendingSerial = Serial;
+        _PendingSourceGeneration = SourceGeneration;
+        _PendingScenarioGeneration = ScenarioGeneration;
+        _PendingAction = Action;
+        if (!State.TryStartControl(this, Serial, SourceGeneration,
+                ScenarioGeneration, Action))
         {
-            ck::Warning("Selection gym could not spawn its visual marker: " + InLabel);
-            return nullptr;
+            // A synchronous successful completion already cleared this tuple.
+            if (_ServerPending && _PendingSerial == Serial)
+            {
+                _ServerPending = false;
+                _PendingSerial = 0;
+                _PendingAction = -1;
+                LastControlAck = Rejected;
+                ForceNetUpdate();
+            }
         }
-
-        Visual.Mesh.SetMobility(EComponentMobility::Movable);
-        Visual.Mesh.SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        Visual.SetActorEnableCollision(false);
-        auto Cube = Cast<UStaticMesh>(LoadObject(this, "/Engine/BasicShapes/Cube.Cube"));
-        if (ck::IsValid(Cube))
-        { Visual.Mesh.SetStaticMesh(Cube); }
-        Visual.Mesh.SetRelativeScale3D(FVector(0.35f, 0.35f, 0.35f));
-        Visual.Set_Label(InLabel);
-        _Visuals.Add(Visual);
-        return Visual;
     }
 
-    private void DoClearScenario()
+    void Complete_SelectionControl(int32 Serial, int64 SourceGeneration,
+        int64 ScenarioGeneration, int32 Action, bool Success,
+        int64 CompletedScenarioGeneration, int64 CompletedSequence,
+        int32 CompletedScenario)
     {
-        for (auto Visual : _Visuals)
+        auto State = Get_ExactState();
+        if (!HasAuthority() || !_Admitted || _Ending || !_ServerPending ||
+            Serial != _PendingSerial || SourceGeneration != _PendingSourceGeneration ||
+            ScenarioGeneration != _PendingScenarioGeneration || Action != _PendingAction ||
+            LastControlAck.Serial + 1 != Serial || ck::Is_NOT_Valid(State))
+        { return; }
+        if (Success && (!HasExactPawn() || State.Get_HasSessionFailure() ||
+            CompletedScenarioGeneration <= 0 || CompletedSequence <= 0 ||
+            CompletedScenario < 0 || CompletedScenario > 4 ||
+            State.Snapshot.Lifecycle != ECkSelectionGym_WireLifecycle::Active ||
+            State.Snapshot.SourceGeneration != SourceGeneration ||
+            State.Snapshot.ScenarioGeneration != CompletedScenarioGeneration ||
+            State.Snapshot.Sequence != CompletedSequence ||
+            State.Snapshot.Scenario != CompletedScenario))
         {
-            if (ck::IsValid(Visual))
-            { Visual.DestroyActor(); }
+            State.Request_Fail("Completed control lost its exact owner or frame");
+            return;
         }
-        _Visuals.Empty();
-
-        for (auto FixtureRoot : _TransientFixtureRoots)
+        _ServerPending = false;
+        _PendingSerial = 0;
+        _PendingAction = -1;
+        FCkSelectionGym_ControlAck Completed;
+        Completed.Serial = Serial;
+        Completed.SourceGeneration = SourceGeneration;
+        Completed.ScenarioGeneration = ScenarioGeneration;
+        Completed.Action = Action;
+        Completed.Result = Success ? 1 : 2;
+        if (Success)
         {
-            if (ck::IsValid(FixtureRoot))
-            { utils_entity_lifetime::Request_DestroyEntity(FixtureRoot); }
+            Completed.CompletedScenarioGeneration = CompletedScenarioGeneration;
+            Completed.CompletedSequence = CompletedSequence;
+            Completed.CompletedScenario = CompletedScenario;
         }
-        _TransientFixtureRoots.Empty();
-
-        if (ck::IsValid(_OcclusionWall))
-        { _OcclusionWall.DestroyActor(); }
-        _OcclusionWall = nullptr;
-
-        if (ck::IsValid(_ScenarioRoot))
-        { utils_entity_lifetime::Request_DestroyEntity(_ScenarioRoot); }
-        _ScenarioRoot = FCk_Handle();
-        _MovingCandidate = FCk_Handle();
-        _RespawnCandidate = FCk_Handle();
-        _MovingTransform = utils_transform::Get_InvalidHandle();
-        _MovingVisual = nullptr;
-        _RespawnVisual = nullptr;
-        _MovingElapsed = 0.0f;
+        LastControlAck = Completed;
+        ForceNetUpdate();
     }
 
-    UFUNCTION()
-    private void OnFixtureTick(FCk_Handle_Timer InTimer, FCk_Chrono InChrono, FCk_Time InDeltaT)
+    private void Request_SharedControl(int32 Action)
     {
-        if (_ActiveScenario != 4 || ck::Is_NOT_Valid(_MovingTransform))
-        { return; }
-
-        _MovingElapsed += float(InDeltaT.Get_Seconds());
-        auto NewLocation = _Origin + FVector(-650.0f, Math::Sin(_MovingElapsed) * 280.0f, 120.0f);
-        utils_transform::Request_SetLocation(_MovingTransform, NewLocation, ECk_LocalWorld::World);
-        if (ck::IsValid(_MovingVisual))
-        { _MovingVisual.SetActorLocation(NewLocation); }
+        FCkSelectionGym_WireSnapshot Frame;
+        if (!TryReadyFrame(Frame) || (Action == 6 && Frame.Scenario != 4) ||
+            LastControlAck.Serial >= 2147483647) { return; }
+        _RequestedSerial = LastControlAck.Serial + 1;
+        Server_RequestSelectionControl(_RequestedSerial,
+            Frame.SourceGeneration, Frame.ScenarioGeneration, Action);
     }
 
-    private void DoPositionViewer()
+    UFUNCTION(BlueprintOverride) void EndPlay(EEndPlayReason Reason)
     {
-        auto ViewPawn = GetControlledPawn();
-        if (ck::Is_NOT_Valid(ViewPawn))
-        { return; }
-
-        ViewPawn.SetActorLocation(_Origin + FVector(650.0f, 0.0f, 320.0f));
-        SetControlRotation(FRotator(-12.0f, 180.0f, 0.0f));
+        _Ending = true;
+        Super::EndPlay(Reason);
     }
 
-    private void DoDeleteAndRespawn()
-    {
-        if (_ActiveScenario != 4 || ck::Is_NOT_Valid(_ScenarioRoot))
-        { return; }
-
-        if (ck::IsValid(_RespawnCandidate))
-        { utils_entity_lifetime::Request_DestroyEntity(_RespawnCandidate); }
-        if (ck::IsValid(_RespawnVisual))
-        { _RespawnVisual.DestroyActor(); }
-
-        _RespawnCandidate = selection_gym::Create_Candidate(
-            _ScenarioRoot,
-            n"Selection.Lifecycle.Respawned",
-            _Origin + FVector(-650.0f, 260.0f, 120.0f));
-        _RespawnVisual = DoCreateVisual("Respawned root", _Origin + FVector(-650.0f, 260.0f, 120.0f));
-    }
-
-    FString Get_ControlPanelTitle() override
-    {
-        return "SELECTION FIXTURES";
-    }
+    FString Get_ControlPanelTitle() override { return "SELECTION FIXTURES"; }
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override
     {
-        auto Rows = TArray<FCkGym_ControlRow>();
+        TArray<FCkGym_ControlRow> Rows;
+        FCkSelectionGym_WireSnapshot Frame;
+        const bool Ready = TryReadyFrame(Frame);
+        const int32 Scenario = Ready ? Frame.Scenario : -1;
         Rows.Add(CkGym_Control::Header("SCENARIO"));
-        Rows.Add(CkGym_Control::Status("Active", DoGetScenarioLabel()));
-        Rows.Add(CkGym_Control::Numbered(0, "Topology and context roots", _ActiveScenario == 0));
-        Rows.Add(CkGym_Control::Numbered(1, "Distance and overlap", _ActiveScenario == 1));
-        Rows.Add(CkGym_Control::Numbered(2, "Mixed ECS hierarchy", _ActiveScenario == 2));
-        Rows.Add(CkGym_Control::Numbered(3, "Visibility and occlusion", _ActiveScenario == 3));
-        Rows.Add(CkGym_Control::Numbered(4, "Moving and respawn", _ActiveScenario == 4));
-        Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Rebuild active scenario"));
-        Rows.Add(CkGym_Control::Action(EKeys::X, "X", "Delete and respawn target", _ActiveScenario == 4));
+        Rows.Add(CkGym_Control::Status("Active", DoGetScenarioLabel(Scenario)));
+        Rows.Add(CkGym_Control::Numbered(0, "Topology and context roots", Scenario == 0, Ready));
+        Rows.Add(CkGym_Control::Numbered(1, "Distance and overlap", Scenario == 1, Ready));
+        Rows.Add(CkGym_Control::Numbered(2, "Mixed ECS hierarchy", Scenario == 2, Ready));
+        Rows.Add(CkGym_Control::Numbered(3, "Visibility and occlusion", Scenario == 3, Ready));
+        Rows.Add(CkGym_Control::Numbered(4, "Moving and respawn", Scenario == 4, Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Rebuild active scenario", Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::X, "X", "Delete and respawn target", Ready && Scenario == 4));
         Rows.Add(CkGym_Control::Status("Overlay", "[,] toggle | [Shift+,] or [Shift+P] settings"));
         return Rows;
     }
 
-    void Request_ControlActivated(int32 InRowIndex) override
+    UFUNCTION() void Request_ControlActivated(int32 RowIndex) override
     {
-        if (InRowIndex >= 2 && InRowIndex <= 6)
-        { DoSelectScenario(InRowIndex - 2); }
-        else if (InRowIndex == 7)
-        { DoSelectScenario(_ActiveScenario); }
-        else if (InRowIndex == 8)
-        { DoDeleteAndRespawn(); }
+        if (RowIndex >= 2 && RowIndex <= 6)
+        { Request_SharedControl(RowIndex - 2); }
+        else if (RowIndex == 7) { Request_SharedControl(5); }
+        else if (RowIndex == 8) { Request_SharedControl(6); }
     }
 
-    private FString DoGetScenarioLabel() const
+    private FString DoGetScenarioLabel(int32 Scenario) const
     {
-        if (_ActiveScenario == 0) { return "Topology"; }
-        if (_ActiveScenario == 1) { return "Distance"; }
-        if (_ActiveScenario == 2) { return "Hierarchy"; }
-        if (_ActiveScenario == 3) { return "Visibility"; }
-        return "Lifecycle";
+        if (Scenario == 0) { return "Topology"; }
+        if (Scenario == 1) { return "Distance"; }
+        if (Scenario == 2) { return "Hierarchy"; }
+        if (Scenario == 3) { return "Visibility"; }
+        if (Scenario == 4) { return "Lifecycle"; }
+        return "Waiting for shared source";
     }
 }
