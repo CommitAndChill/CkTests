@@ -32,6 +32,7 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Styling/CoreStyle.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/SViewport.h"
@@ -163,7 +164,8 @@ namespace ck_journal_pie
 
     auto FindHeader(const TSharedRef<SWidget>& Root, const FString& Label) -> TSharedPtr<SButton>
     {
-        if (Root->GetTypeAsString() == TEXT("SButton"))
+        if (Root->GetTypeAsString() == TEXT("SButton")
+            || Root->GetTypeAsString() == TEXT("SCkUiTabsHeaderButton"))
         {
             const FChildren* Children = Root->GetChildren();
             for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
@@ -193,6 +195,15 @@ namespace ck_journal_pie
         return {};
     }
 
+    auto FindTagged(const TSharedRef<SWidget>& Root, FName Tag) -> TSharedPtr<SWidget>
+    {
+        if (Root->GetTag() == Tag) { return Root; }
+        const FChildren* Children = Root->GetChildren();
+        for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
+        { if (const auto Found = FindTagged(ConstCastSharedRef<SWidget>(Children->GetChildAt(Index)), Tag); Found.IsValid()) { return Found; } }
+        return nullptr;
+    }
+
     auto EffectivelyVisible(const TSharedRef<SWidget>& Widget) -> bool
     {
         TSharedPtr<SWidget> Current = Widget;
@@ -202,6 +213,22 @@ namespace ck_journal_pie
             Current = Current->GetParentWidget();
         }
         return true;
+    }
+
+    auto SelectedRowInsideViewport(const TSharedPtr<SCkUiTree>& Tree, const FString& Key) -> bool
+    {
+        const auto Native = Tree.IsValid() ? Tree->GetTree() : nullptr;
+        if (!Native.IsValid() || Tree->GetSelectedKey() != TOptional<FString>{Key}) { return false; }
+        const auto Selected = Native->GetSelectedItems();
+        if (Selected.Num() != 1 || !Selected[0].IsValid() || Selected[0]->GetKey() != Key) { return false; }
+        const auto Row = Native->WidgetFromItem(Selected[0]);
+        if (!Row.IsValid()) { return false; }
+        const FGeometry& Viewport = Native->GetCachedGeometry();
+        const FGeometry& Cell = Row->AsWidget()->GetCachedGeometry();
+        const FVector2D Start = Viewport.AbsoluteToLocal(Cell.GetAbsolutePosition());
+        const FVector2D End = Viewport.AbsoluteToLocal(Cell.LocalToAbsolute(Cell.GetLocalSize()));
+        return Start.Y >= -1.0 && End.Y <= Viewport.GetLocalSize().Y + 1.0
+            && Start.X >= -1.0 && End.X <= Viewport.GetLocalSize().X + 1.0;
     }
 
     auto TextFits(const TSharedRef<SWidget>& Root, FName Tag) -> bool
@@ -471,6 +498,14 @@ bool FCk_JournalProof_PIE::RunTest(const FString&)
             State->HeldView = View;
             State->HeldTree = QuestTree;
             const TSharedRef<SWidget> Root = View->GetRegion(TEXT("main"));
+            const auto Display = NativeText(Root, FName{TEXT("quest-title")});
+            const auto Ui = NativeText(Root, FName{TEXT("quest-summary")});
+            const auto DefaultFont = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 12).GetCompositeFont();
+            TestTrue(TEXT("Skyrim Journal headings and copy use two admitted named fonts"),
+                Display.IsValid() && Ui.IsValid()
+                    && Display->GetFont().GetCompositeFont() != DefaultFont
+                    && Ui->GetFont().GetCompositeFont() != DefaultFont
+                    && Display->GetFont().GetCompositeFont() != Ui->GetFont().GetCompositeFont());
             const int32 User = Journal->Get_SlateUserIndex();
             auto& Slate = FSlateApplication::Get();
             TestTrue(TEXT("journal directs owning-user focus into authored view"),
@@ -483,6 +518,23 @@ bool FCk_JournalProof_PIE::RunTest(const FString&)
             for (const FViewportCase& Case : Viewports)
             { TestTrue(*FString::Printf(TEXT("native %s capture"), Case.Name), Capture(World, *State,
                 Case.Name, Case.Size, {TEXT("quest-title"), TEXT("quest-summary"), TEXT("quest-state"), TEXT("footer-date")})); }
+            const auto QuestFooter = FindTagged(Root, FName{TEXT("footer-keys")});
+            const auto CategoryFooter = FindTagged(Root, FName{TEXT("footer-category-keys")});
+            const auto EnterHint = FindTagged(Root, FName{TEXT("footer-enter-key")});
+            const auto MapHint = FindTagged(Root, FName{TEXT("footer-map-key")});
+            const bool QuestFooterVisible = QuestFooter.IsValid() && EffectivelyVisible(QuestFooter.ToSharedRef());
+            const bool CategoryFooterVisible = CategoryFooter.IsValid() && EffectivelyVisible(CategoryFooter.ToSharedRef());
+            const double EnterWidth = EnterHint.IsValid() ? EnterHint->GetCachedGeometry().GetLocalSize().X : 0.0;
+            const double MapWidth = MapHint.IsValid() ? MapHint->GetCachedGeometry().GetLocalSize().X : 0.0;
+            const bool QuestHintsValid = QuestFooterVisible && !CategoryFooterVisible
+                    && EnterHint.IsValid() && !EnterHint->SupportsKeyboardFocus()
+                    && EnterWidth >= 60.0
+                    && MapHint.IsValid() && !MapHint->SupportsKeyboardFocus()
+                    && MapWidth >= 30.0;
+            if (!QuestHintsValid)
+            { AddInfo(*FString::Printf(TEXT("Quest footer: quest-visible=%d category-visible=%d enter-width=%.1f map-width=%.1f"),
+                QuestFooterVisible, CategoryFooterVisible, EnterWidth, MapWidth)); }
+            TestTrue(TEXT("quest footer shows padded passive shared key hints"), QuestHintsValid);
             TestTrue(TEXT("all realized quest and objective row names fit their allocated native rows"),
                 AllRealizedRowTextsFit(Root, FName{TEXT("quest-row-name")}, FName{TEXT("quest-row")})
                 && AllRealizedRowTextsFit(Root, FName{TEXT("objective-row-name")}, FName{TEXT("objective-row")}));
@@ -508,8 +560,29 @@ bool FCk_JournalProof_PIE::RunTest(const FString&)
                     TEXT("tracked-1920x1080"), {1920, 1080}, {TEXT("quest-title"), TEXT("quest-state")}));
             }
 
-            TestTrue(TEXT("Miscellaneous is a selectable keyed group"), QuestTree->TrySelectKey(FString{TEXT("miscellaneous")}, true));
-            Pump();
+            TestTrue(TEXT("Miscellaneous deferred selection requests native reveal"),
+                QuestTree->TryRequestSelectKey(FString{TEXT("miscellaneous")}, true, true));
+            for (int32 Frame = 0; Frame < 20
+                && !SelectedRowInsideViewport(QuestTree, TEXT("miscellaneous")); ++Frame) { Pump(); }
+            if (!SelectedRowInsideViewport(QuestTree, TEXT("miscellaneous")))
+            {
+                const auto Native = QuestTree->GetTree();
+                const auto SelectedItems = Native->GetSelectedItems();
+                const auto Row = SelectedItems.Num() == 1 ? Native->WidgetFromItem(SelectedItems[0]) : nullptr;
+                AddInfo(*FString::Printf(TEXT("Reveal diagnostic: status=%d selected=%s offset=%.3f viewport=(%.1f,%.1f) row=%d"),
+                    static_cast<int32>(QuestTree->GetSelectionRequestState()), *QuestTree->GetSelectedKey().Get(FString{}),
+                    Native->GetScrollOffset(), Native->GetCachedGeometry().GetLocalSize().X,
+                    Native->GetCachedGeometry().GetLocalSize().Y, Row.IsValid()));
+                if (Row.IsValid())
+                {
+                    const auto& Cell = Row->AsWidget()->GetCachedGeometry();
+                    const auto Start = Native->GetCachedGeometry().AbsoluteToLocal(Cell.GetAbsolutePosition());
+                    const auto End = Native->GetCachedGeometry().AbsoluteToLocal(Cell.LocalToAbsolute(Cell.GetLocalSize()));
+                    AddInfo(*FString::Printf(TEXT("Reveal row bounds: (%.1f,%.1f)-(%.1f,%.1f)"), Start.X, Start.Y, End.X, End.Y));
+                }
+            }
+            TestTrue(TEXT("Selected Miscellaneous row is realized inside the quest viewport before capture"),
+                SelectedRowInsideViewport(QuestTree, TEXT("miscellaneous")));
             TestEqual(TEXT("Miscellaneous drives model selection"), Model->Get_SelectedKey(), FName{TEXT("miscellaneous")});
             const auto Summary = NativeText(Root, FName{TEXT("quest-summary")});
             TestTrue(TEXT("Miscellaneous collapses the inapplicable quest summary"), Summary.IsValid()
@@ -568,6 +641,22 @@ bool FCk_JournalProof_PIE::RunTest(const FString&)
             TestEqual(TEXT("Stats tab becomes authoritative"), Model->Get_TabKey(), FName{TEXT("stats")});
             TestTrue(TEXT("Stats native capture"), Capture(World, *State,
                 TEXT("stats-1920x1080"), {1920, 1080}, {TEXT("stats-summary"), TEXT("footer-date")}));
+            const bool StatsQuestVisible = QuestFooter.IsValid() && EffectivelyVisible(QuestFooter.ToSharedRef());
+            const bool StatsCategoryVisible = CategoryFooter.IsValid() && EffectivelyVisible(CategoryFooter.ToSharedRef());
+            bool HasCategoryHints = StatsCategoryVisible && !StatsQuestVisible;
+            for (const TCHAR* Id : {TEXT("footer-previous-key"), TEXT("footer-next-key"), TEXT("footer-close-key")})
+            {
+                const auto Hint = FindTagged(Root, FName{Id});
+                if (!Hint.IsValid() || Hint->GetCachedGeometry().GetLocalSize().X < 30.0)
+                { AddInfo(*FString::Printf(TEXT("Stats footer hint %s width=%.1f"), Id,
+                    Hint.IsValid() ? Hint->GetCachedGeometry().GetLocalSize().X : 0.0)); }
+                HasCategoryHints &= Hint.IsValid() && !Hint->SupportsKeyboardFocus()
+                    && Hint->GetCachedGeometry().GetLocalSize().X >= 30.0;
+            }
+            if (!HasCategoryHints)
+            { AddInfo(*FString::Printf(TEXT("Stats footer: quest-visible=%d category-visible=%d"),
+                StatsQuestVisible, StatsCategoryVisible)); }
+            TestTrue(TEXT("category footer replaces quest hints with padded Q, E and Esc keys"), HasCategoryHints);
             TestTrue(TEXT("real System header click"), Click(System.ToSharedRef(), User));
             Pump();
             TestEqual(TEXT("System tab becomes authoritative"), Model->Get_TabKey(), FName{TEXT("system")});
@@ -636,8 +725,11 @@ bool FCk_JournalProof_PIE::RunTest(const FString&)
                 && View->GetTree(TEXT("quest-list")) == QuestTree && View->GetTabs(TEXT("journal-tabs")) == Tabs
                 && View->GetRegion(TEXT("main")) == AcceptedRoot && NativeTree->GetScrollOffset() >= Offset - 1.0f
                 && !Journal->Get_SourceError().IsEmpty());
-            TestTrue(TEXT("compatible journal CSS reload accepts"), Journal->Request_ApplySource(Markup,
-                Style.Replace(TEXT("font-size: 30px"), TEXT("font-size: 31px"))));
+            const FString ChangedStyle = Style.Replace(TEXT("-ck-tabs-font-size: 25px"),
+                TEXT("-ck-tabs-font-size: 26px"));
+            if (!TestTrue(TEXT("compatible journal CSS reload changes tab typography"),
+                ChangedStyle != Style)) { return; }
+            TestTrue(TEXT("compatible journal CSS reload accepts"), Journal->Request_ApplySource(Markup, ChangedStyle));
             Pump();
             TestTrue(TEXT("compatible reload retains tree, tabs, root, selection and scroll"),
                 View->GetRevision() > Revision && View->GetTree(TEXT("quest-list")) == QuestTree

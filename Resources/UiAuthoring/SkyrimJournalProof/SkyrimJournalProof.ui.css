@@ -1,3 +1,4 @@
+.replica-backdrop { width: 1920px; height: 1080px; }
 .journal-layout { width: 1920px; height: 1080px; }
 .top-gap { width: 1920px; height: 72px; }
 .journal-stage-row { width: 1920px; height: 819px; }
@@ -7,38 +8,43 @@
 .header-art { width: 1293px; height: 66px; horizontal-align: center; }
 .header-art-leaf { width: 1293px; height: 66px; }
 .header-body-gap { width: 1428px; height: 15px; }
+.journal-body-art { width: 1428px; height: 738px; }
+.journal-body-smoke { width: 1428px; height: 738px; background-color: #050606AA; }
 .journal-frame { width: 1428px; height: 738px; }
-.journal-tabs { font-family: journal-ui; width: 1428px; height: 819px; -ck-tabs-header-width: 430px; -ck-tabs-header-align: center; -ck-tabs-active-color: #F2F2EE; -ck-tabs-inactive-color: #8E9294; -ck-tabs-underline-color: #00000000; -ck-tabs-underline-height: 0px; -ck-tabs-font-size: 30px; -ck-tabs-font-weight: normal; -ck-tabs-header-padding-x: 8px; -ck-tabs-header-padding-y: 14px; }
+.journal-tabs { font-family: skyrim-display; width: 1428px; height: 819px; -ck-tabs-header-width: 430px; -ck-tabs-header-align: center; -ck-tabs-focus-outline-color: #00000000; -ck-tabs-active-color: #F2F2EE; -ck-tabs-inactive-color: #A4A4A0; -ck-tabs-underline-color: #00000000; -ck-tabs-underline-height: 0px; -ck-tabs-font-size: 25px; -ck-tabs-font-weight: normal; -ck-tabs-header-padding-x: 8px; -ck-tabs-header-padding-y: 14px; }
 .journal-tab-panel { width: 1428px; height: 753px; }
 .journal-body { width: 1428px; height: 738px; }
 .quest-list-pane { width: 442px; height: 738px; }
 .quest-list-top-gap { width: 442px; height: 365px; }
-.quest-tree { width: 422px; height: 330px; -ck-tree-background: #00000000; -ck-tree-row-background: #00000000; -ck-tree-row-hover-background: #FFFFFF12; -ck-tree-row-selected-background: #FFFFFF16; }
-.quest-row { width: 400px; height: 52px; gap: 6px; }
+.quest-tree { width: 422px; height: 330px; -ck-tree-background: #00000000; -ck-tree-focus-outline-color: #00000000; -ck-tree-row-background: #00000000; -ck-tree-row-hover-background: #FFFFFF0A; -ck-tree-row-selected-background: #FFFFFF08; }
+.quest-row { width: 400px; height: 46px; gap: 6px; }
 .row-grow { flex-grow: 1; }
-.quest-row-name { font-family: journal-ui; max-width: 350px; height: 52px; font-size: 28; color: #DAD9D5; horizontal-align: right; vertical-align: center; text-wrap: nowrap; text-overflow: ellipsis; }
-.quest-row-marker { font-family: journal-ui; width: 30px; height: 52px; font-size: 22; color: #F1F1EC; vertical-align: center; text-wrap: nowrap; }
+.quest-row-name { font-family: skyrim-display; max-width: 350px; height: 46px; font-size: 22px; color: #DAD9D5; horizontal-align: right; vertical-align: center; text-wrap: nowrap; text-overflow: ellipsis; }
+.quest-row-marker { font-family: skyrim-ui; width: 30px; height: 46px; font-size: 18px; color: #F1F1EC; vertical-align: center; text-wrap: nowrap; }
 .quest-details { width: 986px; height: 738px; padding: 0px 0px 16px 0px; }
 .details-top-gap { width: 986px; height: 8px; }
 .quest-heading { width: 936px; height: 112px; horizontal-align: center; }
 .quest-ornament { width: 936px; height: 112px; }
-.quest-title { font-family: journal-ui; max-width: 620px; height: 112px; font-size: 42px; color: #EFEFEB; horizontal-align: center; vertical-align: center; text-wrap: nowrap; text-overflow: ellipsis; letter-spacing: 0.035em; }
-.quest-summary { font-family: journal-ui; width: 900px; height: 150px; font-size: 26px; color: #C4C4C1; horizontal-align: center; text-wrap: wrap; }
+.quest-title { font-family: skyrim-display; max-width: 620px; height: 112px; font-size: 33px; color: #EFEFEB; horizontal-align: center; vertical-align: center; text-wrap: nowrap; text-overflow: ellipsis; letter-spacing: 0.035em; }
+.quest-summary { font-family: skyrim-ui; width: 900px; height: 150px; font-size: 20px; color: #C4C4C1; horizontal-align: center; text-wrap: wrap; }
 .details-list-gap { width: 986px; height: 12px; }
-.objective-tree { width: 900px; min-height: 320px; max-height: 522px; flex-grow: 1; flex-shrink: 1; horizontal-align: center; -ck-tree-background: #00000000; -ck-tree-row-background: #00000000; -ck-tree-row-hover-background: #FFFFFF10; -ck-tree-row-selected-background: #FFFFFF14; }
-.objective-row { width: 864px; height: 58px; gap: 12px; }
-.objective-row-marker { font-family: journal-ui; width: 30px; height: 58px; font-size: 24px; color: #D8D8D3; vertical-align: center; text-wrap: nowrap; }
-.objective-row-name { font-family: journal-ui; width: 820px; height: 58px; font-size: 26px; color: #C9CAC7; vertical-align: center; text-wrap: wrap; }
-.quest-state { font-family: journal-ui; width: 900px; height: 38px; font-size: 18px; color: #B7B8B4; horizontal-align: center; text-wrap: nowrap; }
+.objective-tree { width: 900px; min-height: 320px; max-height: 522px; flex-grow: 1; flex-shrink: 1; horizontal-align: center; -ck-tree-background: #00000000; -ck-tree-focus-outline-color: #00000000; -ck-tree-row-background: #00000000; -ck-tree-row-hover-background: #FFFFFF08; -ck-tree-row-selected-background: #FFFFFF08; }
+.objective-row { width: 864px; height: 52px; gap: 12px; }
+.objective-row-marker { font-family: skyrim-ui; width: 30px; height: 52px; font-size: 19px; color: #D8D8D3; vertical-align: center; text-wrap: nowrap; }
+.objective-row-name { font-family: skyrim-ui; width: 820px; height: 52px; font-size: 20px; color: #C9CAC7; vertical-align: center; text-wrap: wrap; }
+.quest-state { font-family: skyrim-ui; width: 900px; height: 38px; font-size: 16px; color: #B7B8B4; horizontal-align: center; text-wrap: nowrap; }
 .simple-details { width: 986px; height: 738px; padding: 46px 70px; gap: 26px; }
-.simple-title { font-family: journal-ui; height: 70px; font-size: 40px; color: #F0F0EC; text-wrap: nowrap; }
-.simple-summary { font-family: journal-ui; width: 846px; height: 390px; font-size: 27px; color: #C4C4C1; text-wrap: wrap; }
-.journal-close { font-family: journal-ui; width: 250px; height: 58px; font-size: 25px; color: #ECECE7; -ck-button-background: #00000000; -ck-button-hover-background: #FFFFFF12; -ck-button-focus-background: #FFFFFF16; -ck-button-border-color: #8E9294; }
+.simple-title { font-family: skyrim-display; height: 70px; font-size: 32px; color: #F0F0EC; text-wrap: nowrap; }
+.simple-summary { font-family: skyrim-ui; width: 846px; height: 390px; font-size: 21px; color: #C4C4C1; text-wrap: wrap; }
+.journal-close { font-family: skyrim-ui; width: 250px; height: 58px; font-size: 20px; color: #ECECE7; -ck-button-background: #00000000; -ck-button-hover-background: #FFFFFF12; -ck-button-focus-background: #FFFFFF16; -ck-button-border-color: #8E9294; }
 .footer-top-gap { width: 1920px; height: 54px; }
 .footer-line { width: 1648px; height: 2px; horizontal-align: center; }
 .footer-text-gap { width: 1920px; height: 36px; }
 .journal-footer { width: 1920px; height: 58px; padding: 0px 136px; gap: 24px; }
-.footer-keys { font-family: journal-ui; width: 520px; height: 58px; font-size: 24px; color: #D6D7D5; vertical-align: center; text-wrap: nowrap; }
-.footer-status { font-family: journal-ui; max-width: 450px; height: 58px; font-size: 20px; color: #C2C3C0; vertical-align: center; text-wrap: nowrap; text-overflow: ellipsis; }
+.footer-keys { width: 520px; height: 58px; gap: 10px; vertical-align: center; }
+.footer-key { width: 31px; height: 26px; vertical-align: center; -ck-key-hint-font-size: 13px; -ck-key-hint-foreground: #D9DAD5; -ck-key-hint-background: #06070773; -ck-key-hint-border-color: #9C9E9B; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 0px; -ck-key-hint-padding-x: 2px; -ck-key-hint-padding-y: 1px; }
+.footer-key-wide { width: 61px; -ck-key-hint-font-size: 12px; }
+.footer-key-label { height: 31px; vertical-align: center; font-family: skyrim-ui; font-size: 18px; color: #D6D7D5; text-wrap: nowrap; }
+.footer-status { font-family: skyrim-ui; max-width: 450px; height: 30px; font-size: 17px; color: #C2C3C0; vertical-align: center; text-wrap: nowrap; text-overflow: ellipsis; }
 .footer-grow { flex-grow: 1; }
-.footer-date { font-family: journal-ui; max-width: 600px; height: 58px; font-size: 23px; color: #D6D7D5; vertical-align: center; horizontal-align: right; text-wrap: nowrap; }
+.footer-date { font-family: skyrim-ui; max-width: 600px; height: 31px; font-size: 18px; color: #D6D7D5; vertical-align: center; horizontal-align: right; text-wrap: nowrap; }

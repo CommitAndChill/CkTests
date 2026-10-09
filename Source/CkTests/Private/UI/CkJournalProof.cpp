@@ -1,15 +1,16 @@
 #include "CkTests/UI/CkJournalProof.h"
 #include "UI/CkJournalProofModel.h"
 #include "UI/CkJournalProofArt.h"
+#include "UI/CkUiReplicaPresentation.h"
 
 #include "CkCore/Macros/CkMacros.h"
 #include "CkSlateLayout/CkUiFontRegistry.h"
+#include "CkSlateLayout/CkUiKeyHint.h"
 #include "CkSlateLayout/CkUiTreeCollection.h"
 #include "CkSlateLayout/SCkUiTree.h"
 #include "CkSlateLayout/SCkUiTabs.h"
 #include "CkSlateLayout/SCkUiSurface.h"
 #include "CkWidgets/Authoring/CkAuthoredSurface_Widget.h"
-#include "CkWidgets/Authoring/CkUiFontResources.h"
 #include "CkUI/Layout/CkUI_Layout_Subsystem.h"
 #include "CkUI/Layout/CkUI_LayoutConfigAsset.h"
 #include "CkUI/Layout/CkUI_LayerStack.h"
@@ -413,18 +414,13 @@ auto UCk_JournalProof_UE::DoPrepare() -> bool
         _SourceError = FString::Join(Art.Errors, TEXT("\n"));
         return false;
     }
-    _Registry = Registry.CreateSnapshot();
-    auto Fonts = FCkUiFontRegistry{};
-    const auto FontRegistered = FCkUiFontResources::Register(Fonts, {
-        .Name = TEXT("journal-ui"),
-        .RegularFile = ck_journal_host::Resource(TEXT("RobotoCondensed.ttf")),
-        .FallbackRegularFile = FPaths::Combine(FPaths::EngineContentDir(), TEXT("Slate/Fonts/DroidSansFallback.ttf")),
-    });
-    if (NOT FontRegistered.Succeeded)
+    const auto Hints = RegisterKeyHintUiControl(Registry);
+    if (NOT Hints.Succeeded)
     {
-        _SourceError = FString::Join(FontRegistered.Errors, TEXT("\n"));
+        _SourceError = FString::Join(Hints.Errors, TEXT("\n"));
         return false;
     }
+    _Registry = Registry.CreateSnapshot();
     const auto Schema = TArray<FCkUiFieldSchema>{
         {TEXT("name"), ECkUiFieldKind::Text},
         {TEXT("marker"), ECkUiFieldKind::Text},
@@ -451,6 +447,16 @@ auto UCk_JournalProof_UE::DoPrepare() -> bool
     {
         return Weak.IsValid() && Weak->_Model.IsValid()
             && Weak->_Model->Get_SelectedKey() != FName{TEXT("miscellaneous")};
+    }));
+    Data.Visibility.Add(TEXT("QuestFooterVisible"), TAttribute<bool>::CreateLambda([Weak]()
+    {
+        return Weak.IsValid() && Weak->_Model.IsValid()
+            && Weak->_Model->Get_TabKey() == FName{TEXT("quests")};
+    }));
+    Data.Visibility.Add(TEXT("CategoryFooterVisible"), TAttribute<bool>::CreateLambda([Weak]()
+    {
+        return Weak.IsValid() && Weak->_Model.IsValid()
+            && Weak->_Model->Get_TabKey() != FName{TEXT("quests")};
     }));
     Data.String.Add(TEXT("JournalTab"), TAttribute<FString>::CreateLambda([Weak]()
     {
@@ -492,8 +498,13 @@ auto UCk_JournalProof_UE::DoPrepare() -> bool
     auto Actions = FCkUiView::FActions{};
     Actions.Add(TEXT("CloseJournal"), FSimpleDelegate::CreateWeakLambda(this,
         [this]() { if (IsJournalOpen()) { Request_Close(); } }));
+    TSharedPtr<const FCkUiFontRegistrySnapshot> FontsSnapshot;
+    if (NOT ck_ui_replica_presentation::TryLoad(TEXT("Skyrim"), Data, FontsSnapshot, _SourceError))
+    {
+        return false;
+    }
     _View = FCkUiView::Create({}, MoveTemp(Actions), {}, {},
-        MoveTemp(Data), _Registry, Fonts.CreateSnapshot());
+        MoveTemp(Data), _Registry, MoveTemp(FontsSnapshot));
     _View->GetRegion(TEXT("main"));
     _LastMarkup.Reset();
     _LastStyle.Reset();
@@ -568,8 +579,8 @@ auto UCk_JournalProof_UE::DoSync() -> bool
             && _ObjectiveKeys.Contains(PreviousObjective.GetValue()) ? PreviousObjective
             : FirstObjective;
         const bool Admitted = QuestTree.IsValid() && ObjectiveTree.IsValid()
-            && QuestTree->TryRequestSelectKey(SelectedKey.ToString(), false)
-            && ObjectiveTree->TryRequestSelectKey(ObjectiveKey, false);
+            && QuestTree->TryRequestSelectKey(SelectedKey.ToString(), false, true)
+            && ObjectiveTree->TryRequestSelectKey(ObjectiveKey, false, true);
         if (NOT Admitted)
         {
             if (QuestTree.IsValid()) { QuestTree->CancelSelectionRequest(); }
