@@ -34,6 +34,11 @@ namespace ck_scene_anchor_seam_test
         TWeakObjectPtr<USceneComponent> Component;
         FTransform Offset = FTransform(FVector(25.0, 0.0, 0.0));
         bool bInitialPassed = false;
+        FCk_Handle MissingRecordParent;
+        FCk_Handle MissingRecordChild;
+        FCk_Handle IntactRecordParent;
+        FCk_Handle IntactRecordChild;
+        bool bRecordCleanupSetup = false;
     };
     static bool PutRotation(FTransform& Transform, const FQuat& Rotation)
     {
@@ -572,6 +577,138 @@ bool FCkSceneNodePreallocatedAnchor::RunTest(const FString& Parameters)
             DirectEntries(State->ActorRoot) == EntriesBefore &&
             RootComponent->IsRegistered());
     })));
+    // Both specimens are composed through the public SceneNode path. Only one
+    // parent record disappears before its genuine child retires.
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* World)
+    {
+        if (!TestTrue(TEXT("record cleanup specimens have the original authority world"),
+            IsValid(World) && Live(State->WorldRoot) &&
+            UCk_Utils_EcsWorld_Subsystem_UE::TryGet_TransientEntityForWorld(*World)
+                == State->WorldRoot))
+        { return; }
+        const auto Compose = [this, State](FCk_Handle& Parent, FCk_Handle& Child)
+        {
+            Parent = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->WorldRoot);
+            if (!TestTrue(TEXT("isolated live record parent"), Live(Parent))) { return false; }
+            auto ParentTransform = UCk_Utils_Transform_UE::Add(Parent,
+                FTransform::Identity, ECk_Replication::DoesNotReplicate);
+            if (!TestTrue(TEXT("isolated parent real Transform"),
+                ck::IsValid(ParentTransform))) { return false; }
+            Child = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Parent);
+            if (!TestTrue(TEXT("isolated live direct lifetime child"),
+                Live(Child) && UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Child) &&
+                UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Child) == Parent))
+            { return false; }
+            FCk_Handle_SceneNode Node;
+            if (!TestTrue(TEXT("real TryAdd_Anchor installs record cleanup"),
+                UCk_Utils_SceneNode_UE::TryAdd_Anchor(
+                    Child, ParentTransform, FTransform::Identity, Node) &&
+                Node == Child && Live(Child) &&
+                Child.Has_All<ck::FFragment_RecordEntry, ck::SceneNodeParent,
+                    ck::FFragment_SceneNode>() &&
+                Parent.Has<ck::FFragment_RecordOfSceneNodes>() &&
+                ck::FUtils_RecordOfSceneNodes::Get_ContainsEntry(Parent, Node)))
+            { return false; }
+            TArray<FCk_Handle_SceneNode> Direct;
+            if (!TestTrue(TEXT("direct-entry API returns exactly the real SceneNode child"),
+                ck::FUtils_RecordOfSceneNodes::TryGet_DirectEntries(Parent, Direct) &&
+                Direct.Num() == 1 && Direct[0] == Node))
+            { return false; }
+            return true;
+        };
+        if (!Compose(State->MissingRecordParent, State->MissingRecordChild) ||
+            !Compose(State->IntactRecordParent, State->IntactRecordChild))
+        { return; }
+        const auto IntactEntriesBefore = DirectEntries(State->IntactRecordParent);
+        int32 UnexpectedTransformCallbacks = 0;
+        const auto Observer = UCk_Utils_Transform_UE::Get_OnAdded().AddLambda(
+            [&](const FCk_Handle_Transform&) { ++UnexpectedTransformCallbacks; });
+        ON_SCOPE_EXIT { UCk_Utils_Transform_UE::Get_OnAdded().Remove(Observer); };
+        const auto RejectedRead = [State, &IntactEntriesBefore](
+            const FCk_Handle& Invalid)
+        {
+            TArray<FCk_Handle_SceneNode> Out{
+                UCk_Utils_SceneNode_UE::Cast(State->IntactRecordChild)};
+            return !ck::FUtils_RecordOfSceneNodes::TryGet_DirectEntries(Invalid, Out) &&
+                Out.IsEmpty() && Live(State->IntactRecordParent) &&
+                DirectEntries(State->IntactRecordParent) == IntactEntriesBefore &&
+                Live(State->IntactRecordChild);
+        };
+        FCk_Handle Default;
+        if (!TestTrue(TEXT("default record input fails and resets output unchanged"),
+            RejectedRead(Default))) { return; }
+        FCk_Handle Stale;
+        {
+            ck::FEcsWorld Temporary;
+            Stale = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(
+                UCk_Utils_EntityLifetime_UE::Get_TransientEntity(
+                    Temporary.Get_Registry()));
+        }
+        if (!TestTrue(TEXT("stale record input fails and resets output unchanged"),
+            RejectedRead(Stale))) { return; }
+        if (!TestTrue(TEXT("remove only genuine parent SceneNode record"),
+            State->MissingRecordParent.Try_Remove<ck::FFragment_RecordOfSceneNodes>() &&
+            Live(State->MissingRecordParent) &&
+            !State->MissingRecordParent.Has<ck::FFragment_RecordOfSceneNodes>() &&
+            Live(State->MissingRecordChild) &&
+            State->MissingRecordChild.Has<ck::FFragment_RecordEntry>()))
+        { return; }
+        if (!TestTrue(TEXT("live no-record input fails and resets output unchanged"),
+            RejectedRead(State->MissingRecordParent) &&
+            UnexpectedTransformCallbacks == 0)) { return; }
+        State->bRecordCleanupSetup = true;
+        UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->MissingRecordChild);
+        UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->IntactRecordChild);
+    })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(
+        FCk_NetAutoTest_Condition::CreateLambda([State]()
+    {
+        return !State->bRecordCleanupSetup ||
+            (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                State->MissingRecordChild) &&
+             !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                State->IntactRecordChild));
+    }), 15.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld*)
+    {
+        TestTrue(TEXT("both real record-entry children finish retirement"),
+            State->bRecordCleanupSetup &&
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                State->MissingRecordChild) &&
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                State->IntactRecordChild) &&
+            Live(State->MissingRecordParent) &&
+            !State->MissingRecordParent.Has<ck::FFragment_RecordOfSceneNodes>() &&
+            Live(State->IntactRecordParent) &&
+            State->IntactRecordParent.Has<ck::FFragment_RecordOfSceneNodes>() &&
+            DirectEntries(State->IntactRecordParent).IsEmpty());
+        TArray<FCk_Handle_SceneNode> EmptyDirect{FCk_Handle_SceneNode{}};
+        const bool IntactRecordStillLive = Live(State->IntactRecordParent) &&
+            State->IntactRecordParent.Has<ck::FFragment_RecordOfSceneNodes>();
+        TestTrue(TEXT("valid empty record succeeds and clears output"),
+            IntactRecordStillLive &&
+            ck::FUtils_RecordOfSceneNodes::TryGet_DirectEntries(
+                State->IntactRecordParent, EmptyDirect) && EmptyDirect.IsEmpty());
+        // Also retire partially composed specimens after any earlier visible failure.
+        if (Live(State->MissingRecordParent))
+        { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->MissingRecordParent); }
+        if (Live(State->IntactRecordParent))
+        { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->IntactRecordParent); }
+    })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(
+        FCk_NetAutoTest_Condition::CreateLambda([State]()
+    {
+        return !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                State->MissingRecordParent) &&
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                State->MissingRecordChild) &&
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                State->IntactRecordParent) &&
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                State->IntactRecordChild);
+    }), 15.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     return true;
 }
