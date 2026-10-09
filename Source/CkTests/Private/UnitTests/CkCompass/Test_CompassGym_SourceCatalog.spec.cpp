@@ -5,6 +5,8 @@
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkCompassGym_SourceCatalog.h"
 #include "CkCompassGym_SourceMembership.h"
+#include "CkCompassGym_Wire.h"
+#include "CkGym_AdmissionRuntime.h"
 #include "CkCompassGym_PingTtlProbe.h"
 #include "../../CkCompassGym_SourceMembership_Private.h"
 #include "CkCompass/CkCompass_Utils.h"
@@ -30,6 +32,7 @@
 #include "GameplayTagContainer.h"
 #include "ProceduralMeshComponent.h"
 #include "UObject/StrongObjectPtr.h"
+#include <limits>
 
 namespace ck_compass_catalog_test
 {
@@ -93,10 +96,24 @@ namespace ck_compass_catalog_test
         FString LastFailure;
         TArray<FCkCompassGym_SourceRow> LastRows;
         bool Built = false;
+        bool JournalSetupFailed = false;
+        FCk_Handle ForeignTimerOwner;
+        FCk_Handle ForeignTimer;
+        int64 JournalRevision = 0;
+        TArray<FCkCompassGym_SourceRow> JournalRows;
+        FString JournalFailure;
     };
 
     auto Allocated(const FCk_Handle& Handle) -> bool
     { return UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Handle); }
+
+    auto LiveUninitiated(const FCk_Handle& H) -> bool
+    {
+        return Allocated(H) && ck::IsValid(H) &&
+            !H.Has_Any<ck::FTag_DestroyEntity_Initiate,
+                ck::FTag_DestroyEntity_EndPlay, ck::FTag_DestroyEntity_Teardown,
+                ck::FTag_DestroyEntity_Await, ck::FTag_DestroyEntity_Finalize>();
+    }
 
     auto Tag(const TCHAR* Name) -> FGameplayTag
     { return FGameplayTag::RequestGameplayTag(FName(Name), false); }
@@ -197,6 +214,106 @@ namespace ck_compass_catalog_test
             if (!Allocated(Tagged)) { return false; }
         }
         return Run.StagedStress.Num() == 500;
+    }
+
+    auto BuildHealthyBase(FRun& Run) -> bool
+    {
+        constexpr const TCHAR* Categories[8] = {
+            TEXT("Poi.Category.Quest"), TEXT("Poi.Category.Shop"),
+            TEXT("Poi.Category.Danger"), TEXT("Poi.Category.Info"),
+            TEXT("Poi.Category.Quest"), TEXT("Poi.Category.Shop"),
+            TEXT("Poi.Category.Danger"), TEXT("Poi.Category.Info") };
+        const FVector2D Offsets[8] = {
+            {600, 0}, {424.3, 424.3}, {0, 600}, {-424.3, 424.3},
+            {-600, 0}, {-424.3, -424.3}, {0, -600}, {424.3, -424.3} };
+        const FVector Center(-800, 0, 100);
+        for (int32 I = 0; I < 8; ++I)
+        {
+            if (!AddPoi(Run, ECkCompassGym_SourceKind::Ring, Categories[I],
+                    Center + FVector(Offsets[I].X, Offsets[I].Y, 0), I + 1, true))
+            { return false; }
+        }
+        return AddPoi(Run, ECkCompassGym_SourceKind::Waypoint,
+            TEXT("Poi.Category.Waypoint"), Center + FVector(-2500, 0, 0),
+            10, true) && Run.Receipts.Num() == 9;
+    }
+
+    // Validator-only proof on physical source rows. Clearing NotReplicated
+    // lines simulates the DTO value shape; it is not an Iris delivery test.
+    auto ProveWireFromRealNine(const TArray<FCkCompassGym_SourceRow>& Actual)
+        -> bool
+    {
+        if (Actual.Num() != 9) { return false; }
+        for (const auto& Row : Actual)
+        {
+            if (!Row.HasMarker || Row.Marker.Lines.Num() != 96)
+            { return false; }
+        }
+        FCkCompassGym_WireSnapshot Raw;
+        Raw.SourceGeneration = 1;
+        Raw.Sequence = 1;
+        Raw.Lifecycle = ECkCompassGym_WireLifecycle::Active;
+        Raw.DeclaredRowCount = Actual.Num();
+        Raw.Rows = Actual;
+        TArray<FCkCompassGym_SourceRow> Expanded;
+        if (!UCkCompassGym_Wire::TryValidateAndExpand(Raw, Expanded) ||
+            Expanded.Num() != 9)
+        { return false; }
+        auto Stripped = Raw;
+        for (auto& Row : Stripped.Rows) { Row.Marker.Lines.Reset(); }
+        TArray<FCkCompassGym_SourceRow> Regenerated;
+        if (!UCkCompassGym_Wire::TryValidateAndExpand(Stripped, Regenerated) ||
+            Regenerated.Num() != 9 ||
+            !UCkCompassGym_Wire::Get_IsSameFrame(Raw, Stripped))
+        { return false; }
+        const auto* Type = FCkCompassGym_SourceRow::StaticStruct();
+        for (int32 I = 0; I < 9; ++I)
+        {
+            if (Regenerated[I].Marker.Lines.Num() != 96 ||
+                !Type->CompareScriptStruct(&Actual[I], &Regenerated[I], PPF_None))
+            { return false; }
+        }
+        auto Reject = [](const FCkCompassGym_WireSnapshot& Candidate) {
+            TArray<FCkCompassGym_SourceRow> Output;
+            Output.AddDefaulted();
+            return !UCkCompassGym_Wire::TryValidateAndExpand(Candidate, Output) &&
+                Output.IsEmpty();
+        };
+        auto Truncated = Stripped;
+        Truncated.Rows.Pop();
+        auto Nonfinite = Stripped;
+        Nonfinite.Rows[0].Location.X =
+            std::numeric_limits<double>::quiet_NaN();
+        auto Unknown = Stripped;
+        Unknown.SchemaVersion = 2;
+        auto Duplicate = Stripped;
+        Duplicate.Rows[1].CatalogId = Duplicate.Rows[0].CatalogId;
+        auto SameIdentityChanged = Stripped;
+        ++SameIdentityChanged.Rows[0].Priority;
+        auto Newer = Stripped;
+        ++Newer.Sequence;
+        FCkCompassGym_WireSnapshot Failed = Stripped;
+        Failed.Sequence = 2;
+        Failed.Lifecycle = ECkCompassGym_WireLifecycle::Failed;
+        Failed.Rows.Reset();
+        Failed.DeclaredRowCount = 0;
+        auto Resurrect = Stripped;
+        Resurrect.Sequence = 3;
+        TArray<FCkCompassGym_SourceRow> Validated;
+        const bool ValidFrames =
+            UCkCompassGym_Wire::TryValidateAndExpand(SameIdentityChanged, Validated) &&
+            UCkCompassGym_Wire::TryValidateAndExpand(Newer, Validated) &&
+            UCkCompassGym_Wire::TryValidateAndExpand(Failed, Validated) &&
+            Validated.IsEmpty() &&
+            UCkCompassGym_Wire::TryValidateAndExpand(Resurrect, Validated) &&
+            Validated.Num() == 9;
+        return ValidFrames && Reject(Truncated) && Reject(Nonfinite) && Reject(Unknown) &&
+            Reject(Duplicate) &&
+            !UCkCompassGym_Wire::Get_IsSameFrame(Stripped, SameIdentityChanged) &&
+            !UCkCompassGym_Wire::Get_IsAdvance(Stripped, SameIdentityChanged) &&
+            UCkCompassGym_Wire::Get_IsAdvance(Stripped, Newer) &&
+            !UCkCompassGym_Wire::Get_IsAdvance(Newer, Stripped) &&
+            !UCkCompassGym_Wire::Get_IsAdvance(Failed, Resurrect);
     }
 
     auto StagePing(FRun& Run, const FVector& Location) -> bool
@@ -2127,6 +2244,455 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
                 Rows.IsEmpty() && !Failure.IsEmpty());
             if (Run->RootBoundActor.IsValid())
             { Run->RootBoundActor->Destroy(); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkCompassGym_NativeJournal,
+    "Ck.Compass.Gym.NativeJournal.Network",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkCompassGym_NativeJournal::RunTest(const FString& Parameters)
+{
+    using namespace ck_compass_catalog_test;
+    bool Dedicated = false;
+    if (!ck::auto_test::net::TryGet_DedicatedServer(Parameters, Dedicated))
+    { AddError(TEXT("unsupported Compass journal topology")); return false; }
+    const auto Run = MakeShared<FRun>();
+    Run->Dedicated = Dedicated;
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+        3, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 60.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool {
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            return IsValid(W) && IsValid(W->GetGameState()) &&
+                Allocated(UCk_Utils_EcsWorld_Subsystem_UE::
+                    TryGet_TransientEntityForWorld(*W));
+        }), 60.0, TEXT("journal authority world ready")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            Run->GameState = W->GetGameState();
+            Run->WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
+                TryGet_TransientEntityForWorld(*W);
+            Run->SourceRoot = UCk_Utils_EntityLifetime_UE::
+                Request_CreateEntity(Run->WorldRoot);
+            Run->Built = Allocated(Run->SourceRoot) && BuildHealthyBase(*Run);
+            Run->JournalSetupFailed = !Run->Built;
+            TestTrue(TEXT("journal authored 8 ring + waypoint base"), Run->Built);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (!Run->Built) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            return Read(W, *Run, Run->Receipts, true, Rows, Why) ==
+                ECkCompassGym_CatalogOutcome::Complete && Rows.Num() == 9;
+        }), 60.0, TEXT("journal real base physical proof complete")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (!Run->Built) { return; }
+            FString Why;
+            const bool Init = UCkCompassGym_SourceMembership::
+                TryInitialize_BaseCohort(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, Why);
+            TestTrue(TEXT("journal explicit complete nine binding"),
+                Init && Why.IsEmpty());
+            if (!Init) { Run->JournalSetupFailed = true; return; }
+            Run->OriginalNine = Run->Receipts;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            int64 Revision = 0;
+            return UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                W, Run->GameState.Get(), Run->SourceRoot, Revision, Rows, Why) &&
+                Revision > 0 && Rows.Num() == 9;
+        }), 30.0, TEXT("ordered journal initial nine snapshot")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (Run->JournalSetupFailed) { return; }
+            int64 Revision = 0;
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            const bool Current = UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                W, Run->GameState.Get(), Run->SourceRoot, Revision, Rows, Why);
+            const bool Wire = Current && Revision > 0 && Why.IsEmpty() &&
+                ProveWireFromRealNine(Rows);
+            TestTrue(TEXT("real nine rows validate compact Compass DTO and failure cases"), Wire);
+            if (!Wire) { Run->JournalSetupFailed = true; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (Run->JournalSetupFailed) { return; }
+            FString Why;
+            const bool Stressed = StageStress(*Run);
+            const bool Requested = Stressed &&
+                UCkCompassGym_SourceMembership::TryRequest_StressAdmission(
+                    W, Run->GameState.Get(), Run->SourceRoot,
+                    Run->OriginalNine, Run->StagedStress, 1, Why);
+            TestTrue(TEXT("journal queued real 500 stress admission"),
+                Stressed && Requested && Why.IsEmpty());
+            if (!Requested) { Run->JournalSetupFailed = true; return; }
+            Run->NextCatalogId = 10500;
+            const bool Ping = StagePing(*Run, FVector(1450, 0, 100));
+            Run->NaturalPingProbe.Reset(NewObject<UCkCompassGym_PingTtlProbe>());
+            if (!Ping || !IsValid(Run->NaturalPingProbe.Get()))
+            { Run->JournalSetupFailed = true; AddError(TEXT("journal Ping construction failed")); return; }
+            Run->NaturalPingDoneDelegate.BindDynamic(Run->NaturalPingProbe.Get(),
+                &UCkCompassGym_PingTtlProbe::OnDone);
+            auto TypedPingTimer = ck::StaticCast<FCk_Handle_Timer>(
+                Run->StagedPing.Timer);
+            const auto Bound = UCk_Utils_Timer_UE::BindTo_OnDone(
+                TypedPingTimer, Run->NaturalPingDoneDelegate,
+                ECk_Signal_BindingPolicy::IgnorePayloadInFlight);
+            const bool Armed = Bound == Run->StagedPing.Timer &&
+                Run->NaturalPingDoneDelegate.IsBound() &&
+                Run->NaturalPingProbe->ArmJournal(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->StagedPing);
+            Why.Reset();
+            const bool Staged = Armed && UCkCompassGym_SourceMembership::
+                TryStage_Ping(W, Run->GameState.Get(), Run->SourceRoot,
+                    Run->StagedPing, Why);
+            TestTrue(TEXT("journal real timer bound and Ping staged during pending 500"),
+                Armed && Staged && Why.IsEmpty());
+            if (!Staged) { Run->JournalSetupFailed = true; return; }
+            Run->ForeignTimerOwner = UCk_Utils_EntityLifetime_UE::
+                Request_CreateEntity(Run->WorldRoot);
+            auto Spec = FCk_Timer_Spec(FCk_Time(5.0f));
+            Spec.Set_Behavior(ECk_Timer_Behavior::StopOnDone)
+                .Set_StartingState(ECk_Timer_State::Paused)
+                .Set_CountDirection(ECk_Timer_CountDirection::CountUp);
+            if (Allocated(Run->ForeignTimerOwner))
+            { Run->ForeignTimer = UCk_Utils_Timer_UE::Add(Run->ForeignTimerOwner, Spec); }
+            TestTrue(TEXT("journal foreign timer has real distinct owner"),
+                Allocated(Run->ForeignTimer));
+            if (!Allocated(Run->ForeignTimer))
+            { Run->JournalSetupFailed = true; return; }
+            int64 BeforeRevision = 0, AfterRevision = 0;
+            TArray<FCkCompassGym_SourceRow> BeforeRows, AfterRows;
+            FString ReadWhy, RejectWhy;
+            const bool Before = UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                W, Run->GameState.Get(), Run->SourceRoot,
+                BeforeRevision, BeforeRows, ReadWhy);
+            const bool DefaultRejected = !UCkCompassGym_SourceMembership::
+                TryRetire_Ping(W, Run->GameState.Get(), Run->SourceRoot,
+                    FCk_Handle{}, RejectWhy) && !RejectWhy.IsEmpty();
+            RejectWhy.Reset();
+            const bool ForeignRejected = !UCkCompassGym_SourceMembership::
+                TryRetire_Ping(W, Run->GameState.Get(), Run->SourceRoot,
+                    Run->ForeignTimer, RejectWhy) && !RejectWhy.IsEmpty();
+            const bool After = UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                W, Run->GameState.Get(), Run->SourceRoot,
+                AfterRevision, AfterRows, ReadWhy);
+            TestTrue(TEXT("default and foreign Timer rejected before Done without snapshot or tag mutation"),
+                Before && After && DefaultRejected && ForeignRejected &&
+                BeforeRevision == AfterRevision && BeforeRows.Num() == 9 &&
+                AfterRows.Num() == 9 && !Run->StagedPing.Host.Has<ck::FTag_Poi>());
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows, Historical;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why, ResultWhy;
+            int64 Revision = 0;
+            const bool Current = UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                W, Run->GameState.Get(), Run->SourceRoot, Revision, Rows, Why);
+            const auto Result = UCkCompassGym_SourceMembership::Get_Result(
+                W, Run->GameState.Get(), Run->SourceRoot, 1,
+                Historical, Frozen, ResultWhy);
+            if (Result == ECkCompassGym_MembershipResult::Rejected ||
+                (Run->NaturalPingProbe.IsValid() &&
+                 Run->NaturalPingProbe->Get_DoneCount() > 0))
+            { Run->JournalSetupFailed = true; return true; }
+            if (!Current || Rows.Num() != 510 ||
+                Result != ECkCompassGym_MembershipResult::Committed)
+            { return false; }
+            Run->JournalRevision = Revision;
+            Run->JournalRows = MoveTemp(Rows);
+            Run->CommittedRows = MoveTemp(Historical);
+            return true;
+        }), 30.0, TEXT("journal ordered 510 with historical stress 509 before real Done")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (!TestTrue(TEXT("journal full source 510 while historical stress result stays 509"),
+                !Run->JournalSetupFailed && Run->JournalRevision > 0 &&
+                Run->JournalRows.Num() == 510 && Run->CommittedRows.Num() == 509 &&
+                Run->NaturalPingProbe.IsValid() &&
+                Run->NaturalPingProbe->Get_DoneCount() == 0)) { return; }
+            Run->Receipts.Append(Run->StagedStress);
+            Run->StagedStress.Reset();
+            FString Why;
+            const bool Withdraw = UCkCompassGym_SourceMembership::
+                TryRequest_StressWithdrawal(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 2, Why);
+            TestTrue(TEXT("journal withdraws stress with Ping still running"),
+                Withdraw && Why.IsEmpty());
+            if (!Withdraw) { Run->JournalSetupFailed = true; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            int64 Revision = 0;
+            if (!UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                    W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, Rows, Why) || Rows.Num() != 10 ||
+                Revision <= Run->JournalRevision)
+            { return false; }
+            if (Run->NaturalPingProbe->Get_DoneCount() > 0)
+            { Run->JournalSetupFailed = true; return true; }
+            Run->JournalRevision = Revision;
+            Run->JournalRows = MoveTemp(Rows);
+            return true;
+        }), 30.0, TEXT("journal ordered ten while Ping still running")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            bool SameBase = !Run->JournalSetupFailed && Run->JournalRows.Num() == 10;
+            for (int32 I = 0; I < 9 && SameBase; ++I)
+            { SameBase = Run->JournalRows[I].CatalogId == Run->OriginalNine[I].CatalogId; }
+            TArray<FCkCompassGym_SourceRow> Historical;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why;
+            const auto ResultTwo = UCkCompassGym_SourceMembership::Get_Result(
+                W, Run->GameState.Get(), Run->SourceRoot, 2,
+                Historical, Frozen, Why);
+            TestTrue(TEXT("journal ten preserves base and historical U returns nine plus 500 retirees"),
+                SameBase && ResultTwo == ECkCompassGym_MembershipResult::Committed &&
+                Historical.Num() == 9 && Frozen.Num() == 500 && Why.IsEmpty());
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            return Run->NaturalPingProbe.IsValid() &&
+                (Run->NaturalPingProbe->Get_DoneCount() > 0 ||
+                 Run->NaturalPingProbe->Get_Failed());
+        }), 20.0, TEXT("journal real five-second Done callback")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*) {
+            TestTrue(TEXT("journal one exact-world five-second Done retires retained Ping"),
+                !Run->JournalSetupFailed && Run->NaturalPingProbe.IsValid() &&
+                Run->NaturalPingProbe->Get_DoneCount() == 1 &&
+                !Run->NaturalPingProbe->Get_Failed() &&
+                Run->NaturalPingProbe->Get_JournalRetired() &&
+                Run->NaturalPingProbe->Get_ExactWorldCallback() &&
+                Run->NaturalPingProbe->Get_FrozeBeforeDestroy() &&
+                Run->NaturalPingProbe->Get_DoneElapsedSeconds() >= 5.0);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            int64 Revision = 0;
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            return !Allocated(Run->StagedPing.Host) &&
+                !Allocated(Run->StagedPing.Marker) &&
+                !Allocated(Run->StagedPing.Timer) &&
+                UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                    W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, Rows, Why) &&
+                Revision > Run->JournalRevision && Rows.Num() == 9;
+        }), 30.0, TEXT("journal Ping physical closure and current nine")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (!Run->JournalSetupFailed && Allocated(Run->SourceRoot))
+            {
+                FRun Replay;
+                Replay.WorldRoot = Run->WorldRoot;
+                Replay.SourceRoot = Run->SourceRoot;
+                Replay.GameState = Run->GameState;
+                Replay.Receipts = Run->OriginalNine;
+                Replay.NextCatalogId = Run->StagedPing.CatalogId;
+                const bool Authored = StagePing(Replay, FVector(1650, 0, 100));
+                FString Why;
+                const bool Accepted = Authored &&
+                    UCkCompassGym_SourceMembership::TryStage_Ping(
+                        W, Run->GameState.Get(), Run->SourceRoot,
+                        Replay.StagedPing, Why);
+                const bool Unchanged = Run->SourceRoot.Has<
+                    ck::FFragment_CompassGym_SourceMembership>() &&
+                    Run->SourceRoot.Get<
+                        ck::FFragment_CompassGym_SourceMembership>()
+                        .HighestAcceptedCatalogId == Run->StagedPing.CatalogId &&
+                    Run->SourceRoot.Get<
+                        ck::FFragment_CompassGym_SourceMembership>()
+                        .StagedPings.IsEmpty();
+                TestTrue(TEXT("legal newly authored reused Ping ID rejects without journal mutation"),
+                    Authored && !Accepted && !Why.IsEmpty() && Unchanged);
+            }
+            if (Allocated(Run->SourceRoot))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->SourceRoot); }
+            if (Allocated(Run->ForeignTimerOwner))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->ForeignTimerOwner); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkCompassGym_NativeJournalReentrant,
+    "Ck.Compass.Gym.NativeJournalRetirementFailure.Network",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkCompassGym_NativeJournalReentrant::RunTest(const FString& Parameters)
+{
+    using namespace ck_compass_catalog_test;
+    bool Dedicated = false;
+    if (!ck::auto_test::net::TryGet_DedicatedServer(Parameters, Dedicated))
+    { AddError(TEXT("unsupported Compass journal reentrant topology")); return false; }
+    const auto Run = MakeShared<FRun>();
+    Run->Dedicated = Dedicated;
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+        3, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 60.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool {
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            return IsValid(W) && IsValid(W->GetGameState()) &&
+                Allocated(UCk_Utils_EcsWorld_Subsystem_UE::
+                    TryGet_TransientEntityForWorld(*W));
+        }), 60.0, TEXT("reentrant journal authority world ready")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            Run->GameState = W->GetGameState();
+            Run->WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
+                TryGet_TransientEntityForWorld(*W);
+            Run->SourceRoot = UCk_Utils_EntityLifetime_UE::
+                Request_CreateEntity(Run->WorldRoot);
+            Run->Built = Allocated(Run->SourceRoot) && BuildHealthyBase(*Run);
+            Run->JournalSetupFailed = !Run->Built;
+            TestTrue(TEXT("reentrant journal real nine authored"), Run->Built);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            return Read(W, *Run, Run->Receipts, true, Rows, Why) ==
+                ECkCompassGym_CatalogOutcome::Complete && Rows.Num() == 9;
+        }), 60.0, TEXT("reentrant journal physical base complete")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (Run->JournalSetupFailed) { return; }
+            FString Why;
+            const bool Initialized = UCkCompassGym_SourceMembership::
+                TryInitialize_BaseCohort(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, Why);
+            const bool Ping = Initialized && StagePing(*Run, FVector(1450, 0, 100));
+            Run->NaturalPingProbe.Reset(NewObject<UCkCompassGym_PingTtlProbe>());
+            if (!Ping || !IsValid(Run->NaturalPingProbe.Get()))
+            { Run->JournalSetupFailed = true; AddError(TEXT("reentrant Ping setup failed")); return; }
+            Run->NaturalPingDoneDelegate.BindDynamic(Run->NaturalPingProbe.Get(),
+                &UCkCompassGym_PingTtlProbe::OnDone);
+            auto Typed = ck::StaticCast<FCk_Handle_Timer>(Run->StagedPing.Timer);
+            const auto Bound = UCk_Utils_Timer_UE::BindTo_OnDone(
+                Typed, Run->NaturalPingDoneDelegate,
+                ECk_Signal_BindingPolicy::IgnorePayloadInFlight);
+            const bool Armed = Bound == Run->StagedPing.Timer &&
+                Run->NaturalPingDoneDelegate.IsBound() &&
+                Run->NaturalPingProbe->ArmJournal(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->StagedPing);
+            Why.Reset();
+            const bool Staged = Armed && UCkCompassGym_SourceMembership::
+                TryStage_Ping(W, Run->GameState.Get(), Run->SourceRoot,
+                    Run->StagedPing, Why);
+            TestTrue(TEXT("reentrant real Done listener and Ping staged"),
+                Initialized && Armed && Staged && Why.IsEmpty());
+            if (!Staged) { Run->JournalSetupFailed = true; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            int64 Revision = 0;
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            const bool Current = UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                W, Run->GameState.Get(), Run->SourceRoot,
+                Revision, Rows, Why);
+            if (Run->NaturalPingProbe->Get_DoneCount() > 0)
+            { Run->JournalSetupFailed = true; return true; }
+            return Current && Revision > 0 && Rows.Num() == 10;
+        }), 30.0, TEXT("reentrant admitted Ping current ten before Done")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*) {
+            if (Run->JournalSetupFailed) { return; }
+            const bool Bound = Run->NaturalPingProbe.IsValid() &&
+                Run->NaturalPingProbe->ArmJournalReentrantMarker();
+            TestTrue(TEXT("real Marker BeginDestroy callback armed after ordered admission"), Bound);
+            if (!Bound) { Run->JournalSetupFailed = true; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            if (!Run->NaturalPingProbe.IsValid()) { return false; }
+            if (Run->NaturalPingProbe->Get_Failed()) { return true; }
+            if (Run->NaturalPingProbe->Get_ReentrantCallbackCount() == 0 ||
+                !Allocated(Run->SourceRoot) ||
+                !Run->SourceRoot.Has<ck::FFragment_CompassGym_SourceMembership>())
+            { return false; }
+            return Run->SourceRoot.Get<
+                ck::FFragment_CompassGym_SourceMembership>().ClosedUnproven;
+        }), 20.0, TEXT("reentrant real Marker callback and ordered terminal closure")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (!TestTrue(TEXT("real Marker callback creates exactly one unexpected Timer child"),
+                !Run->JournalSetupFailed && Run->NaturalPingProbe.IsValid() &&
+                Run->NaturalPingProbe->Get_DoneCount() == 1 &&
+                Run->NaturalPingProbe->Get_ReentrantCallbackCount() == 1 &&
+                !Run->NaturalPingProbe->Get_Failed() &&
+                Run->NaturalPingProbe->Get_ExactWorldCallback() &&
+                Run->NaturalPingProbe->Get_DoneElapsedSeconds() >= 5.0 &&
+                Run->NaturalPingProbe->Get_JournalRetired() &&
+                Run->NaturalPingProbe->Get_FrozeBeforeDestroy() &&
+                Run->NaturalPingProbe->Get_HostLiveBeforeDestroy())) { return; }
+            const auto Unknown = Run->NaturalPingProbe->Get_ReentrantUnknownChild();
+            bool AdmissionClosed = false;
+            const bool Checked = UCkGym_AdmissionRuntime_UE::
+                TryGet_IsClosedUnproven(Run->WorldRoot, AdmissionClosed);
+            int64 Revision = -1;
+            TArray<FCkCompassGym_SourceRow> Rows;
+            Rows.AddDefaulted();
+            FString Why;
+            const bool Current = UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                W, Run->GameState.Get(), Run->SourceRoot,
+                Revision, Rows, Why);
+            const bool SourceClosed = Run->SourceRoot.Has<
+                ck::FFragment_CompassGym_SourceMembership>() &&
+                Run->SourceRoot.Get<
+                    ck::FFragment_CompassGym_SourceMembership>().ClosedUnproven;
+            TestTrue(TEXT("unknown child survives; Timer and Host uninitiated; world and journal terminally closed"),
+                LiveUninitiated(Unknown) &&
+                Unknown.Has<ck::FFragment_LifetimeOwner>() &&
+                Unknown.Get<ck::FFragment_LifetimeOwner>().Get_Entity() ==
+                    Run->StagedPing.Timer &&
+                LiveUninitiated(Run->StagedPing.Timer) &&
+                LiveUninitiated(Run->StagedPing.Host) && SourceClosed &&
+                Checked && AdmissionClosed &&
+                UCk_Utils_Compass_UE::Get_IsWorldProjectionClosed(Run->WorldRoot) &&
+                !Current && Revision == 0 && Rows.IsEmpty());
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([Run](UWorld*) {
+            if (Allocated(Run->SourceRoot))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->SourceRoot); }
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     return true;

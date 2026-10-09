@@ -9,6 +9,8 @@
 namespace ck
 {
     enum class ECompassGym_SourceRequest : uint8 { None, Admit, Withdraw };
+    enum class ECompassGym_PingRetirement : uint8
+    { Marker, WaitMarkerGone, Timer, WaitTimerGone, Host, WaitHostGone };
 
     struct FFragment_CompassGym_SourceMembership
     {
@@ -22,6 +24,20 @@ namespace ck
         ECkCompassGym_MembershipResult Result = ECkCompassGym_MembershipResult::Unavailable;
         bool ClosedUnproven = false;
         FString Failure;
+        bool BaseInitialized = false;
+        bool JournalEnabled = false;
+        bool RetirementMutationInProgress = false;
+        bool CurrentRowsDirty = false;
+        int64 CurrentRevision = 0;
+        int64 HighestAcceptedCatalogId = 0;
+        double PingStageDeadlineSeconds = 0.0;
+        TArray<FCkCompassGym_SourceReceipt> Base;
+        TArray<FCkCompassGym_SourceReceipt> ActivePings;
+        TArray<FCkCompassGym_SourceReceipt> StagedPings;
+        TArray<FCkCompassGym_SourceReceipt> FrozenPings;
+        TArray<ECompassGym_PingRetirement> FrozenPingPhases;
+        TArray<double> FrozenPingDeadlines;
+        TArray<FCkCompassGym_SourceRow> CurrentRows;
         TArray<FCkCompassGym_SourceReceipt> Active;
         TArray<FCkCompassGym_SourceReceipt> Staged;
         TArray<FCkCompassGym_SourceRow> CommittedRows;
