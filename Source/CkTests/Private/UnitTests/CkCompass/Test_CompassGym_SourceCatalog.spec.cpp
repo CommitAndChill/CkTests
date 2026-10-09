@@ -5,6 +5,7 @@
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkCompassGym_SourceCatalog.h"
 #include "CkCompassGym_SourceMembership.h"
+#include "CkCompassGym_PingTtlProbe.h"
 #include "../../CkCompassGym_SourceMembership_Private.h"
 #include "CkCompass/CkCompass_Utils.h"
 #include "CkEntityScriptGym_Runtime.h"
@@ -28,6 +29,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "GameplayTagContainer.h"
 #include "ProceduralMeshComponent.h"
+#include "UObject/StrongObjectPtr.h"
 
 namespace ck_compass_catalog_test
 {
@@ -43,11 +45,21 @@ namespace ck_compass_catalog_test
         TWeakObjectPtr<AActor> RootBoundActor;
         FCk_Handle PingHost;
         FCk_Handle_Timer PingTimer;
+        FCkCompassGym_SourceReceipt FrozenPing;
+        FCk_Handle RetiringPingExtraChild;
+        FCk_Handle NaturalPingHost;
+        FCk_Handle_Timer NaturalPingTimer;
+        TStrongObjectPtr<UCkCompassGym_PingTtlProbe> NaturalPingProbe;
+        FCk_Delegate_Timer NaturalPingDoneDelegate;
+        bool NaturalPingSetupFailed = false;
+        ECkCompassGym_CatalogOutcome NaturalPingOutcome =
+            ECkCompassGym_CatalogOutcome::Pending;
         ECkCompassGym_CatalogOutcome PingOutcome =
             ECkCompassGym_CatalogOutcome::Pending;
         TArray<FCkCompassGym_SourceRow> PingRows;
         FString PingFailure;
         TArray<FCkCompassGym_SourceReceipt> Receipts;
+        int64 NextCatalogId = 1;
         TArray<FCkCompassGym_SourceReceipt> OriginalNine;
         TArray<FCkCompassGym_SourceReceipt> StagedStress;
         TArray<FCkCompassGym_SourceReceipt> RetiringStress;
@@ -114,7 +126,7 @@ namespace ck_compass_catalog_test
         bool WithDisplay) -> bool
     {
         FCkCompassGym_SourceReceipt Receipt;
-        Receipt.CatalogId = Run.Receipts.Num() + 1;
+        Receipt.CatalogId = Run.NextCatalogId++;
         Receipt.Kind = Kind;
         Receipt.ExpectedCategory = Tag(CategoryName);
         if (!Receipt.ExpectedCategory.IsValid()) { return false; }
@@ -201,6 +213,21 @@ namespace ck_compass_catalog_test
         return UCkCompassGym_SourceCatalog::TryGet_SourceCatalogTransaction(
             World, Run.GameState.Get(), Run.SourceRoot, CompositionComplete,
             Active, Staged, Retiring, OutActive, OutStaged, OutFailure);
+    }
+
+    auto ReadRetiringPing(UWorld* World, const FRun& Run,
+        const TArray<FCkCompassGym_SourceReceipt>& Active,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenPings,
+        TArray<FCkCompassGym_SourceRow>& OutActive,
+        FString& OutFailure) -> ECkCompassGym_CatalogOutcome
+    {
+        const TArray<FCkCompassGym_SourceReceipt> Empty;
+        TArray<FCkCompassGym_SourceRow> Staged;
+        return UCkCompassGym_SourceCatalog::
+            TryGet_SourceCatalogTransactionWithRetiringPings(
+                World, Run.GameState.Get(), Run.SourceRoot, true,
+                Active, Empty, Empty, FrozenPings,
+                OutActive, Staged, OutFailure);
     }
 
     auto DirectChildren(const FCk_Handle& Parent, const FCk_Handle& WorldRoot,
@@ -1244,11 +1271,44 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
                 Run->PingRows.Last().HasMarker &&
                 Run->PingRows.Last().Marker.Lines.Num() == 96))
             { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->PingHost); return; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Failure;
+            auto CheckActiveChildTag = [&](const FCk_Handle& Child) -> bool
+            {
+                if (!Allocated(Child)) { return false; }
+                auto MutableChild = Child;
+                MutableChild.Add<ck::FTag_Poi>();
+                if (!Allocated(Child)) { return false; }
+                const bool Added = Child.Has<ck::FTag_Poi>();
+                Rows.AddDefaulted();
+                Failure.Reset();
+                const auto Rejected = Added
+                    ? Read(World, *Run, Run->Receipts, true, Rows, Failure)
+                    : ECkCompassGym_CatalogOutcome::Pending;
+                const bool AtomicallyRejected = Added &&
+                    Rejected == ECkCompassGym_CatalogOutcome::Invalid &&
+                    Rows.IsEmpty() && Failure.Contains(TEXT("POI child"));
+                if (!Allocated(Child)) { return false; }
+                const bool RemovedChild = Child.Has<ck::FTag_Poi>() &&
+                    MutableChild.Try_Remove<ck::FTag_Poi>();
+                if (!Allocated(Child) || !RemovedChild ||
+                    Child.Has<ck::FTag_Poi>()) { return false; }
+                Rows.Reset();
+                Failure.Reset();
+                const auto Restored = Read(World, *Run, Run->Receipts,
+                    true, Rows, Failure);
+                return AtomicallyRejected &&
+                    Restored == ECkCompassGym_CatalogOutcome::Complete &&
+                    Rows.Num() == 10 && Failure.IsEmpty();
+            };
+            if (!TestTrue(TEXT("actual active Ping Marker POI tag rejected and restored"),
+                    CheckActiveChildTag(Run->Receipts.Last().Marker)) ||
+                !TestTrue(TEXT("actual active Ping Timer POI tag rejected and restored"),
+                    CheckActiveChildTag(Run->Receipts.Last().Timer)))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->PingHost); return; }
             auto Alias = Run->Receipts;
             Alias.Last().Marker = Alias.Last().Timer;
-            TArray<FCkCompassGym_SourceRow> Rows;
             Rows.AddDefaulted();
-            FString Failure;
             const auto AliasOutcome = Read(World, *Run, Alias,
                 true, Rows, Failure);
             TestTrue(TEXT("actual ping Marker=Timer alias rejected atomically"),
@@ -1264,16 +1324,184 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
                 Run->PingTimer.Has<ck::FTag_Timer_Countdown>() &&
                 CountdownOutcome == ECkCompassGym_CatalogOutcome::Invalid &&
                 Rows.IsEmpty() && Failure.Contains(TEXT("Ping timer")));
+            Run->Receipts.Last().Admitted = true;
+            Run->FrozenPing = Run->Receipts.Last();
+            auto Base = Run->Receipts;
+            Base.Pop();
+            const TArray<FCkCompassGym_SourceReceipt> Retiring{Run->FrozenPing};
+            const TArray<FCkCompassGym_SourceReceipt> Empty;
+            Rows.AddDefaulted();
+            Failure.Reset();
+            const auto Unclaimed = ReadRetiringPing(World, *Run, Base, Empty,
+                Rows, Failure);
+            TestTrue(TEXT("omitted live Ping rejected as unclaimed source child"),
+                Unclaimed == ECkCompassGym_CatalogOutcome::Invalid &&
+                Rows.IsEmpty() && !Failure.IsEmpty());
+            auto Malformed = Retiring;
+            Malformed[0].Marker = {};
+            Rows.AddDefaulted();
+            Failure.Reset();
+            const auto BadReceipt = ReadRetiringPing(World, *Run, Base,
+                Malformed, Rows, Failure);
+            TestTrue(TEXT("default frozen Ping marker rejected atomically"),
+                BadReceipt == ECkCompassGym_CatalogOutcome::Invalid &&
+                Rows.IsEmpty() && Failure.Contains(TEXT("identity")));
+            Rows.AddDefaulted();
+            Failure.Reset();
+            const auto Exposed = ReadRetiringPing(World, *Run, Base, Retiring,
+                Rows, Failure);
+            TestTrue(TEXT("frozen Ping remains invalid while host is POI-visible"),
+                Exposed == ECkCompassGym_CatalogOutcome::Invalid &&
+                Rows.IsEmpty() && Failure.Contains(TEXT("exposed")));
+            auto MutableHost = Run->FrozenPing.Host;
+            const bool Removed = MutableHost.Try_Remove<ck::FTag_Poi>();
+            if (!TestTrue(TEXT("retiring Ping POI tag removed before destruction"),
+                Allocated(Run->FrozenPing.Host) && Removed &&
+                !Run->FrozenPing.Host.Has<ck::FTag_Poi>()))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->PingHost); return; }
+            auto CheckRetiringChildTag = [&](const FCk_Handle& Child) -> bool
+            {
+                if (!Allocated(Child)) { return false; }
+                auto MutableChild = Child;
+                MutableChild.Add<ck::FTag_Poi>();
+                if (!Allocated(Child)) { return false; }
+                const bool Added = Child.Has<ck::FTag_Poi>();
+                Rows.AddDefaulted();
+                Failure.Reset();
+                const auto Rejected = Added
+                    ? ReadRetiringPing(World, *Run, Base, Retiring, Rows, Failure)
+                    : ECkCompassGym_CatalogOutcome::Pending;
+                const bool AtomicallyRejected = Added &&
+                    Rejected == ECkCompassGym_CatalogOutcome::Invalid &&
+                    Rows.IsEmpty() && Failure.Contains(TEXT("POI-visible"));
+                if (!Allocated(Child)) { return false; }
+                const bool RemovedChild = Child.Has<ck::FTag_Poi>() &&
+                    MutableChild.Try_Remove<ck::FTag_Poi>();
+                if (!Allocated(Child) || !RemovedChild ||
+                    Child.Has<ck::FTag_Poi>()) { return false; }
+                Rows.Reset();
+                Failure.Reset();
+                const auto Restored = ReadRetiringPing(World, *Run, Base,
+                    Retiring, Rows, Failure);
+                return AtomicallyRejected &&
+                    Restored == ECkCompassGym_CatalogOutcome::Complete &&
+                    Rows.Num() == 9 && Failure.IsEmpty();
+            };
+            if (!TestTrue(TEXT("actual retiring Ping Marker POI tag rejected and restored"),
+                    CheckRetiringChildTag(Run->FrozenPing.Marker)) ||
+                !TestTrue(TEXT("actual retiring Ping Timer POI tag rejected and restored"),
+                    CheckRetiringChildTag(Run->FrozenPing.Timer)))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->PingHost); return; }
+            auto MutableMarker = Run->FrozenPing.Marker;
+            UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(MutableMarker);
+            Rows.AddDefaulted();
+            Failure.Reset();
+            const auto RetiringOutcome = ReadRetiringPing(World, *Run, Base,
+                Retiring, Rows, Failure);
+            TestTrue(TEXT("retiring Ping marker initiation preserves exact nine rows"),
+                RetiringOutcome == ECkCompassGym_CatalogOutcome::Complete &&
+                Rows.Num() == 9 && Failure.IsEmpty());
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        { return Run->FrozenPing.Marker == FCk_Handle{} ||
+            !Allocated(Run->FrozenPing.Marker); }),
+        30.0, TEXT("retiring Ping marker physically removed")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("retiring Ping partial phase retains Host and Timer after Marker loss"),
+                Run->FrozenPing.Host != FCk_Handle{} &&
+                !Allocated(Run->FrozenPing.Marker) &&
+                Allocated(Run->FrozenPing.Host) &&
+                Allocated(Run->FrozenPing.Timer)))
+            { return; }
+            auto Base = Run->Receipts;
+            Base.Pop();
+            const TArray<FCkCompassGym_SourceReceipt> Retiring{Run->FrozenPing};
+            TArray<FCkCompassGym_SourceRow> Rows;
+            Rows.AddDefaulted();
+            FString Failure;
+            const auto Partial = ReadRetiringPing(World, *Run, Base, Retiring,
+                Rows, Failure);
+            TestTrue(TEXT("partial Ping cascade remains complete nine rows"),
+                Partial == ECkCompassGym_CatalogOutcome::Complete &&
+                Rows.Num() == 9 && Failure.IsEmpty());
+            auto Duplicate = Retiring;
+            Duplicate.Add(Run->FrozenPing);
+            Rows.AddDefaulted();
+            Failure.Reset();
+            const auto Bad = ReadRetiringPing(World, *Run, Base, Duplicate,
+                Rows, Failure);
+            TestTrue(TEXT("duplicate frozen Ping identity rejected atomically"),
+                Bad == ECkCompassGym_CatalogOutcome::Invalid &&
+                Rows.IsEmpty() && !Failure.IsEmpty());
+            Run->RetiringPingExtraChild =
+                UCk_Utils_EntityLifetime_UE::Request_CreateEntity(
+                    Run->FrozenPing.Host);
+            if (TestTrue(TEXT("retiring Ping unexpected child actually allocated"),
+                Allocated(Run->RetiringPingExtraChild)))
+            {
+                Rows.AddDefaulted();
+                Failure.Reset();
+                const auto Unknown = ReadRetiringPing(World, *Run, Base,
+                    Retiring, Rows, Failure);
+                TestTrue(TEXT("retiring Ping unknown child rejected atomically"),
+                    Unknown == ECkCompassGym_CatalogOutcome::Invalid &&
+                    Rows.IsEmpty() && !Failure.IsEmpty());
+                UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(
+                    Run->RetiringPingExtraChild);
+            }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        { return Run->RetiringPingExtraChild == FCk_Handle{} ||
+            !Allocated(Run->RetiringPingExtraChild); }),
+        30.0, TEXT("retiring Ping unexpected child physically removed")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->FrozenPing.Host == FCk_Handle{} ||
+                !Allocated(Run->FrozenPing.Host)) { return; }
+            auto Base = Run->Receipts;
+            Base.Pop();
+            const TArray<FCkCompassGym_SourceReceipt> Retiring{Run->FrozenPing};
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Failure;
+            const auto Restored = ReadRetiringPing(World, *Run, Base,
+                Retiring, Rows, Failure);
+            TestTrue(TEXT("retiring Ping exact cohort restored after child removal"),
+                Restored == ECkCompassGym_CatalogOutcome::Complete &&
+                Rows.Num() == 9 && Failure.IsEmpty());
             UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->PingHost);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
-        { return Run->PingHost == FCk_Handle{} ||
-            !Allocated(Run->PingHost); }),
-        30.0, TEXT("negative ping cohort physically removed")));
+        { return Run->FrozenPing.Host == FCk_Handle{} ||
+            (!Allocated(Run->FrozenPing.Host) &&
+             !Allocated(Run->FrozenPing.Marker) &&
+             !Allocated(Run->FrozenPing.Timer)); }),
+        30.0, TEXT("retiring Ping Host Marker Timer physically removed")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
         {
+            if (Run->FrozenPing.Host != FCk_Handle{} &&
+                !Allocated(Run->FrozenPing.Host) &&
+                !Allocated(Run->FrozenPing.Marker) &&
+                !Allocated(Run->FrozenPing.Timer) && Run->Receipts.Num() == 10)
+            {
+                auto Base = Run->Receipts;
+                Base.Pop();
+                const TArray<FCkCompassGym_SourceReceipt> Retiring{Run->FrozenPing};
+                TArray<FCkCompassGym_SourceRow> Rows;
+                Rows.AddDefaulted();
+                FString Failure;
+                const auto Gone = ReadRetiringPing(World, *Run, Base, Retiring,
+                    Rows, Failure);
+                TestTrue(TEXT("fully deallocated Ping frozen receipt remains proven"),
+                    Gone == ECkCompassGym_CatalogOutcome::Complete &&
+                    Rows.Num() == 9 && Failure.IsEmpty());
+            }
             if (Run->PingHost != FCk_Handle{} &&
                 !Allocated(Run->PingHost) && Run->Receipts.Num() == 10)
             { Run->Receipts.Pop(); }
@@ -1286,7 +1514,160 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
             FString BeforeLossFailure;
             const auto BeforeLossOutcome = Read(World, *Run, Run->Receipts,
                 true, BeforeLoss, BeforeLossFailure);
-            if (!TestTrue(TEXT("nine-row healthy cohort reverified before marker loss"),
+            if (!TestTrue(TEXT("nine-row healthy cohort reverified before natural Ping TTL"),
+                BeforeLossOutcome == ECkCompassGym_CatalogOutcome::Complete &&
+                BeforeLoss.Num() == 9)) { return; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*)
+        {
+            if (!TestTrue(TEXT("real natural TTL Ping authored from healthy nine"),
+                Run->Receipts.Num() == 9 &&
+                AddPoi(*Run, ECkCompassGym_SourceKind::Ping,
+                    TEXT("Poi.Category.Ping"), FVector(1600, 0, 100),
+                    20, true))) { Run->NaturalPingSetupFailed = true; return; }
+            Run->NaturalPingHost = Run->Receipts.Last().Host;
+            auto Spec = FCk_Timer_Spec(FCk_Time(5.0f));
+            Spec.Set_Behavior(ECk_Timer_Behavior::StopOnDone)
+                .Set_StartingState(ECk_Timer_State::Running)
+                .Set_CountDirection(ECk_Timer_CountDirection::CountUp);
+            Run->NaturalPingTimer = UCk_Utils_Timer_UE::Add(
+                Run->NaturalPingHost, Spec);
+            Run->Receipts.Last().Timer = Run->NaturalPingTimer;
+            if (!TestTrue(TEXT("natural TTL Timer first return retained"),
+                Allocated(Run->NaturalPingTimer)))
+            { Run->NaturalPingSetupFailed = true; return; }
+            Run->NaturalPingProbe.Reset(NewObject<UCkCompassGym_PingTtlProbe>());
+            if (!TestTrue(TEXT("reflected natural TTL probe allocated before running setup"),
+                IsValid(Run->NaturalPingProbe.Get())))
+            { Run->NaturalPingSetupFailed = true; return; }
+            Run->NaturalPingDoneDelegate.BindDynamic(Run->NaturalPingProbe.Get(),
+                &UCkCompassGym_PingTtlProbe::OnDone);
+            if (!TestTrue(TEXT("real Done dynamic delegate bound before running setup"),
+                Run->NaturalPingDoneDelegate.IsBound()))
+            { Run->NaturalPingSetupFailed = true; return; }
+            const auto Bound = UCk_Utils_Timer_UE::BindTo_OnDone(
+                Run->NaturalPingTimer, Run->NaturalPingDoneDelegate,
+                ECk_Signal_BindingPolicy::IgnorePayloadInFlight);
+            if (!TestTrue(TEXT("real Done signal bound to exact running Timer"),
+                Bound == Run->NaturalPingTimer &&
+                Allocated(Run->NaturalPingTimer)))
+            { Run->NaturalPingSetupFailed = true; return; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            if (Run->NaturalPingSetupFailed) { return true; }
+            if (!Run->NaturalPingProbe.IsValid() ||
+                Run->NaturalPingProbe->Get_DoneCount() > 0 ||
+                Run->NaturalPingProbe->Get_Failed())
+            { Run->NaturalPingSetupFailed = true; return true; }
+            if (!Allocated(Run->NaturalPingHost) ||
+                !Allocated(Run->NaturalPingTimer) ||
+                Run->Receipts.Num() != 10) { return false; }
+            const auto Marker = Run->Receipts.Last().Marker;
+            if (!Allocated(Marker) ||
+                Marker.Has<ck::FTag_Pmg_DebugShape_NeedsSetup>() ||
+                Marker.Has<ck::FTag_Pmg_DebugShape_LinesNeedBaking>() ||
+                !Marker.Has<ck::FFragment_Pmg_DebugShape>() ||
+                Run->NaturalPingTimer.Has<ck::FTag_Timer_NeedsSetup>() ||
+                !Run->NaturalPingTimer.Has<ck::FTag_Timer_NeedsUpdate>())
+            { return false; }
+            auto* Mesh = Marker.Get<ck::FFragment_Pmg_DebugShape>()
+                .Get_MeshComponent().Get();
+            if (!IsValid(Mesh) || !Mesh->IsRegistered() ||
+                !Mesh->GetProcMeshSection(0) || !Mesh->GetProcMeshSection(1))
+            { return false; }
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Failure;
+            Run->NaturalPingOutcome = Read(World, *Run, Run->Receipts,
+                true, Rows, Failure);
+            return Run->NaturalPingOutcome != ECkCompassGym_CatalogOutcome::Pending;
+        }), 10.0, TEXT("running natural TTL Timer materializes complete ten-row source before Done")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("natural TTL Ping complete receipt available"),
+                !Run->NaturalPingSetupFailed &&
+                Run->NaturalPingOutcome == ECkCompassGym_CatalogOutcome::Complete &&
+                Run->Receipts.Num() == 10 &&
+                Allocated(Run->NaturalPingHost) &&
+                Allocated(Run->NaturalPingTimer)))
+            { Run->NaturalPingSetupFailed = true; return; }
+            if (!TestTrue(TEXT("reflected probe armed by exact ten-row physical proof"),
+                Run->NaturalPingProbe->Arm(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts)))
+            { Run->NaturalPingSetupFailed = true; return; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        { return Run->NaturalPingSetupFailed || (Run->NaturalPingProbe.IsValid() &&
+            (Run->NaturalPingProbe->Get_DoneCount() > 0 ||
+             Run->NaturalPingProbe->Get_Failed())); }),
+        20.0, TEXT("real five-second StopOnDone Ping callback fired")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("natural Done callback once in exact world before Host destroy"),
+                Run->NaturalPingProbe.IsValid() &&
+                Run->NaturalPingProbe->Get_DoneCount() == 1 &&
+                !Run->NaturalPingProbe->Get_Failed() &&
+                Run->NaturalPingProbe->Get_ExactWorldCallback() &&
+                Run->NaturalPingProbe->Get_HostLiveBeforeDestroy() &&
+                Run->NaturalPingProbe->Get_FrozeBeforeDestroy() &&
+                Run->NaturalPingProbe->Get_RequestedDestroy() &&
+                Run->NaturalPingProbe->Get_DoneElapsedSeconds() >= 5.0))
+            { return; }
+            auto Base = Run->Receipts;
+            Base.Pop();
+            const TArray<FCkCompassGym_SourceReceipt> Retiring{
+                Run->NaturalPingProbe->Get_FrozenReceipt()};
+            TArray<FCkCompassGym_SourceRow> Rows;
+            Rows.AddDefaulted();
+            FString Failure;
+            const auto Outcome = ReadRetiringPing(World, *Run, Base, Retiring,
+                Rows, Failure);
+            TestTrue(TEXT("natural callback frozen Ping proves nine whole rows"),
+                Outcome == ECkCompassGym_CatalogOutcome::Complete &&
+                Rows.Num() == 9 && Failure.IsEmpty());
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            if (Run->NaturalPingSetupFailed) { return true; }
+            if (!Run->NaturalPingProbe.IsValid() ||
+                Run->NaturalPingProbe->Get_DoneCount() != 1) { return false; }
+            const auto R = Run->NaturalPingProbe->Get_FrozenReceipt();
+            return !Allocated(R.Host) && !Allocated(R.Marker) &&
+                !Allocated(R.Timer);
+        }), 30.0, TEXT("natural TTL Ping Host Marker Timer physically deallocated")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("natural TTL remains exactly once after cascade"),
+                Run->NaturalPingProbe.IsValid() &&
+                Run->NaturalPingProbe->Get_DoneCount() == 1 &&
+                !Run->NaturalPingProbe->Get_Failed() &&
+                Run->Receipts.Num() == 10)) { return; }
+            auto Base = Run->Receipts;
+            Base.Pop();
+            const TArray<FCkCompassGym_SourceReceipt> Retiring{
+                Run->NaturalPingProbe->Get_FrozenReceipt()};
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Failure;
+            const auto Outcome = ReadRetiringPing(World, *Run, Base, Retiring,
+                Rows, Failure);
+            if (!TestTrue(TEXT("fully retired natural Ping keeps complete nine rows"),
+                Outcome == ECkCompassGym_CatalogOutcome::Complete &&
+                Rows.Num() == 9 && Failure.IsEmpty())) { return; }
+            Run->Receipts.Pop();
+            TArray<FCkCompassGym_SourceRow> BeforeLoss;
+            FString BeforeLossFailure;
+            const auto BeforeLossOutcome = Read(World, *Run, Run->Receipts,
+                true, BeforeLoss, BeforeLossFailure);
+            if (!TestTrue(TEXT("nine-row baseline restored before source loss"),
                 BeforeLossOutcome == ECkCompassGym_CatalogOutcome::Complete &&
                 BeforeLoss.Num() == 9)) { return; }
             for (auto& Receipt : Run->Receipts) { Receipt.Admitted = true; }
