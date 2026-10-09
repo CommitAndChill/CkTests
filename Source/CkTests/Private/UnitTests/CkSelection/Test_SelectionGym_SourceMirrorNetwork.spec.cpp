@@ -355,9 +355,10 @@ namespace ck_selection_source_mirror_test
                 for (int32 I = 0; I != 2; ++I)
                 {
                     auto* Client = ck::auto_test::net::Get_ClientWorld(I);
-                    UCkSelectionGym_Mirror_UE::TryAcceptActive(Client,
+                    if (!UCkSelectionGym_Mirror_UE::TryAcceptActive(Client,
                         Client->GetGameState(), Run->Wire, Run->Marker.Get(),
-                        Run->Wall.Get(), Why);
+                        Run->Wall.Get(), Why))
+                    { return Stop(FString::Printf(TEXT("valid Active intake rejected: %s"), *Why)); }
                     ECkSelectionGym_MirrorStatus Status;
                     if (!UCkSelectionGym_Mirror_UE::TryGetStatus(Client,
                         Client->GetGameState(), Status, Why) ||
@@ -365,6 +366,10 @@ namespace ck_selection_source_mirror_test
                     { return Stop(FString::Printf(TEXT("client mirror intake: %s"), *Why)); }
                     if (Status == ECkSelectionGym_MirrorStatus::Pending)
                     {
+                        if (!UCkSelectionGym_Mirror_UE::TryAcceptActive(Client,
+                                Client->GetGameState(), Run->Wire, Run->Marker.Get(),
+                                Run->Wall.Get(), Why) || !Why.IsEmpty())
+                        { return Stop(TEXT("exact accepted Pending frame replay rejected")); }
                         FCk_Handle Staged = Run->ClientRoot[I];
                         if (UCkSelectionGym_Mirror_UE::TryGetLocalNodeForTest(
                                 Client, Client->GetGameState(),

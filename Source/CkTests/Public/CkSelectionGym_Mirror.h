@@ -25,7 +25,8 @@ class CKTESTS_API UCkSelectionGym_Mirror_UE : public UBlueprintFunctionLibrary
 {
     GENERATED_BODY()
 public:
-    /** Accepts one complete authority Active value. A failure after mutation closes this world session. */
+    /** True means the complete Active value was accepted, whether installed or pending. */
+    /** False means the value was rejected; a failure after mutation closes this world session. */
     UFUNCTION(BlueprintCallable, Category="CK|SelectionGym|Mirror")
     static bool TryAcceptActive(UWorld* World, AGameStateBase* ExactGameState,
         const FCkSelectionGym_WireSnapshot& Snapshot,
