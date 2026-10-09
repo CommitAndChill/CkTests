@@ -28,6 +28,42 @@ namespace CkGym_Cycler
         UCk_Utils_GymRegistry_UE::Request_TravelToGym(InIndex);
     }
 
+    // Player-driven travel keeps the initiating local player explicit. The server resolves the
+    // registered name against its own catalog; clients never submit a map URL or GameMode class.
+    bool TryRequest_TravelToGymFromPlayer(APlayerController InPlayer, int32 InIndex)
+    {
+        if (ck::Is_NOT_Valid(InPlayer) || InPlayer.IsLocalController() == false)
+        { return false; }
+
+        auto Registry = Get_GymRegistry();
+        if (InIndex < 0 || InIndex >= Registry.Num())
+        { return false; }
+
+        return UCk_Utils_GymRegistry_UE::TryRequest_TravelToGymFromPlayer(
+            InPlayer, Registry[InIndex].DisplayName);
+    }
+
+    bool TryRequest_NextGymFromPlayer(APlayerController InPlayer)
+    {
+        auto Registry = Get_GymRegistry();
+        if (Registry.Num() == 0)
+        { return false; }
+
+        const int32 Current = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        return TryRequest_TravelToGymFromPlayer(InPlayer, (Current + 1) % Registry.Num());
+    }
+
+    bool TryRequest_PrevGymFromPlayer(APlayerController InPlayer)
+    {
+        auto Registry = Get_GymRegistry();
+        if (Registry.Num() == 0)
+        { return false; }
+
+        const int32 Current = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        const int32 Previous = Current <= 0 ? Registry.Num() - 1 : Current - 1;
+        return TryRequest_TravelToGymFromPlayer(InPlayer, Previous);
+    }
+
     int32 Find_GymIndexByName(FString InName)
     {
         return UCk_Utils_GymRegistry_UE::Find_GymIndexByName(InName);
