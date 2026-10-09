@@ -9681,6 +9681,45 @@ class ACk_AutoTest_RuntimeMesh_SliceParity_Actor : ACk_AutoTestRunner
     }
 }
 
+class ACk_AutoTest_RuntimeMeshDisplay_SetCustomPrimitiveData_AppliesOnceReady_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 10.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeMeshDisplay_SetCustomPrimitiveData_AppliesOnceReady");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_RuntimeMeshDisplay_SetCustomPrimitiveData_CancelledOnDestroy_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 10.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeMeshDisplay_SetCustomPrimitiveData_CancelledOnDestroy");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_RuntimeMeshDisplay_SetCustomPrimitiveData_RejectedWhileDestroying_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 10.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_RuntimeMeshDisplay_SetCustomPrimitiveData_RejectedWhileDestroying");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
 class ACk_AutoTest_RuntimeMeshGym_RegistryListsRuntimeMeshAndRuntimeConvex_Actor : ACk_AutoTestRunner
 {
     UFUNCTION(BlueprintOverride)
