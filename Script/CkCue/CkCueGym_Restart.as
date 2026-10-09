@@ -3,12 +3,12 @@
 // Tests: Restart() method via RestartExisting concurrency policy
 //============================================================================
 
-class UCk_EntityScript_CueGym_Restart : UCk_GenericEntityScript_UE
+class UCk_EntityScript_CueGym_Restart : UCk_CueGym_SourceDemo
 {
 	default _Replication = ECk_Replication::DoesNotReplicate;
 
-	UPROPERTY(ExposeOnSpawn)
-	FTransform InitialTransform = FTransform::Identity;
+	FCk_Handle_Timer DisplayTimerHandle;
+	FCk_Handle_Timer RefireTimerHandle;
 
 	int32 TriggerCount = 0;
 
@@ -16,11 +16,24 @@ class UCk_EntityScript_CueGym_Restart : UCk_GenericEntityScript_UE
 	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
 	{
 	    auto _CkPerfScope = ck::ScopedStat();
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-		utils_entity_tag::Add(InHandle, n"TAG_CueGym_Restart");
+		if (!Get_CanRunSource())
+		{
+			if (ck::IsValid(SourceState)) { SourceState.Request_Fail("Restart source construction context invalid"); }
+			return ECk_EntityScript_ConstructionFlow::Finished;
+		}
+		if (!InitialTransform.IsValid() || InitialTransform.ContainsNaN())
+		{ SourceState.Request_Fail("Invalid source transform"); return ECk_EntityScript_ConstructionFlow::Finished; }
+		auto SourceTransform = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
+		if (!ck::IsValid(SourceTransform))
+		{ SourceState.Request_Fail("Source transform composition failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
+		auto TagReceipt = utils_entity_tag::Add(InHandle, n"TAG_CueGym_Restart");
+		if (!ck::IsValid(TagReceipt))
+		{ SourceState.Request_Fail("Source tag request rejected"); return ECk_EntityScript_ConstructionFlow::Finished; }
 
 		// Display tick
-		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick"));
+		DisplayTimerHandle = utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick"));
+		if (!ck::IsValid(DisplayTimerHandle))
+		{ SourceState.Request_Fail("Display timer composition failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
 
 		// Fire the restartable cue immediately
 		Request_FireCue();
@@ -29,8 +42,10 @@ class UCk_EntityScript_CueGym_Restart : UCk_GenericEntityScript_UE
 		auto RefireParams = FCk_Timer_Spec(FCk_Time(3.0f));
 		RefireParams.Set_StartingState(ECk_Timer_State::Running);
 		RefireParams.Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-		auto RefireTimer = utils_timer::Add(InHandle, RefireParams);
-		RefireTimer.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnRefireTick"));
+		RefireTimerHandle = utils_timer::Add(InHandle, RefireParams);
+		if (!ck::IsValid(RefireTimerHandle))
+		{ SourceState.Request_Fail("Restart cycle timer composition failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
+		RefireTimerHandle.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnRefireTick"));
 
 		return ECk_EntityScript_ConstructionFlow::Finished;
 	}
@@ -38,27 +53,32 @@ class UCk_EntityScript_CueGym_Restart : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void DisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!Get_CanRunSource() || InHandle != DisplayTimerHandle) { return; }
 		Request_UpdateDisplay();
 	}
 
 	UFUNCTION()
 	private void OnRefireTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!Get_CanRunSource() || InHandle != RefireTimerHandle) { return; }
 		Request_FireCue();
 	}
 
 	void Request_FireCue()
 	{
+		if (!Get_CanRunSource()) { return; }
 		auto SelfEntity = ck::ToEntity(this);
 		auto BaseLocation = InitialTransform.GetLocation();
 		auto CueTransform = FTransform(InitialTransform.GetRotation(),
 			BaseLocation + FVector(-100.0f, 0.0f, 0.0f), FVector(1.0f));
 
-		utils_cue_generic::Request_ExecuteCue(SelfEntity,
+		auto PendingCue1 = utils_cue_generic::Request_ExecuteCue(SelfEntity,
 			GameplayTags::ResolveGameplayTag(n"CueGym.Restart.Restartable"),
 			FCkCueGym_SpawnParams(CueTransform),
 			ECk_Cue_ReliabilityPolicy::Unreliable,
 			ECk_Cue_MulticastPolicy::LocalOnly);
+		if (!utils_pending_entity_script::Get_IsValid(PendingCue1))
+		{ SourceState.Request_Fail("Local cue execution request rejected"); return; }
 
 		TriggerCount++;
 		ck::Trace(f"CueGym: Restart station fired cue (trigger #{TriggerCount})");
@@ -66,6 +86,7 @@ class UCk_EntityScript_CueGym_Restart : UCk_GenericEntityScript_UE
 
 	void Request_UpdateDisplay()
 	{
+		if (!Get_CanRunSource()) { return; }
 		auto SelfEntity = ck::ToEntity(this);
 		auto TitleText = "CUE RESTART (" + CkGym_Common::Get_NetworkRoleTitle(SelfEntity) + ")";
 
@@ -84,6 +105,6 @@ class UCk_EntityScript_CueGym_Restart : UCk_GenericEntityScript_UE
 			+ "RestartExisting policy restarts the existing cue\n"
 			+ "instead of creating a new one. Watch the sphere cycle colors.";
 
-		CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, DisplayText, Instructions);
+		SubmitDisplay(TitleText, DisplayText, Instructions);
 	}
 }

@@ -3,12 +3,12 @@
 // Tests: SkipIfInvalid vs RequireValid with valid and invalid owners
 //============================================================================
 
-class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
+class UCk_EntityScript_CueGym_OwnerValidation : UCk_CueGym_SourceDemo
 {
 	default _Replication = ECk_Replication::DoesNotReplicate;
 
-	UPROPERTY(ExposeOnSpawn)
-	FTransform InitialTransform = FTransform::Identity;
+	FCk_Handle_Timer DisplayTimerHandle;
+	FCk_Handle_Timer PhaseTimerHandle;
 
 	// Phase tracking
 	int32 CurrentPhase = 0;
@@ -18,6 +18,7 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 	bool Phase1_SkipExecuted = false;
 	bool Phase1_RequireExecuted = false;
 	bool Phase2_SkipExecuted = false;
+	UPROPERTY(BlueprintReadOnly)
 	bool Phase2_RequireExecuted = false;
 	int32 CycleCount = 0;
 
@@ -25,19 +26,34 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
 	{
 	    auto _CkPerfScope = ck::ScopedStat();
+		if (!Get_CanRunSource())
+		{
+			if (ck::IsValid(SourceState)) { SourceState.Request_Fail("OwnerValidation source construction context invalid"); }
+			return ECk_EntityScript_ConstructionFlow::Finished;
+		}
 		InHandle.Set_DebugName(n"OwnerValidation");
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-		utils_entity_tag::Add(InHandle, n"TAG_CueGym_OwnerValidation");
+		if (!InitialTransform.IsValid() || InitialTransform.ContainsNaN())
+		{ SourceState.Request_Fail("Invalid source transform"); return ECk_EntityScript_ConstructionFlow::Finished; }
+		auto SourceTransform = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
+		if (!ck::IsValid(SourceTransform))
+		{ SourceState.Request_Fail("Source transform composition failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
+		auto TagReceipt = utils_entity_tag::Add(InHandle, n"TAG_CueGym_OwnerValidation");
+		if (!ck::IsValid(TagReceipt))
+		{ SourceState.Request_Fail("Source tag request rejected"); return ECk_EntityScript_ConstructionFlow::Finished; }
 
 		// Display tick
-		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick"));
+		DisplayTimerHandle = utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick"));
+		if (!ck::IsValid(DisplayTimerHandle))
+		{ SourceState.Request_Fail("Display timer composition failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
 
 		// Phase timer: 5 seconds per phase
 		auto PhaseParams = FCk_Timer_Spec(FCk_Time(5.0f));
 		PhaseParams.Set_StartingState(ECk_Timer_State::Running);
 		PhaseParams.Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-		auto PhaseTimer = utils_timer::Add(InHandle, PhaseParams);
-		PhaseTimer.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnPhaseTick"));
+		PhaseTimerHandle = utils_timer::Add(InHandle, PhaseParams);
+		if (!ck::IsValid(PhaseTimerHandle))
+		{ SourceState.Request_Fail("OwnerValidation cycle timer composition failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
+		PhaseTimerHandle.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnPhaseTick"));
 
 		// Start Phase 1: create temp owner and fire cues
 		Request_StartPhase1();
@@ -48,12 +64,14 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void DisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!Get_CanRunSource() || InHandle != DisplayTimerHandle) { return; }
 		Request_UpdateDisplay();
 	}
 
 	UFUNCTION()
 	private void OnPhaseTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!Get_CanRunSource() || InHandle != PhaseTimerHandle) { return; }
 		if (CurrentPhase == 1)
 		{
 			Request_StartPhase2();
@@ -68,6 +86,7 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 
 	void Request_StartPhase1()
 	{
+		if (!Get_CanRunSource()) { return; }
 		CurrentPhase = 1;
 		Phase1_SkipExecuted = false;
 		Phase1_RequireExecuted = false;
@@ -78,6 +97,11 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 		auto SpawnParams = FCk_Gym_TransformSpawnParams(InitialTransform);
 		auto PendingHandle = utils_entity_script::Request_SpawnEntity(
 			SelfEntity, UCk_EntityScript_CueGym_TempOwner, FInstancedStruct::Make(SpawnParams));
+		if (!utils_pending_entity_script::Get_IsValid(PendingHandle))
+		{ SourceState.Request_Fail("Temporary owner spawn rejected"); return; }
+		TempOwnerHandle = PendingHandle.Get_EntityUnderConstruction();
+		if (!ck::IsValid(TempOwnerHandle))
+		{ SourceState.Request_Fail("Temporary owner receipt invalid"); return; }
 
 		// Fire cues with self as owner (valid owner)
 		auto BaseLocation = InitialTransform.GetLocation();
@@ -85,21 +109,25 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 		// SkipIfInvalid cue at left
 		auto SkipTransform = FTransform(InitialTransform.GetRotation(),
 			BaseLocation + FVector(-100.0f, -100.0f, 0.0f), FVector(1.0f));
-		utils_cue_generic::Request_ExecuteCue(SelfEntity,
+		auto PendingCue1 = utils_cue_generic::Request_ExecuteCue(SelfEntity,
 			GameplayTags::ResolveGameplayTag(n"CueGym.Owner.SkipInvalid"),
 			FCkCueGym_SpawnParams(SkipTransform),
 			ECk_Cue_ReliabilityPolicy::Unreliable,
 			ECk_Cue_MulticastPolicy::LocalOnly);
+		if (!utils_pending_entity_script::Get_IsValid(PendingCue1))
+		{ SourceState.Request_Fail("Local cue execution request rejected"); return; }
 		Phase1_SkipExecuted = true;
 
 		// RequireValid cue at right
 		auto RequireTransform = FTransform(InitialTransform.GetRotation(),
 			BaseLocation + FVector(-100.0f, 100.0f, 0.0f), FVector(1.0f));
-		utils_cue_generic::Request_ExecuteCue(SelfEntity,
+		auto PendingCue2 = utils_cue_generic::Request_ExecuteCue(SelfEntity,
 			GameplayTags::ResolveGameplayTag(n"CueGym.Owner.RequireValid"),
 			FCkCueGym_SpawnParams(RequireTransform),
 			ECk_Cue_ReliabilityPolicy::Unreliable,
 			ECk_Cue_MulticastPolicy::LocalOnly);
+		if (!utils_pending_entity_script::Get_IsValid(PendingCue2))
+		{ SourceState.Request_Fail("Local cue execution request rejected"); return; }
 		Phase1_RequireExecuted = true;
 
 		ck::Trace("CueGym: OwnerValidation Phase 1 - fired cues with valid owner");
@@ -107,23 +135,23 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 
 	void Request_StartPhase2()
 	{
+		if (!Get_CanRunSource()) { return; }
 		CurrentPhase = 2;
 		Phase2_SkipExecuted = false;
 		Phase2_RequireExecuted = false;
 
 		// Destroy the temp owner
 		auto SelfEntity = ck::ToEntity(this);
-		auto TempOwners = utils_entity_tag::ForEach_Entity(SelfEntity, n"TAG_CueGym_TempOwner");
-		for (auto Entity : TempOwners)
-		{
-			utils_entity_lifetime::Request_DestroyEntity(Entity);
-		}
+		if (!ck::IsValid(TempOwnerHandle))
+		{ SourceState.Request_Fail("Temporary owner lost before phase 2"); return; }
+		utils_entity_lifetime::Request_DestroyEntity(TempOwnerHandle);
+		TempOwnerHandle = FCk_Handle();
 
 		// Fire cues with an invalid handle as owner
 		auto InvalidHandle = FCk_Handle();
 		auto BaseLocation = InitialTransform.GetLocation();
 
-		// SkipIfInvalid cue at left - should still spawn (policy skips validation)
+		// SkipIfInvalid rejects the invalid owner quietly.
 		auto SkipTransform = FTransform(InitialTransform.GetRotation(),
 			BaseLocation + FVector(-100.0f, -100.0f, 0.0f), FVector(1.0f));
 		utils_cue_generic::Request_ExecuteCue(InvalidHandle,
@@ -133,7 +161,7 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 			ECk_Cue_MulticastPolicy::LocalOnly);
 		Phase2_SkipExecuted = true;
 
-		// RequireValid cue at right - should NOT spawn (policy requires valid owner)
+		// RequireValid rejects the invalid owner and reports the failure.
 		auto RequireTransform = FTransform(InitialTransform.GetRotation(),
 			BaseLocation + FVector(-100.0f, 100.0f, 0.0f), FVector(1.0f));
 		utils_cue_generic::Request_ExecuteCue(InvalidHandle,
@@ -148,6 +176,7 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 
 	void Request_UpdateDisplay()
 	{
+		if (!Get_CanRunSource()) { return; }
 		auto SelfEntity = ck::ToEntity(this);
 		auto TitleText = "CUE OWNER VALIDATION (" + CkGym_Common::Get_NetworkRoleTitle(SelfEntity) + ")";
 
@@ -156,25 +185,25 @@ class UCk_EntityScript_CueGym_OwnerValidation : UCk_GenericEntityScript_UE
 		DisplayText = f"{DisplayText}Current: {PhaseText}\n\n";
 
 		DisplayText = f"{DisplayText}=== Phase 1 (Valid Owner) ===\n";
-		auto P1Skip = Phase1_SkipExecuted ? "EXECUTED" : "---";
-		auto P1Require = Phase1_RequireExecuted ? "EXECUTED" : "---";
+		auto P1Skip = Phase1_SkipExecuted ? "REQUEST ISSUED" : "---";
+		auto P1Require = Phase1_RequireExecuted ? "REQUEST ISSUED" : "---";
 		DisplayText = f"{DisplayText}SkipIfInvalid: {P1Skip}\n";
 		DisplayText = f"{DisplayText}RequireValid:  {P1Require}\n\n";
 
 		DisplayText = f"{DisplayText}=== Phase 2 (Invalid Owner) ===\n";
-		auto P2Skip = Phase2_SkipExecuted ? "FIRED (should skip)" : "---";
-		auto P2Require = Phase2_RequireExecuted ? "FIRED (should fail)" : "---";
+		auto P2Skip = Phase2_SkipExecuted ? "REQUEST ISSUED (quiet rejection policy)" : "---";
+		auto P2Require = Phase2_RequireExecuted ? "REQUEST ISSUED (diagnostic rejection policy)" : "---";
 		DisplayText = f"{DisplayText}SkipIfInvalid: {P2Skip}\n";
 		DisplayText = f"{DisplayText}RequireValid:  {P2Require}\n";
 
 		auto Instructions = "Alternates between valid and invalid owners:\n"
 			+ "  White box = owner entity (shrinks before destruction)\n"
-			+ "  Phase 1: Both cues fire with valid owner (both execute)\n"
-			+ "  Phase 2: Owner destroyed, cues fire with invalid handle\n"
+			+ "  Phase 1: Both requests use the valid demo entity as owner\n"
+			+ "  Phase 2: Temp visual destroyed; both requests use an invalid handle\n"
 			+ "    Left (cyan): SkipIfInvalid - skips silently\n"
-			+ "    Right (yellow): RequireValid - should not execute";
+			+ "    Right (yellow): RequireValid - rejects with a diagnostic";
 
-		CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, DisplayText, Instructions);
+		SubmitDisplay(TitleText, DisplayText, Instructions);
 	}
 }
 
@@ -192,6 +221,20 @@ class UCk_EntityScript_CueGym_TempOwner : UCk_GenericEntityScript_UE
 	float ElapsedTime = 0.0f;
 	float PhaseDuration = 5.0f;
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
@@ -210,6 +253,8 @@ class UCk_EntityScript_CueGym_TempOwner : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ElapsedTime = ElapsedTime + float(InDeltaT.Get_Seconds());
 		auto Progress = Math::Clamp(ElapsedTime / PhaseDuration, 0.0, 1.0);
 
@@ -218,7 +263,6 @@ class UCk_EntityScript_CueGym_TempOwner : UCk_GenericEntityScript_UE
 		auto Brightness = float32(1.0 - Progress * 0.7);
 
 		auto Extent = FVector(Radius, Radius, Radius);
-		CueGym_Pmg::DestroyShape(ShapeHandle);
 		ShapeHandle = CueGym_Pmg::DrawBox(ck::ToEntity(this), FVector(0.0f, 0.0f, 150.0f),
 			FLinearColor(Brightness, Brightness, Brightness, 0.3f), Extent);
 	}

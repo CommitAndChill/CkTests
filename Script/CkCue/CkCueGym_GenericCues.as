@@ -29,7 +29,11 @@ struct FCkCueGym_SpawnParams
 {
 	UPROPERTY()
 	FTransform InitialTransform = FTransform::Identity;
+	UPROPERTY() int32 SourceGeneration = 0;
+	UPROPERTY() int32 RoleEpoch = 0;
+	UPROPERTY() int64 EventSerial = 0;
 
+	FCkCueGym_SpawnParams() {}
 	FCkCueGym_SpawnParams(FTransform InTransform)
 	{
 		InitialTransform = InTransform;
@@ -42,9 +46,38 @@ struct FCkCueGym_SpawnParams
 
 namespace CueGym_Pmg
 {
+	// A total ownership walk binds this draw to the current world's root.
+	// Do not use the recursive world getter on malformed lifetime chains.
+	bool Get_HasDrawingContext(FCk_Handle Entity, FCk_Handle WorldRoot)
+	{
+		auto Current = Entity;
+		TArray<FCk_Handle> Seen;
+		for (int32 Depth = 0; Depth < 64; ++Depth)
+		{
+			if (ck::Is_NOT_Valid(Current) || Seen.Contains(Current)) { return false; }
+			if (utils_entity_lifetime::Get_IsPendingDestroy(
+				Current, ECk_EntityLifetime_DestructionPhase::BeginDestroy)) { return false; }
+			if (Current == WorldRoot) { return true; }
+			if (!utils_entity_lifetime::Has_LifetimeOwner(Current)) { return false; }
+			Seen.Add(Current);
+			Current = utils_entity_lifetime::Get_LifetimeOwner(Current);
+		}
+		return false;
+	}
+
 	// Draws a PMG filled sphere at entity location + offset, returns handle for cleanup
 	FCk_Handle_Pmg_DebugShape DrawSphere(FCk_Handle InEntity, FVector InOffset, FLinearColor InColor, float32 InRadius = 20.0f)
 	{
+		if (ck::Is_NOT_Valid(InEntity) || !utils_transform::Has(InEntity) ||
+			!utils_entity_lifetime::Get_CanCreateEntity(InEntity))
+		{ return FCk_Handle_Pmg_DebugShape(); }
+		auto WorldRoot = ck::TransientEntity();
+		if (ck::Is_NOT_Valid(WorldRoot) ||
+			CkGym_Admission::Get_IsClosedUnproven(WorldRoot) ||
+			!Get_HasDrawingContext(InEntity, WorldRoot) ||
+			!Math::IsFinite(InColor.R) || !Math::IsFinite(InColor.G) ||
+			!Math::IsFinite(InColor.B) || !Math::IsFinite(InColor.A))
+		{ return FCk_Handle_Pmg_DebugShape(); }
 		auto TransformHandle = InEntity.As_Transform();
 		if (ck::Is_NOT_Valid(TransformHandle))
 		{
@@ -53,12 +86,33 @@ namespace CueGym_Pmg
 
 		auto Transform = utils_transform::Get_EntityCurrentTransform(TransformHandle);
 		auto Pos = Transform.GetLocation() + InOffset;
-		return utils_pmg_basic_shapes::DrawFilledSphere(Pos, InRadius, 12, 12, InColor, true, 2.0f, ECk_Plane_Axis::XY, 0.0f);
+		if (!Transform.IsValid() || Transform.ContainsNaN() || Pos.ContainsNaN() ||
+			InRadius <= 0.0f || !Math::IsFinite(InRadius))
+		{ return FCk_Handle_Pmg_DebugShape(); }
+		// The cue's lifetime owns its current visual, including owner cascades.
+		auto Shape = utils_entity_lifetime::Request_CreateEntity(InEntity);
+		if (ck::Is_NOT_Valid(Shape))
+		{ CkGym_Admission::TryCloseWorldUnproven(WorldRoot); return FCk_Handle_Pmg_DebugShape(); }
+		auto Result = utils_pmg_basic_shapes::Add_Sphere(Shape, FTransform(Pos),
+			InRadius, 12, 12, ECk_Plane_Axis::XY, InColor, true, 2.0f, -1.0f);
+		if (ck::Is_NOT_Valid(Result) || !utils_transform::Has(Result))
+		{ CkGym_Admission::TryCloseWorldUnproven(WorldRoot); return FCk_Handle_Pmg_DebugShape(); }
+		return Result;
 	}
 
 	// Draws a PMG filled box at entity location + offset, returns handle for cleanup
 	FCk_Handle_Pmg_DebugShape DrawBox(FCk_Handle InEntity, FVector InOffset, FLinearColor InColor, FVector InExtent = FVector(20.0f, 20.0f, 20.0f))
 	{
+		if (ck::Is_NOT_Valid(InEntity) || !utils_transform::Has(InEntity) ||
+			!utils_entity_lifetime::Get_CanCreateEntity(InEntity))
+		{ return FCk_Handle_Pmg_DebugShape(); }
+		auto WorldRoot = ck::TransientEntity();
+		if (ck::Is_NOT_Valid(WorldRoot) ||
+			CkGym_Admission::Get_IsClosedUnproven(WorldRoot) ||
+			!Get_HasDrawingContext(InEntity, WorldRoot) ||
+			!Math::IsFinite(InColor.R) || !Math::IsFinite(InColor.G) ||
+			!Math::IsFinite(InColor.B) || !Math::IsFinite(InColor.A))
+		{ return FCk_Handle_Pmg_DebugShape(); }
 		auto TransformHandle = InEntity.As_Transform();
 		if (ck::Is_NOT_Valid(TransformHandle))
 		{
@@ -67,16 +121,48 @@ namespace CueGym_Pmg
 
 		auto Transform = utils_transform::Get_EntityCurrentTransform(TransformHandle);
 		auto Pos = Transform.GetLocation() + InOffset;
-		return utils_pmg_basic_shapes::DrawFilledBox(Pos, InExtent, InColor, true, 2.0f, ECk_Plane_Axis::XY, 0.0f);
+		if (!Transform.IsValid() || Transform.ContainsNaN() || Pos.ContainsNaN() ||
+			InExtent.ContainsNaN() || InExtent.X <= 0.0 || InExtent.Y <= 0.0 ||
+			InExtent.Z <= 0.0)
+		{ return FCk_Handle_Pmg_DebugShape(); }
+		auto Shape = utils_entity_lifetime::Request_CreateEntity(InEntity);
+		if (ck::Is_NOT_Valid(Shape))
+		{ CkGym_Admission::TryCloseWorldUnproven(WorldRoot); return FCk_Handle_Pmg_DebugShape(); }
+		auto Result = utils_pmg_basic_shapes::Add_Box(Shape, FTransform(Pos),
+			InExtent, ECk_Plane_Axis::XY, InColor, true, 2.0f, -1.0f);
+		if (ck::Is_NOT_Valid(Result) || !utils_transform::Has(Result))
+		{ CkGym_Admission::TryCloseWorldUnproven(WorldRoot); return FCk_Handle_Pmg_DebugShape(); }
+		return Result;
 	}
 
-	// Destroy a previous shape handle if valid
-	void DestroyShape(FCk_Handle_Pmg_DebugShape& InOutHandle)
+	// Replacing a draw requires its exact previous owned receipt. A lost or
+	// foreign receipt closes admission; it is never adopted or destroyed.
+	bool TryRetirePreviousShape(FCk_Handle Owner, FCk_Handle_Pmg_DebugShape Shape, bool Expected)
 	{
-		if (ck::IsValid(InOutHandle))
+		if (ck::Is_NOT_Valid(Owner)) { return false; }
+		auto Root = ck::TransientEntity();
+		if (ck::Is_NOT_Valid(Root) || !Get_HasDrawingContext(Owner, Root)) { return false; }
+		if (!utils_entity_lifetime::Get_CanCreateEntity(Owner)) { return false; }
+		if (ck::Is_NOT_Valid(Shape))
 		{
-			utils_entity_lifetime::Request_DestroyEntity(InOutHandle);
+			if (Expected) { CkGym_Admission::TryCloseWorldUnproven(Root); return false; }
+			return !CkGym_Admission::Get_IsClosedUnproven(Root);
 		}
+		// A receipt already entering destruction is lost for replacement. Do not
+		// inspect its PMG/lifetime fragments or enqueue destruction again.
+		if (utils_entity_lifetime::Get_IsPendingDestroy(
+				Shape, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+			utils_entity_lifetime::Get_IsPendingDestroy(
+				Shape, ECk_EntityLifetime_DestructionPhase::Teardown) ||
+			utils_entity_lifetime::Get_IsPendingDestroy(
+				Shape, ECk_EntityLifetime_DestructionPhase::Destroyed))
+		{ CkGym_Admission::TryCloseWorldUnproven(Root); return false; }
+		if (!UCk_Utils_Pmg_DebugShape_UE::Has(FCk_Handle(Shape)) ||
+			!utils_entity_lifetime::Has_LifetimeOwner(Shape) ||
+			utils_entity_lifetime::Get_LifetimeOwner(Shape) != Owner)
+		{ CkGym_Admission::TryCloseWorldUnproven(Root); return false; }
+		utils_entity_lifetime::Request_DestroyEntity(Shape);
+		return !CkGym_Admission::Get_IsClosedUnproven(Root);
 	}
 }
 
@@ -121,6 +207,20 @@ class UCk_CueGym_Cue_Persistent : UCk_GenericCue_EntityScript
 	default _ConcurrencyPolicy = ECk_Cue_ConcurrencyPolicy::AllowMultiple;
 
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -145,7 +245,8 @@ class UCk_CueGym_Cue_Persistent : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
-		CueGym_Pmg::DestroyShape(ShapeHandle);
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(0.0f, 1.0f, 0.0f, 0.3f), 20.0f);
 	}
@@ -163,6 +264,20 @@ class UCk_CueGym_Cue_Timed : UCk_GenericCue_EntityScript
 	default _LifetimeDuration = FCk_Time(5.0f);
 
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -186,7 +301,8 @@ class UCk_CueGym_Cue_Timed : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
-		CueGym_Pmg::DestroyShape(ShapeHandle);
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(0.0f, 0.5f, 1.0f, 0.3f), 20.0f);
 	}
@@ -203,6 +319,20 @@ class UCk_CueGym_Cue_Custom : UCk_GenericCue_EntityScript
 	default _ConcurrencyPolicy = ECk_Cue_ConcurrencyPolicy::AllowMultiple;
 
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -233,7 +363,8 @@ class UCk_CueGym_Cue_Custom : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
-		CueGym_Pmg::DestroyShape(ShapeHandle);
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(1.0f, 0.5f, 0.0f, 0.3f), 20.0f);
 	}
@@ -264,6 +395,20 @@ class UCk_CueGym_Cue_Multiple : UCk_GenericCue_EntityScript
 	float ElapsedTime = 0.0f;
 	float LifetimeSeconds = 10.0f;
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -288,6 +433,8 @@ class UCk_CueGym_Cue_Multiple : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ElapsedTime = ElapsedTime + float(InDeltaT.Get_Seconds());
 		auto Progress = Math::Clamp(ElapsedTime / LifetimeSeconds, 0.0, 1.0);
 
@@ -298,7 +445,6 @@ class UCk_CueGym_Cue_Multiple : UCk_GenericCue_EntityScript
 		auto Green = float32(1.0 - Progress);
 		auto Red = float32(Progress);
 
-		CueGym_Pmg::DestroyShape(ShapeHandle);
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(Red, Green, 0.1f, 0.3f), Radius);
 	}
@@ -319,6 +465,20 @@ class UCk_CueGym_Cue_Restart : UCk_GenericCue_EntityScript
 	float ElapsedTime = 0.0f;
 	float LifetimeSeconds = 10.0f;
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -352,6 +512,8 @@ class UCk_CueGym_Cue_Restart : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ElapsedTime = ElapsedTime + float(InDeltaT.Get_Seconds());
 		auto Progress = Math::Clamp(ElapsedTime / LifetimeSeconds, 0.0, 1.0);
 
@@ -361,7 +523,6 @@ class UCk_CueGym_Cue_Restart : UCk_GenericCue_EntityScript
 		// Color fades from bright red to dim over lifetime, snaps back on restart
 		auto Brightness = float32(1.0 - Progress * 0.7);
 
-		CueGym_Pmg::DestroyShape(ShapeHandle);
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(Brightness, 0.1f, 0.1f, 0.3f), Radius);
 	}
@@ -384,6 +545,20 @@ class UCk_CueGym_Cue_OwnerSkip : UCk_GenericCue_EntityScript
 	default _LifetimeDuration = FCk_Time(5.0f);
 
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -406,7 +581,8 @@ class UCk_CueGym_Cue_OwnerSkip : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
-		CueGym_Pmg::DestroyShape(ShapeHandle);
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(0.2f, 0.8f, 0.8f, 0.3f), 15.0f);
 	}
@@ -425,6 +601,20 @@ class UCk_CueGym_Cue_OwnerRequire : UCk_GenericCue_EntityScript
 	default _LifetimeDuration = FCk_Time(5.0f);
 
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -447,7 +637,8 @@ class UCk_CueGym_Cue_OwnerRequire : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
-		CueGym_Pmg::DestroyShape(ShapeHandle);
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(0.8f, 0.8f, 0.2f, 0.3f), 15.0f);
 	}
@@ -470,6 +661,20 @@ class UCk_CueGym_Cue_Restartable : UCk_GenericCue_EntityScript
 
 	int32 RestartCount = 0;
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -501,13 +706,14 @@ class UCk_CueGym_Cue_Restartable : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		// Color cycles continuously based on restart count using sine waves
 		auto Phase = float(RestartCount) * 0.8f;
 		auto Red = float32(Math::Sin(Phase) * 0.5f + 0.5f);
 		auto Green = float32(Math::Sin(Phase + 2.094f) * 0.5f + 0.5f);
 		auto Blue = float32(Math::Sin(Phase + 4.189f) * 0.5f + 0.5f);
 
-		CueGym_Pmg::DestroyShape(ShapeHandle);
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(Red, Green, Blue, 0.3f), 20.0f);
 	}
@@ -523,6 +729,18 @@ class UCk_CueGym_Cue_Transient : UCk_GenericCue_EntityScript
 	UPROPERTY(ExposeOnSpawn)
 	FTransform InitialTransform = FTransform::Identity;
 
+	UPROPERTY(ExposeOnSpawn) int32 SourceGeneration = 0;
+	UPROPERTY(ExposeOnSpawn) int32 RoleEpoch = 0;
+	UPROPERTY(ExposeOnSpawn) int64 EventSerial = 0;
+	private FCk_Handle _OwnedEntity;
+	private FCk_Handle _RelayOwner;
+	UPROPERTY() private TWeakObjectPtr<ACk_CueRelay_UE> _RelayActor;
+	private FCk_Handle_Timer _DrawTimer;
+	private ACk_CueGym_GameState _EventState;
+	private bool _Recorded = false;
+	private bool _VisualDrawAttempted = false;
+	private double _WaitStartedAt = 0.0;
+
 	default _Replication = ECk_Replication::DoesNotReplicate;
 	default _LifetimeBehavior = ECk_Cue_LifetimeBehavior::Timed;
 	default _ConcurrencyPolicy = ECk_Cue_ConcurrencyPolicy::AllowMultiple;
@@ -530,6 +748,11 @@ class UCk_CueGym_Cue_Transient : UCk_GenericCue_EntityScript
 	default _LifetimeDuration = FCk_Time(5.0f);
 
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const { return FCk_Handle(ShapeHandle); }
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const { return _VisualDrawAttempted; }
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -541,19 +764,72 @@ class UCk_CueGym_Cue_Transient : UCk_GenericCue_EntityScript
 	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
 	{
 	    auto _CkPerfScope = ck::ScopedStat();
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-		utils_entity_tag::Add(InHandle, n"TAG_CueGym_Cue_Transient");
+		_OwnedEntity = InHandle;
+		_WaitStartedAt = System::GetGameTimeInSeconds();
+		if (!InitialTransform.IsValid() || InitialTransform.ContainsNaN())
+		{ utils_entity_lifetime::Request_DestroyEntity(InHandle); return ECk_EntityScript_ConstructionFlow::Finished; }
+		auto TransformReceipt = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
+		if (ck::Is_NOT_Valid(TransformReceipt))
+		{ utils_entity_lifetime::Request_DestroyEntity(InHandle); return ECk_EntityScript_ConstructionFlow::Finished; }
+		auto TagReceipt = utils_entity_tag::Add(InHandle, n"TAG_CueGym_Cue_Transient");
+		if (ck::Is_NOT_Valid(TagReceipt))
+		{ utils_entity_lifetime::Request_DestroyEntity(InHandle); return ECk_EntityScript_ConstructionFlow::Finished; }
 
-		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DrawTick"));
+		_DrawTimer = utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DrawTick"));
+		if (ck::Is_NOT_Valid(_DrawTimer))
+		{ utils_entity_lifetime::Request_DestroyEntity(InHandle); return ECk_EntityScript_ConstructionFlow::Finished; }
 
-		ck::Trace("CueGym: Transient cue executed (attached to transient entity)");
+		ck::Trace("CueGym: Transient cue executed (attached to relay channel owner)");
 		return ECk_EntityScript_ConstructionFlow::Finished;
 	}
 
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
-		CueGym_Pmg::DestroyShape(ShapeHandle);
+		if (InHandle != _DrawTimer || ck::Is_NOT_Valid(_OwnedEntity) ||
+			_OwnedEntity != ck::ToEntity(this)) { return; }
+		const bool IsGymEvent = SourceGeneration != 0 || RoleEpoch != 0 || EventSerial != 0;
+		if (IsGymEvent)
+		{
+			auto World = utils_entity_lifetime::Get_WorldForEntity(_OwnedEntity);
+			if (ck::Is_NOT_Valid(World)) { return; }
+			auto State = Cast<ACk_CueGym_GameState>(World.GetGameState());
+			if (ck::Is_NOT_Valid(State))
+			{
+				// A relay may arrive before the local GameState is available.
+				if (System::GetGameTimeInSeconds() - _WaitStartedAt > 20.0)
+				{ utils_entity_lifetime::Request_DestroyEntity(_OwnedEntity); }
+				return;
+			}
+			if (_Recorded && (State != _EventState ||
+				!utils_entity_lifetime::Has_LifetimeOwner(_OwnedEntity) ||
+				utils_entity_lifetime::Get_LifetimeOwner(_OwnedEntity) != _RelayOwner ||
+				ck::Is_NOT_Valid(_RelayActor.Get()) ||
+				_RelayActor.Get().IsActorBeingDestroyed() ||
+				_RelayActor.Get().GetWorld() != World ||
+				utils_owning_actor::TryGet_ActorEntityHandle(_RelayActor.Get()) != _RelayOwner))
+			{ utils_entity_lifetime::Request_DestroyEntity(_OwnedEntity); return; }
+			auto Admission = State.Get_TransientAdmission(SourceGeneration, RoleEpoch, EventSerial);
+			if (Admission == ECkCueGym_EventAdmission::Pending)
+			{
+				if (System::GetGameTimeInSeconds() - _WaitStartedAt > 20.0)
+				{ utils_entity_lifetime::Request_DestroyEntity(_OwnedEntity); }
+				return;
+			}
+			if (Admission != ECkCueGym_EventAdmission::Accepted)
+			{ utils_entity_lifetime::Request_DestroyEntity(_OwnedEntity); return; }
+			if (!_Recorded)
+			{
+				if (!State.TryRegisterTransient(this, SourceGeneration, RoleEpoch, EventSerial, _OwnedEntity))
+				{ utils_entity_lifetime::Request_DestroyEntity(_OwnedEntity); return; }
+				_RelayOwner = utils_entity_lifetime::Get_LifetimeOwner(_OwnedEntity);
+				_RelayActor = Cast<ACk_CueRelay_UE>(utils_owning_actor::TryGet_EntityOwningActor(_RelayOwner));
+				_EventState = State;
+				_Recorded = true;
+			}
+		}
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(0.8f, 0.4f, 0.8f, 0.3f), 15.0f);
 	}
@@ -575,6 +851,20 @@ class UCk_CueGym_Cue_OwnerDestruction : UCk_GenericCue_EntityScript
 	default _OwnerValidationPolicy = ECk_Cue_OwnerValidationPolicy::RequireValid;
 
 	FCk_Handle_Pmg_DebugShape ShapeHandle;
+	private bool _VisualDrawAttempted = false;
+
+	// An invalid receipt after this flag is set is a failed draw, not startup.
+	UFUNCTION(BlueprintPure)
+	bool Get_HasVisualDrawAttempted() const
+	{
+		return _VisualDrawAttempted;
+	}
+
+	UFUNCTION(BlueprintPure)
+	FCk_Handle Get_VisualShape() const
+	{
+		return FCk_Handle(ShapeHandle);
+	}
 
 	UFUNCTION(BlueprintOverride)
 	FGameplayTag Get_CueName() const
@@ -598,7 +888,8 @@ class UCk_CueGym_Cue_OwnerDestruction : UCk_GenericCue_EntityScript
 	UFUNCTION()
 	private void DrawTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
-		CueGym_Pmg::DestroyShape(ShapeHandle);
+		if (!CueGym_Pmg::TryRetirePreviousShape(ck::ToEntity(this), ShapeHandle, _VisualDrawAttempted)) { return; }
+		_VisualDrawAttempted = true;
 		ShapeHandle = CueGym_Pmg::DrawSphere(ck::ToEntity(this), FVector(0.0f, 0.0f, 100.0f),
 			FLinearColor(0.3f, 0.7f, 1.0f, 0.3f), 15.0f);
 	}
