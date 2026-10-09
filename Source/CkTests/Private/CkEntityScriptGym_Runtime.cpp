@@ -206,6 +206,8 @@ auto
     if (!Root.Has<ck::FFragment_LifetimeDependents>()) { return true; }
     const auto& Dependents = Root.Get<ck::FFragment_LifetimeDependents, ck::IsValid_Policy_IncludePendingKill>().Get_Entities();
     TArray<FCk_Handle> Candidate;
+    TSet<FCk_Handle> Seen;
+    Seen.Reserve(Dependents.Num());
     for (const auto& Child : Dependents)
     {
         if (!ck::IsValid(Child, ck::IsValid_Policy_IncludePendingKill{})) { continue; }
@@ -213,7 +215,11 @@ auto
         if (!Child.Has<ck::FFragment_LifetimeOwner>()) { continue; }
         const auto Owner = Child.Get<ck::FFragment_LifetimeOwner, ck::IsValid_Policy_IncludePendingKill>().Get_Entity();
         if (Owner != Root) { continue; }
-        Candidate.AddUnique(Child);
+        if (!Seen.Contains(Child))
+        {
+            Seen.Add(Child);
+            Candidate.Add(Child);
+        }
     }
     OutHandles = MoveTemp(Candidate);
     return true;
