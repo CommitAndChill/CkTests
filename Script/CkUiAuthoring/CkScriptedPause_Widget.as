@@ -144,6 +144,22 @@ class UCk_ScriptedPause_Widget : UCk_ActivatableWidget_UE
         Required.Add(FCk_UI_AuthoredButtonRequirement("settings-button", "SettingsRequested", "SettingsEnabled"));
         Required.Add(FCk_UI_AuthoredButtonRequirement("return-button", "ReturnToTitleRequested", "ReturnEnabled"));
         Config.Set_RequiredButtons(Required);
+        const auto FontDirectory = FPaths::CombinePaths(FPaths::ProjectDir(),
+            "Plugins/CkTests/Resources/UiAuthoring/DarkFantasyHudProof/Fonts");
+        const auto FallbackFile = FPaths::CombinePaths(FPaths::EngineContentDir(), "Slate/Fonts/DroidSansFallback.ttf");
+        auto UiFont = FCk_UI_AuthoredFontFamily("menu-ui",
+            FPaths::CombinePaths(FontDirectory, "SourceSans3-Regular.ttf"));
+        UiFont.Set_BoldFile(FPaths::CombinePaths(FontDirectory, "SourceSans3-Bold.ttf"));
+        UiFont.Set_FallbackRegularFile(FallbackFile);
+        UiFont.Set_FallbackBoldFile(FallbackFile);
+        auto DisplayFont = FCk_UI_AuthoredFontFamily("menu-display",
+            FPaths::CombinePaths(FontDirectory, "SourceSans3-Regular.ttf"));
+        DisplayFont.Set_BoldFile(FPaths::CombinePaths(FontDirectory, "SourceSans3-Bold.ttf"));
+        DisplayFont.Set_FallbackRegularFile(FallbackFile);
+        DisplayFont.Set_FallbackBoldFile(FallbackFile);
+        auto Fonts = TArray<FCk_UI_AuthoredFontFamily>(); Fonts.Add(UiFont); Fonts.Add(DisplayFont);
+        Config.Set_FontFamilies(Fonts);
+        Config.Set_RegisterHudControls(true);
         auto Errors = TArray<FString>();
         if (!_Session.TryInitialize(Config, Errors)) { DoSetErrors(Errors); return false; }
         _Session.OnAction.AddUFunction(this, n"DoOnAction");

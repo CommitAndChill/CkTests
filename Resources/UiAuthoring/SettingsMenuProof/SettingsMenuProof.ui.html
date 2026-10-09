@@ -26,7 +26,7 @@
         </row>
 
         <column id="settings-display-space" class="display-space" />
-        <row id="settings-display-row" class="setting-row">
+        <row id="settings-display-row" class="setting-row display-row">
           <text id="settings-display-label" bind="DisplayModeLabel" class="field-label" />
           <select id="settings-display-mode" value-bind="SettingsDisplayMode" options-bind="DisplayModes" changed="EditDisplayMode" class="display-select" />
         </row>
@@ -44,9 +44,7 @@
       </column>
       <column id="settings-hint-space" class="hint-space" />
       <row id="settings-input-hint" class="input-hint">
-        <column id="settings-keycap" class="keycap">
-          <text id="settings-key" bind="InputSettingsKey" class="key-label" />
-        </column>
+        <key-hint id="settings-keycap" label="ESC" font-family="menu-ui" class="keycap" />
         <text id="settings-hint-label" bind="InputSettingsHint" class="hint-label" />
       </row>
       <column id="settings-bottom-space" class="bottom-space" />

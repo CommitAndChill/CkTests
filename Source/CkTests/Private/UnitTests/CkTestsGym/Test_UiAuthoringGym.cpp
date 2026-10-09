@@ -5,9 +5,10 @@
 #include "CkGym_Registry.h"
 #include "CkGym_StartupSettings.h"
 #include "CkGym_Switchboard_Subsystem.h"
+#include "CkSlateLayout/CkFlexText.h"
 #include "CkSlateLayout/SCkUiSurface.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
-#include "CkTests/UI/CkPauseMenuProof.h"
+#include "UnitTests/CkYoga/CkScriptedPause_TestAdapter.h"
 
 #include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
@@ -16,10 +17,15 @@
 #include "Framework/Application/SlateApplication.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/PlayerController.h"
+#include "HAL/FileManager.h"
+#include "ImageUtils.h"
 #include "Input/Events.h"
 #include "InputCoreTypes.h"
+#include "Layout/Children.h"
 #include "Layout/WidgetPath.h"
 #include "Misc/AutomationTest.h"
+#include "Misc/Paths.h"
+#include "Styling/CoreStyle.h"
 #include "UObject/StrongObjectPtr.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Input/SButton.h"
@@ -42,7 +48,16 @@ namespace ck_ui_authoring_gym_test
             RemoveCleanupObserver();
             FirstMenu.Reset();
             SecondMenu.Reset();
+            RestoreWindow();
             RestoreSettings(*this);
+        }
+
+        auto RestoreWindow() -> void
+        {
+            if (NOT bWindowCaptured) { return; }
+            if (const TSharedPtr<SWindow> Window = WindowToRestore.Pin())
+            { Window->Resize(OriginalWindowSize); }
+            bWindowCaptured = false;
         }
 
         auto RemoveCleanupObserver() -> void
@@ -63,11 +78,14 @@ namespace ck_ui_authoring_gym_test
         bool bSettingsCaptured = false;
         bool bSettingsRestored = false;
         bool bFocusCaptured = false;
+        TWeakPtr<SWindow> WindowToRestore;
+        FVector2D OriginalWindowSize = FVector2D::ZeroVector;
+        bool bWindowCaptured = false;
         int32 RegistryIndex = INDEX_NONE;
-        TStrongObjectPtr<UCk_PauseMenuProof_UE> FirstMenu;
-        TStrongObjectPtr<UCk_PauseMenuProof_UE> SecondMenu;
+        TStrongObjectPtr<UCommonActivatableWidget> FirstMenu;
+        TStrongObjectPtr<UCommonActivatableWidget> SecondMenu;
         TWeakObjectPtr<UWorld> CleanupWorld;
-        TWeakObjectPtr<UCk_PauseMenuProof_UE> MenuAtCleanup;
+        TWeakObjectPtr<UCommonActivatableWidget> MenuAtCleanup;
         FDelegateHandle WorldCleanupHandle;
         bool bObservedWorldCleanup = false;
         bool bMenuDeactivatedAtCleanup = false;
@@ -115,19 +133,124 @@ namespace ck_ui_authoring_gym_test
         return Result;
     }
 
-    auto GetActiveMenu(APlayerController* InPlayer) -> UCk_PauseMenuProof_UE*
+    auto GetActiveScriptPause(APlayerController* InPlayer) -> UCommonActivatableWidget*
+    { return Cast<UCommonActivatableWidget>(ck_scripted_pause_test::Object(InPlayer, TEXT("Get_ActiveScriptPause"))); }
+
+    auto GetScriptSession(UCommonActivatableWidget* InMenu) -> UCk_UI_AuthoredSession_UE*
+    { return Cast<UCk_UI_AuthoredSession_UE>(ck_scripted_pause_test::Object(InMenu, TEXT("Get_Session"))); }
+
+    auto GetScriptView(UCommonActivatableWidget* InMenu) -> TSharedPtr<FCkUiView>
+    { const auto* Session = GetScriptSession(InMenu); return IsValid(Session) ? Session->Get_View() : nullptr; }
+
+    auto FindTagged(const TSharedRef<SWidget>& InRoot, FName InTag) -> TSharedPtr<SWidget>
     {
-        UFunction* Function = IsValid(InPlayer)
-            ? InPlayer->FindFunction(FName{TEXT("Get_ActivePauseMenu")}) : nullptr;
-        const FObjectProperty* Return = Function != nullptr ? CastField<FObjectProperty>(Function->GetReturnProperty()) : nullptr;
-        if (Return == nullptr) { return nullptr; }
-        TArray<uint8> Params;
-        Params.SetNumZeroed(Function->ParmsSize);
-        Function->InitializeStruct(Params.GetData());
-        InPlayer->ProcessEvent(Function, Params.GetData());
-        auto* Menu = Cast<UCk_PauseMenuProof_UE>(Return->GetObjectPropertyValue_InContainer(Params.GetData()));
-        Function->DestroyStruct(Params.GetData());
-        return Menu;
+        if (InRoot->GetTag() == InTag) { return InRoot; }
+        const FChildren* Children = InRoot->GetChildren();
+        for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
+        {
+            if (const TSharedPtr<SWidget> Found = FindTagged(
+                ConstCastSharedRef<SWidget>(Children->GetChildAt(Index)), InTag); Found.IsValid())
+            { return Found; }
+        }
+        return nullptr;
+    }
+
+    auto FindType(const TSharedRef<SWidget>& InRoot, const FString& InType) -> TSharedPtr<SWidget>
+    {
+        if (InRoot->GetTypeAsString() == InType) { return InRoot; }
+        const FChildren* Children = InRoot->GetChildren();
+        for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
+        {
+            if (const TSharedPtr<SWidget> Found = FindType(
+                ConstCastSharedRef<SWidget>(Children->GetChildAt(Index)), InType); Found.IsValid())
+            { return Found; }
+        }
+        return nullptr;
+    }
+
+    auto CheckPresentation(FAutomationTestBase& InTest, const TSharedPtr<FCkUiView>& InView) -> bool
+    {
+        if (NOT InView.IsValid()) { return false; }
+        const TSharedRef<SWidget> Root = InView->GetRegion(TEXT("main"));
+        bool Passed = true;
+        for (const TCHAR* Id : {TEXT("pause-title"), TEXT("pause-subtitle"),
+            TEXT("resume-button"), TEXT("settings-button"), TEXT("return-button"),
+            TEXT("resume-hint-label")})
+        {
+            const TSharedPtr<SWidget> Tagged = FindTagged(Root, FName{Id});
+            const TSharedPtr<SWidget> Found = Tagged.IsValid()
+                ? FindType(Tagged.ToSharedRef(), TEXT("SCkFlexText")) : nullptr;
+            if (NOT Found.IsValid())
+            {
+                Passed = InTest.TestTrue(FString{Id} + TEXT(" native text exists"), false) && Passed;
+                continue;
+            }
+            const TSharedPtr<SCkFlexText> Text = StaticCastSharedPtr<SCkFlexText>(Found);
+            const FGeometry& Geometry = Text->GetCachedGeometry();
+            const FVector2D Allocated = Geometry.GetLocalSize();
+            const bool Button = FString{Id}.EndsWith(TEXT("-button"));
+            const FVector2D Required = Text->Measure(Button ? YGUndefined : Allocated.X,
+                Button ? YGMeasureModeUndefined : YGMeasureModeAtMost,
+                YGUndefined, YGMeasureModeUndefined, Geometry.Scale);
+            Passed = InTest.TestTrue(FString::Printf(TEXT("%s native height %.2f fits %.2f"),
+                Id, Required.Y, Allocated.Y), Required.Y > 0.0 && Required.Y <= Allocated.Y + 0.5) && Passed;
+            if (Button)
+            {
+                Passed = InTest.TestTrue(FString{Id} + TEXT(" unwrapped label fits content width"),
+                    Required.X <= Allocated.X + 0.5) && Passed;
+            }
+            Passed = InTest.TestTrue(FString{Id} + TEXT(" uses admitted menu font"),
+                Text->GetFont().GetCompositeFont()
+                    != FCoreStyle::GetDefaultFontStyle("Regular", 18).GetCompositeFont()) && Passed;
+        }
+        const TSharedPtr<SWidget> Hint = FindTagged(Root, FName{TEXT("resume-keycap")});
+        const TSharedPtr<SWidget> NativeHint = Hint.IsValid()
+            ? FindType(Hint.ToSharedRef(), TEXT("SKeyHint")) : nullptr;
+        Passed = InTest.TestTrue(TEXT("Pause uses shared passive key hint"),
+            NativeHint.IsValid() && NOT NativeHint->SupportsKeyboardFocus()
+                && NativeHint->GetVisibility() == EVisibility::SelfHitTestInvisible) && Passed;
+        return Passed;
+    }
+
+    auto Capture(FAutomationTestBase& InTest, UWorld* InWorld, FState& InState,
+        const TSharedPtr<FCkUiView>& InView, const FString& InName, FIntPoint InSize) -> bool
+    {
+        UGameViewportClient* Client = IsValid(InWorld) ? InWorld->GetGameViewport() : nullptr;
+        const TSharedPtr<SViewport> Viewport = IsValid(Client) ? Client->GetGameViewportWidget() : nullptr;
+        if (NOT Viewport.IsValid()) { return false; }
+        FSlateApplication& Slate = FSlateApplication::Get();
+        const TSharedPtr<SWindow> Window = Slate.FindWidgetWindow(Viewport.ToSharedRef());
+        if (NOT Window.IsValid() || NOT Window->GetNativeWindow().IsValid()) { return false; }
+        if (NOT InState.bWindowCaptured)
+        {
+            InState.WindowToRestore = Window;
+            InState.OriginalWindowSize = Window->GetClientSizeInScreen();
+            InState.bWindowCaptured = true;
+        }
+        TArray<FColor> Pixels;
+        FIntVector Size = FIntVector::ZeroValue;
+        for (int32 Attempt = 0; Attempt < 5; ++Attempt)
+        {
+            Slate.PumpMessages();
+            Slate.Tick();
+            Slate.Tick();
+            Pixels.Reset();
+            Size = FIntVector::ZeroValue;
+            if (NOT Slate.TakeScreenshot(Viewport.ToSharedRef(), Pixels, Size)
+                || Size.X <= 0 || Size.Y <= 0 || Pixels.Num() < Size.X * Size.Y)
+            { return false; }
+            if (Size.X == InSize.X && Size.Y == InSize.Y) { break; }
+            Window->Resize(Window->GetClientSizeInScreen() + FVector2D{
+                static_cast<double>(InSize.X - Size.X), static_cast<double>(InSize.Y - Size.Y)});
+        }
+        if (Size.X != InSize.X || Size.Y != InSize.Y) { return false; }
+        const bool PresentationFits = CheckPresentation(InTest, InView);
+        const FString Directory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation/UiAuthoringGym"));
+        IFileManager::Get().MakeDirectory(*Directory, true);
+        const bool Saved = FImageUtils::SaveImageByExtension(
+            *FPaths::Combine(Directory, InName + TEXT(".png")),
+            FImageView(Pixels.GetData(), Size.X, Size.Y, ERawImageFormat::BGRA8));
+        return PresentationFits && Saved;
     }
 
     auto PressKey(const FKey& InKey) -> bool
@@ -163,8 +286,11 @@ namespace ck_ui_authoring_gym_test
         FSlateApplication& Slate = FSlateApplication::Get();
         const TSharedPtr<SWindow> Window = Slate.FindWidgetWindow(Viewport.ToSharedRef());
         if (NOT Window.IsValid() || NOT Window->GetNativeWindow().IsValid()) { return false; }
-        InState.PreviousFocus = Slate.GetUserFocusedWidget(0);
-        InState.bFocusCaptured = true;
+        if (!InState.bFocusCaptured)
+        {
+            InState.PreviousFocus = Slate.GetUserFocusedWidget(0);
+            InState.bFocusCaptured = true;
+        }
         Window->BringToFront(true);
         Slate.SetUserFocus(0, Viewport.ToSharedRef(), EFocusCause::SetDirectly);
         const TSharedPtr<SWidget> Focused = Slate.GetUserFocusedWidget(0);
@@ -279,6 +405,8 @@ bool FCk_UiAuthoringGymSelector_PIE::RunTest(const FString&)
             if (NOT IsGymReady(InWorld) || NOT TestTrue(TEXT("PIE viewport takes keyboard focus"),
                 FocusViewport(InWorld, *State, *this))) { return; }
             TestFalse(TEXT("gym menu starts closed"), GetPreviewActive(Player));
+            if (NOT TestNotNull(TEXT("scripted pause accessor"),
+                IsValid(Player) ? Player->FindFunction(FName{TEXT("Get_ActiveScriptPause")}) : nullptr)) { return; }
             // The panel's CkInput capture, not Slate's handled flag, proves delivery below.
             PressKey(EKeys::One);
         })));
@@ -286,16 +414,17 @@ bool FCk_UiAuthoringGymSelector_PIE::RunTest(const FString&)
         FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
         {
             APlayerController* Player = GetPlayer(ck::auto_test::net::Get_ServerWorld());
-            return GetPreviewActive(Player) && IsValid(GetActiveMenu(Player));
-        }), 10.0, TEXT("panel [1] opens the native authored pause menu")));
+            return GetPreviewActive(Player) && IsValid(GetActiveScriptPause(Player));
+        }), 10.0, TEXT("panel [1] opens the scripted authored pause menu")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InWorld) -> void
         {
             APlayerController* Player = GetPlayer(InWorld);
-            UCk_PauseMenuProof_UE* Menu = GetActiveMenu(Player);
+            UCommonActivatableWidget* Menu = GetActiveScriptPause(Player);
             State->FirstMenu.Reset(Menu);
             UCkGym_Switchboard_Subsystem* Switchboard = GetSwitchboard(Player);
-            TestTrue(TEXT("[1] activated native pause menu"), IsValid(Menu) && Menu->IsActivated());
+            TestTrue(TEXT("[1] activated scripted pause menu"), IsValid(Menu) && Menu->IsActivated()
+                && ck_scripted_pause_test::Bool(Menu, TEXT("Get_IsCurrent")));
             if (NOT TestNotNull(TEXT("gym switchboard for menu input assertions"), Switchboard)
                 || NOT IsValid(Menu) || NOT Menu->IsActivated()) { return; }
             const UCkGym_Registry_Subsystem* Registry = GetRegistry(InWorld);
@@ -307,16 +436,33 @@ bool FCk_UiAuthoringGymSelector_PIE::RunTest(const FString&)
             TestTrue(TEXT("menu pauses the world"), IsValid(InWorld) && InWorld->IsPaused());
             TestTrue(TEXT("selector stays closed while pause menu is active"),
                 IsValid(Switchboard) && NOT Switchboard->Get_IsOpen());
-            const TSharedPtr<FCkUiView> View = IsValid(Menu) ? Menu->Get_AuthoredView() : nullptr;
+            UCk_UI_AuthoredSession_UE* Session = GetScriptSession(Menu);
+            TestTrue(TEXT("scripted pause owns a usable authored session"),
+                IsValid(Session) && Session->Get_IsUsable() && Session->Get_IsInputActive());
+            const TSharedPtr<FCkUiView> View = GetScriptView(Menu);
             const TSharedPtr<SButton> Resume = View.IsValid() ? View->GetButton(TEXT("resume-button")) : nullptr;
             const TSharedPtr<SButton> SettingsButton = View.IsValid()
                 ? View->GetButton(TEXT("settings-button")) : nullptr;
-            const int32 User = IsValid(Menu) ? Menu->Get_SlateUserIndex() : INDEX_NONE;
+            const int32 User = IsValid(Session) ? Session->Get_SlateUserIndex() : INDEX_NONE;
             TestTrue(TEXT("initial gym menu focus lands on Resume"),
-                User >= 0 && Resume.IsValid() && FocusContains(Resume.ToSharedRef(), User));
+                User >= 0 && Resume.IsValid() && FocusContains(Resume.ToSharedRef(), User)
+                    && IsValid(Session) && Session->Get_IsButtonFocused(TEXT("resume-button")));
+            const auto CaptureFocused = [&](const TCHAR* Name, FIntPoint Size)
+            {
+                TestTrue(FString::Printf(TEXT("scripted pause native capture %s"), Name),
+                    Capture(*this, InWorld, *State, View, Name, Size));
+                TestTrue(FString::Printf(TEXT("Resume keeps focus after %s resize"), Name),
+                    User >= 0 && Resume.IsValid() && FocusContains(Resume.ToSharedRef(), User)
+                        && IsValid(Session) && Session->Get_IsButtonFocused(TEXT("resume-button")));
+            };
+            CaptureFocused(TEXT("scripted-pause-1280x720"), FIntPoint{1280, 720});
+            CaptureFocused(TEXT("scripted-pause-1920x1080"), FIntPoint{1920, 1080});
+            CaptureFocused(TEXT("scripted-pause-2560x1080"), FIntPoint{2560, 1080});
+            CaptureFocused(TEXT("scripted-pause-restored-1920x1080"), FIntPoint{1920, 1080});
             TestTrue(TEXT("Tab navigates from Resume to Settings"), PressKey(EKeys::Tab)
                 && User >= 0 && SettingsButton.IsValid()
-                && FocusContains(SettingsButton.ToSharedRef(), User));
+                && FocusContains(SettingsButton.ToSharedRef(), User)
+                && IsValid(Session) && Session->Get_IsButtonFocused(TEXT("settings-button")));
             TestFalse(TEXT("Tab did not open the gym switchboard"),
                 IsValid(Switchboard) && Switchboard->Get_IsOpen());
             TestTrue(TEXT("Escape routes through the active authored menu"), PressKey(EKeys::Escape));
@@ -326,15 +472,20 @@ bool FCk_UiAuthoringGymSelector_PIE::RunTest(const FString&)
         {
             UWorld* World = ck::auto_test::net::Get_ServerWorld();
             return IsValid(World) && NOT GetPreviewActive(GetPlayer(World)) && NOT World->IsPaused();
-        }), 10.0, TEXT("Escape closes and unpauses the native menu")));
+        }), 10.0, TEXT("Escape closes and unpauses the scripted menu")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InWorld) -> void
         {
             APlayerController* Player = GetPlayer(InWorld);
             TestFalse(TEXT("Escape released the first menu"), GetPreviewActive(Player));
             TestTrue(TEXT("Escape released world pause"), IsValid(InWorld) && NOT InWorld->IsPaused());
-            if (UCk_PauseMenuProof_UE* FirstMenu = State->FirstMenu.Get())
-            { TestFalse(TEXT("Escape released authored-view ownership"), FirstMenu->Get_AuthoredView().IsValid()); }
+            if (UCommonActivatableWidget* FirstMenu = State->FirstMenu.Get())
+            {
+                TestFalse(TEXT("Escape deactivated scripted pause"), FirstMenu->IsActivated());
+                TestFalse(TEXT("Escape released authored-view ownership"), GetScriptView(FirstMenu).IsValid());
+            }
+            if (NOT TestTrue(TEXT("PIE viewport regains keyboard focus after Escape"),
+                FocusViewport(InWorld, *State, *this))) { return; }
             PressKey(EKeys::One);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
@@ -347,11 +498,13 @@ bool FCk_UiAuthoringGymSelector_PIE::RunTest(const FString&)
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InWorld) -> void
         {
             APlayerController* Player = GetPlayer(InWorld);
-            UCk_PauseMenuProof_UE* Menu = GetActiveMenu(Player);
+            UCommonActivatableWidget* Menu = GetActiveScriptPause(Player);
             State->SecondMenu.Reset(Menu);
-            TestTrue(TEXT("fresh menu is active before teardown"), IsValid(Menu) && Menu->IsActivated());
-            TestTrue(TEXT("fresh open created a distinct native menu"),
+            TestTrue(TEXT("fresh menu is active before teardown"), IsValid(Menu) && Menu->IsActivated()
+                && ck_scripted_pause_test::Bool(Menu, TEXT("Get_IsCurrent")));
+            TestTrue(TEXT("fresh open created a distinct scripted menu"),
                 IsValid(Menu) && Menu != State->FirstMenu.Get());
+            TestTrue(TEXT("fresh menu owns an authored view before teardown"), GetScriptView(Menu).IsValid());
             TestTrue(TEXT("fresh menu still owns pause before actual PIE teardown"),
                 IsValid(InWorld) && InWorld->IsPaused());
             if (IsValid(InWorld) && IsValid(Menu))
@@ -366,11 +519,11 @@ bool FCk_UiAuthoringGymSelector_PIE::RunTest(const FString&)
                         if (NOT Observed.IsValid() || InCleanupWorld != Observed->CleanupWorld.Get())
                         { return; }
                         Observed->bObservedWorldCleanup = true;
-                        UCk_PauseMenuProof_UE* ObservedMenu = Observed->MenuAtCleanup.Get();
+                        UCommonActivatableWidget* ObservedMenu = Observed->MenuAtCleanup.Get();
                         Observed->bMenuDeactivatedAtCleanup = ObservedMenu != nullptr
                             && NOT ObservedMenu->IsActivated();
                         Observed->bViewReleasedAtCleanup = ObservedMenu != nullptr
-                            && NOT ObservedMenu->Get_AuthoredView().IsValid();
+                            && NOT GetScriptView(ObservedMenu).IsValid();
                     });
             }
             // The controller remains the menu owner until its actual EndPlay. Test roots must not

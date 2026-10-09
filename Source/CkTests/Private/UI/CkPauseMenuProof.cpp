@@ -1,5 +1,6 @@
 #include "CkTests/UI/CkPauseMenuProof.h"
 #include "UI/CkInventoryMenuProofModel.h"
+#include "UI/CkUiReplicaPresentation.h"
 
 #include "CkSlateLayout/SCkUiSurface.h"
 #include "CkSlateLayout/CkUiCheckbox.h"
@@ -7,6 +8,9 @@
 #include "CkSlateLayout/CkUiSelect.h"
 #include "CkSlateLayout/CkUiSlider.h"
 #include "CkSlateLayout/CkUiActionCard.h"
+#include "CkSlateLayout/CkUiKeyHint.h"
+#include "CkSlateLayout/CkUiAtlasImage.h"
+#include "CkSlateLayout/CkUiFontRegistry.h"
 #include "CkSlateLayout/SCkUiRepeat.h"
 #include "CkUI/Layout/CkUI_LayoutConfigAsset.h"
 #include "CkUI/Layout/CkUI_Layout_Subsystem.h"
@@ -617,6 +621,12 @@ auto
     const auto Select = FCkUiSelect::Register(Registry);
     if (NOT Select.Succeeded)
     { _SourceError = FString::Join(Select.Errors, TEXT("\n")); return false; }
+    const auto KeyHint = RegisterKeyHintUiControl(Registry);
+    if (NOT KeyHint.Succeeded)
+    { _SourceError = FString::Join(KeyHint.Errors, TEXT("\n")); return false; }
+    const auto AtlasImage = RegisterAtlasImageUiControl(Registry);
+    if (NOT AtlasImage.Succeeded)
+    { _SourceError = FString::Join(AtlasImage.Errors, TEXT("\n")); return false; }
     if (NOT _IsSettingsChild)
     {
         const auto ActionCard = FCkUiActionCard::Register(Registry);
@@ -764,8 +774,19 @@ auto
             { DoAction(Action); }));
         }
     }
-    auto View = FCkUiView::Create({}, MoveTemp(Actions), {},
-        FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 18), MoveTemp(Data), _ControlRegistry);
+    TSharedPtr<const FCkUiFontRegistrySnapshot> Fonts;
+    const bool Inventory = InScreen == ECk_UiAuthoringProof_Screen::Inventory;
+    if (!ck_ui_replica_presentation::TryLoad(Inventory ? TEXT("Inventory") : TEXT("Menu"), Data, Fonts, _SourceError))
+    { return nullptr; }
+    auto BaseFont = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 18);
+    if (Fonts.IsValid())
+    {
+        if (!Fonts->TryResolve(Inventory ? TEXT("inventory-ui") : TEXT("menu-ui"), FName{TEXT("Regular")}, BaseFont))
+        { _SourceError = TEXT("Menu requires its admitted body font."); return nullptr; }
+        BaseFont.Size = 18;
+    }
+    auto View = FCkUiView::Create({}, MoveTemp(Actions), {}, BaseFont,
+        MoveTemp(Data), _ControlRegistry, Fonts);
     View->GetRegion(TEXT("main"));
     return View;
 }
@@ -871,10 +892,10 @@ auto
         {TEXT("settings-subtitles-helper"), TEXT("SubtitlesHelper")},
         {TEXT("settings-display-label"), TEXT("DisplayModeLabel")},
         {TEXT("settings-volume-value"), TEXT("VolumeValue")}, {TEXT("settings-dirty-status"), TEXT("DirtyStatus")},
-        {TEXT("settings-key"), TEXT("InputSettingsKey")}, {TEXT("settings-hint-label"), TEXT("InputSettingsHint")}
+        {TEXT("settings-hint-label"), TEXT("InputSettingsHint")}
     } : TMap<FString, FString>{
         {TEXT("pause-title"), TEXT("PauseTitle")}, {TEXT("pause-subtitle"), TEXT("PauseSubtitle")},
-        {TEXT("resume-key"), TEXT("InputResumeKey")}, {TEXT("resume-hint-label"), TEXT("InputResumeHint")}
+        {TEXT("resume-hint-label"), TEXT("InputResumeHint")}
     };
     for (const auto& [Id, Binding] : RequiredText)
     {

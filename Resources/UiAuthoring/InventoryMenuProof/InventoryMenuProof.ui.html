@@ -15,9 +15,9 @@
         <row id="inventory-body" class="body">
           <column id="inventory-browser" class="browser">
             <row id="inventory-filters" class="filters">
-              <column id="inventory-filter-all-group" class="filter-group">
-                <button id="inventory-filter-all" action="InventoryFilterAll" class="filter-button">All</button>
-                <column id="inventory-filter-all-accent" visible="InventoryFilterAllSelected" class="filter-accent" />
+              <column id="inventory-filter-all-group" class="filter-group filter-all-group">
+                <button id="inventory-filter-all" action="InventoryFilterAll" class="filter-button filter-all-button">All</button>
+                <column id="inventory-filter-all-accent" visible="InventoryFilterAllSelected" class="filter-accent filter-all-accent" />
               </column>
               <column id="inventory-filter-equipment-group" class="filter-group">
                 <button id="inventory-filter-equipment" action="InventoryFilterEquipment" class="filter-button">Equipment</button>
@@ -31,9 +31,9 @@
                 <button id="inventory-filter-materials" action="InventoryFilterMaterials" class="filter-button">Materials</button>
                 <column id="inventory-filter-materials-accent" visible="InventoryFilterMaterialsSelected" class="filter-accent" />
               </column>
+              <column id="inventory-filter-gap" class="filter-gap" />
+              <search id="inventory-search" bind="InventorySearch" placeholder="Search items..." class="search" />
             </row>
-            <column id="inventory-filter-gap" class="filter-gap" />
-            <search id="inventory-search" bind="InventorySearch" placeholder="Search inventory" class="search" />
             <column id="inventory-search-gap" class="search-gap" />
             <overlay id="inventory-results" class="results">
               <scroll id="inventory-scroll" direction="vertical" class="results">
@@ -41,7 +41,7 @@
                   <action-card id="inventory-card" item-action="SelectInventoryItem" selected-field="selected" class="card">
                     <slot name="content">
                       <column id="inventory-card-content" class="card-content">
-                        <image id="inventory-card-image" bind-field="image" class="card-image" />
+                        <atlas-image id="inventory-card-image" image-bind="InventoryAtlas" index-field="index" crop-left-field="cropLeft" crop-top-field="cropTop" crop-right-field="cropRight" crop-bottom-field="cropBottom" columns="1" rows="1" aspect-fit="true" class="card-image" />
                         <text id="inventory-card-title" bind-field="title" class="card-title" />
                         <text id="inventory-card-meta" bind-field="meta" class="card-meta" />
                       </column>
@@ -56,25 +56,38 @@
           </column>
           <column id="inventory-detail" class="detail">
             <column id="inventory-detail-content" visible="InventoryHasSelection" class="detail-content">
-              <image id="inventory-detail-image" bind="InventoryDetailImage" class="detail-image" />
-              <text id="inventory-detail-name" bind="InventoryDetailName" class="detail-name" />
+              <column id="inventory-detail-image-frame" class="detail-image-frame">
+                <atlas-image id="inventory-detail-image" image-bind="InventoryAtlas" index-bind="InventoryAtlasIndex" crop-left-bind="InventoryCropLeft" crop-top-bind="InventoryCropTop" crop-right-bind="InventoryCropRight" crop-bottom-bind="InventoryCropBottom" columns="1" rows="1" aspect-fit="true" class="detail-image" />
+              </column>
               <text id="inventory-detail-category" bind="InventoryDetailCategory" class="detail-category" />
+              <text id="inventory-detail-name" bind="InventoryDetailName" class="detail-name" />
               <text id="inventory-detail-description" bind="InventoryDetailDescription" class="detail-description" />
-              <text id="inventory-detail-stats" bind="InventoryDetailStats" class="detail-stats" />
+              <column id="inventory-detail-rule-one" class="detail-rule" />
+              <row id="inventory-detail-stat-row-one" class="detail-stat-row">
+                <text id="inventory-detail-stat-label-one" bind="InventoryStatLabelOne" class="detail-stat-label" />
+                <text id="inventory-detail-stat-value-one" bind="InventoryStatValueOne" class="detail-stat-value" />
+              </row>
+              <row id="inventory-detail-stat-row-two" class="detail-stat-row">
+                <text id="inventory-detail-stat-label-two" bind="InventoryStatLabelTwo" class="detail-stat-label" />
+                <text id="inventory-detail-stat-value-two" bind="InventoryStatValueTwo" class="detail-stat-value" />
+              </row>
+              <column id="inventory-detail-rule-two" class="detail-rule" />
               <text id="inventory-detail-owned" bind="InventoryDetailOwned" class="detail-owned" />
             </column>
             <column id="inventory-detail-fill" class="detail-fill" />
-            <button id="inventory-primary-action" action="InventoryPrimaryAction" enabled-bind="InventoryPrimaryEnabled" bind="InventoryPrimaryLabel" class="game-button" />
-            <column id="inventory-detail-button-gap" class="detail-button-gap" />
-            <button id="inventory-close" action="InventoryClose" class="game-button close-button">Close</button>
+            <row id="inventory-detail-actions" class="detail-actions">
+              <button id="inventory-primary-action" action="InventoryPrimaryAction" enabled-bind="InventoryPrimaryEnabled" bind="InventoryPrimaryLabel" class="game-button" />
+              <column id="inventory-detail-button-gap" class="detail-button-gap" />
+              <button id="inventory-close" action="InventoryClose" class="game-button close-button">Close</button>
+            </row>
+            <column id="inventory-footer-gap" class="footer-gap" />
+            <text id="inventory-feedback" bind="InventoryFeedback" class="feedback" />
           </column>
         </row>
-        <column id="inventory-footer-gap" class="footer-gap" />
-        <text id="inventory-feedback" bind="InventoryFeedback" class="feedback" />
       </column>
       <column id="inventory-hint-gap" class="hint-gap" />
       <row id="inventory-input-hint" class="input-hint">
-        <column id="inventory-keycap" class="keycap"><text id="inventory-key" class="key-label">ESC</text></column>
+        <key-hint id="inventory-keycap" label="ESC" font-family="inventory-ui" class="keycap" />
         <text id="inventory-hint-label" class="hint-label">Close inventory</text>
       </row>
       <column id="inventory-bottom-space" class="bottom-space" />
