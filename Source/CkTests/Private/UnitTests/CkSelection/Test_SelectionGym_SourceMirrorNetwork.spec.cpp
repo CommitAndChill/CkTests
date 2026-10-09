@@ -33,7 +33,7 @@ namespace ck_selection_source_mirror_test
     {
         Compose, PollStage, Activate, Accept, AdvanceMirrors, Move,
         StartX, AdvanceX, FinishX, StartRetirement, AdvanceRetirement,
-        InjectUnknown, Done
+        FailCaptured, InjectUnknown, Done
     };
 
     struct FRun
@@ -64,6 +64,7 @@ namespace ck_selection_source_mirror_test
         bool CheckedReplay = false;
         bool NegativeMode = false;
         bool NegativePassed = false;
+        FString CapturedFailure;
         int32 InstalledScenarios = 0;
         int32 PhysicalRetirements = 0;
         double Deadline = 0.0;
@@ -413,7 +414,7 @@ namespace ck_selection_source_mirror_test
                 if (Run->ClientScenarioRoot[0] == Run->ClientScenarioRoot[1])
                 { return Stop(TEXT("client scenario roots alias across worlds")); }
                 if (Run->NegativeMode)
-                { Run->Step = EStep::InjectUnknown; return false; }
+                { Run->Step = EStep::FailCaptured; return false; }
                 if (Run->Scenario == 0 && !Run->CheckedReplay)
                 {
                     auto Stale = Run->Wire;
@@ -538,6 +539,104 @@ namespace ck_selection_source_mirror_test
                 }
                 return false;
             }
+            case EStep::FailCaptured:
+            {
+                auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+                auto* Peer = ck::auto_test::net::Get_ClientWorld(1);
+                auto* GS = Client->GetGameState();
+                FCk_Handle LocalSource;
+                if (!UCkSelectionGym_Mirror_UE::TryGetLocalNodeForTest(
+                    Client, GS, Run->Wire.ScenarioRootKey, LocalSource))
+                { return Stop(TEXT("captured local source unavailable before close")); }
+                TArray<TWeakObjectPtr<AActor>> Visuals;
+                for (TActorIterator<AActor> It(Client); It; ++It)
+                {
+                    auto* Actor = *It;
+                    if (Actor->GetOwner() == GS &&
+                        (Actor->GetClass() == Run->Marker.Get() ||
+                         Actor->GetClass() == Run->Wall.Get()))
+                    { Visuals.Add(TWeakObjectPtr<AActor>(Actor)); }
+                }
+                if (Visuals.IsEmpty() || Visuals.Num() != Run->Wire.Visuals.Num())
+                { return Stop(TEXT("captured client visual receipts differ from installed wire")); }
+                FString WhyInvalid;
+                const FString Cause = TEXT("local gym admission lost");
+                if (UCkSelectionGym_Mirror_UE::TryFailCaptured(
+                        nullptr, GS, Run->ClientRoot[0], Cause, WhyInvalid) ||
+                    UCkSelectionGym_Mirror_UE::TryFailCaptured(
+                        Client, GS, {}, Cause, WhyInvalid) ||
+                    UCkSelectionGym_Mirror_UE::TryFailCaptured(
+                        Client, GS, Run->ClientRoot[1], Cause, WhyInvalid) ||
+                    UCkSelectionGym_Mirror_UE::TryFailCaptured(
+                        Client, Peer->GetGameState(), Run->ClientRoot[0],
+                        Cause, WhyInvalid))
+                { return Stop(TEXT("foreign/default captured failure was accepted")); }
+                for (int32 I = 0; I != 2; ++I)
+                {
+                    auto* World = ck::auto_test::net::Get_ClientWorld(I);
+                    FCkSelectionGym_WireSnapshot Installed;
+                    FCk_Handle Root;
+                    if (!UCkSelectionGym_Mirror_UE::TryGetInstalled(
+                            World, World->GetGameState(), Installed, Root, Why) ||
+                        Root != Run->ClientScenarioRoot[I] ||
+                        !FCkSelectionGym_WireSnapshot::StaticStruct()->
+                            CompareScriptStruct(&Installed, &Run->Wire, PPF_None) ||
+                        !PhysicalPassiveBank(*Run, I, false, false, Why))
+                    { return Stop(TEXT("invalid captured failure changed installed bank")); }
+                }
+                FCk_Handle AuthoritySource;
+                if (!UCkSelectionGym_SourceComposer_UE::TryGet_PrimaryBareRootForTest(
+                        Run->Composition.Get(), AuthoritySource) ||
+                    !UCk_DebugOverlay_SourceAdmission_UE::IsAdmitted(AuthoritySource))
+                { return Stop(TEXT("authority source changed before local failure")); }
+                FString Aliased = Cause;
+                if (!UCkSelectionGym_Mirror_UE::TryFailCaptured(Client, GS,
+                        Run->ClientRoot[0], Aliased, Aliased) ||
+                    !Aliased.StartsWith(Cause))
+                { return Stop(TEXT("exact captured local failure was not retained")); }
+                Run->CapturedFailure = Aliased;
+                FString Again;
+                if (!UCkSelectionGym_Mirror_UE::TryFailCaptured(Client, GS,
+                        Run->ClientRoot[0], TEXT("later reason"), Again) ||
+                    Again != Run->CapturedFailure)
+                { return Stop(TEXT("captured local failure overwrote its first reason")); }
+                ECkSelectionGym_MirrorStatus Status;
+                FCkSelectionGym_WireSnapshot Cleared = Run->Wire, Empty;
+                FCk_Handle ClearedRoot = Run->ClientScenarioRoot[0];
+                if (!UCkSelectionGym_Mirror_UE::TryGetStatus(Client, GS,
+                        Status, Why) || Status != ECkSelectionGym_MirrorStatus::Failed ||
+                    Why != Run->CapturedFailure ||
+                    UCkSelectionGym_Mirror_UE::TryGetInstalled(Client, GS,
+                        Cleared, ClearedRoot, Why) || Allocated(ClearedRoot) ||
+                    !FCkSelectionGym_WireSnapshot::StaticStruct()->
+                        CompareScriptStruct(&Cleared, &Empty, PPF_None) ||
+                    !Allocated(LocalSource) ||
+                    UCk_DebugOverlay_SourceAdmission_UE::IsAdmitted(LocalSource))
+                { return Stop(TEXT("failed local bank remained installed or exposed")); }
+                FCk_DebugOverlay_SourceObservation HiddenFact;
+                if (FCk_DebugOverlay_ObservationBankUtils::TryGetPublishedSource(
+                        LocalSource, HiddenFact))
+                { return Stop(TEXT("failed local provider fact remained exposed")); }
+                for (const auto& Weak : Visuals)
+                {
+                    auto* Actor = Weak.Get();
+                    if (IsValid(Actor) && !Actor->IsActorBeingDestroyed() &&
+                        (!Actor->IsHidden() || Actor->GetActorEnableCollision()))
+                    { return Stop(TEXT("failed local visual remains active")); }
+                }
+                FCkSelectionGym_WireSnapshot PeerInstalled;
+                FCk_Handle PeerRoot;
+                if (!UCkSelectionGym_Mirror_UE::TryGetInstalled(Peer,
+                        Peer->GetGameState(), PeerInstalled, PeerRoot, Why) ||
+                    PeerRoot != Run->ClientScenarioRoot[1] ||
+                    !FCkSelectionGym_WireSnapshot::StaticStruct()->
+                        CompareScriptStruct(&PeerInstalled, &Run->Wire, PPF_None) ||
+                    !PhysicalPassiveBank(*Run, 1, false, false, Why) ||
+                    !UCk_DebugOverlay_SourceAdmission_UE::IsAdmitted(AuthoritySource))
+                { return Stop(TEXT("local failure changed peer or authority source")); }
+                Run->Step = EStep::InjectUnknown;
+                return false;
+            }
             case EStep::InjectUnknown:
             {
                 FCk_Handle ExactRoot;
@@ -569,6 +668,10 @@ namespace ck_selection_source_mirror_test
                     !Failed.Visuals.IsEmpty() || !Failed.Timers.IsEmpty() ||
                     !Failed.Integers.IsEmpty() || !Failed.StateMachines.IsEmpty())
                 { return Stop(TEXT("failed source emitted a partial or advanced successful value")); }
+                auto* FailedClient = ck::auto_test::net::Get_ClientWorld(0);
+                if (UCkSelectionGym_Mirror_UE::TryAcceptEnvelope(FailedClient,
+                        FailedClient->GetGameState(), Failed, Why))
+                { return Stop(TEXT("already failed local mirror accepted unrelated authority failure")); }
                 for (int32 I = 0; I != 2; ++I)
                 {
                     auto* Client = ck::auto_test::net::Get_ClientWorld(I);
@@ -576,14 +679,23 @@ namespace ck_selection_source_mirror_test
                     FCkSelectionGym_WireSnapshot Stable;
                     FCk_Handle StableRoot;
                     if (!UCkSelectionGym_Mirror_UE::TryGetStatus(Client,
-                            Client->GetGameState(), Status, Why) ||
-                        Status != ECkSelectionGym_MirrorStatus::Installed ||
+                            Client->GetGameState(), Status, Why))
+                    { return Stop(TEXT("rejected authority subset lost client status")); }
+                    if (I == 0)
+                    {
+                        if (Status != ECkSelectionGym_MirrorStatus::Failed ||
+                            Why != Run->CapturedFailure ||
+                            UCkSelectionGym_Mirror_UE::TryGetInstalled(Client,
+                                Client->GetGameState(), Stable, StableRoot, Why))
+                        { return Stop(TEXT("authority failure reopened prior local failure")); }
+                    }
+                    else if (Status != ECkSelectionGym_MirrorStatus::Installed ||
                         !UCkSelectionGym_Mirror_UE::TryGetInstalled(Client,
                             Client->GetGameState(), Stable, StableRoot, Why) ||
                         StableRoot != Run->ClientScenarioRoot[I] ||
                         !FCkSelectionGym_WireSnapshot::StaticStruct()->
                             CompareScriptStruct(&Stable, &Run->Wire, PPF_None))
-                    { return Stop(TEXT("rejected authority subset changed prior client bank")); }
+                    { return Stop(TEXT("rejected authority subset changed healthy peer bank")); }
                 }
                 Run->NegativePassed = true;
                 Run->Composition.Reset();

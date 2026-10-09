@@ -1549,6 +1549,38 @@ bool UCkSelectionGym_Mirror_UE::TryAcceptActive(UWorld* World,
     return TryAdvance(World, ExactGameState, OutReason);
 }
 
+bool UCkSelectionGym_Mirror_UE::TryFailCaptured(UWorld* World,
+    AGameStateBase* ExactGameState, const FCk_Handle& CapturedWorldRoot,
+    const FString& Reason, FString& OutReason)
+{
+    const FString ReasonCopy(Reason);
+    OutReason.Reset();
+    FCk_Handle Exact;
+    if (!ExactClientWorldRoot(World, Exact) || Exact != CapturedWorldRoot ||
+        !IsValid(ExactGameState) || !Exact.Has<FState>())
+    { return FailValue(OutReason, TEXT("Exact captured mirror unavailable")); }
+    auto& S = Exact.Get<FState>();
+    if (S.World.Get() != World || S.WorldRoot != Exact ||
+        S.GameState.Get() != ExactGameState)
+    { return FailValue(OutReason, TEXT("Mirror belongs to another captured GameState")); }
+    if (S.Phase == ck::ESelectionMirrorPhase::Failed)
+    {
+        OutReason = S.Failure;
+        return true;
+    }
+    const bool GameStateChanged = World->GetGameState() != ExactGameState;
+    if (!GameStateChanged && ReasonCopy.IsEmpty())
+    { return FailValue(OutReason, TEXT("Mirror failure reason is empty")); }
+    const auto Lease = CaptureMirrorMutationLease(S);
+    CloseFailed(Lease, GameStateChanged
+        ? TEXT("Exact GameState binding changed") : *ReasonCopy);
+    const auto* Closed = FindMirrorCapturedState(Lease);
+    if (Closed == nullptr || Closed->Phase != ck::ESelectionMirrorPhase::Failed)
+    { return FailValue(OutReason, TEXT("Captured mirror closure was not retained")); }
+    OutReason = Closed->Failure;
+    return true;
+}
+
 bool UCkSelectionGym_Mirror_UE::TryAcceptEnvelope(UWorld* World,
     AGameStateBase* ExactGameState,
     const FCkSelectionGym_WireSnapshot& InputSnapshot, FString& OutReason)
@@ -2001,6 +2033,13 @@ bool UCkSelectionGym_Mirror_UE::TryAcceptEnvelope(UWorld*, AGameStateBase*,
     const FCkSelectionGym_WireSnapshot&, FString& OutReason)
 {
     OutReason = TEXT("Selection debug mirror is unavailable in Shipping");
+    return false;
+}
+
+bool UCkSelectionGym_Mirror_UE::TryFailCaptured(UWorld*, AGameStateBase*,
+    const FCk_Handle&, const FString&, FString& OutReason)
+{
+    OutReason.Reset();
     return false;
 }
 
