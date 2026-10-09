@@ -274,3 +274,77 @@ bool FCk_Gait_Detect_Landing_NoEdge_IsUnset::RunTest(const FString& Parameters)
     TestFalse(TEXT("grounded -> airborne is unset"), Detect_Landing(Grounded, Airborne).IsSet());
     return true;
 }
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCk_Gait_Count_Footfalls_AtTheDipBottoms_SidesAlternate,
+    "Ck.Gait.Kernel.Count_Footfalls_AtTheDipBottoms_SidesAlternate", kCkUnitTestFlags)
+bool FCk_Gait_Count_Footfalls_AtTheDipBottoms_SidesAlternate::RunTest(const FString& Parameters)
+{
+    using namespace ck_test_gait_kernel;
+    constexpr auto Epsilon = 1.0e-3f;
+    constexpr auto HalfPi = UE_HALF_PI;
+    constexpr auto Pi = UE_PI;
+
+    TestEqual(TEXT("no dip in (0, pi/2 - e]"), Count_Footfalls(0.0f, HalfPi - Epsilon)._Count, 0);
+
+    const auto Left = Count_Footfalls(HalfPi - Epsilon, 2.0f * Epsilon);
+    TestEqual(TEXT("crossing pi/2 counts one"), Left._Count, 1);
+    TestEqual(TEXT("pi/2 is the left foot"), Left._LastSide, ECk_Gait_Side::Left);
+
+    const auto Right = Count_Footfalls(HalfPi + Pi - Epsilon, 2.0f * Epsilon);
+    TestEqual(TEXT("crossing 3pi/2 counts one"), Right._Count, 1);
+    TestEqual(TEXT("3pi/2 is the right foot"), Right._LastSide, ECk_Gait_Side::Right);
+
+    TestEqual(TEXT("a full cycle from 0 counts two"), Count_Footfalls(0.0f, kTwoPi)._Count, 2);
+    TestEqual(TEXT("a dip exactly at the start is not recounted"), Count_Footfalls(HalfPi, Pi - Epsilon)._Count, 0);
+    TestEqual(TEXT("a dip exactly at the end counts"), Count_Footfalls(0.0f, HalfPi)._Count, 1);
+
+    // The wrapped successor of an arc ending past 2pi starts below pi/2: the next left dip is counted exactly once.
+    const auto AcrossWrap = Count_Footfalls(kTwoPi - Epsilon, HalfPi + 2.0f * Epsilon);
+    TestEqual(TEXT("an arc across the wrap counts the next left dip"), AcrossWrap._Count, 1);
+    TestEqual(TEXT("the dip after the wrap is the left foot"), AcrossWrap._LastSide, ECk_Gait_Side::Left);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCk_Gait_Count_Footfalls_LargeAdvance_CountsEveryCrossing,
+    "Ck.Gait.Kernel.Count_Footfalls_LargeAdvance_CountsEveryCrossing", kCkUnitTestFlags)
+bool FCk_Gait_Count_Footfalls_LargeAdvance_CountsEveryCrossing::RunTest(const FString& Parameters)
+{
+    using namespace ck_test_gait_kernel;
+
+    // From 0, dips at pi/2, 3pi/2, ..., (2n+1)pi/2: an advance of 5 pi crosses pi/2 .. 9pi/2, five dips, the last k = 4.
+    const auto Footfalls = Count_Footfalls(0.0f, 5.0f * UE_PI);
+    TestEqual(TEXT("5 pi from 0 crosses five dips"), Footfalls._Count, 5);
+    TestEqual(TEXT("the fifth dip (k = 4) is the left foot"), Footfalls._LastSide, ECk_Gait_Side::Left);
+
+    TestEqual(TEXT("zero advance counts none"), Count_Footfalls(1.0f, 0.0f)._Count, 0);
+    TestEqual(TEXT("negative advance counts none"), Count_Footfalls(1.0f, -10.0f)._Count, 0);
+    TestEqual(TEXT("non-finite advance counts none"),
+        Count_Footfalls(1.0f, std::numeric_limits<float>::infinity())._Count, 0);
+
+    // One Step_Clock over a 2 s frame at the reference speed (1.6 strides/s) advances 3.2 cycles: 6 or 7 dips from 0.
+    auto State = FClockState{};
+    const auto Advance = Step_Clock(State, FCk_Gait_Spec{}, MakeMotion(FVector{420, 0, 0}), 2.0f);
+    TestTrue(TEXT("Step_Clock returns the unwrapped advance"), FMath::IsNearlyEqual(Advance, kTwoPi * 1.6f * 2.0f, 1.0e-3f));
+    TestEqual(TEXT("a 2 s frame counts every crossing (3.2 cycles from 0 = 6 dips)"), Count_Footfalls(0.0f, Advance)._Count, 6);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCk_Gait_Get_CanFootfall_GroundedAndAboveMinRatioOnly,
+    "Ck.Gait.Kernel.Get_CanFootfall_GroundedAndAboveMinRatioOnly", kCkUnitTestFlags)
+bool FCk_Gait_Get_CanFootfall_GroundedAndAboveMinRatioOnly::RunTest(const FString& Parameters)
+{
+    using namespace ck_test_gait_kernel;
+    const auto Stride = FCk_Gait_StrideParams{};
+    const auto Grounded = MakeMotion(FVector{420, 0, 0});
+    const auto Airborne = MakeMotion(FVector{420, 0, -600}, ECk_Gait_Footing::Airborne);
+
+    TestTrue(TEXT("grounded at the reference speed can footfall"), Get_CanFootfall(Stride, Grounded, 1.0f));
+    TestTrue(TEXT("grounded exactly at the min ratio can footfall"), Get_CanFootfall(Stride, Grounded, Stride.Get_FootfallMinSpeedRatio()));
+    TestFalse(TEXT("grounded at rest cannot (the idle clock is not a step)"), Get_CanFootfall(Stride, Grounded, 0.0f));
+    TestFalse(TEXT("airborne cannot, whatever the ratio"), Get_CanFootfall(Stride, Airborne, 1.0f));
+
+    auto Spec = FCk_Gait_Spec{};
+    Spec.Get_Stride().Set_FootfallMinSpeedRatio(-0.1f);
+    TestFalse(TEXT("a negative FootfallMinSpeedRatio is invalid"), Get_AreTunablesValid(Spec));
+    return true;
+}
