@@ -37,12 +37,12 @@
 #if !UE_BUILD_SHIPPING
 namespace
 {
-    auto Allocated(const FCk_Handle& H) -> bool
+    auto SelectionSourceAllocated(const FCk_Handle& H) -> bool
     { return UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(H); }
 
     auto Live(const FCk_Handle& H) -> bool
     {
-        return Allocated(H) && ck::IsValid(H) &&
+        return SelectionSourceAllocated(H) && ck::IsValid(H) &&
             !H.Has_Any<ck::FTag_DestroyEntity_Initiate,
                 ck::FTag_DestroyEntity_EndPlay, ck::FTag_DestroyEntity_Teardown,
                 ck::FTag_DestroyEntity_Await, ck::FTag_DestroyEntity_Finalize>();
@@ -90,7 +90,7 @@ namespace
             if (OutDiagnostic != nullptr) { *OutDiagnostic = Cause; }
             return false;
         };
-        if (!Allocated(Carrier) || !ck::IsValid(Carrier,
+        if (!SelectionSourceAllocated(Carrier) || !ck::IsValid(Carrier,
                 ck::IsValid_Policy_IncludePendingKill{}))
         { return Reject(TEXT("Idle carrier is no longer allocated")); }
         if (!Live(State) || !Live(Machine) || !IsValid(IdleClass.Get()))
@@ -136,7 +136,7 @@ namespace
     auto ExactDyingUnadmittedLeaf(const FCk_Handle& Child,
         const FCk_Handle& State, const FCk_Handle& WorldRoot) -> bool
     {
-        if (!Allocated(Child) || Live(Child) || !Live(State) ||
+        if (!SelectionSourceAllocated(Child) || Live(Child) || !Live(State) ||
             !Child.Has<ck::FTag_DestroyEntity_Initiate>() ||
             Child.Get_RegistryView().Get_RegistryHandle() !=
                 WorldRoot.Get_RegistryView().Get_RegistryHandle() ||
@@ -255,14 +255,14 @@ bool UCkSelectionGym_SourceSession_UE::ProveFrozenRetirement(
     const auto Registry = S->WorldRoot.Get_RegistryView().Get_RegistryHandle();
     for (const auto& H : S->FrozenRetirement)
     {
-        if (!Allocated(H)) { continue; }
+        if (!SelectionSourceAllocated(H)) { continue; }
         if (H.Get_RegistryView().Get_RegistryHandle() != Registry ||
             !H.Has<ck::FFragment_LifetimeOwner>())
         { return false; }
         const auto Parent = H.Get<ck::FFragment_LifetimeOwner,
             ck::IsValid_Policy_IncludePendingKill>().Get_Entity();
         if (Roots.Contains(H) ? Parent != S->WorldRoot :
-            (!Known.Contains(Parent) || !Allocated(Parent)))
+            (!Known.Contains(Parent) || !SelectionSourceAllocated(Parent)))
         { return false; }
         TArray<FCk_Handle> Children;
         if (!UCk_EntityScriptGym_Spawn_Runtime_UE::
@@ -272,7 +272,7 @@ bool UCkSelectionGym_SourceSession_UE::ProveFrozenRetirement(
         for (const auto& Child : Children)
         {
             if (Filtered.Contains(Child) || !Known.Contains(Child) ||
-                !Allocated(Child))
+                !SelectionSourceAllocated(Child))
             { return false; }
             Filtered.Add(Child);
         }
@@ -282,7 +282,7 @@ bool UCkSelectionGym_SourceSession_UE::ProveFrozenRetirement(
             for (const auto& Child : H.Get<ck::FFragment_LifetimeDependents,
                 ck::IsValid_Policy_IncludePendingKill>().Get_Entities())
             {
-                if (!Allocated(Child)) { continue; }
+                if (!SelectionSourceAllocated(Child)) { continue; }
                 if (Child.Get_RegistryView().Get_RegistryHandle() != Registry ||
                     !Known.Contains(Child) ||
                     !Child.Has<ck::FFragment_LifetimeOwner>())
@@ -706,7 +706,7 @@ UCkSelectionGym_SourceSession_UE::TryCheckStageReadiness(
             for (const auto& Child : Parent.Get<ck::FFragment_LifetimeDependents,
                 ck::IsValid_Policy_IncludePendingKill>().Get_Entities())
             {
-                if (!Allocated(Child)) { continue; }
+                if (!SelectionSourceAllocated(Child)) { continue; }
                 if (Child.Get_RegistryView().Get_RegistryHandle() != RegistryHandle ||
                     !Child.Has<ck::FFragment_LifetimeOwner>())
                 { return Invalid(TEXT("Initial raw reverse child foreign or ownerless")); }
@@ -770,7 +770,7 @@ UCkSelectionGym_SourceSession_UE::TryCheckStageReadiness(
         {
             if (!Seen.Contains(Owner.Get_Entity())) { return; }
             const FCk_Handle Child{Id, RegistryHandle};
-            if (Allocated(Child) && !Seen.Contains(Child))
+            if (SelectionSourceAllocated(Child) && !Seen.Contains(Child))
             { InverseInvalid = true; }
         });
     if (InverseInvalid)
@@ -1348,7 +1348,7 @@ UCkSelectionGym_SourceSession_UE::TryAdvanceRetirement(
     }
     for (const auto& H : Session->FrozenRetirement)
     {
-        if (!Allocated(H)) { continue; }
+        if (!SelectionSourceAllocated(H)) { continue; }
         if (!Live(H)) { continue; } // wait for physical deallocation
         TArray<FCk_Handle> Children;
         if (!UCk_EntityScriptGym_Spawn_Runtime_UE::
@@ -1363,7 +1363,7 @@ UCkSelectionGym_SourceSession_UE::TryAdvanceRetirement(
     }
     for (const auto& H : Session->FrozenRetirement)
     {
-        if (Allocated(H))
+        if (SelectionSourceAllocated(H))
         { return ECkSelectionGym_SourceOutcome::Pending; }
     }
     return ECkSelectionGym_SourceOutcome::Complete;
@@ -1484,7 +1484,7 @@ UCkSelectionGym_SourceSession_UE::TryAdvanceRespawnRetirement(
         { return Invalid(TEXT("Respawn visual callback changed frozen union")); }
         return ECkSelectionGym_SourceOutcome::Pending;
     }
-    if (Allocated(Session->OldRespawnNode))
+    if (SelectionSourceAllocated(Session->OldRespawnNode))
     {
         if (!Live(Session->OldRespawnNode))
         { return ECkSelectionGym_SourceOutcome::Pending; }
@@ -1528,7 +1528,7 @@ bool UCkSelectionGym_SourceSession_UE::TryInstallRespawnReplacement(
     };
     if (!Current(Session) || Session->Failed || !Session->Replacing ||
         Session->Retiring || Session->Scenario != 4 ||
-        Allocated(Session->OldRespawnNode) ||
+        SelectionSourceAllocated(Session->OldRespawnNode) ||
         !Direct(NewNode, Session->BareRoots[0]) ||
         NewNode == Session->OldRespawnNode ||
         NewVisual.Node != NewNode ||
