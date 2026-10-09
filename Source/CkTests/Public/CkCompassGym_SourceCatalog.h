@@ -118,4 +118,19 @@ public:
         TArray<FCkCompassGym_SourceRow>& OutActiveRows,
         TArray<FCkCompassGym_SourceRow>& OutStagedRows,
         FString& OutFailureReason);
+
+    // Retiring Ping receipts are immutable first returns frozen after a Complete
+    // source proof. Allocated members may be in any destruction phase, but none
+    // may remain POI-visible. Existing callers use the transaction wrapper above.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogTransactionWithRetiringPings(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        bool CompositionComplete,
+        const TArray<FCkCompassGym_SourceReceipt>& ActiveReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringPingReceipts,
+        TArray<FCkCompassGym_SourceRow>& OutActiveRows,
+        TArray<FCkCompassGym_SourceRow>& OutStagedRows,
+        FString& OutFailureReason);
 };

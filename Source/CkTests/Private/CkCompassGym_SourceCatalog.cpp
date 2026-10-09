@@ -63,6 +63,7 @@ namespace ck_compass_catalog
     auto ProveOwnerCensus(const FCk_Handle& SourceRoot,
         const FCk_Handle& WorldRoot, const TArray<FCk_Handle>& ReverseHosts,
         const TArray<FCkCompassGym_SourceReceipt>& ActiveReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringPingReceipts,
         const TArray<FCk_Handle>& InactiveParents) -> bool
     {
         TArray<FCk_Handle> ActualRootChildren;
@@ -84,6 +85,15 @@ namespace ck_compass_catalog
                     { ActiveLineageInvalid = true; }
                     if ((R.Marker != FCk_Handle{} && Parent == R.Marker) ||
                         (R.Timer != FCk_Handle{} && Parent == R.Timer))
+                    { ActiveLineageInvalid = true; }
+                }
+                for (const auto& R : FrozenRetiringPingReceipts)
+                {
+                    if (Parent == R.Host &&
+                        (!Allocated(R.Host) ||
+                         (Child != R.Marker && Child != R.Timer)))
+                    { ActiveLineageInvalid = true; }
+                    if (Parent == R.Marker || Parent == R.Timer)
                     { ActiveLineageInvalid = true; }
                 }
             });
@@ -360,6 +370,7 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     const TArray<FCkCompassGym_SourceReceipt>& Receipts,
     const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
     const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+    const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringPingReceipts,
     TArray<FCkCompassGym_SourceRow>& OutRows,
     TArray<FCkCompassGym_SourceRow>& OutStagedRows,
     FString& OutFailureReason)
@@ -395,6 +406,8 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     TArray<FCk_Handle> InactiveParentHandles;
     if (!PhaseAware)
     {
+        if (!FrozenRetiringPingReceipts.IsEmpty())
+        { return Invalid(TEXT("Retiring Ping requires phase-aware source query")); }
         if (Hosts.Num() != Receipts.Num())
         { return Invalid(TEXT("Unclaimed or missing source host")); }
     }
@@ -509,8 +522,89 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
             !UCk_EntityScriptGym_Spawn_Runtime_UE::TryProve_FrozenRetirementLedger(
                 FrozenHosts, FrozenHosts, WorldRoot))
         { return Invalid(TEXT("Frozen retiring stress membership changed")); }
+        TArray<FCk_Handle> AllocatedRetiringPings;
+        TArray<FCk_Handle> ClaimedEntities;
+        for (const auto& R : Receipts)
+        {
+            ClaimedEntities.Add(R.Host);
+            if (R.Marker != FCk_Handle{}) { ClaimedEntities.Add(R.Marker); }
+            if (R.Timer != FCk_Handle{}) { ClaimedEntities.Add(R.Timer); }
+        }
+        for (const auto& R : StagedStressReceipts)
+        { ClaimedEntities.Add(R.Host); }
+        for (const auto& R : FrozenRetiringStressReceipts)
+        { ClaimedEntities.Add(R.Host); }
+        const auto PingTag = FGameplayTag::RequestGameplayTag(
+            FName(TEXT("Poi.Category.Ping")), false);
+        if (!FrozenRetiringPingReceipts.IsEmpty() && !PingTag.IsValid())
+        { return Invalid(TEXT("Retiring Ping tag not registered")); }
+        for (const auto& R : FrozenRetiringPingReceipts)
+        {
+            if (R.CatalogId <= 0 || R.Kind != ECkCompassGym_SourceKind::Ping ||
+                !R.Admitted || R.ExpectedCategory != PingTag ||
+                R.Host == FCk_Handle{} || R.Marker == FCk_Handle{} ||
+                R.Timer == FCk_Handle{} || R.Host == R.Marker ||
+                R.Host == R.Timer || R.Marker == R.Timer ||
+                AllIds.Contains(R.CatalogId) || AllHandles.Contains(R.Host) ||
+                ClaimedEntities.Contains(R.Host) ||
+                ClaimedEntities.Contains(R.Marker) ||
+                ClaimedEntities.Contains(R.Timer) ||
+                !R.Host.IsRegistryValid() || !R.Marker.IsRegistryValid() ||
+                !R.Timer.IsRegistryValid() ||
+                R.Host.Get_RegistryView().Get_RegistryHandle() !=
+                    WorldRoot.Get_RegistryView().Get_RegistryHandle() ||
+                R.Marker.Get_RegistryView().Get_RegistryHandle() !=
+                    WorldRoot.Get_RegistryView().Get_RegistryHandle() ||
+                R.Timer.Get_RegistryView().Get_RegistryHandle() !=
+                    WorldRoot.Get_RegistryView().Get_RegistryHandle())
+            { return Invalid(TEXT("Frozen retiring Ping identity invalid")); }
+            AllIds.Add(R.CatalogId);
+            AllHandles.Add(R.Host);
+            ClaimedEntities.Add(R.Host);
+            ClaimedEntities.Add(R.Marker);
+            ClaimedEntities.Add(R.Timer);
+            const TArray<FCk_Handle> FrozenTree{R.Host, R.Marker, R.Timer};
+            if (!UCk_EntityScriptGym_Spawn_Runtime_UE::
+                    TryProve_FrozenRetirementLedger(FrozenTree, FrozenTree, WorldRoot))
+            { return Invalid(TEXT("Frozen retiring Ping membership changed")); }
+            const bool HostAllocated = Allocated(R.Host);
+            const bool MarkerAllocated = Allocated(R.Marker);
+            const bool TimerAllocated = Allocated(R.Timer);
+            if ((MarkerAllocated || TimerAllocated) && !HostAllocated)
+            { return Invalid(TEXT("Retiring Ping child outlived host")); }
+            if ((MarkerAllocated && R.Marker.Has<ck::FTag_Poi>()) ||
+                (TimerAllocated && R.Timer.Has<ck::FTag_Poi>()))
+            { return Invalid(TEXT("Retiring Ping child remains POI-visible")); }
+            if (!HostAllocated) { continue; }
+            if (!Direct(R.Host, SourceRoot, WorldRoot) ||
+                !Hosts.Contains(R.Host) || R.Host.Has<ck::FTag_Poi>())
+            { return Invalid(TEXT("Allocated retiring Ping host exposed or foreign")); }
+            TArray<FCk_Handle> HostChildren;
+            if (!Children(R.Host, WorldRoot, HostChildren) ||
+                HostChildren.Num() != int32(MarkerAllocated) + int32(TimerAllocated) ||
+                (MarkerAllocated && !HostChildren.Contains(R.Marker)) ||
+                (TimerAllocated && !HostChildren.Contains(R.Timer)))
+            { return Invalid(TEXT("Retiring Ping host dependent mismatch")); }
+            if (MarkerAllocated)
+            {
+                TArray<FCk_Handle> MarkerChildren;
+                if (!Direct(R.Marker, R.Host, WorldRoot) ||
+                    !Children(R.Marker, WorldRoot, MarkerChildren) ||
+                    !MarkerChildren.IsEmpty())
+                { return Invalid(TEXT("Retiring Ping marker lineage invalid")); }
+            }
+            if (TimerAllocated)
+            {
+                TArray<FCk_Handle> TimerChildren;
+                if (!Direct(R.Timer, R.Host, WorldRoot) ||
+                    !Children(R.Timer, WorldRoot, TimerChildren) ||
+                    !TimerChildren.IsEmpty())
+                { return Invalid(TEXT("Retiring Ping timer lineage invalid")); }
+            }
+            AllocatedRetiringPings.Add(R.Host);
+        }
         if (Hosts.Num() != Receipts.Num() + StagedStressReceipts.Num() +
-                AllocatedRetiring.Num())
+                AllocatedRetiring.Num() + AllocatedRetiringPings.Num())
         { return Invalid(TEXT("Source root allocated cohort count mismatch")); }
         for (const auto& Host : Hosts)
         {
@@ -572,6 +666,9 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
                 !TimerChildren.IsEmpty())
             { return Invalid(TEXT("Timer has unclaimed dependent")); }
         }
+        if ((NeedsMarker && R.Marker.Has<ck::FTag_Poi>()) ||
+            (NeedsTimer && R.Timer.Has<ck::FTag_Poi>()))
+        { return Invalid(TEXT("Active POI child carries unexpected POI tag")); }
     }
     int32 PreflightRings = 0, PreflightWaypoints = 0, PreflightStress = 0;
     for (const auto& R : Receipts)
@@ -585,6 +682,7 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
          (PreflightStress != 0 && PreflightStress != 500)))
     { return Invalid(TEXT("Complete source kind counts invalid")); }
     if (!ProveOwnerCensus(SourceRoot, WorldRoot, Hosts, Receipts,
+            FrozenRetiringPingReceipts,
             InactiveParentHandles))
     { return Invalid(TEXT("Source owner census differs from reverse membership")); }
     bool AnyPending = !CompositionComplete || InactivePending;
@@ -746,6 +844,7 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
     TArray<FCkCompassGym_SourceRow> UnusedStagedRows;
     return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
         CompositionComplete, false, Receipts, EmptyReceipts, EmptyReceipts,
+        EmptyReceipts,
         OutRows, UnusedStagedRows,
         OutFailureReason);
 }
@@ -761,8 +860,28 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::
         TArray<FCkCompassGym_SourceRow>& OutStagedRows,
         FString& OutFailureReason)
 {
+    const TArray<FCkCompassGym_SourceReceipt> EmptyRetiringPings;
+    return TryGet_SourceCatalogTransactionWithRetiringPings(World,
+        ExactGameState, SourceRoot, CompositionComplete, ActiveReceipts,
+        StagedStressReceipts, FrozenRetiringStressReceipts,
+        EmptyRetiringPings, OutActiveRows, OutStagedRows, OutFailureReason);
+}
+
+ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::
+    TryGet_SourceCatalogTransactionWithRetiringPings(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        bool CompositionComplete,
+        const TArray<FCkCompassGym_SourceReceipt>& ActiveReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringPingReceipts,
+        TArray<FCkCompassGym_SourceRow>& OutActiveRows,
+        TArray<FCkCompassGym_SourceRow>& OutStagedRows,
+        FString& OutFailureReason)
+{
     return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
         CompositionComplete, true, ActiveReceipts, StagedStressReceipts,
-        FrozenRetiringStressReceipts, OutActiveRows, OutStagedRows,
+        FrozenRetiringStressReceipts, FrozenRetiringPingReceipts,
+        OutActiveRows, OutStagedRows,
         OutFailureReason);
 }
