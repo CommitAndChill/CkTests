@@ -1,44 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "focused-cktests-gym-editor-verified-broader-iris-failure-unresolved",
-  "date": "2026-10-03",
+  "status": "final-focused-native-verified",
+  "date": "2026-10-09",
   "sourceOfTruth": "code-and-declarative-text",
   "targetPlatform": "Windows",
   "runtimeVerified": true,
-  "migration": {
-    "verificationStatus": "focused-editor-gate-passed",
-    "priorGateEvidenceScope": "original host before CkTests gym migration",
-    "plugin": "CkTests",
-    "screenHeader": "Source/CkTests/Public/CkTests/UI/CkPauseMenuProof.h",
-    "screenImplementation": "Source/CkTests/Private/UI/CkPauseMenuProof.cpp",
-    "nativeProof": "Source/CkTests/Private/UnitTests/CkYoga/Test_PauseMenuProof.cpp",
-    "nativeProofName": "Ck.UiAuthoring.PauseMenuProof.PIE",
-    "gymProof": "Source/CkTests/Private/UnitTests/CkTestsGym/Test_UiAuthoringGym.cpp",
-    "gymProofName": "Ck.UiAuthoring.PauseMenuProof.GymSelector.PIE",
-    "gymScripts": [
-      "Script/CkUiAuthoring/CkUiAuthoringGym_Assets.as",
-      "Script/CkUiAuthoring/CkUiAuthoringGym_GameMode.as",
-      "Script/CkUiAuthoring/CkUiAuthoringGym_PlayerController.as"
-    ],
-    "layoutAsset": "CkTests_PauseMenuProof_Layout",
-    "resourceDirectory": "Resources/UiAuthoring/PauseMenuProof",
-    "resourceLookup": "IPluginManager CkTests GetBaseDir; host-agnostic plugin-relative paths",
-    "resourceStaging": "Source/CkTests/CkTests.Build.cs NonUFS runtime dependencies",
-    "gymDisplayName": "UI Authoring",
-    "gymCategory": "CkUI",
-    "launchMap": "/CkTests/TestGyms/TestGyms_CkTests_Level",
-    "selectedCheckout": "D:/Repos/CkPlugins_2",
-    "selectorCoverage": "registry entry and real grouped selector model, followed by registry API travel; no physical selector click",
-    "gymInteractionCoverage": "routed [1] opens native menu; Resume focus; Tab navigates without selector opening; Esc unpauses; [1] reopens distinct menu",
-    "teardownCoverage": "actual EndPIE OnWorldCleanup observes inactive menu and released authored view; exact AngelScript close initiator not observed",
-    "preferencesRestored": "values captured at Gate 03 start only; pre-Gate-02-crash preferences not established",
-    "panelControl": "[1] Pause menu",
-    "panelVisibilityKey": "H",
-    "selectorKeyWhenMenuClosed": "Tab",
-    "menuNavigationKey": "Tab",
-    "menuClose": "Esc or Resume returns to gym",
-    "settingsAndReturn": "record-only actions"
-  },
   "reference": {
     "image": "pause-menu-reference.png",
     "sourceSize": [
@@ -58,11 +24,15 @@
     "uiBakedIn": false
   },
   "architecture": {
-    "host": "CkTests code-created CommonUI activatable UUserWidget",
-    "adapter": "UCk_UI_AuthoredSurface_UE in CkWidgets wrapping an accepted FCkUiView region",
+    "host": "UCk_ScriptedPause_Widget (AngelScript CommonUI activatable widget) for gym [1]",
+    "adapter": "UCk_UI_AuthoredSession_UE mounted in UCk_UI_AuthoredSurface_UE",
     "authoredDescendants": "Slate controls; not individual UWidget objects",
     "editorRole": "run-inspect-capture-validate",
-    "manualWidgetBlueprintLayout": false
+    "manualWidgetBlueprintLayout": false,
+    "fonts": [
+      "menu-ui Source Sans 3 Regular/Bold",
+      "menu-display Source Sans 3 Regular/Bold"
+    ]
   },
   "colors": {
     "panel": "#182129",
@@ -97,14 +67,16 @@
       "y": 300,
       "width": 568,
       "height": 88,
-      "fontPixelTarget": 72
+      "fontPixelTarget": 72,
+      "sourceFontSize": 48
     },
     "subtitle": {
       "x": 676,
       "y": 396,
       "width": 568,
       "height": 36,
-      "fontPixelTarget": 28
+      "fontPixelTarget": 28,
+      "sourceFontSize": 18
     },
     "divider": {
       "x": 676,
@@ -123,7 +95,8 @@
       "x": 864,
       "y": 900,
       "width": 192,
-      "height": 52
+      "height": 52,
+      "keyHintKind": "shared passive key-hint"
     }
   },
   "labels": {
@@ -132,8 +105,8 @@
     "resume-button": "Resume",
     "settings-button": "Settings",
     "return-button": "Return to title",
-    "resume-key": "Esc",
-    "resume-hint-label": "Resume"
+    "resume-hint-label": "Resume",
+    "resume-keycap": "Esc (literal shared key-hint)"
   },
   "buttons": [
     {
@@ -208,9 +181,544 @@
       "Esc"
     ],
     "singlePlayerProof": true,
-    "promptPolicy": "Static FText fixture bindings InputResumeKey=Esc and InputResumeHint=Resume; dynamic input-method/key-map integration deferred"
+    "promptPolicy": "Static shared key-hint label Esc and bound InputResumeHint=Resume; dynamic input-method/key-map integration deferred"
   },
-  "validation": {
+  "generation": {
+    "toolMode": "built-in-image-generation",
+    "prompts": "generation-prompts.txt"
+  },
+  "packagedVerified": false,
+  "nodes": [
+    {
+      "id": "pause-composition",
+      "tag": "column",
+      "parentId": null,
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "composition",
+      "classes": [],
+      "attributes": {},
+      "resolvedStyle": {}
+    },
+    {
+      "id": "pause-top-space",
+      "tag": "column",
+      "parentId": "pause-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "top space",
+      "classes": [
+        "top-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "140"
+      }
+    },
+    {
+      "id": "pause-panel",
+      "tag": "column",
+      "parentId": "pause-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "panel",
+      "classes": [
+        "panel"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "680px",
+        "height": "724px",
+        "horizontal-align": "center",
+        "padding": "56px",
+        "background-color": "#182129F5",
+        "border-color": "#56616A",
+        "border-width": "1px",
+        "border-radius": "16px"
+      }
+    },
+    {
+      "id": "pause-mark-top-space",
+      "tag": "column",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "mark top space",
+      "classes": [
+        "mark-top-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "18px"
+      }
+    },
+    {
+      "id": "pause-mark",
+      "tag": "row",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "mark",
+      "classes": [
+        "pause-mark"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "44px",
+        "height": "54px",
+        "gap": "16px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "pause-bar-left",
+      "tag": "column",
+      "parentId": "pause-mark",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "bar left",
+      "classes": [
+        "pause-bar"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "14px",
+        "height": "54px",
+        "background-color": "#E7AD4A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "pause-bar-right",
+      "tag": "column",
+      "parentId": "pause-mark",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "bar right",
+      "classes": [
+        "pause-bar"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "14px",
+        "height": "54px",
+        "background-color": "#E7AD4A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "pause-title-space",
+      "tag": "column",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "title space",
+      "classes": [
+        "title-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "32px"
+      }
+    },
+    {
+      "id": "pause-title",
+      "tag": "text",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "title",
+      "classes": [
+        "title"
+      ],
+      "attributes": {
+        "bind": "PauseTitle"
+      },
+      "resolvedStyle": {
+        "height": "88px",
+        "horizontal-align": "center",
+        "vertical-align": "center",
+        "text-align": "center",
+        "font-family": "menu-display",
+        "font-weight": "bold",
+        "font-size": "48",
+        "color": "#F4F0E6",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "pause-subtitle-space",
+      "tag": "column",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "subtitle space",
+      "classes": [
+        "subtitle-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "8px"
+      }
+    },
+    {
+      "id": "pause-subtitle",
+      "tag": "text",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "subtitle",
+      "classes": [
+        "subtitle"
+      ],
+      "attributes": {
+        "bind": "PauseSubtitle"
+      },
+      "resolvedStyle": {
+        "height": "36px",
+        "horizontal-align": "center",
+        "vertical-align": "center",
+        "text-align": "center",
+        "font-family": "menu-ui",
+        "font-size": "18",
+        "color": "#ADB4BA",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "pause-divider-space",
+      "tag": "column",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "divider space",
+      "classes": [
+        "divider-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "26px"
+      }
+    },
+    {
+      "id": "pause-divider",
+      "tag": "column",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "divider",
+      "classes": [
+        "divider"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "2px",
+        "background-color": "#56616A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "pause-actions-space",
+      "tag": "column",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "actions space",
+      "classes": [
+        "actions-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "44px"
+      }
+    },
+    {
+      "id": "pause-actions",
+      "tag": "column",
+      "parentId": "pause-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "actions",
+      "classes": [
+        "actions"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "296px",
+        "gap": "16px"
+      }
+    },
+    {
+      "id": "resume-button",
+      "tag": "button",
+      "parentId": "pause-actions",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "resume button",
+      "classes": [
+        "game-button"
+      ],
+      "attributes": {
+        "action": "ResumeRequested",
+        "enabled-bind": "ResumeEnabled",
+        "bind": "PauseResume"
+      },
+      "resolvedStyle": {
+        "height": "88px",
+        "font-family": "menu-ui",
+        "font-size": "22",
+        "font-weight": "bold",
+        "text-wrap": "wrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#62717B",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-border-color": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-focus-outline-gap": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-pressed-border-color": "#B87929",
+        "-ck-button-pressed-color": "#101A22",
+        "-ck-button-disabled-background": "#1B2730",
+        "-ck-button-disabled-border-color": "#36424A",
+        "-ck-button-disabled-color": "#727F8A",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "24px",
+        "-ck-button-padding-y": "0px"
+      }
+    },
+    {
+      "id": "settings-button",
+      "tag": "button",
+      "parentId": "pause-actions",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "settings button",
+      "classes": [
+        "game-button"
+      ],
+      "attributes": {
+        "action": "SettingsRequested",
+        "enabled-bind": "SettingsEnabled",
+        "bind": "PauseSettings"
+      },
+      "resolvedStyle": {
+        "height": "88px",
+        "font-family": "menu-ui",
+        "font-size": "22",
+        "font-weight": "bold",
+        "text-wrap": "wrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#62717B",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-border-color": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-focus-outline-gap": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-pressed-border-color": "#B87929",
+        "-ck-button-pressed-color": "#101A22",
+        "-ck-button-disabled-background": "#1B2730",
+        "-ck-button-disabled-border-color": "#36424A",
+        "-ck-button-disabled-color": "#727F8A",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "24px",
+        "-ck-button-padding-y": "0px"
+      }
+    },
+    {
+      "id": "return-button",
+      "tag": "button",
+      "parentId": "pause-actions",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "return button",
+      "classes": [
+        "game-button"
+      ],
+      "attributes": {
+        "action": "ReturnToTitleRequested",
+        "enabled-bind": "ReturnEnabled",
+        "bind": "PauseReturnToTitle"
+      },
+      "resolvedStyle": {
+        "height": "88px",
+        "font-family": "menu-ui",
+        "font-size": "22",
+        "font-weight": "bold",
+        "text-wrap": "wrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#62717B",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-border-color": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-focus-outline-gap": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-pressed-border-color": "#B87929",
+        "-ck-button-pressed-color": "#101A22",
+        "-ck-button-disabled-background": "#1B2730",
+        "-ck-button-disabled-border-color": "#36424A",
+        "-ck-button-disabled-color": "#727F8A",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "24px",
+        "-ck-button-padding-y": "0px"
+      }
+    },
+    {
+      "id": "pause-hint-space",
+      "tag": "column",
+      "parentId": "pause-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "hint space",
+      "classes": [
+        "hint-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "36px"
+      }
+    },
+    {
+      "id": "pause-input-hint",
+      "tag": "row",
+      "parentId": "pause-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "input hint",
+      "classes": [
+        "input-hint"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "192px",
+        "height": "52px",
+        "gap": "16px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "resume-keycap",
+      "tag": "key-hint",
+      "parentId": "pause-input-hint",
+      "scope": "main-region",
+      "nativeWidget": "registered native key hint",
+      "role": "resume keycap",
+      "classes": [
+        "keycap"
+      ],
+      "attributes": {
+        "label": "Esc",
+        "font-family": "menu-ui"
+      },
+      "resolvedStyle": {
+        "width": "68px",
+        "height": "52px",
+        "-ck-key-hint-font-size": "18px",
+        "-ck-key-hint-foreground": "#F4F0E6",
+        "-ck-key-hint-background": "#182129",
+        "-ck-key-hint-border-color": "#7B8790",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "8px",
+        "-ck-key-hint-padding-x": "10px",
+        "-ck-key-hint-padding-y": "8px"
+      }
+    },
+    {
+      "id": "resume-hint-label",
+      "tag": "text",
+      "parentId": "pause-input-hint",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "resume hint label",
+      "classes": [
+        "hint-label"
+      ],
+      "attributes": {
+        "bind": "InputResumeHint"
+      },
+      "resolvedStyle": {
+        "font-family": "menu-ui",
+        "font-size": "18",
+        "color": "#ADB4BA",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "pause-bottom-space",
+      "tag": "column",
+      "parentId": "pause-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "bottom space",
+      "classes": [
+        "bottom-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "128"
+      }
+    }
+  ],
+  "nodeCount": 23,
+  "historicalMigration": {
+    "verificationStatus": "focused-editor-gate-passed",
+    "priorGateEvidenceScope": "original host before CkTests gym migration",
+    "plugin": "CkTests",
+    "screenHeader": "Source/CkTests/Public/CkTests/UI/CkPauseMenuProof.h",
+    "screenImplementation": "Source/CkTests/Private/UI/CkPauseMenuProof.cpp",
+    "nativeProof": "Source/CkTests/Private/UnitTests/CkYoga/Test_PauseMenuProof.cpp",
+    "nativeProofName": "Ck.UiAuthoring.PauseMenuProof.PIE",
+    "gymProof": "Source/CkTests/Private/UnitTests/CkTestsGym/Test_UiAuthoringGym.cpp",
+    "gymProofName": "Ck.UiAuthoring.PauseMenuProof.GymSelector.PIE",
+    "gymScripts": [
+      "Script/CkUiAuthoring/CkUiAuthoringGym_Assets.as",
+      "Script/CkUiAuthoring/CkUiAuthoringGym_GameMode.as",
+      "Script/CkUiAuthoring/CkUiAuthoringGym_PlayerController.as"
+    ],
+    "layoutAsset": "CkTests_PauseMenuProof_Layout",
+    "resourceDirectory": "Resources/UiAuthoring/PauseMenuProof",
+    "resourceLookup": "IPluginManager CkTests GetBaseDir; host-agnostic plugin-relative paths",
+    "resourceStaging": "Source/CkTests/CkTests.Build.cs NonUFS runtime dependencies",
+    "gymDisplayName": "UI Authoring",
+    "gymCategory": "CkUI",
+    "launchMap": "/CkTests/TestGyms/TestGyms_CkTests_Level",
+    "selectedCheckout": "D:/Repos/CkPlugins_2",
+    "selectorCoverage": "registry entry and real grouped selector model, followed by registry API travel; no physical selector click",
+    "gymInteractionCoverage": "routed [1] opens native menu; Resume focus; Tab navigates without selector opening; Esc unpauses; [1] reopens distinct menu",
+    "teardownCoverage": "actual EndPIE OnWorldCleanup observes inactive menu and released authored view; exact AngelScript close initiator not observed",
+    "preferencesRestored": "values captured at Gate 03 start only; pre-Gate-02-crash preferences not established",
+    "panelControl": "[1] Pause menu",
+    "panelVisibilityKey": "H",
+    "selectorKeyWhenMenuClosed": "Tab",
+    "menuNavigationKey": "Tab",
+    "menuClose": "Esc or Resume returns to gym",
+    "settingsAndReturn": "record-only actions"
+  },
+  "historicalValidation": {
     "status": "focused-cktests-gym-editor-gate-passed-broader-Iris-failure-unresolved",
     "build": {
       "status": "passed",
@@ -520,10 +1028,36 @@
       "packaged-Windows"
     ]
   },
-  "generation": {
-    "toolMode": "built-in-image-generation",
-    "prompts": "generation-prompts.txt"
+  "historicalRuntimeVerificationScope": "migrated CkTests gym, single-player Windows Editor PIE keyboard and mouse; no physical selector click, physical gamepad, two-user pause ownership or packaged run",
+  "validation": {
+    "status": "final-focused-native-verified",
+    "menuGate": "Saved/Logs/OlderUI-Menus-Gate-03.log: 4/4 passed, 0 failed/skipped/contaminated",
+    "sliderGate": "Saved/Logs/OlderUI-Slider-Gate-03.log: 7/7 passed, 0 failed/skipped/contaminated",
+    "receipt": "revamp-verification.json",
+    "sourcePreflight": "passed: 23 IDs, 19 referenced/declared classes, 23 contract nodes",
+    "captures": "7 byte-identical native-menu-gate03 PNGs with SHA-256 and dimensions in receipt",
+    "limits": "focused Windows Development Editor tests only; no 99% reference-pixel, packaged Windows, physical controller or complete regression claim"
   },
-  "runtimeVerificationScope": "migrated CkTests gym, single-player Windows Editor PIE keyboard and mouse; no physical selector click, physical gamepad, two-user pause ownership or packaged run",
-  "packagedVerified": false
+  "sourcePreflight": {
+    "authoredIds": 23,
+    "usedCssClasses": 19,
+    "declaredCssClasses": 19,
+    "contractNodes": 23
+  },
+  "runtimeVerificationScope": "2026-10-09 final Menu Gate03 4/4 and compatible Slider Gate03 7/7, Windows Development Editor PIE",
+  "historicalMenuGate02": {
+    "currentSourcePreflight": "passed: 23 IDs, 19 referenced/declared classes, 23 contract nodes",
+    "nativeStatus": "focused Menu Gate02 passed in Windows Development Editor PIE, 2026-10-09",
+    "gateLog": "Saved/Logs/OlderUI-Menus-Gate-02.log",
+    "selectedTests": [
+      "Ck.UiAuthoring.PauseMenuProof.GymSelector.PIE",
+      "Ck.UiAuthoring.PauseMenuProof.PIE",
+      "Ck.UiAuthoring.SettingsMenuProof.PIE",
+      "Ck.UiAuthoring.InventoryMenuProof.PIE"
+    ],
+    "result": "4 passed, 0 failed, 0 skipped, 0 contaminated; scripted gym [1] and native Pause/Settings interactions covered",
+    "captureScope": "Gate02 focused Pause 1280x720, 1920x1080, 2560x1080 plus hover, pressed, disabled and long-label at 1920x1080, copied byte-identically into this documentation directory",
+    "limits": "Focused Editor PIE test and captures only; packaged Windows, physical gamepad, dynamic glyphs and two-user ownership remain unverified",
+    "historicalEvidence": "historicalValidation and historicalMigration describe earlier revisions only"
+  }
 }

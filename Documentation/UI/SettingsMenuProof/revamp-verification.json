@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-09",
+  "status": "focused-native-verified",
+  "gym": "UI Authoring / [2] Settings and scripted Pause Settings child",
+  "renderer": "D3D12/SM6",
+  "projectPrefix": "Ck.UiAuthoring",
+  "menuGate": {
+    "log": "Saved/Logs/OlderUI-Menus-Gate-03.log",
+    "sha256": "cd70f0b8f7512f07d66d91922cfd431e21eedbcd35755b7b377cb586a4582c77",
+    "selectedTests": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0,
+    "tests": [
+      "Ck.UiAuthoring.InventoryMenuProof.PIE",
+      "Ck.UiAuthoring.PauseMenuProof.GymSelector.PIE",
+      "Ck.UiAuthoring.PauseMenuProof.PIE",
+      "Ck.UiAuthoring.SettingsMenuProof.PIE"
+    ]
+  },
+  "sliderGate": {
+    "log": "Saved/Logs/OlderUI-Slider-Gate-03.log",
+    "sha256": "1cd9041535550fb88af698522fe1456ccf7fa888830ce8c8c32a9964b0b5662f",
+    "selectedTests": 7,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0
+  },
+  "build": "Final incremental Development Editor build succeeded before SliderGate03; MenuGate03 reused those binaries",
+  "frozenSourceManifest": "Saved/Logs/OlderUI-Menus-FrozenSource.json",
+  "sourceSha256": {
+    "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiSlider.cpp": "5b26ab7a0558d645be081d367663bfb502df20b4f85a2e07bc64bdba68fea229",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkUiReplicaPresentation.cpp": "41bf898e80baaab0b965d1dd060066a9ee95f0f3d2c3c9c2abf6eaa039ab8223",
+    "Plugins/CkTests/Source/CkTests/Private/UI/CkPauseMenuProof.cpp": "6ac103a3eaaef9a49720695cb40be59a8ae4db91efb47b31db7337406e5e4ae2",
+    "Plugins/CkTests/Script/CkUiAuthoring/CkScriptedPause_Widget.as": "2b5861dfec025784c088a21e68211cccd6ee6a770183de7226e51f903c9efd41",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_SettingsMenuProof.cpp": "4bea7ad08ae34dd0e3b741c790ad6ecb286f7a5fc5b89f9a5e779cab59a94879",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiSlider.cpp": "33d24c245648c64d83c78b34e158f30f8912aa0f2556286168986f93ea31eaf1",
+    "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkTestsGym/Test_UiAuthoringGym.cpp": "be1eddd563136710b76cf4effd6c74ff646eb9da21921b509651634a5111b630",
+    "Plugins/CkTests/Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.html": "b5a67d67fb5eeee5a50563c75b25746bdee1a9188a6f6addaf913e55fde205c4",
+    "Plugins/CkTests/Resources/UiAuthoring/SettingsMenuProof/SettingsMenuProof.ui.css": "c2af3f9d98a3be6d5e04a7b65a16d56f61ec2162f83ae9133dd6fd139822a7b4",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/PauseMenuProof.ui.html": "c88804492b57edbebae52b87a2888900bde7138e541174ffb22a6d9e13e4099b",
+    "Plugins/CkTests/Resources/UiAuthoring/PauseMenuProof/PauseMenuProof.ui.css": "a08eeebc27c1644d67cba06b9077147345bf9a401d5e05635c8d402aa9577bed"
+  },
+  "captures": [
+    {
+      "file": "native-menu-gate03-settings-clean-1280x720.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-clean-1280x720.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "fd65708e9cdd071bf751763b5a7d0d10ac9f2c247234a9078f9d588543d44648",
+      "edited": false
+    },
+    {
+      "file": "native-menu-gate03-settings-clean-1920x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-clean-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "6240b800de8517e53365905ff104fa572f58e224a90b2f590dcbdab694d08a20",
+      "edited": false
+    },
+    {
+      "file": "native-menu-gate03-settings-clean-2560x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-clean-2560x1080.png",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "618fc27e5d89ecb434bf92a02ac230b7ef9cca52d0dfdb90bbb1645fe0de3f2f",
+      "edited": false
+    },
+    {
+      "file": "native-menu-gate03-settings-dirty-all-fields-1920x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-dirty-all-fields-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "72f6a45b72bca005663c4a57165715ce334b66ee4ff8251949b54f09968676a9",
+      "edited": false
+    },
+    {
+      "file": "native-menu-gate03-settings-dirty-reference-1920x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-dirty-reference-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "ab1fa5fa7720d39d13995b923bb2b6addfaf1d71c9519249bb19f382f75f7a5a",
+      "edited": false
+    },
+    {
+      "file": "native-menu-gate03-settings-popup-open-1920x1080.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-popup-open-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "86dde0bb4f737ce164f6ee0cb48fbfca861ee1d2eee418a142555dc28461e778",
+      "edited": false
+    },
+    {
+      "file": "native-menu-gate03-settings-popup-window.png",
+      "source": "Saved/Automation/SettingsMenuProof/settings-popup-window.png",
+      "dimensions": [
+        1926,
+        1118
+      ],
+      "sha256": "4ff96d5bd9ca59af915c8f8aee7e976366941c32783337b4ef8cd609f6304508",
+      "edited": false
+    }
+  ],
+  "editorBootsByAttempt": {
+    "OlderUI-Menus-Gate-01": 3,
+    "OlderUI-Menus-Gate-02": 1,
+    "OlderUI-Slider-Gate-01": 1,
+    "OlderUI-Slider-Gate-02-build-failed": 0,
+    "OlderUI-Slider-Gate-03": 3,
+    "OlderUI-Menus-Gate-03": 1
+  },
+  "totalEditorBoots": 9,
+  "iterationHistory": [
+    "Menu Gate01: Settings card-bound assertions failed at 1920x1080, 1280x720 and 2560x1080; fixed 152px top spacer and flexible bottom spacer",
+    "Menu Gate02: 4/4 passed after Settings card anchor fix",
+    "Slider Gate01: 6/7 passed; test incorrectly compared horizontal desired height after reloading the same slider vertically",
+    "Slider Gate02: build failed before editor test; no Editor boot",
+    "Slider Gate03: corrected lifecycle assertion compares retained vertical desired size before and after owner expiry; 7/7 passed",
+    "Menu Gate03: final compatible menu gate 4/4 passed"
+  ],
+  "coverage": [
+    "Settings native form and scripted Pause [1] entry, focus/navigation, interactions, reload and teardown",
+    "Native slider style, orientation, pointer/reload, routed navigation, input modalities and capture release",
+    "Three viewport captures plus state variants for this proof"
+  ],
+  "limits": [
+    "Focused Windows Development Editor evidence; no repository-wide regression claim",
+    "Generated reference is a visual target, not a 99% pixel match",
+    "Select has no per-control font-family; closed control inherits host menu-ui BaseFont; popup uses default gray Slate rows/spacing",
+    "Packaged Windows, physical gamepad and multi-user menu ownership remain unverified"
+  ]
+}

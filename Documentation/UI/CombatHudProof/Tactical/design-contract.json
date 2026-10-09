@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "scoped-native-verified",
-  "date": "2026-10-04",
+  "date": "2026-10-09",
   "theme": "Tactical",
   "gameReference": "Battlefield 4",
   "gymStation": "UI HUD: Battlefield 4",
@@ -25,7 +25,7 @@
     "ammo": 31,
     "reserve": 97,
     "weaponCapacity": 31,
-    "context": "Key 9 cycles baseline → capture prompt → kill feed. Capture and kill-feed nodes collapse outside their respective states.",
+    "context": "Key 9 cycles baseline \u2192 capture prompt \u2192 kill feed. Capture and kill-feed nodes collapse outside their respective states.",
     "commands": {
       "1": "Damage",
       "2": "Sprint",
@@ -41,8 +41,9 @@
   "presentation": {
     "topology": "PC Normal Conquest topology: lower-left flags, team tickets, timer, map and squad list; lower-right weapon/ammunition, grenade and health; sparse central objective/capture cues and optional upper-right kill feed.",
     "visual": "White/grey readouts with friendly cyan, opposing orange and squad green; no permanent health or reload progress panel.",
-    "runtimeArt": "The minimap is a deterministic native vector street grid, not Battlefield 4 terrain or live level data. All graphics are native replica-art vectors; old atlas/reference/capture files remain historical.",
-    "fidelityLimit": "Fonts substituted, icons and engraving recreated; no pixel-perfect source-game claim."
+    "runtimeArt": "Native detailed vector map fixture with irregular streets, shoreline, park/building layers and moving MapPhase markers; dedicated squad kit glyphs. No world scenery is painted over gameplay.",
+    "fidelityLimit": "Fonts substituted, icons and engraving recreated; no pixel-perfect source-game claim.",
+    "fonts": "bf-ui and bf-display: licensed Barlow Condensed Regular/Medium/SemiBold with Droid fallback; explicit CSS families."
   },
   "bindings": {
     "number": [
@@ -63,28 +64,27 @@
     "visibility": [
       "ShowCapture",
       "ShowKillFeed",
-      "ShowReload"
+      "ShowReload",
+      "ObjectiveFriendly",
+      "ObjectiveHostile"
     ],
     "image": []
   },
   "verification": {
-    "staticContract": "passed: XML structure, unique IDs, CSS class declarations and schemaVersion 1 node identity",
-    "runtime": "passed: focused CombatHudReplica-Gate-02, 41/41 selected tests, 0 failed/skipped/contaminated, D3D12/SM6",
-    "historicalCaptureNote": "prior native-*.png and native-captures.json belong to retired shared layouts; only replica-native gallery/manifest are current replica evidence",
+    "date": "2026-10-09",
+    "runtime": "3/3 focused CombatHudProof tests passed; 0 failed/skipped/contaminated; D3D12/SM6",
+    "gateLog": "Saved/Logs/OlderUI-Battlefield-Gate-03.log",
+    "verificationReceipt": "revamp-verification.json",
+    "scope": "Real gym activation, live authored reload and native text measurement at 720p/1080p/ultrawide; no full-suite claim",
     "notCovered": [
-      "physical gamepad input",
-      "real gameplay state integration",
-      "packaged build"
-    ],
-    "buildLog": "Saved/Logs/CombatHudReplica-Build-03.log",
-    "gateLog": "Saved/Logs/CombatHudReplica-Gate-02.log",
-    "scope": "real RHI native replica/compatible UI focused gate and final pixel review at three viewport sizes; not a full repository suite",
-    "replicaGallery": "replica-native-gallery.md",
-    "replicaCaptureManifest": "replica-native-captures.json",
-    "verificationReceipt": "../replica-verification.md",
-    "captureSettings": "capture-only debug/logging settings transient and restored; no persistent project or engine change"
+      "Substitute fonts and illustrative vector map/kit artwork; no pixel-identical claim",
+      "Static squad roster, timer and most objective letters; FlagText still monochrome",
+      "Logical 1920x1080 ScaleToFit canvas, letterboxed ultrawide; no independent responsive aspect layout proof",
+      "Physical gamepad, cooked execution and live gameplay adapters unverified",
+      "Only CombatHudProof focused gate; not a repository-wide regression result"
+    ]
   },
-  "nodeCount": 61,
+  "nodeCount": 71,
   "nodes": [
     {
       "id": "hud-root",
@@ -177,7 +177,11 @@
       "computedStyle": {
         "width": "310px",
         "height": "76px",
-        "horizontal-align": "right"
+        "horizontal-align": "right",
+        "padding": "8px 12px",
+        "background-color": "#081216A8",
+        "border-color": "#8EC8D666",
+        "border-width": "1px"
       }
     },
     {
@@ -193,9 +197,11 @@
         "bind": "KillFeedText"
       },
       "computedStyle": {
-        "font-size": "16",
-        "color": "#E7ECEC",
+        "font-family": "bf-ui",
+        "font-size": "18",
+        "color": "#E9F0ED",
         "horizontal-align": "right",
+        "text-align": "right",
         "text-wrap": "nowrap"
       }
     },
@@ -252,28 +258,65 @@
       "nativeWidget": "Yoga-backed Slate column",
       "properties": {},
       "computedStyle": {
-        "width": "110px",
+        "width": "120px",
         "height": "88px",
         "horizontal-align": "center"
       }
     },
     {
+      "id": "objective-art",
+      "tag": "overlay",
+      "parentId": "objective-marker",
+      "scope": "main-region",
+      "classes": [
+        "objective-art"
+      ],
+      "properties": {},
+      "computedStyle": {
+        "width": "48px",
+        "height": "48px",
+        "horizontal-align": "center"
+      },
+      "nativeWidget": "Yoga-backed Slate overlay"
+    },
+    {
       "id": "objective-icon",
       "tag": "replica-art",
-      "parentId": "objective-marker",
+      "parentId": "objective-art",
       "scope": "main-region",
       "classes": [
         "objective-icon"
       ],
       "nativeWidget": "native retained vector leaf",
       "properties": {
-        "piece": "bf-objective"
+        "piece": "bf-objective",
+        "visible": "ObjectiveFriendly"
       },
       "computedStyle": {
-        "width": "52px",
-        "height": "52px",
+        "width": "48px",
+        "height": "48px",
         "horizontal-align": "center"
       }
+    },
+    {
+      "id": "objective-icon-hostile",
+      "tag": "replica-art",
+      "parentId": "objective-art",
+      "scope": "main-region",
+      "classes": [
+        "objective-icon"
+      ],
+      "properties": {
+        "piece": "bf-objective",
+        "variant": "1",
+        "visible": "ObjectiveHostile"
+      },
+      "computedStyle": {
+        "width": "48px",
+        "height": "48px",
+        "horizontal-align": "center"
+      },
+      "nativeWidget": "native retained vector leaf"
     },
     {
       "id": "objective-distance",
@@ -286,14 +329,17 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
-        "height": "30px",
+        "height": "32px",
+        "font-family": "bf-display",
         "font-size": "18",
         "font-weight": "bold",
         "color": "#F4F5F2",
         "horizontal-align": "center",
+        "text-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "C / 35 m"
+      "literalText": "C / 35 m",
+      "literal": "C / 35 m"
     },
     {
       "id": "objective-right-space",
@@ -377,7 +423,7 @@
       "nativeWidget": "Yoga-backed Slate row",
       "properties": {},
       "computedStyle": {
-        "height": "28px"
+        "height": "32px"
       }
     },
     {
@@ -394,10 +440,11 @@
       },
       "computedStyle": {
         "width": "450px",
-        "height": "28px",
-        "font-size": "18",
+        "height": "32px",
+        "font-family": "bf-display",
+        "font-size": "19",
         "font-weight": "bold",
-        "color": "#DDE5E6",
+        "color": "#E4ECE9",
         "text-wrap": "nowrap"
       }
     },
@@ -412,9 +459,13 @@
       "nativeWidget": "Yoga-backed Slate row",
       "properties": {},
       "computedStyle": {
-        "width": "280px",
+        "width": "300px",
         "height": "40px",
-        "gap": "5px"
+        "gap": "5px",
+        "padding": "0px 6px",
+        "background-color": "#071116A8",
+        "border-color": "#B7C9CC40",
+        "border-width": "1px"
       }
     },
     {
@@ -429,13 +480,15 @@
       "properties": {},
       "computedStyle": {
         "width": "34px",
-        "font-size": "16",
+        "font-family": "bf-display",
+        "font-size": "17",
         "font-weight": "bold",
-        "color": "#65D6E6",
+        "color": "#68D9E9",
         "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "RU"
+      "literalText": "RU",
+      "literal": "RU"
     },
     {
       "id": "tickets-friendly",
@@ -450,10 +503,11 @@
         "bind": "FriendlyTickets"
       },
       "computedStyle": {
-        "width": "50px",
-        "font-size": "20",
+        "width": "52px",
+        "font-family": "bf-display",
+        "font-size": "22",
         "font-weight": "bold",
-        "color": "#65D6E6",
+        "color": "#68D9E9",
         "vertical-align": "center",
         "text-wrap": "nowrap"
       }
@@ -470,12 +524,14 @@
       "properties": {},
       "computedStyle": {
         "width": "12px",
+        "font-family": "bf-ui",
         "font-size": "18",
-        "color": "#DDE5E6",
+        "color": "#9FAEB0",
         "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "/"
+      "literalText": "/",
+      "literal": "/"
     },
     {
       "id": "enemy-side",
@@ -489,13 +545,15 @@
       "properties": {},
       "computedStyle": {
         "width": "34px",
-        "font-size": "16",
+        "font-family": "bf-display",
+        "font-size": "17",
         "font-weight": "bold",
-        "color": "#EFAB67",
+        "color": "#F2A55E",
         "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "CN"
+      "literalText": "CN",
+      "literal": "CN"
     },
     {
       "id": "tickets-enemy",
@@ -510,10 +568,11 @@
         "bind": "EnemyTickets"
       },
       "computedStyle": {
-        "width": "50px",
-        "font-size": "20",
+        "width": "52px",
+        "font-family": "bf-display",
+        "font-size": "22",
         "font-weight": "bold",
-        "color": "#EFAB67",
+        "color": "#F2A55E",
         "vertical-align": "center",
         "text-wrap": "nowrap"
       }
@@ -543,13 +602,16 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
-        "width": "60px",
-        "font-size": "16",
-        "color": "#E8EBEB",
+        "width": "58px",
+        "font-family": "bf-ui",
+        "font-size": "17",
+        "color": "#D8E1E0",
         "vertical-align": "center",
+        "text-align": "right",
         "text-wrap": "nowrap"
       },
-      "literalText": "09:23"
+      "literalText": "09:23",
+      "literal": "09:23"
     },
     {
       "id": "map-top-space",
@@ -562,7 +624,7 @@
       "nativeWidget": "Yoga-backed Slate column",
       "properties": {},
       "computedStyle": {
-        "height": "14px"
+        "height": "10px"
       }
     },
     {
@@ -578,7 +640,7 @@
       "computedStyle": {
         "width": "450px",
         "height": "240px",
-        "gap": "16px"
+        "gap": "14px"
       }
     },
     {
@@ -610,16 +672,54 @@
       "nativeWidget": "Yoga-backed Slate column",
       "properties": {},
       "computedStyle": {
-        "width": "194px",
+        "width": "196px",
         "height": "240px",
         "gap": "5px",
-        "padding": "6px 0px"
+        "padding": "6px 8px",
+        "background-color": "#08141780",
+        "border-color": "#80B88155",
+        "border-width": "1px"
       }
+    },
+    {
+      "id": "squad-one-row",
+      "tag": "row",
+      "parentId": "squad-list",
+      "scope": "main-region",
+      "classes": [
+        "squad-row"
+      ],
+      "properties": {},
+      "computedStyle": {
+        "width": "178px",
+        "height": "35px",
+        "gap": "6px"
+      },
+      "nativeWidget": "Yoga-backed Slate row"
+    },
+    {
+      "id": "squad-one-kit",
+      "tag": "replica-art",
+      "parentId": "squad-one-row",
+      "scope": "main-region",
+      "classes": [
+        "squad-kit"
+      ],
+      "properties": {
+        "piece": "bf-kit",
+        "variant": "0"
+      },
+      "computedStyle": {
+        "width": "26px",
+        "height": "26px",
+        "vertical-align": "center"
+      },
+      "nativeWidget": "native retained vector leaf"
     },
     {
       "id": "squad-one",
       "tag": "text",
-      "parentId": "squad-list",
+      "parentId": "squad-one-row",
       "scope": "main-region",
       "classes": [
         "squad-member"
@@ -627,19 +727,57 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
-        "width": "194px",
-        "height": "34px",
-        "font-size": "16",
+        "width": "146px",
+        "height": "35px",
+        "font-family": "bf-ui",
+        "font-size": "17",
         "font-weight": "bold",
-        "color": "#7FCB78",
+        "color": "#9AE38F",
+        "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "A  ALPHA LEAD"
+      "literalText": "A  ALPHA LEAD",
+      "literal": "ALPHA LEAD"
+    },
+    {
+      "id": "squad-two-row",
+      "tag": "row",
+      "parentId": "squad-list",
+      "scope": "main-region",
+      "classes": [
+        "squad-row"
+      ],
+      "properties": {},
+      "computedStyle": {
+        "width": "178px",
+        "height": "35px",
+        "gap": "6px"
+      },
+      "nativeWidget": "Yoga-backed Slate row"
+    },
+    {
+      "id": "squad-two-kit",
+      "tag": "replica-art",
+      "parentId": "squad-two-row",
+      "scope": "main-region",
+      "classes": [
+        "squad-kit"
+      ],
+      "properties": {
+        "piece": "bf-kit",
+        "variant": "1"
+      },
+      "computedStyle": {
+        "width": "26px",
+        "height": "26px",
+        "vertical-align": "center"
+      },
+      "nativeWidget": "native retained vector leaf"
     },
     {
       "id": "squad-two",
       "tag": "text",
-      "parentId": "squad-list",
+      "parentId": "squad-two-row",
       "scope": "main-region",
       "classes": [
         "squad-member"
@@ -647,19 +785,57 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
-        "width": "194px",
-        "height": "34px",
-        "font-size": "16",
+        "width": "146px",
+        "height": "35px",
+        "font-family": "bf-ui",
+        "font-size": "17",
         "font-weight": "bold",
-        "color": "#7FCB78",
+        "color": "#9AE38F",
+        "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "B  RIFLEMAN"
+      "literalText": "B  RIFLEMAN",
+      "literal": "RIFLEMAN"
+    },
+    {
+      "id": "squad-three-row",
+      "tag": "row",
+      "parentId": "squad-list",
+      "scope": "main-region",
+      "classes": [
+        "squad-row"
+      ],
+      "properties": {},
+      "computedStyle": {
+        "width": "178px",
+        "height": "35px",
+        "gap": "6px"
+      },
+      "nativeWidget": "Yoga-backed Slate row"
+    },
+    {
+      "id": "squad-three-kit",
+      "tag": "replica-art",
+      "parentId": "squad-three-row",
+      "scope": "main-region",
+      "classes": [
+        "squad-kit"
+      ],
+      "properties": {
+        "piece": "bf-kit",
+        "variant": "2"
+      },
+      "computedStyle": {
+        "width": "26px",
+        "height": "26px",
+        "vertical-align": "center"
+      },
+      "nativeWidget": "native retained vector leaf"
     },
     {
       "id": "squad-three",
       "tag": "text",
-      "parentId": "squad-list",
+      "parentId": "squad-three-row",
       "scope": "main-region",
       "classes": [
         "squad-member"
@@ -667,19 +843,57 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
-        "width": "194px",
-        "height": "34px",
-        "font-size": "16",
+        "width": "146px",
+        "height": "35px",
+        "font-family": "bf-ui",
+        "font-size": "17",
         "font-weight": "bold",
-        "color": "#7FCB78",
+        "color": "#9AE38F",
+        "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "C  SUPPORT"
+      "literalText": "C  SUPPORT",
+      "literal": "SUPPORT"
+    },
+    {
+      "id": "squad-four-row",
+      "tag": "row",
+      "parentId": "squad-list",
+      "scope": "main-region",
+      "classes": [
+        "squad-row"
+      ],
+      "properties": {},
+      "computedStyle": {
+        "width": "178px",
+        "height": "35px",
+        "gap": "6px"
+      },
+      "nativeWidget": "Yoga-backed Slate row"
+    },
+    {
+      "id": "squad-four-kit",
+      "tag": "replica-art",
+      "parentId": "squad-four-row",
+      "scope": "main-region",
+      "classes": [
+        "squad-kit"
+      ],
+      "properties": {
+        "piece": "bf-kit",
+        "variant": "3"
+      },
+      "computedStyle": {
+        "width": "26px",
+        "height": "26px",
+        "vertical-align": "center"
+      },
+      "nativeWidget": "native retained vector leaf"
     },
     {
       "id": "squad-four",
       "tag": "text",
-      "parentId": "squad-list",
+      "parentId": "squad-four-row",
       "scope": "main-region",
       "classes": [
         "squad-member"
@@ -687,14 +901,17 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
-        "width": "194px",
-        "height": "34px",
-        "font-size": "16",
+        "width": "146px",
+        "height": "35px",
+        "font-family": "bf-ui",
+        "font-size": "17",
         "font-weight": "bold",
-        "color": "#7FCB78",
+        "color": "#9AE38F",
+        "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "D  RECON"
+      "literalText": "D  RECON",
+      "literal": "RECON"
     },
     {
       "id": "bottom-center-space",
@@ -722,7 +939,8 @@
       "properties": {},
       "computedStyle": {
         "width": "230px",
-        "height": "322px"
+        "height": "322px",
+        "padding": "0px 8px 4px 8px"
       }
     },
     {
@@ -750,8 +968,8 @@
       "nativeWidget": "Yoga-backed Slate row",
       "properties": {},
       "computedStyle": {
-        "height": "58px",
-        "gap": "6px"
+        "height": "88px",
+        "gap": "5px"
       }
     },
     {
@@ -768,9 +986,10 @@
       },
       "computedStyle": {
         "width": "76px",
+        "font-family": "bf-display",
         "font-size": "48",
         "font-weight": "bold",
-        "color": "#F5F5F1",
+        "color": "#F5F7F3",
         "vertical-align": "bottom",
         "text-wrap": "nowrap"
       }
@@ -787,12 +1006,14 @@
       "properties": {},
       "computedStyle": {
         "width": "16px",
+        "font-family": "bf-ui",
         "font-size": "27",
-        "color": "#F0F1EE",
+        "color": "#BECAC9",
         "vertical-align": "bottom",
         "text-wrap": "nowrap"
       },
-      "literalText": "/"
+      "literalText": "/",
+      "literal": "/"
     },
     {
       "id": "reserve-value",
@@ -808,8 +1029,9 @@
       },
       "computedStyle": {
         "width": "70px",
+        "font-family": "bf-display",
         "font-size": "30",
-        "color": "#E7E9E6",
+        "color": "#E3ECE9",
         "vertical-align": "bottom",
         "text-wrap": "nowrap"
       }
@@ -825,7 +1047,10 @@
       "nativeWidget": "Yoga-backed Slate row",
       "properties": {},
       "computedStyle": {
-        "height": "24px"
+        "height": "40px",
+        "padding": "2px 0px",
+        "border-color": "#ADC6C45C",
+        "border-width": "1px"
       }
     },
     {
@@ -840,12 +1065,14 @@
       "properties": {},
       "computedStyle": {
         "width": "64px",
+        "font-family": "bf-display",
         "font-size": "18",
         "font-weight": "bold",
-        "color": "#EDEDEA",
+        "color": "#DCE8E5",
         "text-wrap": "nowrap"
       },
-      "literalText": "AUTO"
+      "literalText": "AUTO",
+      "literal": "AUTO"
     },
     {
       "id": "reload-space",
@@ -876,10 +1103,12 @@
       },
       "computedStyle": {
         "width": "150px",
-        "font-size": "16",
+        "font-family": "bf-ui",
+        "font-size": "17",
         "font-weight": "bold",
-        "color": "#F0F1EE",
+        "color": "#F6BC73",
         "horizontal-align": "right",
+        "text-align": "right",
         "text-wrap": "nowrap"
       }
     },
@@ -894,8 +1123,9 @@
       "nativeWidget": "Yoga-backed Slate row",
       "properties": {},
       "computedStyle": {
-        "height": "36px",
-        "gap": "4px"
+        "height": "42px",
+        "gap": "4px",
+        "padding": "2px 0px"
       }
     },
     {
@@ -911,8 +1141,8 @@
         "piece": "bf-grenade"
       },
       "computedStyle": {
-        "width": "28px",
-        "height": "28px",
+        "width": "30px",
+        "height": "30px",
         "vertical-align": "center"
       }
     },
@@ -928,12 +1158,14 @@
       "properties": {},
       "computedStyle": {
         "width": "20px",
-        "font-size": "18",
-        "color": "#EEEEEA",
+        "font-family": "bf-display",
+        "font-size": "19",
+        "color": "#F0F4EF",
         "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "1"
+      "literalText": "1",
+      "literal": "1"
     },
     {
       "id": "equipment-space",
@@ -961,13 +1193,15 @@
       "properties": {},
       "computedStyle": {
         "width": "14px",
-        "font-size": "18",
+        "font-family": "bf-display",
+        "font-size": "19",
         "font-weight": "bold",
-        "color": "#F4F4F0",
+        "color": "#F0F4EF",
         "vertical-align": "center",
         "text-wrap": "nowrap"
       },
-      "literalText": "+"
+      "literalText": "+",
+      "literal": "+"
     },
     {
       "id": "health-value",
@@ -983,9 +1217,10 @@
       },
       "computedStyle": {
         "width": "44px",
-        "font-size": "20",
+        "font-family": "bf-display",
+        "font-size": "22",
         "font-weight": "bold",
-        "color": "#F4F4F0",
+        "color": "#F0F4EF",
         "vertical-align": "center",
         "text-wrap": "nowrap"
       }
@@ -1062,7 +1297,11 @@
       "computedStyle": {
         "width": "420px",
         "height": "54px",
-        "horizontal-align": "center"
+        "horizontal-align": "center",
+        "padding": "7px 18px",
+        "background-color": "#0B1519BF",
+        "border-color": "#E4AE6080",
+        "border-width": "1px"
       }
     },
     {
@@ -1079,11 +1318,13 @@
         "visible": "ShowCapture"
       },
       "computedStyle": {
-        "height": "54px",
-        "font-size": "20",
+        "height": "38px",
+        "font-family": "bf-display",
+        "font-size": "21",
         "font-weight": "bold",
-        "color": "#F0F1EB",
+        "color": "#F2F2EC",
         "horizontal-align": "center",
+        "text-align": "center",
         "text-wrap": "nowrap"
       }
     },

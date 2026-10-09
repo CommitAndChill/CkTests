@@ -1,0 +1,694 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-native-passed",
+  "date": "2026-10-08",
+  "platform": "Windows PC",
+  "renderer": "D3D11 / SM5",
+  "configuration": "Development",
+  "gate": {
+    "path": "Saved/Logs/UiRemakes-PolishGate.log",
+    "sha256": "36ca63ca7e12e96d0afa4ef47853de2ca7bacfef9bf441a4a69cdcba34fbb4fc",
+    "total": 34,
+    "passed": 34,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0,
+    "duration": "1m 54s",
+    "freshTestEditorBoots": 2,
+    "discovery": "unchanged previously discovered headless + renderer catalogue; standalone test after incremental build",
+    "tests": [
+      {
+        "path": "Ck.UiAuthoring.CharacterEquipment.Atlas",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.CharacterEquipment.PIE",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.CombatHudProof.ReplicaArt.NativeRetentionAndFreeze",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.CombatHudProof.Model",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.CombatHudProof.PIE",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Fonts.NativeRuntime",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Fonts.RegistryValidation",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.HudControls.NativeRetentionAndAnimation",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Journal.Model.AtomicFailures",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Journal.Model.ConfigurationAndStress",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Journal.Model.FixtureAndActions",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Journal.PIE",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.KeyHint.NativeLayoutReloadAndRelease",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.PowerWheel.Model.AtomicFailures",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.PowerWheel.Model.Configuration",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.PowerWheel.Model.QueueAndRelease",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.PowerWheel.PIE",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.RadialSelector.NativeSelectionAndRetention",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tabs.ConstrainedScrollContent",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tabs.HiddenPanelReleasesSliderCapture",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tabs.HiddenPanelReleasesTransientInteraction",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tabs.MultiUserFocus",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tabs.PanelStateRetention",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tabs.ParserSchema",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tabs.RetainedRuntime",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tabs.VisualStyle",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.TacticalInventory.AtlasCrop",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.TacticalInventory.NativeGrid",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.TacticalInventory.PIE",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tree.MutationGuards",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tree.ViewRuntime",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tree.ViewValidation",
+        "result": "Success"
+      },
+      {
+        "path": "Ck.UiAuthoring.Tree.VisualStyle",
+        "result": "Success"
+      },
+      {
+        "path": "CkPlugins.UiAuthoring.Startup.ProjectBinaries",
+        "result": "Success"
+      }
+    ]
+  },
+  "build": {
+    "path": "Saved/Logs/UiRemakes-PolishBuild.log",
+    "sha256": "957f457972882681be139a6a619e595b01cb9ad62c4153e9051f3053cedc867b",
+    "result": "Succeeded",
+    "incrementalActions": 4
+  },
+  "sourceFreeze": {
+    "frozenAtUtc": "2026-10-09T04:50:37.063961+00:00",
+    "files": [
+      {
+        "path": "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiDocument.cpp",
+        "sha256": "1d231faefa626dee430be86f31cf52bfcfab13da4b86d67df496373fb4931d92"
+      },
+      {
+        "path": "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiRadialSelector.cpp",
+        "sha256": "84d122e1ed90c698bb6003cc3501852afdc7cfcdd668b257c6597d59879e5503"
+      },
+      {
+        "path": "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTabs.cpp",
+        "sha256": "337a2586ca64b1708d2ab7df6c1e07d5f76c7aef526a7c9cf92f3188608e702d"
+      },
+      {
+        "path": "Plugins/CkFoundation/Source/CkSlateLayout/Private/SCkUiTree.cpp",
+        "sha256": "010cd5b0eb6c942f54a0439da5be70dec8e9b1f908178a439d1ea331e3395813"
+      },
+      {
+        "path": "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiDocument.h",
+        "sha256": "7264f8542b4ca3d3668bfaa5e4f7afe41d4fa575a7386380cd05d75aa7f8aafc"
+      },
+      {
+        "path": "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/SCkUiTree.h",
+        "sha256": "839dbfa37314ee4ed057db0b502db38b3d47711f4c3fac9737e99ffd5ab4513d"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.css",
+        "sha256": "cab0cf8981203d02c66e5821991a0c39c8c0c4914cfe705ae278955ff04d39ce"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.html",
+        "sha256": "a2e439fc814deac9a9458319952bd4ae53df33fed3a402590f8ef8d113fb1463"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.css",
+        "sha256": "9357c6a22a29d2c3b1495a5baf7be5192da111a41632a0183d9584c77ecddae1"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.html",
+        "sha256": "305bde4a13f5e9b379c0d38ba9dfcc844e6ef8271b1e3691d671c6bfdb1c0774"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/PowerWheelProof/PowerWheelProof.ui.css",
+        "sha256": "b0373fecde53b81c71aab9194b80197ce758a1aed4f1ea819b01d966a703b2ad"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/PowerWheelProof/PowerWheelProof.ui.html",
+        "sha256": "3a014b41f664cc71b5f0be8143d0253dddb809556dc1e49d11a7912e466cb8de"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/Fonts/BarlowCondensed-Medium.ttf",
+        "sha256": "262bd143292ce479ee0cd09a42b47ab173fca8e9c6eb5ed0b5c8a845bc371d17"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/Fonts/BarlowCondensed-Regular.ttf",
+        "sha256": "583cec5da3b84bc4dc7c9c72e2a565c94d34e431518b19d7e250b7830ad5f996"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/Fonts/BarlowCondensed-SemiBold.ttf",
+        "sha256": "7b619d14bc2327509a9ef32b0890f709626f7ecc9ff61191c2a4314c5499d2d9"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/Fonts/OFL_BarlowCondensed.txt",
+        "sha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/Fonts/OFL_Rajdhani.txt",
+        "sha256": "f62ef357d3a1c3d27edd35a6e1ba350e8a8d13499797964eeadefbf0b3b15d1f"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/Fonts/Rajdhani-Bold.ttf",
+        "sha256": "691470dd3286a14e9677940d0bf75796179841ba5215cbda1a2c8910a3226afd"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/Fonts/Rajdhani-Regular.ttf",
+        "sha256": "6e1fc228a8318251a6e569502ec57bac1e4656c582f92f59ccecc4688e039b98"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/Fonts/Rajdhani-SemiBold.ttf",
+        "sha256": "94bbd25a18ca665999feb05a537de9fd2b860dcfb78bbe9ca00270825bf235da"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/me-backdrop.png",
+        "sha256": "c40a1112c6ffc069f98473a629fe9328443646725d749ed7f9cd01bed86d8552"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/ReplicaPresentation/skyrim-backdrop.png",
+        "sha256": "f6b8620a2801dd0aabc229cc38d97caf9ddaf59558d601563ea6d3b5354bf3aa"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.css",
+        "sha256": "1d34f5a451942e6bca6020e8d0b8f86214fb9e6cb0ab2ce690d4aa6a52684007"
+      },
+      {
+        "path": "Plugins/CkTests/Resources/UiAuthoring/SkyrimJournalProof/SkyrimJournalProof.ui.html",
+        "sha256": "02ff5dae9ec7b72cdb471530d496566afdb4479ce6658e5a6401973637dbaafd"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/CkTests.Build.cs",
+        "sha256": "dec25e6fe938f45dc9770ae542f6c1e7677802666f3ac10e5f3530ff8aaf383c"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkCombatHudProof.cpp",
+        "sha256": "ab3225e7ec040063b1dc8000ad6e78698bae654a589815b2dcd9206054890580"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkCombatHudReplicaArt.cpp",
+        "sha256": "a9b659a14304e6264906ea8d847b15d31dc2dcb23a1e320df07358f09bf92641"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkCombatHudReplicaArt.h",
+        "sha256": "2d79cc344cf90794f9092ae21163a7d474e49fbaf76c210e056e7994f0fc8684"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProof.cpp",
+        "sha256": "bc25f387bdd4f11180fe49c78b82530e57734ce1e9249ff05728dcca77c24bb5"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.cpp",
+        "sha256": "45321a5a6f0f222efe2bae7ff69267cbc80389c75c7ad69e720626e7be316064"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkJournalProofArt.h",
+        "sha256": "5f3896d69aba59a4a153ad969ec0914773bd8d70179b9bc096e679d8624d169a"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkPowerWheelProof.cpp",
+        "sha256": "5684962d99c972050d744f71b9df2ac8ca51aa807169075f7729efc52fd7297f"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkUiReplicaPresentation.cpp",
+        "sha256": "0ab05d23b892590224ffd1646b675f916c6e9833aa109d7fc24a26ee32cb8f9a"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UI/CkUiReplicaPresentation.h",
+        "sha256": "d9297548f62bb60752c678d93f3bb0ec1a6b647b5ab47a6567547b711723e480"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_CapabilityGallery.cpp",
+        "sha256": "a283cd090f93f6e99f48f919e31980e3b25c7f7cd335bc84402bcc166111b3cd"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_CombatHudProof.cpp",
+        "sha256": "58f13bc3cf63fcf14da1358b298bbad71330428992ae35993b99259c78a7c5e7"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_JournalProof.cpp",
+        "sha256": "9e864060070865cf392e8890cd5472a3eb968cb6b6562e7ae0c2e70cf665a8ae"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_PowerWheelProof.cpp",
+        "sha256": "fa92f6803bb23195dce4a8ac63319cdd02f90e5e4de8b01dc8ac2b85f5a15320"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiRadialSelector.cpp",
+        "sha256": "0878fa4af675034fd2a3c6fadc52ac597a70dd52be3c9dc5a993d91435bfdf80"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabs.cpp",
+        "sha256": "7fca0a2cfc900658382f9700808c0d74f37dca0d7c8c02ce7c9a0fd9b5396d94"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsUsers.cpp",
+        "sha256": "ae1e3dd750b94b3a7d37cef0a37db3754d4278587dc405cb0cea54c0ecb39e02"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTabsVisualStyle.cpp",
+        "sha256": "f143a61e320fe09bf0896255ea73898200cd005b0b28db7e7cf90f416f98a30f"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeView.cpp",
+        "sha256": "dca3983a52cde6997b2ef777605c9bdd776501c783c33643d28362afd3dc22d8"
+      },
+      {
+        "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiTreeVisualStyle.cpp",
+        "sha256": "43124dc30790fd2040ffc2766fdc774a5d53d522f271b7f4728efee8bde99f25"
+      }
+    ]
+  },
+  "captures": [
+    {
+      "screen": "MassEffectHud",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-ability-1920x1080.png",
+      "path": "Captures/MassEffectHud/Futuristic-replica-ability-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "47ca44dbbc8404e83417199a5d9f32c1495e1c299c424c7765f000deddac8e74",
+      "capturedAtUtc": "2026-10-09T04:52:39.571410+00:00"
+    },
+    {
+      "screen": "MassEffectHud",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-context-one-1920x1080.png",
+      "path": "Captures/MassEffectHud/Futuristic-replica-context-one-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "13127975e680ee7c2c2d1c4beb0627226e6244e8f6983874c69933ec3be798ec",
+      "capturedAtUtc": "2026-10-09T04:52:41.441621+00:00"
+    },
+    {
+      "screen": "MassEffectHud",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-context-two-1920x1080.png",
+      "path": "Captures/MassEffectHud/Futuristic-replica-context-two-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "8397afa2ee15b714f2a3fdbdb85e4b1386962a8078fa40634caca941f76db03f",
+      "capturedAtUtc": "2026-10-09T04:52:41.999333+00:00"
+    },
+    {
+      "screen": "MassEffectHud",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-initial-1280x720.png",
+      "path": "Captures/MassEffectHud/Futuristic-replica-initial-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "ef9fbe0a3af80524dae927d18bdf0f97861f4d102d0f059fcfe3affa476f50ff",
+      "capturedAtUtc": "2026-10-09T04:52:38.281486+00:00"
+    },
+    {
+      "screen": "MassEffectHud",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-initial-1920x1080.png",
+      "path": "Captures/MassEffectHud/Futuristic-replica-initial-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "ba9af8f982436d4a5c59d99a7ffdf06ae8b9a1fe407e634b66ab2f4a78a2c021",
+      "capturedAtUtc": "2026-10-09T04:52:38.057736+00:00"
+    },
+    {
+      "screen": "MassEffectHud",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-initial-2560x1080.png",
+      "path": "Captures/MassEffectHud/Futuristic-replica-initial-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "03ebfb2c9a39521f3e5b9ead2bdf1075641a88ac0a07db07a56ea0b729d7347b",
+      "capturedAtUtc": "2026-10-09T04:52:38.691742+00:00"
+    },
+    {
+      "screen": "MassEffectHud",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-low-health-1920x1080.png",
+      "path": "Captures/MassEffectHud/Futuristic-replica-low-health-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "d02449f85d0544692ea8c8e7e00bd0f3fef8cae74faa29881ea8d092a9656137",
+      "capturedAtUtc": "2026-10-09T04:52:40.847626+00:00"
+    },
+    {
+      "screen": "MassEffectHud",
+      "source": "Saved/Automation/CombatHudProof/Futuristic-replica-reloading-1920x1080.png",
+      "path": "Captures/MassEffectHud/Futuristic-replica-reloading-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "eb6da362092301c037529f36c670508c7bc986403f0404c448abff1aeac5a41d",
+      "capturedAtUtc": "2026-10-09T04:52:39.277599+00:00"
+    },
+    {
+      "screen": "SkyrimHud",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-ability-1920x1080.png",
+      "path": "Captures/SkyrimHud/Fantasy-replica-ability-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "c5f25507a5bf0b90541dc27778cb2eaff2ecaa16d2550876e591d023d8a12079",
+      "capturedAtUtc": "2026-10-09T04:52:58.100751+00:00"
+    },
+    {
+      "screen": "SkyrimHud",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-context-one-1920x1080.png",
+      "path": "Captures/SkyrimHud/Fantasy-replica-context-one-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "b776eb93fc5b51ac594955962eb3fe0c4bd6ed1d942d18db2a7552c55333e36c",
+      "capturedAtUtc": "2026-10-09T04:53:00.021801+00:00"
+    },
+    {
+      "screen": "SkyrimHud",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-context-two-1920x1080.png",
+      "path": "Captures/SkyrimHud/Fantasy-replica-context-two-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5612a9724266e4b4e8094fe36178ff0e9c4d9ba71da4a8662be6c3b3f38a7a1c",
+      "capturedAtUtc": "2026-10-09T04:53:00.575464+00:00"
+    },
+    {
+      "screen": "SkyrimHud",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-1280x720.png",
+      "path": "Captures/SkyrimHud/Fantasy-replica-initial-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "947744d1c0bf3add5ceeafe6efd4686d3eaa90bd086e3831a0dd15f02a3c031f",
+      "capturedAtUtc": "2026-10-09T04:52:56.941113+00:00"
+    },
+    {
+      "screen": "SkyrimHud",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-1920x1080.png",
+      "path": "Captures/SkyrimHud/Fantasy-replica-initial-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "64b0bdb01530f9837b757a02441e6722523bf51076ab1f73dd855ac973fd3862",
+      "capturedAtUtc": "2026-10-09T04:52:56.741678+00:00"
+    },
+    {
+      "screen": "SkyrimHud",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-2560x1080.png",
+      "path": "Captures/SkyrimHud/Fantasy-replica-initial-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "e4b6c742c5337d29bc41830ce7b078fa8cc5a3cf92c0d831339b01b270f05124",
+      "capturedAtUtc": "2026-10-09T04:52:57.333737+00:00"
+    },
+    {
+      "screen": "SkyrimHud",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-low-health-1920x1080.png",
+      "path": "Captures/SkyrimHud/Fantasy-replica-low-health-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "69e58afd04718a4e167e51e40886332e9ab4e6456b669d483b78be016e9e5f54",
+      "capturedAtUtc": "2026-10-09T04:52:59.437521+00:00"
+    },
+    {
+      "screen": "SkyrimHud",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-reloading-1920x1080.png",
+      "path": "Captures/SkyrimHud/Fantasy-replica-reloading-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "307b659cf36e440845370dbb1a47fd5501133c5ab946f1fa01eee53827f0043a",
+      "capturedAtUtc": "2026-10-09T04:52:57.819309+00:00"
+    },
+    {
+      "screen": "MassEffectWheel",
+      "source": "Saved/Automation/PowerWheelProof/canceled-1920x1080.png",
+      "path": "Captures/MassEffectWheel/canceled-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "e37fb472cde527b28642fd0e8372b07119556b98b1ea96f6a4a8a90c02615c18",
+      "capturedAtUtc": "2026-10-09T04:53:22.098389+00:00"
+    },
+    {
+      "screen": "MassEffectWheel",
+      "source": "Saved/Automation/PowerWheelProof/cooldown-1920x1080.png",
+      "path": "Captures/MassEffectWheel/cooldown-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "cc231b6746bb6dec9d048d58f67078e474d34cfff6817c8fab8e6c9c08cfba9e",
+      "capturedAtUtc": "2026-10-09T04:53:21.554004+00:00"
+    },
+    {
+      "screen": "MassEffectWheel",
+      "source": "Saved/Automation/PowerWheelProof/deployed-1920x1080.png",
+      "path": "Captures/MassEffectWheel/deployed-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "42410a2943662ceba5133daede2d3ec75e9cacfe9dcec6264e219d432174beef",
+      "capturedAtUtc": "2026-10-09T04:53:21.183071+00:00"
+    },
+    {
+      "screen": "MassEffectWheel",
+      "source": "Saved/Automation/PowerWheelProof/initial-1280x720.png",
+      "path": "Captures/MassEffectWheel/initial-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "3cf91bf96e7680236f34fe3b3e46455e2727955eeeb152d1872eed884494831d",
+      "capturedAtUtc": "2026-10-09T04:53:19.884805+00:00"
+    },
+    {
+      "screen": "MassEffectWheel",
+      "source": "Saved/Automation/PowerWheelProof/initial-1920x1080.png",
+      "path": "Captures/MassEffectWheel/initial-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "6ccbcea4945c186a082925d5f37596e8a1b93043791615b3d51aa1476dc25fcf",
+      "capturedAtUtc": "2026-10-09T04:53:20.214860+00:00"
+    },
+    {
+      "screen": "MassEffectWheel",
+      "source": "Saved/Automation/PowerWheelProof/initial-2560x1080.png",
+      "path": "Captures/MassEffectWheel/initial-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "51c15449203e53aaeeeb5d034fd6919724caa8597f6baaf4962fec59a93d9cf0",
+      "capturedAtUtc": "2026-10-09T04:53:20.607968+00:00"
+    },
+    {
+      "screen": "MassEffectWheel",
+      "source": "Saved/Automation/PowerWheelProof/queued-three-1920x1080.png",
+      "path": "Captures/MassEffectWheel/queued-three-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "ffd7f8ab1d859112cee104def4ddbb2516b3a3d8a15d6073266c30e92ac68af4",
+      "capturedAtUtc": "2026-10-09T04:53:20.998958+00:00"
+    },
+    {
+      "screen": "MassEffectWheel",
+      "source": "Saved/Automation/PowerWheelProof/shielded-1920x1080.png",
+      "path": "Captures/MassEffectWheel/shielded-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "23aa219f246720ffeeaae11d8fd62e39b71e33f7df30d6d7384981412415ad45",
+      "capturedAtUtc": "2026-10-09T04:53:21.937245+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/closed-1920x1080.png",
+      "path": "Captures/SkyrimJournal/closed-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "df270ceb5ac65e6848cfb4ea670a5aab60ca3fbe90dd2a5084ec0311c194c801",
+      "capturedAtUtc": "2026-10-09T04:53:12.147954+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/completed-1920x1080.png",
+      "path": "Captures/SkyrimJournal/completed-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "4b142d4bebc2aa6e07c403204ab5dfc4b3818a07bed8b933eef207d4160253be",
+      "capturedAtUtc": "2026-10-09T04:53:11.097649+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/initial-1280x720.png",
+      "path": "Captures/SkyrimJournal/initial-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "755e1ab2a12140659a45d01feb338af7191935d2835a011263b04335139db390",
+      "capturedAtUtc": "2026-10-09T04:53:08.574941+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/initial-1920x1080.png",
+      "path": "Captures/SkyrimJournal/initial-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "67b33a1b5be62967a050b752d8a8df952b915b08938c42521d71b78c26e1dbe7",
+      "capturedAtUtc": "2026-10-09T04:53:08.947562+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/initial-2560x1080.png",
+      "path": "Captures/SkyrimJournal/initial-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "f65ec095e6064e34fcdb0c7169a99076e45d2d453d69bd66b8b311afd7d4b1cd",
+      "capturedAtUtc": "2026-10-09T04:53:09.354468+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/long-summary-1920x1080.png",
+      "path": "Captures/SkyrimJournal/long-summary-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "8db69b9b64e4eefaabfa5694de5c7a53c07e52175a69370540bee4c99d14dcab",
+      "capturedAtUtc": "2026-10-09T04:53:11.428245+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/miscellaneous-1920x1080.png",
+      "path": "Captures/SkyrimJournal/miscellaneous-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "b25d37f8109145be54426a7510eae63cfa6baf321916048676aed087dcc6215a",
+      "capturedAtUtc": "2026-10-09T04:53:10.114603+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/stats-1920x1080.png",
+      "path": "Captures/SkyrimJournal/stats-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "4ce016090b3225d3b468bae04cfdeef3042bea5af21b8b4aeec682e19f08e8ae",
+      "capturedAtUtc": "2026-10-09T04:53:10.523731+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/stress-scrolled-1920x1080.png",
+      "path": "Captures/SkyrimJournal/stress-scrolled-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "f3076d25c0056be34d7563ddbfb31211b73bd26ad0f836578635d957cfc78f3a",
+      "capturedAtUtc": "2026-10-09T04:53:11.854740+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/system-1920x1080.png",
+      "path": "Captures/SkyrimJournal/system-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "c9a7eb502c784e2a8e22e2861470a8348a99a8a8feee6f6beb437efbb7b306f1",
+      "capturedAtUtc": "2026-10-09T04:53:10.808824+00:00"
+    },
+    {
+      "screen": "SkyrimJournal",
+      "source": "Saved/Automation/SkyrimJournalProof/tracked-1920x1080.png",
+      "path": "Captures/SkyrimJournal/tracked-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "1a85185169d2b05ae631d63d96108975ef5475f03b0cc804915c613149000eea",
+      "capturedAtUtc": "2026-10-09T04:53:09.789611+00:00"
+    }
+  ],
+  "configRestored": {
+    "path": "Config/DefaultEngine.ini",
+    "sha256": "bc18361dd0d9985a2a97ccebb8aaa2cc04f5896965fae15d03f66f01746afc9b",
+    "defaultRhi": "D3D12"
+  },
+  "limitations": [
+    "Free substitute typefaces, recreated portraits and native vector glyphs/ornaments, generated scenes; not a pixel-identical asset copy.",
+    "Fixed logical 1920x1080 canvas scales uniformly; ultrawide is letterboxed.",
+    "Physical gamepad, live game adapters and cooked execution not verified.",
+    "Native final gate used temporary D3D11; normal D3D12 configuration restored byte-for-byte."
+  ],
+  "earlierBroadRun": {
+    "path": "Saved/Logs/UiRemakes-BuildRenderer-Final.log",
+    "total": 254,
+    "passed": 246,
+    "failed": 8,
+    "remainingOutsideFocusedScope": [
+      "Ck.UiAuthoring.EcsDebugger.StateMachineInspector.AuthoredVariants",
+      "Ck.UiAuthoring.PauseMenuProof.GymSelector.PIE",
+      "Ck.UiAuthoring.SchedulerDebugger.Inspector.AuthoredComposition"
+    ],
+    "note": "Do not claim a green broad suite. Five remake-related failures were corrected and pass in the final focused gate."
+  },
+  "visualReview": {
+    "result": "reviewed",
+    "checks": [
+      "Four remakes at 720p, 1080p and ultrawide; text/keycap containment and contrast",
+      "Journal Miscellaneous selected row visible; Stats has no blue focus rectangle",
+      "Wheel queue/cooldown distinctions; Skyrim low-health and contextual hints; Mass Effect reload and reticle contrast"
+    ],
+    "remaining": "Substitute fonts and recreated artwork; uniform reference canvas with ultrawide side pillars, not full-width adaptation."
+  }
+}

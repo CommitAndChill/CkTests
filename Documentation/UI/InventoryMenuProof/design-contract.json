@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "status": "focused-runtime-verified",
-  "date": "2026-10-03",
+  "status": "focused-native-verified",
+  "date": "2026-10-09",
   "sourceOfTruth": "code-and-authored-resources",
   "pathsBase": "Plugins/CkTests",
   "paths": {
@@ -31,13 +31,17 @@
     "view": "FCkUiView",
     "region": "main",
     "rootId": "inventory-composition",
-    "registeredControl": "action-card",
+    "registeredControl": [
+      "action-card",
+      "atlas-image",
+      "key-hint"
+    ],
     "nativeWidgets": "Slate descendants under the authored UMG surface",
     "sourceReload": "accepted candidate replaces the document atomically; rejected candidate retains the prior view and state",
     "backend": "in-memory proof fixture; no real inventory or machine-setting writes"
   },
   "palette": {
-    "panel": "#182129F5",
+    "panel": "#182129E8",
     "panelBorder": "#56616A",
     "ivory": "#F4F0E6",
     "muted": "#ADB4BA",
@@ -50,37 +54,39 @@
       "y": 120,
       "width": 1280,
       "height": 800,
-      "paddingTopBottom": 32,
+      "paddingTopBottom": 26,
       "paddingLeftRight": 40,
-      "radius": 16,
+      "radius": 12,
       "border": 1
     },
-    "headerHeight": 90,
-    "dividerHeight": 2,
-    "afterHeaderGap": 18,
+    "headerHeight": 88,
+    "dividerHeight": 1,
+    "afterHeaderGap": 15,
     "body": {
       "width": 1200,
-      "height": 578,
+      "height": 644,
       "browserWidth": 816,
       "gap": 24,
       "detailWidth": 360
     },
     "filters": {
       "height": 48,
-      "groupWidth": 195,
-      "groupGap": 12,
-      "buttonHeight": 44,
-      "activeAccentHeight": 4
+      "allGroupWidth": 96,
+      "otherGroupWidth": 112,
+      "groupGap": 8,
+      "buttonHeight": 45,
+      "activeAccentHeight": 3,
+      "searchSpacer": 12
     },
     "search": {
-      "width": 816,
-      "height": 48,
-      "gapBefore": 16,
-      "gapAfter": 16
+      "width": 320,
+      "height": 45,
+      "gapAfter": 15,
+      "sharesFilterRow": true
     },
     "scrollViewport": {
       "width": 816,
-      "height": 450,
+      "height": 581,
       "direction": "vertical"
     },
     "cardGrid": {
@@ -89,27 +95,31 @@
       "wrap": true,
       "columns": 4,
       "cardWidth": 186,
-      "cardHeight": 148,
-      "gap": 16,
-      "scrollbarReserve": 24
+      "cardHeight": 182,
+      "gap": 12,
+      "scrollbarReserve": 24,
+      "rowWidthSlack": 12
     },
     "detailImage": [
-      180,
-      180
+      184,
+      184
     ],
     "detailButtons": {
-      "width": 324,
-      "height": 60,
-      "gap": 10
+      "height": 52,
+      "gap": 12,
+      "arrangement": "horizontal",
+      "primaryWidth": 180,
+      "closeWidth": 136
     },
     "feedback": {
-      "gap": 20,
-      "height": 26
+      "gap": 14,
+      "height": 26,
+      "parent": "inventory-detail"
     },
     "hint": {
-      "gapBelowPanel": 32,
+      "gapBelowPanel": 24,
       "width": 226,
-      "height": 44
+      "height": 38
     },
     "intendedResponsiveViewports": [
       [
@@ -124,6 +134,10 @@
         2560,
         1080
       ]
+    ],
+    "detailImageFrame": [
+      328,
+      190
     ]
   },
   "atlas": {
@@ -144,11 +158,11 @@
       1086
     ],
     "brushImageSize": [
-      96,
-      96
+      1448,
+      1086
     ],
     "brushOwnsTextureRoot": true,
-    "cellOrder": "fixture order, row-major"
+    "cellOrder": "one full-texture cell; per-item normalized crop bounds"
   },
   "bindings": {
     "text": [
@@ -159,14 +173,17 @@
       "InventoryDetailName",
       "InventoryDetailCategory",
       "InventoryDetailDescription",
-      "InventoryDetailStats",
+      "InventoryStatLabelOne",
+      "InventoryStatValueOne",
+      "InventoryStatLabelTwo",
+      "InventoryStatValueTwo",
       "InventoryDetailOwned",
       "InventoryPrimaryLabel",
       "InventoryFeedback",
       "InventoryEmpty"
     ],
     "image": [
-      "InventoryDetailImage"
+      "InventoryAtlas"
     ],
     "visibility": [
       "InventoryFilterAllSelected",
@@ -179,7 +196,11 @@
     ],
     "collection": "InventoryItems",
     "recordFields": {
-      "image": "Image",
+      "index": "Number",
+      "cropLeft": "Number",
+      "cropTop": "Number",
+      "cropRight": "Number",
+      "cropBottom": "Number",
       "title": "Text",
       "meta": "Text",
       "selected": "Bool",
@@ -196,7 +217,14 @@
       "InventoryPrimaryAction",
       "InventoryClose"
     ],
-    "dispatchGate": "active Inventory host, not switching screens"
+    "dispatchGate": "active Inventory host, not switching screens",
+    "number": [
+      "InventoryAtlasIndex",
+      "InventoryCropLeft",
+      "InventoryCropTop",
+      "InventoryCropRight",
+      "InventoryCropBottom"
+    ]
   },
   "fixture": [
     {
@@ -390,118 +418,23 @@
     "close": "return focus to gym viewport"
   },
   "verification": {
-    "runtimeStatus": "37-of-37-focused-tests-passed",
-    "notVerified": [
-      "physical gamepad",
-      "real gameplay persistence",
-      "packaged execution"
+    "date": "2026-10-09",
+    "runtime": "4/4 focused MenuProof tests passed; 0 failed/skipped/contaminated; D3D12/SM6",
+    "receipt": "revamp-verification.json",
+    "gateLog": "Saved/Logs/OlderUI-Inventory-Gate-05.log",
+    "scope": [
+      "Admitted named body/display fonts and native text height checks at 720p/1080p/ultrawide",
+      "All visible keyed cards within results bounds, including all twelve initial cards",
+      "Unwrapped button labels fit actual inner content width, including disabled empty-state primary label",
+      "Filters, search input/debounce, directional card navigation, equip/unequip, supply depletion, empty selection and disabled actions",
+      "Invalid/stale requests, source reload acceptance/rejection, close/reopen state and actual PIE teardown",
+      "Scripted Pause actual [1] activation/focus/Tab/Escape/reopen/EndPlay; native Pause and Settings siblings"
     ],
-    "focusedCoverage": [
-      "gym [3] entry",
-      "initial fixture and native controls",
-      "malformed seed rejection",
-      "valid active-host reuse",
-      "filter/search and empty state",
-      "keyboard focus/navigation",
-      "equip/unequip",
-      "supply depletion",
-      "stale card suppression",
-      "reload accept/reject",
-      "three viewport captures",
-      "close/reopen persistence",
-      "screen replacement",
-      "Escape",
-      "PIE EndPlay cleanup"
-    ],
-    "evidencePathsBase": "CkPlugins project root",
-    "buildLogs": [
-      "Saved/Logs/InventoryMenuProof-Build-04.log",
-      "Saved/Logs/InventoryMenuProof-Build-05.log"
-    ],
-    "gateLog": "Saved/Logs/InventoryMenuProof-Gate-04.log",
-    "gate": {
-      "total": 37,
-      "passed": 37,
-      "failed": 0,
-      "skipped": 0,
-      "contaminated": 0,
-      "renderer": "native RHI",
-      "freshTestBoot": true,
-      "durationSeconds": 438
-    },
-    "nativeCaptures": [
-      {
-        "path": "Documentation/UI/InventoryMenuProof/native-inventory-all-1280x720.png",
-        "resolution": [
-          1280,
-          720
-        ],
-        "sourceRun": "InventoryMenuProof-Gate-04"
-      },
-      {
-        "path": "Documentation/UI/InventoryMenuProof/native-inventory-all-1920x1080.png",
-        "resolution": [
-          1920,
-          1080
-        ],
-        "sourceRun": "InventoryMenuProof-Gate-04"
-      },
-      {
-        "path": "Documentation/UI/InventoryMenuProof/native-inventory-all-2560x1080.png",
-        "resolution": [
-          2560,
-          1080
-        ],
-        "sourceRun": "InventoryMenuProof-Gate-04"
-      },
-      {
-        "path": "Documentation/UI/InventoryMenuProof/native-inventory-scrolled-1920x1080.png",
-        "resolution": [
-          1920,
-          1080
-        ],
-        "sourceRun": "InventoryMenuProof-Gate-04"
-      },
-      {
-        "path": "Documentation/UI/InventoryMenuProof/native-inventory-empty-1920x1080.png",
-        "resolution": [
-          1920,
-          1080
-        ],
-        "sourceRun": "InventoryMenuProof-Gate-04"
-      }
-    ],
-    "reviewedResolutions": [
-      [
-        1280,
-        720
-      ],
-      [
-        1920,
-        1080
-      ],
-      [
-        2560,
-        1080
-      ]
-    ],
-    "sourcePreflight": {
-      "inventoryIds": 58,
-      "usedCssClasses": 47,
-      "declaredCssClasses": 47,
-      "contractNodes": 58,
-      "negativeFixturesRejected": [
-        "undefined class",
-        "duplicate ID",
-        "malformed contract JSON",
-        "contract node identity mismatch",
-        "missing source file"
-      ]
-    },
-    "visualLimits": [
-      "native search retains its default background and subdued placeholder skin",
-      "third card row intentionally requires scrolling; long metadata ellipsizes after the quantity",
-      "capture includes CkTests fixture debug/input overlays"
+    "notCovered": [
+      "Generated illustrative reference and existing item artwork; not a game-specific pixel-identical replica",
+      "Fixed 1920x1080 logical canvas with uniform scaling/ultrawide letterboxing, not independent responsive layout",
+      "Physical gamepad, localization coverage, cooked execution and gameplay persistence unverified",
+      "Focused MenuProof gate only; no repository-wide regression claim"
     ]
   },
   "nodes": [
@@ -546,11 +479,11 @@
         "width": "1280px",
         "height": "800px",
         "horizontal-align": "center",
-        "padding": "32px 40px",
-        "background-color": "#182129F5",
+        "padding": "26px 40px",
+        "background-color": "#182129E8",
         "border-color": "#56616A",
         "border-width": "1px",
-        "border-radius": "16px"
+        "border-radius": "12px"
       }
     },
     {
@@ -565,7 +498,7 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "height": "90px"
+        "height": "88px"
       }
     },
     {
@@ -597,8 +530,9 @@
         "bind": "InventoryTitle"
       },
       "resolvedStyle": {
-        "height": "56px",
-        "font-size": "48",
+        "height": "58px",
+        "font-family": "inventory-display",
+        "font-size": "32px",
         "font-weight": "bold",
         "color": "#F4F0E6",
         "text-wrap": "nowrap"
@@ -618,8 +552,9 @@
         "bind": "InventorySubtitle"
       },
       "resolvedStyle": {
-        "height": "32px",
-        "font-size": "21",
+        "height": "30px",
+        "font-family": "inventory-ui",
+        "font-size": "16px",
         "color": "#ADB4BA",
         "text-wrap": "nowrap"
       }
@@ -639,8 +574,10 @@
       },
       "resolvedStyle": {
         "width": "160px",
-        "font-size": "20",
+        "font-family": "inventory-ui",
+        "font-size": "19px",
         "color": "#E7AD4A",
+        "text-align": "right",
         "horizontal-align": "right",
         "vertical-align": "center"
       }
@@ -657,7 +594,7 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "height": "2px",
+        "height": "1px",
         "background-color": "#56616A",
         "border-radius": "0px"
       }
@@ -674,7 +611,7 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "height": "18px"
+        "height": "15px"
       }
     },
     {
@@ -690,7 +627,7 @@
       "attributes": {},
       "resolvedStyle": {
         "width": "1200px",
-        "height": "578px",
+        "height": "644px",
         "gap": "24px"
       }
     },
@@ -707,7 +644,7 @@
       "attributes": {},
       "resolvedStyle": {
         "width": "816px",
-        "height": "578px"
+        "height": "644px"
       }
     },
     {
@@ -722,8 +659,9 @@
       ],
       "attributes": {},
       "resolvedStyle": {
+        "width": "816px",
         "height": "48px",
-        "gap": "12px"
+        "gap": "8px"
       }
     },
     {
@@ -734,11 +672,12 @@
       "nativeWidget": "Yoga-backed Slate column",
       "role": "filter all group",
       "classes": [
-        "filter-group"
+        "filter-group",
+        "filter-all-group"
       ],
       "attributes": {},
       "resolvedStyle": {
-        "width": "195px",
+        "width": "96px",
         "height": "48px"
       }
     },
@@ -750,15 +689,17 @@
       "nativeWidget": "native Slate button",
       "role": "filter all",
       "classes": [
-        "filter-button"
+        "filter-button",
+        "filter-all-button"
       ],
       "attributes": {
         "action": "InventoryFilterAll"
       },
       "resolvedStyle": {
-        "width": "195px",
-        "height": "44px",
-        "font-size": "18",
+        "width": "96px",
+        "height": "45px",
+        "font-family": "inventory-ui",
+        "font-size": "15px",
         "color": "#F4F0E6",
         "text-wrap": "nowrap",
         "-ck-button-text-align": "center",
@@ -773,9 +714,9 @@
         "-ck-button-focus-outline-width": "2px",
         "-ck-button-pressed-background": "#B87929",
         "-ck-button-color": "#F4F0E6",
-        "-ck-button-radius": "8px",
+        "-ck-button-radius": "5px",
         "-ck-button-outline-width": "1px",
-        "-ck-button-padding-x": "15px"
+        "-ck-button-padding-x": "8px"
       },
       "literalText": "All"
     },
@@ -787,14 +728,15 @@
       "nativeWidget": "Yoga-backed Slate column",
       "role": "filter all accent",
       "classes": [
-        "filter-accent"
+        "filter-accent",
+        "filter-all-accent"
       ],
       "attributes": {
         "visible": "InventoryFilterAllSelected"
       },
       "resolvedStyle": {
-        "width": "195px",
-        "height": "4px",
+        "width": "96px",
+        "height": "3px",
         "background-color": "#E7AD4A",
         "border-radius": "0px"
       }
@@ -811,7 +753,7 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "width": "195px",
+        "width": "112px",
         "height": "48px"
       }
     },
@@ -829,9 +771,10 @@
         "action": "InventoryFilterEquipment"
       },
       "resolvedStyle": {
-        "width": "195px",
-        "height": "44px",
-        "font-size": "18",
+        "width": "112px",
+        "height": "45px",
+        "font-family": "inventory-ui",
+        "font-size": "15px",
         "color": "#F4F0E6",
         "text-wrap": "nowrap",
         "-ck-button-text-align": "center",
@@ -846,9 +789,9 @@
         "-ck-button-focus-outline-width": "2px",
         "-ck-button-pressed-background": "#B87929",
         "-ck-button-color": "#F4F0E6",
-        "-ck-button-radius": "8px",
+        "-ck-button-radius": "5px",
         "-ck-button-outline-width": "1px",
-        "-ck-button-padding-x": "15px"
+        "-ck-button-padding-x": "8px"
       },
       "literalText": "Equipment"
     },
@@ -866,8 +809,8 @@
         "visible": "InventoryFilterEquipmentSelected"
       },
       "resolvedStyle": {
-        "width": "195px",
-        "height": "4px",
+        "width": "112px",
+        "height": "3px",
         "background-color": "#E7AD4A",
         "border-radius": "0px"
       }
@@ -884,7 +827,7 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "width": "195px",
+        "width": "112px",
         "height": "48px"
       }
     },
@@ -902,9 +845,10 @@
         "action": "InventoryFilterSupplies"
       },
       "resolvedStyle": {
-        "width": "195px",
-        "height": "44px",
-        "font-size": "18",
+        "width": "112px",
+        "height": "45px",
+        "font-family": "inventory-ui",
+        "font-size": "15px",
         "color": "#F4F0E6",
         "text-wrap": "nowrap",
         "-ck-button-text-align": "center",
@@ -919,9 +863,9 @@
         "-ck-button-focus-outline-width": "2px",
         "-ck-button-pressed-background": "#B87929",
         "-ck-button-color": "#F4F0E6",
-        "-ck-button-radius": "8px",
+        "-ck-button-radius": "5px",
         "-ck-button-outline-width": "1px",
-        "-ck-button-padding-x": "15px"
+        "-ck-button-padding-x": "8px"
       },
       "literalText": "Supplies"
     },
@@ -939,8 +883,8 @@
         "visible": "InventoryFilterSuppliesSelected"
       },
       "resolvedStyle": {
-        "width": "195px",
-        "height": "4px",
+        "width": "112px",
+        "height": "3px",
         "background-color": "#E7AD4A",
         "border-radius": "0px"
       }
@@ -957,7 +901,7 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "width": "195px",
+        "width": "112px",
         "height": "48px"
       }
     },
@@ -975,9 +919,10 @@
         "action": "InventoryFilterMaterials"
       },
       "resolvedStyle": {
-        "width": "195px",
-        "height": "44px",
-        "font-size": "18",
+        "width": "112px",
+        "height": "45px",
+        "font-family": "inventory-ui",
+        "font-size": "15px",
         "color": "#F4F0E6",
         "text-wrap": "nowrap",
         "-ck-button-text-align": "center",
@@ -992,9 +937,9 @@
         "-ck-button-focus-outline-width": "2px",
         "-ck-button-pressed-background": "#B87929",
         "-ck-button-color": "#F4F0E6",
-        "-ck-button-radius": "8px",
+        "-ck-button-radius": "5px",
         "-ck-button-outline-width": "1px",
-        "-ck-button-padding-x": "15px"
+        "-ck-button-padding-x": "8px"
       },
       "literalText": "Materials"
     },
@@ -1012,8 +957,8 @@
         "visible": "InventoryFilterMaterialsSelected"
       },
       "resolvedStyle": {
-        "width": "195px",
-        "height": "4px",
+        "width": "112px",
+        "height": "3px",
         "background-color": "#E7AD4A",
         "border-radius": "0px"
       }
@@ -1021,7 +966,7 @@
     {
       "id": "inventory-filter-gap",
       "tag": "column",
-      "parentId": "inventory-browser",
+      "parentId": "inventory-filters",
       "scope": "main-region",
       "nativeWidget": "Yoga-backed Slate column",
       "role": "filter gap",
@@ -1030,26 +975,26 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "height": "16px"
+        "width": "12px"
       }
     },
     {
       "id": "inventory-search",
       "tag": "search",
-      "parentId": "inventory-browser",
+      "parentId": "inventory-filters",
       "scope": "main-region",
-      "nativeWidget": "native Slate search box",
+      "nativeWidget": "retained native Slate search",
       "role": "search",
       "classes": [
         "search"
       ],
       "attributes": {
         "bind": "InventorySearch",
-        "placeholder": "Search inventory"
+        "placeholder": "Search items..."
       },
       "resolvedStyle": {
-        "width": "816px",
-        "height": "48px",
+        "width": "320px",
+        "height": "45px",
         "font-size": "18px",
         "color": "#F4F0E6"
       }
@@ -1066,7 +1011,7 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "height": "16px"
+        "height": "15px"
       }
     },
     {
@@ -1074,7 +1019,7 @@
       "tag": "overlay",
       "parentId": "inventory-browser",
       "scope": "main-region",
-      "nativeWidget": "native Slate overlay",
+      "nativeWidget": "Yoga-backed Slate overlay",
       "role": "results",
       "classes": [
         "results"
@@ -1082,7 +1027,7 @@
       "attributes": {},
       "resolvedStyle": {
         "width": "816px",
-        "height": "450px"
+        "height": "581px"
       }
     },
     {
@@ -1090,7 +1035,7 @@
       "tag": "scroll",
       "parentId": "inventory-results",
       "scope": "main-region",
-      "nativeWidget": "native Slate scroll box",
+      "nativeWidget": "native Slate scroll",
       "role": "scroll",
       "classes": [
         "results"
@@ -1100,7 +1045,7 @@
       },
       "resolvedStyle": {
         "width": "816px",
-        "height": "450px"
+        "height": "581px"
       }
     },
     {
@@ -1108,7 +1053,7 @@
       "tag": "repeat",
       "parentId": "inventory-scroll",
       "scope": "main-region",
-      "nativeWidget": "native Slate repeater",
+      "nativeWidget": "typed native repeat",
       "role": "items",
       "classes": [
         "cards"
@@ -1119,7 +1064,7 @@
       },
       "resolvedStyle": {
         "width": "792px",
-        "gap": "16px",
+        "gap": "12px",
         "flex-wrap": "wrap"
       }
     },
@@ -1128,7 +1073,7 @@
       "tag": "action-card",
       "parentId": "inventory-items",
       "scope": "repeat-item-local",
-      "nativeWidget": "registered native Slate action card",
+      "nativeWidget": "registered native action card",
       "role": "card",
       "classes": [
         "card"
@@ -1139,8 +1084,8 @@
       },
       "resolvedStyle": {
         "width": "186px",
-        "height": "148px",
-        "-ck-action-card-background": "#25333E",
+        "height": "182px",
+        "-ck-action-card-background": "#202D36",
         "-ck-action-card-hover-background": "#314453",
         "-ck-action-card-pressed-background": "#3E5260",
         "-ck-action-card-disabled-background": "#1B2730",
@@ -1148,7 +1093,7 @@
         "-ck-action-card-border-color": "#56616A",
         "-ck-action-card-selected-border-color": "#E7AD4A",
         "-ck-action-card-focus-border-color": "#FFF6DF",
-        "-ck-action-card-radius": "9px",
+        "-ck-action-card-radius": "7px",
         "-ck-action-card-border-width": "1px",
         "-ck-action-card-padding": "8px"
       }
@@ -1166,25 +1111,33 @@
       "attributes": {},
       "resolvedStyle": {
         "width": "170px",
-        "height": "130px"
+        "height": "164px"
       }
     },
     {
       "id": "inventory-card-image",
-      "tag": "image",
+      "tag": "atlas-image",
       "parentId": "inventory-card-content",
       "scope": "repeat-item-local",
-      "nativeWidget": "native Slate image",
+      "nativeWidget": "registered native atlas image",
       "role": "card image",
       "classes": [
         "card-image"
       ],
       "attributes": {
-        "bind-field": "image"
+        "image-bind": "InventoryAtlas",
+        "index-field": "index",
+        "crop-left-field": "cropLeft",
+        "crop-top-field": "cropTop",
+        "crop-right-field": "cropRight",
+        "crop-bottom-field": "cropBottom",
+        "columns": "1",
+        "rows": "1",
+        "aspect-fit": "true"
       },
       "resolvedStyle": {
-        "width": "78px",
-        "height": "78px",
+        "width": "170px",
+        "height": "108px",
         "horizontal-align": "center"
       }
     },
@@ -1202,11 +1155,12 @@
         "bind-field": "title"
       },
       "resolvedStyle": {
-        "height": "25px",
-        "font-size": "17",
+        "width": "170px",
+        "height": "30px",
+        "font-family": "inventory-ui",
+        "font-size": "16px",
         "font-weight": "bold",
         "color": "#F4F0E6",
-        "horizontal-align": "center",
         "text-wrap": "nowrap",
         "text-overflow": "ellipsis"
       }
@@ -1225,10 +1179,11 @@
         "bind-field": "meta"
       },
       "resolvedStyle": {
-        "height": "23px",
-        "font-size": "14",
+        "width": "170px",
+        "height": "26px",
+        "font-family": "inventory-ui",
+        "font-size": "13px",
         "color": "#ADB4BA",
-        "horizontal-align": "center",
         "text-wrap": "nowrap",
         "text-overflow": "ellipsis"
       }
@@ -1248,7 +1203,7 @@
       },
       "resolvedStyle": {
         "width": "816px",
-        "height": "450px",
+        "height": "581px",
         "horizontal-align": "center",
         "vertical-align": "center"
       }
@@ -1267,7 +1222,8 @@
         "bind": "InventoryEmpty"
       },
       "resolvedStyle": {
-        "font-size": "22",
+        "font-family": "inventory-ui",
+        "font-size": "20px",
         "color": "#ADB4BA",
         "horizontal-align": "center",
         "vertical-align": "center"
@@ -1286,12 +1242,12 @@
       "attributes": {},
       "resolvedStyle": {
         "width": "360px",
-        "height": "578px",
-        "padding": "18px",
-        "background-color": "#202C35",
+        "height": "644px",
+        "padding": "16px",
+        "background-color": "#202C35D9",
         "border-color": "#56616A",
         "border-width": "1px",
-        "border-radius": "12px"
+        "border-radius": "8px"
       }
     },
     {
@@ -1308,49 +1264,55 @@
         "visible": "InventoryHasSelection"
       },
       "resolvedStyle": {
-        "width": "324px"
+        "width": "328px"
+      }
+    },
+    {
+      "id": "inventory-detail-image-frame",
+      "tag": "column",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "detail image frame",
+      "classes": [
+        "detail-image-frame"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "328px",
+        "height": "174px",
+        "border-color": "#56616A",
+        "border-width": "1px",
+        "border-radius": "6px",
+        "background-color": "#18242D"
       }
     },
     {
       "id": "inventory-detail-image",
-      "tag": "image",
-      "parentId": "inventory-detail-content",
+      "tag": "atlas-image",
+      "parentId": "inventory-detail-image-frame",
       "scope": "main-region",
-      "nativeWidget": "native Slate image",
+      "nativeWidget": "registered native atlas image",
       "role": "detail image",
       "classes": [
         "detail-image"
       ],
       "attributes": {
-        "bind": "InventoryDetailImage"
+        "image-bind": "InventoryAtlas",
+        "index-bind": "InventoryAtlasIndex",
+        "crop-left-bind": "InventoryCropLeft",
+        "crop-top-bind": "InventoryCropTop",
+        "crop-right-bind": "InventoryCropRight",
+        "crop-bottom-bind": "InventoryCropBottom",
+        "columns": "1",
+        "rows": "1",
+        "aspect-fit": "true"
       },
       "resolvedStyle": {
-        "width": "180px",
-        "height": "180px",
-        "horizontal-align": "center"
-      }
-    },
-    {
-      "id": "inventory-detail-name",
-      "tag": "text",
-      "parentId": "inventory-detail-content",
-      "scope": "main-region",
-      "nativeWidget": "native Slate text",
-      "role": "detail name",
-      "classes": [
-        "detail-name"
-      ],
-      "attributes": {
-        "bind": "InventoryDetailName"
-      },
-      "resolvedStyle": {
-        "height": "44px",
-        "font-size": "30",
-        "font-weight": "bold",
-        "color": "#F4F0E6",
+        "width": "168px",
+        "height": "168px",
         "horizontal-align": "center",
-        "text-wrap": "nowrap",
-        "text-overflow": "ellipsis"
+        "vertical-align": "center"
       }
     },
     {
@@ -1367,10 +1329,37 @@
         "bind": "InventoryDetailCategory"
       },
       "resolvedStyle": {
-        "height": "28px",
-        "font-size": "17",
+        "width": "328px",
+        "height": "26px",
+        "font-family": "inventory-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
         "color": "#E7AD4A",
-        "horizontal-align": "center"
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "inventory-detail-name",
+      "tag": "text",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail name",
+      "classes": [
+        "detail-name"
+      ],
+      "attributes": {
+        "bind": "InventoryDetailName"
+      },
+      "resolvedStyle": {
+        "width": "328px",
+        "height": "48px",
+        "font-family": "inventory-display",
+        "font-size": "26px",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "text-wrap": "nowrap",
+        "text-overflow": "ellipsis"
       }
     },
     {
@@ -1387,29 +1376,166 @@
         "bind": "InventoryDetailDescription"
       },
       "resolvedStyle": {
-        "height": "92px",
-        "font-size": "19",
+        "width": "328px",
+        "height": "80px",
+        "font-family": "inventory-ui",
+        "font-size": "15px",
         "color": "#D8DADD",
         "text-wrap": "wrap"
       }
     },
     {
-      "id": "inventory-detail-stats",
-      "tag": "text",
+      "id": "inventory-detail-rule-one",
+      "tag": "column",
       "parentId": "inventory-detail-content",
       "scope": "main-region",
-      "nativeWidget": "native Slate text",
-      "role": "detail stats",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "detail rule one",
       "classes": [
-        "detail-stats"
+        "detail-rule"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "328px",
+        "height": "1px",
+        "background-color": "#56616A"
+      }
+    },
+    {
+      "id": "inventory-detail-stat-row-one",
+      "tag": "row",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "detail stat row one",
+      "classes": [
+        "detail-stat-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "328px",
+        "height": "30px"
+      }
+    },
+    {
+      "id": "inventory-detail-stat-label-one",
+      "tag": "text",
+      "parentId": "inventory-detail-stat-row-one",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail stat label one",
+      "classes": [
+        "detail-stat-label"
       ],
       "attributes": {
-        "bind": "InventoryDetailStats"
+        "bind": "InventoryStatLabelOne"
       },
       "resolvedStyle": {
+        "width": "210px",
         "height": "30px",
-        "font-size": "19",
-        "color": "#F4F0E6"
+        "font-family": "inventory-ui",
+        "font-size": "16px",
+        "color": "#ADB4BA"
+      }
+    },
+    {
+      "id": "inventory-detail-stat-value-one",
+      "tag": "text",
+      "parentId": "inventory-detail-stat-row-one",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail stat value one",
+      "classes": [
+        "detail-stat-value"
+      ],
+      "attributes": {
+        "bind": "InventoryStatValueOne"
+      },
+      "resolvedStyle": {
+        "width": "118px",
+        "height": "30px",
+        "font-family": "inventory-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "text-align": "right"
+      }
+    },
+    {
+      "id": "inventory-detail-stat-row-two",
+      "tag": "row",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "detail stat row two",
+      "classes": [
+        "detail-stat-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "328px",
+        "height": "30px"
+      }
+    },
+    {
+      "id": "inventory-detail-stat-label-two",
+      "tag": "text",
+      "parentId": "inventory-detail-stat-row-two",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail stat label two",
+      "classes": [
+        "detail-stat-label"
+      ],
+      "attributes": {
+        "bind": "InventoryStatLabelTwo"
+      },
+      "resolvedStyle": {
+        "width": "210px",
+        "height": "30px",
+        "font-family": "inventory-ui",
+        "font-size": "16px",
+        "color": "#ADB4BA"
+      }
+    },
+    {
+      "id": "inventory-detail-stat-value-two",
+      "tag": "text",
+      "parentId": "inventory-detail-stat-row-two",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "detail stat value two",
+      "classes": [
+        "detail-stat-value"
+      ],
+      "attributes": {
+        "bind": "InventoryStatValueTwo"
+      },
+      "resolvedStyle": {
+        "width": "118px",
+        "height": "30px",
+        "font-family": "inventory-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "text-align": "right"
+      }
+    },
+    {
+      "id": "inventory-detail-rule-two",
+      "tag": "column",
+      "parentId": "inventory-detail-content",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "detail rule two",
+      "classes": [
+        "detail-rule"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "328px",
+        "height": "1px",
+        "background-color": "#56616A"
       }
     },
     {
@@ -1426,8 +1552,10 @@
         "bind": "InventoryDetailOwned"
       },
       "resolvedStyle": {
-        "height": "29px",
-        "font-size": "17",
+        "width": "328px",
+        "height": "30px",
+        "font-family": "inventory-ui",
+        "font-size": "15px",
         "color": "#ADB4BA"
       }
     },
@@ -1447,9 +1575,25 @@
       }
     },
     {
+      "id": "inventory-detail-actions",
+      "tag": "row",
+      "parentId": "inventory-detail",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "detail actions",
+      "classes": [
+        "detail-actions"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "328px",
+        "height": "52px"
+      }
+    },
+    {
       "id": "inventory-primary-action",
       "tag": "button",
-      "parentId": "inventory-detail",
+      "parentId": "inventory-detail-actions",
       "scope": "main-region",
       "nativeWidget": "native Slate button",
       "role": "primary action",
@@ -1462,9 +1606,12 @@
         "bind": "InventoryPrimaryLabel"
       },
       "resolvedStyle": {
-        "width": "324px",
-        "height": "60px",
-        "font-size": "23",
+        "width": "180px",
+        "height": "52px",
+        "font-family": "inventory-ui",
+        "font-size": "18px",
+        "text-wrap": "nowrap",
+        "-ck-button-padding-x": "8px",
         "font-weight": "bold",
         "-ck-button-text-align": "center",
         "-ck-button-content-vertical-align": "center",
@@ -1476,14 +1623,14 @@
         "-ck-button-focus-outline-width": "2px",
         "-ck-button-disabled-background": "#36424A",
         "-ck-button-disabled-color": "#727F8A",
-        "-ck-button-radius": "8px",
+        "-ck-button-radius": "6px",
         "-ck-button-outline-width": "1px"
       }
     },
     {
       "id": "inventory-detail-button-gap",
       "tag": "column",
-      "parentId": "inventory-detail",
+      "parentId": "inventory-detail-actions",
       "scope": "main-region",
       "nativeWidget": "Yoga-backed Slate column",
       "role": "detail button gap",
@@ -1492,13 +1639,13 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "height": "10px"
+        "width": "12px"
       }
     },
     {
       "id": "inventory-close",
       "tag": "button",
-      "parentId": "inventory-detail",
+      "parentId": "inventory-detail-actions",
       "scope": "main-region",
       "nativeWidget": "native Slate button",
       "role": "close",
@@ -1510,21 +1657,24 @@
         "action": "InventoryClose"
       },
       "resolvedStyle": {
-        "width": "324px",
-        "height": "60px",
-        "font-size": "23",
+        "width": "136px",
+        "height": "52px",
+        "font-family": "inventory-ui",
+        "font-size": "18px",
+        "text-wrap": "nowrap",
+        "-ck-button-padding-x": "8px",
         "font-weight": "bold",
         "-ck-button-text-align": "center",
         "-ck-button-content-vertical-align": "center",
         "-ck-button-background": "#25333E",
         "-ck-button-color": "#F4F0E6",
-        "-ck-button-hover-background": "#F4C46C",
-        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-pressed-background": "#25333E",
         "-ck-button-focus-outline-color": "#FFF6DF",
         "-ck-button-focus-outline-width": "2px",
         "-ck-button-disabled-background": "#36424A",
         "-ck-button-disabled-color": "#727F8A",
-        "-ck-button-radius": "8px",
+        "-ck-button-radius": "6px",
         "-ck-button-outline-width": "1px",
         "-ck-button-border-color": "#56616A"
       },
@@ -1533,7 +1683,7 @@
     {
       "id": "inventory-footer-gap",
       "tag": "column",
-      "parentId": "inventory-panel",
+      "parentId": "inventory-detail",
       "scope": "main-region",
       "nativeWidget": "Yoga-backed Slate column",
       "role": "footer gap",
@@ -1542,13 +1692,13 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "height": "20px"
+        "height": "14px"
       }
     },
     {
       "id": "inventory-feedback",
       "tag": "text",
-      "parentId": "inventory-panel",
+      "parentId": "inventory-detail",
       "scope": "main-region",
       "nativeWidget": "native Slate text",
       "role": "feedback",
@@ -1559,9 +1709,12 @@
         "bind": "InventoryFeedback"
       },
       "resolvedStyle": {
+        "width": "328px",
         "height": "26px",
-        "font-size": "17",
-        "color": "#ADB4BA"
+        "font-family": "inventory-ui",
+        "font-size": "14px",
+        "color": "#ADB4BA",
+        "text-align": "center"
       }
     },
     {
@@ -1576,7 +1729,7 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "height": "32px"
+        "height": "24px"
       }
     },
     {
@@ -1592,51 +1745,38 @@
       "attributes": {},
       "resolvedStyle": {
         "width": "226px",
-        "height": "44px",
-        "gap": "12px",
+        "height": "38px",
+        "gap": "10px",
         "horizontal-align": "center"
       }
     },
     {
       "id": "inventory-keycap",
-      "tag": "column",
+      "tag": "key-hint",
       "parentId": "inventory-input-hint",
       "scope": "main-region",
-      "nativeWidget": "Yoga-backed Slate column",
+      "nativeWidget": "registered native key hint",
       "role": "keycap",
       "classes": [
         "keycap"
       ],
-      "attributes": {},
-      "resolvedStyle": {
-        "width": "62px",
-        "height": "42px",
-        "padding": "8px",
-        "background-color": "#182129",
-        "border-color": "#7B8790",
-        "border-width": "1px",
-        "border-radius": "8px"
-      }
-    },
-    {
-      "id": "inventory-key",
-      "tag": "text",
-      "parentId": "inventory-keycap",
-      "scope": "main-region",
-      "nativeWidget": "native Slate text",
-      "role": "key",
-      "classes": [
-        "key-label"
-      ],
-      "attributes": {},
-      "resolvedStyle": {
-        "font-size": "17",
-        "color": "#F4F0E6",
-        "horizontal-align": "center",
-        "vertical-align": "center",
-        "text-wrap": "nowrap"
+      "attributes": {
+        "label": "ESC",
+        "font-family": "inventory-ui"
       },
-      "literalText": "ESC"
+      "resolvedStyle": {
+        "width": "58px",
+        "height": "34px",
+        "vertical-align": "center",
+        "-ck-key-hint-font-size": "14px",
+        "-ck-key-hint-foreground": "#F4F0E6",
+        "-ck-key-hint-background": "#182129D9",
+        "-ck-key-hint-border-color": "#7B8790",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "4px",
+        "-ck-key-hint-padding-x": "4px",
+        "-ck-key-hint-padding-y": "2px"
+      }
     },
     {
       "id": "inventory-hint-label",
@@ -1650,7 +1790,9 @@
       ],
       "attributes": {},
       "resolvedStyle": {
-        "font-size": "17",
+        "height": "38px",
+        "font-family": "inventory-ui",
+        "font-size": "15px",
         "color": "#ADB4BA",
         "vertical-align": "center",
         "text-wrap": "nowrap"
@@ -1673,5 +1815,5 @@
       }
     }
   ],
-  "nodeCount": 58
+  "nodeCount": 66
 }

@@ -1,8 +1,11 @@
 {
   "schemaVersion": 1,
   "name": "Skyrim quest journal",
-  "status": "native-focused-passed",
-  "verification": "verification-receipt.json",
+  "status": "focused-native-verified",
+  "verification": "../ReplicaRemakes/verification-receipt.json",
+  "visualReview": "Fresh native captures confirm aligned shared footer keycaps, transparent tab/tree focus chrome and the selected Miscellaneous row fully revealed. Substitute typeface, recreated ornaments and native scrollbar remain fidelity limits.",
+  "selectionScroll": "Journal quest and objective trees opt into deferred scroll-into-view after a newly accepted semantic key; invalid, filtered, cleared, and unchanged keys do not scroll",
+  "tabFocus": "Authored transparent -ck-tabs-focus-outline-color suppresses default blue header focus chrome while active markers remain visible",
   "reference": {
     "manual": "https://cdn.akamai.steamstatic.com/steam/apps/72850/manuals/skyrim_gfw_manual-07.pdf?t=1647357402",
     "visual": "https://4.bp.blogspot.com/-OnrY9WaMLms/T0WHwU3-1fI/AAAAAAAABPY/JlUAiiywJrc/s1600/Skyrimmiscellaneousquests.jpg",
@@ -18,7 +21,8 @@
     "USafeZone",
     "UScaleBox ScaleToFit",
     "USizeBox 1920x1080",
-    "UCk_UI_AuthoredSurface_UE"
+    "UCk_UI_AuthoredSurface_UE",
+    "shared replica presentation fonts and bound scene image"
   ],
   "bindings": {
     "String": [
@@ -33,12 +37,13 @@
       "QuestState",
       "StatsSummary",
       "SystemSummary",
-      "FooterKeys",
       "FooterStatus",
       "FooterDate"
     ],
     "Visibility": [
-      "QuestSummaryVisible"
+      "QuestSummaryVisible",
+      "QuestFooterVisible",
+      "CategoryFooterVisible"
     ],
     "Trees": [
       "Quests",
@@ -53,6 +58,9 @@
     ],
     "Actions": [
       "CloseJournal"
+    ],
+    "Image": [
+      "ReplicaBackdrop"
     ]
   },
   "treeFields": {
@@ -67,15 +75,25 @@
     "title-ornament",
     "footer-line"
   ],
-  "nodeCount": 61,
+  "nodeCount": 74,
   "nodes": [
     {
       "id": "journal-region",
-      "tag": "column",
+      "tag": "overlay",
       "parentId": null,
       "scope": "main-region",
       "cssClass": null,
       "attributes": {}
+    },
+    {
+      "id": "replica-backdrop",
+      "tag": "image",
+      "parentId": "journal-region",
+      "scope": "main-region",
+      "cssClass": "replica-backdrop",
+      "attributes": {
+        "bind": "ReplicaBackdrop"
+      }
     },
     {
       "id": "journal-layout",
@@ -163,9 +181,25 @@
       "attributes": {}
     },
     {
+      "id": "journal-body-art",
+      "tag": "overlay",
+      "parentId": "journal-art-stack",
+      "scope": "main-region",
+      "cssClass": "journal-body-art",
+      "attributes": {}
+    },
+    {
+      "id": "journal-body-smoke",
+      "tag": "column",
+      "parentId": "journal-body-art",
+      "scope": "main-region",
+      "cssClass": "journal-body-smoke",
+      "attributes": {}
+    },
+    {
       "id": "journal-frame",
       "tag": "journal-art",
-      "parentId": "journal-art-stack",
+      "parentId": "journal-body-art",
       "scope": "main-region",
       "cssClass": "journal-frame",
       "attributes": {
@@ -243,7 +277,7 @@
       "attributes": {
         "bind": "Quests",
         "selection-action": "SelectQuest",
-        "row-height": "52"
+        "row-height": "46"
       }
     },
     {
@@ -355,7 +389,7 @@
       "attributes": {
         "bind": "Objectives",
         "selection-action": "SelectObjective",
-        "row-height": "58"
+        "row-height": "52"
       }
     },
     {
@@ -581,13 +615,110 @@
     },
     {
       "id": "footer-keys",
-      "tag": "text",
+      "tag": "row",
       "parentId": "journal-footer",
       "scope": "main-region",
       "cssClass": "footer-keys",
       "attributes": {
-        "bind": "FooterKeys"
+        "visible": "QuestFooterVisible"
       }
+    },
+    {
+      "id": "footer-enter-key",
+      "tag": "key-hint",
+      "parentId": "footer-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key footer-key-wide",
+      "attributes": {
+        "label": "ENTER",
+        "font-family": "skyrim-ui"
+      }
+    },
+    {
+      "id": "footer-toggle-label",
+      "tag": "text",
+      "parentId": "footer-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key-label",
+      "attributes": {}
+    },
+    {
+      "id": "footer-map-key",
+      "tag": "key-hint",
+      "parentId": "footer-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key",
+      "attributes": {
+        "label": "M",
+        "font-family": "skyrim-ui"
+      }
+    },
+    {
+      "id": "footer-map-label",
+      "tag": "text",
+      "parentId": "footer-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key-label",
+      "attributes": {}
+    },
+    {
+      "id": "footer-category-keys",
+      "tag": "row",
+      "parentId": "journal-footer",
+      "scope": "main-region",
+      "cssClass": "footer-keys",
+      "attributes": {
+        "visible": "CategoryFooterVisible"
+      }
+    },
+    {
+      "id": "footer-previous-key",
+      "tag": "key-hint",
+      "parentId": "footer-category-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key",
+      "attributes": {
+        "label": "Q",
+        "font-family": "skyrim-ui"
+      }
+    },
+    {
+      "id": "footer-next-key",
+      "tag": "key-hint",
+      "parentId": "footer-category-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key",
+      "attributes": {
+        "label": "E",
+        "font-family": "skyrim-ui"
+      }
+    },
+    {
+      "id": "footer-category-label",
+      "tag": "text",
+      "parentId": "footer-category-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key-label",
+      "attributes": {}
+    },
+    {
+      "id": "footer-close-key",
+      "tag": "key-hint",
+      "parentId": "footer-category-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key footer-key-wide",
+      "attributes": {
+        "label": "ESC",
+        "font-family": "skyrim-ui"
+      }
+    },
+    {
+      "id": "footer-close-label",
+      "tag": "text",
+      "parentId": "footer-category-keys",
+      "scope": "main-region",
+      "cssClass": "footer-key-label",
+      "attributes": {}
     },
     {
       "id": "footer-status",
@@ -617,5 +748,6 @@
         "bind": "FooterDate"
       }
     }
-  ]
+  ],
+  "currentRemakeEvidence": "../ReplicaRemakes/verification-receipt.json"
 }

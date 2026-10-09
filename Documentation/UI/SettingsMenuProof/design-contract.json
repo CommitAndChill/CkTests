@@ -1,11 +1,14 @@
 {
   "schemaVersion": 1,
-  "status": "editor-focused-gate-passed-with-visual-gaps",
-  "date": "2026-10-03",
+  "status": "final-focused-native-verified",
+  "date": "2026-10-09",
   "sourceOfTruth": "code-and-declarative-text",
   "reference": {
     "image": "settings-menu-reference.png",
-    "logicalViewport": [1920, 1080],
+    "logicalViewport": [
+      1920,
+      1080
+    ],
     "geometryIs": "normalized-design-target-not-image-pixel-measurement",
     "runtimeTexture": false,
     "generationPrompt": "generation-prompts.txt"
@@ -18,19 +21,28 @@
     "rootId": "settings-composition"
   },
   "architecture": {
-    "host": "shared code-created CommonUI UCk_PauseMenuProof_UE",
+    "host": "shared code-created CommonUI UCk_PauseMenuProof_UE; direct [2] or Settings child of scripted Pause [1]",
     "authoredDescendants": "native Slate controls hosted by an authored UMG surface",
     "gym": "UI Authoring in CkUI",
     "backend": "in-memory state on the gym PlayerController; no machine settings writes",
-    "sourceStyledControls": ["slider", "checkbox", "select"],
+    "sourceStyledControls": [
+      "slider",
+      "checkbox",
+      "select"
+    ],
     "reload": {
       "compatible": "retain native slider, checkbox, select and open popup; replace ordinary action buttons",
       "invalid": "retain entire accepted view and draft without partial state"
     },
-    "labels": "visible live native FText; screen-reader names deferred"
+    "labels": "visible live native FText; screen-reader names deferred",
+    "fonts": [
+      "menu-ui Source Sans 3 Regular/Bold",
+      "menu-display Source Sans 3 Regular/Bold"
+    ],
+    "registeredControl": "key-hint plus existing slider, checkbox, select"
   },
   "palette": {
-    "panel": "#182129F5",
+    "panel": "#182129F0",
     "panelBorder": "#56616A",
     "text": "#F4F0E6",
     "muted": "#ADB4BA",
@@ -41,41 +53,145 @@
     "buttonDisabledText": "#727F8A"
   },
   "geometry": {
-    "panel": {"x": 480, "y": 152, "width": 960, "height": 776, "padding": 56, "radius": 16, "border": 1},
+    "panel": {
+      "x": 480,
+      "y": 152,
+      "width": 960,
+      "height": 776,
+      "padding": 56,
+      "radius": 16,
+      "border": 1
+    },
     "contentWidth": 848,
-    "topSpacerFlex": 152,
-    "bottomSpacerFlex": 68,
-    "hintGap": 32,
-    "hintHeight": 52,
-    "volumeSlider": {"width": 848, "height": 40, "thumbWidth": 28, "thumbHeight": 28, "barThickness": 8},
-    "subtitlesCheckbox": {"size": 48},
-    "displaySelect": {"width": 332, "height": 64},
-    "buttons": {"width": 160, "height": 72, "gap": 16},
+    "hintGap": 24,
+    "hintHeight": 40,
+    "volumeSlider": {
+      "width": 848,
+      "height": 40,
+      "thumbWidth": 28,
+      "thumbHeight": 28,
+      "barThickness": 8,
+      "fillColor": "#E7AD4A"
+    },
+    "subtitlesCheckbox": {
+      "size": 48
+    },
+    "displaySelect": {
+      "width": 388,
+      "height": 64
+    },
+    "buttons": {
+      "width": 200,
+      "height": 72,
+      "gap": 16
+    },
     "referencePixelTolerance": 4,
-    "responsiveViewports": [[1280, 720], [1920, 1080], [2560, 1080]]
+    "responsiveViewports": [
+      [
+        1280,
+        720
+      ],
+      [
+        1920,
+        1080
+      ],
+      [
+        2560,
+        1080
+      ]
+    ],
+    "footerGap": 44,
+    "titleFontSize": 44,
+    "labelFontSize": 19,
+    "topSpacerHeight": 152,
+    "bottomSpacerFlexGrow": 1
   },
   "bindings": {
-    "text": ["SettingsTitle", "SettingsSubtitle", "VolumeLabel", "VolumeValue", "SubtitlesLabel", "SubtitlesHelper", "DisplayModeLabel", "DirtyStatus", "SettingsCancel", "SettingsApply", "InputSettingsKey", "InputSettingsHint"],
-    "number": ["SettingsVolume"],
-    "boolean": ["SettingsSubtitles", "SettingsDirty", "SettingsCancelEnabled"],
-    "string": ["SettingsDisplayMode"],
-    "options": ["DisplayModes"],
+    "text": [
+      "SettingsTitle",
+      "SettingsSubtitle",
+      "VolumeLabel",
+      "VolumeValue",
+      "SubtitlesLabel",
+      "SubtitlesHelper",
+      "DisplayModeLabel",
+      "DirtyStatus",
+      "SettingsCancel",
+      "SettingsApply",
+      "InputSettingsHint"
+    ],
+    "number": [
+      "SettingsVolume"
+    ],
+    "boolean": [
+      "SettingsSubtitles",
+      "SettingsDirty",
+      "SettingsCancelEnabled"
+    ],
+    "string": [
+      "SettingsDisplayMode"
+    ],
+    "options": [
+      "DisplayModes"
+    ],
     "sliderInteraction": "EditVolume",
     "sliderChanged": "PreviewVolume",
     "checkboxChanged": "EditSubtitles",
     "selectChanged": "EditDisplayMode",
-    "actions": ["CancelSettingsRequested", "ApplySettingsRequested"]
+    "actions": [
+      "CancelSettingsRequested",
+      "ApplySettingsRequested"
+    ],
+    "keyHint": {
+      "id": "settings-keycap",
+      "label": "ESC",
+      "fontFamily": "menu-ui",
+      "action": null
+    }
   },
   "controls": {
-    "volume": {"id": "settings-volume", "range": [0, 100], "step": 1},
-    "subtitles": {"id": "settings-subtitles", "labelOutsideControl": true, "backgroundColor": "#E7AD4A", "checkedImageColor": "#F4F0E6"},
-    "displayMode": {"id": "settings-display-mode", "optionKeys": ["Windowed", "Borderless", "Fullscreen"]},
-    "cancel": {"id": "settings-cancel", "enabledBinding": "SettingsCancelEnabled"},
-    "apply": {"id": "settings-apply", "enabledBinding": "SettingsDirty"}
+    "volume": {
+      "id": "settings-volume",
+      "range": [
+        0,
+        100
+      ],
+      "step": 1
+    },
+    "subtitles": {
+      "id": "settings-subtitles",
+      "labelOutsideControl": true,
+      "backgroundColor": "#E7AD4A",
+      "checkedImageColor": "#F4F0E6"
+    },
+    "displayMode": {
+      "id": "settings-display-mode",
+      "optionKeys": [
+        "Windowed",
+        "Borderless",
+        "Fullscreen"
+      ]
+    },
+    "cancel": {
+      "id": "settings-cancel",
+      "enabledBinding": "SettingsCancelEnabled"
+    },
+    "apply": {
+      "id": "settings-apply",
+      "enabledBinding": "SettingsDirty"
+    }
   },
   "initialState": {
-    "committed": {"volume": 75, "subtitles": true, "displayMode": "Windowed"},
-    "draft": {"volume": 75, "subtitles": true, "displayMode": "Windowed"},
+    "committed": {
+      "volume": 75,
+      "subtitles": true,
+      "displayMode": "Windowed"
+    },
+    "draft": {
+      "volume": 75,
+      "subtitles": true,
+      "displayMode": "Windowed"
+    },
     "dirtyStatus": "No changes",
     "applyEnabled": false
   },
@@ -89,17 +205,765 @@
     "apply": "commit draft in memory and remain on Settings",
     "cancelOrEscape": "discard draft and return to Pause when entered from Pause; otherwise close preview",
     "viewReplacement": "release previous popup and input capture",
-    "gymShortcuts": {"1": "Pause menu", "2": "Settings"},
+    "gymShortcuts": {
+      "1": "Pause menu",
+      "2": "Settings"
+    },
     "menuTab": "native focus traversal without gym selector",
     "persistWithinGymPlayerController": true,
     "writeMachineSettings": false
   },
   "knownVisualGaps": [
-    "native slider bar is uniformly tinted rather than filled amber to value",
     "native slider and closed dropdown retain Slate's default blue keyboard-focus decoration",
-    "native dropdown popup uses gray Slate menu styling; generated reference has no open-popup target"
+    "native dropdown popup uses gray Slate menu styling; generated reference has no open-popup target",
+    "select has no per-control font-family; closed control inherits host menu-ui BaseFont",
+    "current popup retains default gray Slate rows and spacing versus authored closed select; no 99% reference-pixel match claimed"
   ],
-  "validation": {
+  "nodes": [
+    {
+      "id": "settings-composition",
+      "tag": "column",
+      "parentId": null,
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "composition",
+      "classes": [],
+      "attributes": {},
+      "resolvedStyle": {}
+    },
+    {
+      "id": "settings-top-space",
+      "tag": "column",
+      "parentId": "settings-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "top space",
+      "classes": [
+        "top-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "152px"
+      }
+    },
+    {
+      "id": "settings-panel",
+      "tag": "column",
+      "parentId": "settings-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "panel",
+      "classes": [
+        "panel"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "960px",
+        "height": "776px",
+        "horizontal-align": "center",
+        "padding": "56px",
+        "background-color": "#182129F0",
+        "border-color": "#56616A",
+        "border-width": "1px",
+        "border-radius": "16px"
+      }
+    },
+    {
+      "id": "settings-title",
+      "tag": "text",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "title",
+      "classes": [
+        "title"
+      ],
+      "attributes": {
+        "bind": "SettingsTitle"
+      },
+      "resolvedStyle": {
+        "height": "84px",
+        "font-family": "menu-display",
+        "font-size": "44px",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "text-wrap": "nowrap",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "settings-subtitle",
+      "tag": "text",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "subtitle",
+      "classes": [
+        "subtitle"
+      ],
+      "attributes": {
+        "bind": "SettingsSubtitle"
+      },
+      "resolvedStyle": {
+        "height": "36px",
+        "font-family": "menu-ui",
+        "font-size": "18px",
+        "color": "#ADB4BA",
+        "text-wrap": "nowrap",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "settings-header-divider-space",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "header divider space",
+      "classes": [
+        "header-divider-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "22px"
+      }
+    },
+    {
+      "id": "settings-header-divider",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "header divider",
+      "classes": [
+        "divider"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "2px",
+        "background-color": "#56616A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "settings-volume-space",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "volume space",
+      "classes": [
+        "volume-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "34px"
+      }
+    },
+    {
+      "id": "settings-volume-header",
+      "tag": "row",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "volume header",
+      "classes": [
+        "volume-header"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "46px",
+        "horizontal-align": "fill"
+      }
+    },
+    {
+      "id": "settings-volume-label",
+      "tag": "text",
+      "parentId": "settings-volume-header",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "volume label",
+      "classes": [
+        "field-label"
+      ],
+      "attributes": {
+        "bind": "VolumeLabel"
+      },
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "menu-ui",
+        "font-size": "19px",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "settings-volume-value",
+      "tag": "text",
+      "parentId": "settings-volume-header",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "volume value",
+      "classes": [
+        "field-value"
+      ],
+      "attributes": {
+        "bind": "VolumeValue"
+      },
+      "resolvedStyle": {
+        "width": "72px",
+        "font-family": "menu-ui",
+        "font-size": "19px",
+        "color": "#F4F0E6",
+        "text-align": "right",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "settings-volume-slider-space",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "volume slider space",
+      "classes": [
+        "volume-slider-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "16px"
+      }
+    },
+    {
+      "id": "settings-volume",
+      "tag": "slider",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "registered native slider",
+      "role": "volume",
+      "classes": [
+        "volume-slider"
+      ],
+      "attributes": {
+        "value-bind": "SettingsVolume",
+        "interaction": "EditVolume",
+        "changed": "PreviewVolume",
+        "min": "0",
+        "max": "100",
+        "step": "1"
+      },
+      "resolvedStyle": {
+        "width": "848px",
+        "height": "40px",
+        "-ck-slider-bar-color": "#56616A",
+        "-ck-slider-fill-color": "#E7AD4A",
+        "-ck-slider-bar-hover-color": "#7B8790",
+        "-ck-slider-bar-disabled-color": "#36424A",
+        "-ck-slider-thumb-color": "#E7AD4A",
+        "-ck-slider-thumb-hover-color": "#FFF6DF",
+        "-ck-slider-thumb-disabled-color": "#727F8A",
+        "-ck-slider-thumb-width": "28px",
+        "-ck-slider-thumb-height": "28px",
+        "-ck-slider-bar-thickness": "8px"
+      }
+    },
+    {
+      "id": "settings-subtitles-space",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "subtitles space",
+      "classes": [
+        "subtitles-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "44px"
+      }
+    },
+    {
+      "id": "settings-subtitles-row",
+      "tag": "row",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "subtitles row",
+      "classes": [
+        "setting-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "84px",
+        "horizontal-align": "fill"
+      }
+    },
+    {
+      "id": "settings-subtitles-copy",
+      "tag": "column",
+      "parentId": "settings-subtitles-row",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "subtitles copy",
+      "classes": [
+        "subtitles-copy"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "height": "84px"
+      }
+    },
+    {
+      "id": "settings-subtitles-label",
+      "tag": "text",
+      "parentId": "settings-subtitles-copy",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "subtitles label",
+      "classes": [
+        "field-label"
+      ],
+      "attributes": {
+        "bind": "SubtitlesLabel"
+      },
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "menu-ui",
+        "font-size": "19px",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "settings-subtitles-helper",
+      "tag": "text",
+      "parentId": "settings-subtitles-copy",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "subtitles helper",
+      "classes": [
+        "field-helper"
+      ],
+      "attributes": {
+        "bind": "SubtitlesHelper"
+      },
+      "resolvedStyle": {
+        "height": "28px",
+        "font-family": "menu-ui",
+        "font-size": "15px",
+        "color": "#ADB4BA",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "settings-subtitles",
+      "tag": "checkbox",
+      "parentId": "settings-subtitles-row",
+      "scope": "main-region",
+      "nativeWidget": "registered native checkbox",
+      "role": "subtitles",
+      "classes": [
+        "subtitles-checkbox"
+      ],
+      "attributes": {
+        "value-bind": "SettingsSubtitles",
+        "changed": "EditSubtitles"
+      },
+      "resolvedStyle": {
+        "width": "48px",
+        "height": "48px",
+        "vertical-align": "center",
+        "-ck-checkbox-size": "48px",
+        "-ck-checkbox-color": "#56616A",
+        "-ck-checkbox-background-color": "#E7AD4A",
+        "-ck-checkbox-checked-color": "#F4F0E6",
+        "-ck-checkbox-label-color": "#F4F0E6"
+      }
+    },
+    {
+      "id": "settings-display-space",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "display space",
+      "classes": [
+        "display-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "40px"
+      }
+    },
+    {
+      "id": "settings-display-row",
+      "tag": "row",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "display row",
+      "classes": [
+        "setting-row",
+        "display-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "76px",
+        "horizontal-align": "fill"
+      }
+    },
+    {
+      "id": "settings-display-label",
+      "tag": "text",
+      "parentId": "settings-display-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "display label",
+      "classes": [
+        "field-label"
+      ],
+      "attributes": {
+        "bind": "DisplayModeLabel"
+      },
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "menu-ui",
+        "font-size": "19px",
+        "font-weight": "bold",
+        "color": "#F4F0E6",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "settings-display-mode",
+      "tag": "select",
+      "parentId": "settings-display-row",
+      "scope": "main-region",
+      "nativeWidget": "registered native select",
+      "role": "display mode",
+      "classes": [
+        "display-select"
+      ],
+      "attributes": {
+        "value-bind": "SettingsDisplayMode",
+        "options-bind": "DisplayModes",
+        "changed": "EditDisplayMode"
+      },
+      "resolvedStyle": {
+        "width": "388px",
+        "height": "64px",
+        "vertical-align": "center",
+        "-ck-select-font-size": "18",
+        "-ck-select-color": "#F4F0E6",
+        "-ck-select-background-color": "#25333E",
+        "-ck-select-border-color": "#62717B",
+        "-ck-select-accent-color": "#314453",
+        "-ck-select-padding": "16px"
+      }
+    },
+    {
+      "id": "settings-footer-space",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "footer space",
+      "classes": [
+        "footer-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "44px"
+      }
+    },
+    {
+      "id": "settings-footer-divider",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "footer divider",
+      "classes": [
+        "divider"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "2px",
+        "background-color": "#56616A",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "settings-footer-row-space",
+      "tag": "column",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "footer row space",
+      "classes": [
+        "footer-row-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "22px"
+      }
+    },
+    {
+      "id": "settings-footer-row",
+      "tag": "row",
+      "parentId": "settings-panel",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "footer row",
+      "classes": [
+        "footer-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "72px",
+        "horizontal-align": "fill"
+      }
+    },
+    {
+      "id": "settings-dirty-status",
+      "tag": "text",
+      "parentId": "settings-footer-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "dirty status",
+      "classes": [
+        "dirty-status"
+      ],
+      "attributes": {
+        "bind": "DirtyStatus"
+      },
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "menu-ui",
+        "font-size": "16px",
+        "color": "#D5A657",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "settings-actions",
+      "tag": "row",
+      "parentId": "settings-footer-row",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "actions",
+      "classes": [
+        "actions"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "72px",
+        "gap": "16px"
+      }
+    },
+    {
+      "id": "settings-cancel",
+      "tag": "button",
+      "parentId": "settings-actions",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "cancel",
+      "classes": [
+        "game-button"
+      ],
+      "attributes": {
+        "action": "CancelSettingsRequested",
+        "enabled-bind": "SettingsCancelEnabled",
+        "bind": "SettingsCancel"
+      },
+      "resolvedStyle": {
+        "width": "200px",
+        "height": "72px",
+        "font-family": "menu-ui",
+        "font-size": "18px",
+        "font-weight": "bold",
+        "text-wrap": "nowrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#62717B",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-border-color": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-focus-outline-gap": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-pressed-border-color": "#B87929",
+        "-ck-button-pressed-color": "#101A22",
+        "-ck-button-disabled-background": "#1B2730",
+        "-ck-button-disabled-border-color": "#36424A",
+        "-ck-button-disabled-color": "#727F8A",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "16px",
+        "-ck-button-padding-y": "0px"
+      }
+    },
+    {
+      "id": "settings-apply",
+      "tag": "button",
+      "parentId": "settings-actions",
+      "scope": "main-region",
+      "nativeWidget": "native Slate button",
+      "role": "apply",
+      "classes": [
+        "game-button"
+      ],
+      "attributes": {
+        "action": "ApplySettingsRequested",
+        "enabled-bind": "SettingsDirty",
+        "bind": "SettingsApply"
+      },
+      "resolvedStyle": {
+        "width": "200px",
+        "height": "72px",
+        "font-family": "menu-ui",
+        "font-size": "18px",
+        "font-weight": "bold",
+        "text-wrap": "nowrap",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-background": "#25333E",
+        "-ck-button-border-color": "#62717B",
+        "-ck-button-hover-background": "#314453",
+        "-ck-button-hover-border-color": "#E7AD4A",
+        "-ck-button-focus-background": "#E7AD4A",
+        "-ck-button-focus-border-color": "#E7AD4A",
+        "-ck-button-focus-color": "#101A22",
+        "-ck-button-focus-outline-color": "#FFF6DF",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-focus-outline-gap": "2px",
+        "-ck-button-pressed-background": "#B87929",
+        "-ck-button-pressed-border-color": "#B87929",
+        "-ck-button-pressed-color": "#101A22",
+        "-ck-button-disabled-background": "#1B2730",
+        "-ck-button-disabled-border-color": "#36424A",
+        "-ck-button-disabled-color": "#727F8A",
+        "-ck-button-color": "#F4F0E6",
+        "-ck-button-radius": "8px",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-padding-x": "16px",
+        "-ck-button-padding-y": "0px"
+      }
+    },
+    {
+      "id": "settings-hint-space",
+      "tag": "column",
+      "parentId": "settings-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "hint space",
+      "classes": [
+        "hint-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "24px"
+      }
+    },
+    {
+      "id": "settings-input-hint",
+      "tag": "row",
+      "parentId": "settings-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "input hint",
+      "classes": [
+        "input-hint"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "192px",
+        "height": "40px",
+        "gap": "12px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "settings-keycap",
+      "tag": "key-hint",
+      "parentId": "settings-input-hint",
+      "scope": "main-region",
+      "nativeWidget": "registered native key hint",
+      "role": "keycap",
+      "classes": [
+        "keycap"
+      ],
+      "attributes": {
+        "label": "ESC",
+        "font-family": "menu-ui"
+      },
+      "resolvedStyle": {
+        "width": "58px",
+        "height": "38px",
+        "vertical-align": "center",
+        "-ck-key-hint-font-size": "15px",
+        "-ck-key-hint-foreground": "#F4F0E6",
+        "-ck-key-hint-background": "#182129D9",
+        "-ck-key-hint-border-color": "#7B8790",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "4px",
+        "-ck-key-hint-padding-x": "4px",
+        "-ck-key-hint-padding-y": "2px"
+      }
+    },
+    {
+      "id": "settings-hint-label",
+      "tag": "text",
+      "parentId": "settings-input-hint",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "hint label",
+      "classes": [
+        "hint-label"
+      ],
+      "attributes": {
+        "bind": "InputSettingsHint"
+      },
+      "resolvedStyle": {
+        "height": "40px",
+        "font-family": "menu-ui",
+        "font-size": "16px",
+        "color": "#ADB4BA",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "settings-bottom-space",
+      "tag": "column",
+      "parentId": "settings-composition",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "bottom space",
+      "classes": [
+        "bottom-space"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1"
+      }
+    }
+  ],
+  "nodeCount": 36,
+  "historicalValidation": {
     "editorRuntimeVerified": true,
     "focusedGate": "Gate 10: Development Editor, 18/18 focused tests passed; zero skipped or contaminated",
     "buildLog": "Saved/Logs/SettingsMenuProof-Build-10.log",
@@ -111,9 +975,55 @@
     "nativeCaptures": {
       "gate": "Gate 10; inspected at all three viewports and with dropdown open",
       "directory": "Saved/Automation/SettingsMenuProof",
-      "files": ["settings-clean-1280x720.png", "settings-clean-1920x1080.png", "settings-clean-2560x1080.png", "settings-dirty-reference-1920x1080.png", "settings-dirty-all-fields-1920x1080.png", "settings-popup-open-1920x1080.png", "settings-popup-window.png"]
+      "files": [
+        "settings-clean-1280x720.png",
+        "settings-clean-1920x1080.png",
+        "settings-clean-2560x1080.png",
+        "settings-dirty-reference-1920x1080.png",
+        "settings-dirty-all-fields-1920x1080.png",
+        "settings-popup-open-1920x1080.png",
+        "settings-popup-window.png"
+      ]
     },
     "packagedWindowsVerified": false,
-    "deferred": ["screen-reader names and verification", "physical gamepad input", "dynamic input glyphs", "multi-user ownership", "packaged Windows execution"]
+    "deferred": [
+      "screen-reader names and verification",
+      "physical gamepad input",
+      "dynamic input glyphs",
+      "multi-user ownership",
+      "packaged Windows execution"
+    ]
+  },
+  "validation": {
+    "status": "final-focused-native-verified",
+    "menuGate": "Saved/Logs/OlderUI-Menus-Gate-03.log: 4/4 passed, 0 failed/skipped/contaminated",
+    "sliderGate": "Saved/Logs/OlderUI-Slider-Gate-03.log: 7/7 passed, 0 failed/skipped/contaminated",
+    "receipt": "revamp-verification.json",
+    "sourcePreflight": "passed: 36 IDs, 31 referenced/declared classes, 36 contract nodes",
+    "captures": "7 byte-identical native-menu-gate03 PNGs with SHA-256 and dimensions in receipt",
+    "limits": "focused Windows Development Editor tests only; no 99% reference-pixel, packaged Windows, physical controller or complete regression claim",
+    "visualGaps": "select has no per-control font-family and inherits host menu-ui BaseFont; popup retains default gray Slate rows and spacing"
+  },
+  "sourcePreflight": {
+    "authoredIds": 36,
+    "usedCssClasses": 31,
+    "declaredCssClasses": 31,
+    "contractNodes": 36
+  },
+  "historicalMenuGate02": {
+    "currentSourcePreflight": "passed: 36 IDs, 31 referenced/declared classes, 36 contract nodes",
+    "nativeStatus": "focused Menu Gate02 passed in Windows Development Editor PIE, 2026-10-09",
+    "gateLog": "Saved/Logs/OlderUI-Menus-Gate-02.log",
+    "selectedTests": [
+      "Ck.UiAuthoring.SettingsMenuProof.PIE",
+      "Ck.UiAuthoring.PauseMenuProof.GymSelector.PIE",
+      "Ck.UiAuthoring.PauseMenuProof.PIE",
+      "Ck.UiAuthoring.InventoryMenuProof.PIE"
+    ],
+    "result": "4 passed, 0 failed, 0 skipped, 0 contaminated; Settings, Pause and Inventory selected siblings",
+    "gate01Failure": "Saved/Logs/OlderUI-Menus-Gate-01.log: Settings card-bound assertions failed at all three tested sizes (1920x1080 reference, 1280x720 scaled, 2560x1080 centered); fixed top spacer 152px and bottom flex-grow 1 passed in Gate02",
+    "captureScope": "Gate02 Settings clean 1280x720, 1920x1080, 2560x1080; dirty reference/all-fields and popup states at 1920x1080, copied byte-identically into this documentation directory",
+    "limits": "Focused Editor PIE test and captures only; separate slider-specific renderer gate and final Menu Gate03 pending; select has no per-control font-family and inherits host menu-ui BaseFont; popup uses default gray Slate rows/spacing; no 99% reference-pixel match claimed; packaged Windows, physical gamepad, screen-reader names and multi-user ownership unverified",
+    "historicalEvidence": "historicalValidation describes 2026-10-03 Gate 10 only"
   }
 }
