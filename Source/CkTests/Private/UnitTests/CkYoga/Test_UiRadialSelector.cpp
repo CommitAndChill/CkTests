@@ -156,6 +156,63 @@ auto FCkUiRadialSelectorNative::RunTest(const FString&) -> bool
             && OpaquePixels.Num() >= OpaqueSize.X * OpaqueSize.Y))
     { Slate.DestroyWindowImmediately(Window); return false; }
     TestTrue(TEXT("Opaque cyan ring is visible"), ck_tests_ui_radial::CountCyan(OpaquePixels) > 40);
+    const FVector2D TileInterior(Size.X * 0.5f + 15.0f,
+        Size.Y * 0.5f - 0.39f * FMath::Min(Size.X, Size.Y));
+    const int32 SampleX = FMath::Clamp(FMath::RoundToInt(TileInterior.X * OpaqueSize.X / Size.X),
+        0, OpaqueSize.X - 1);
+    const int32 SampleY = FMath::Clamp(FMath::RoundToInt(TileInterior.Y * OpaqueSize.Y / Size.Y),
+        0, OpaqueSize.Y - 1);
+    const int32 SampleIndex = SampleY * OpaqueSize.X + SampleX;
+    const FColor DefaultTile = OpaquePixels[SampleIndex];
+    const auto CaptureTile = [&Slate, &Native, &OpaqueSize, SampleIndex](FColor& OutPixel) -> bool
+    {
+        Slate.Tick(); Slate.Tick();
+        TArray<FColor> Pixels;
+        FIntVector CapturedSize = FIntVector::ZeroValue;
+        if (!Slate.TakeScreenshot(Native, Pixels, CapturedSize)
+            || CapturedSize != OpaqueSize || Pixels.Num() <= SampleIndex) { return false; }
+        OutPixel = Pixels[SampleIndex];
+        return true;
+    };
+    FCkUiCustomStyleValue TileColor;
+    TileColor.Kind = ECkUiCustomStyleKind::Color;
+    TileColor.Color = FLinearColor(0.02f, 0.45f, 0.90f, 0.95f);
+    Arguments.Style.CustomProperties.Add(TEXT("-ck-radial-tile-background"), TileColor);
+    Failure.Reset();
+    TUniquePtr<ICkUiPreparedWidgetUpdate> FilledUpdate = Component->PrepareReload(Arguments, Failure);
+    if (!TestTrue(TEXT("Finite tile background prepares native reload"), FilledUpdate.IsValid()))
+    { Slate.DestroyWindowImmediately(Window); AddError(Failure); return false; }
+    FilledUpdate->Commit();
+    TestTrue(TEXT("Filled tile reload retains native root"), &Component->GetWidget().Get() == &Native.Get());
+    FColor FilledTile;
+    if (!TestTrue(TEXT("Filled tile captures real paint"), CaptureTile(FilledTile)))
+    { Slate.DestroyWindowImmediately(Window); return false; }
+    TestTrue(TEXT("Octagon interior paints the admitted blue tile fill away from glyph and rim"),
+        FilledTile.G >= DefaultTile.G + 18 && FilledTile.B >= DefaultTile.B + 28
+            && FilledTile.B >= FilledTile.R + 30);
+    FCkUiCustomStyleValue InvalidTileColor = TileColor;
+    InvalidTileColor.Color.R = std::numeric_limits<float>::quiet_NaN();
+    Arguments.Style.CustomProperties.Add(TEXT("-ck-radial-tile-background"), InvalidTileColor);
+    Failure.Reset();
+    TestFalse(TEXT("Nonfinite tile background rejects before reload commit"),
+        Component->PrepareReload(Arguments, Failure).IsValid());
+    TestFalse(TEXT("Nonfinite tile background reports admission failure"), Failure.IsEmpty());
+    FColor RejectedTile;
+    TestTrue(TEXT("Rejected color leaves prior rendered fill and native identity"),
+        &Component->GetWidget().Get() == &Native.Get() && CaptureTile(RejectedTile)
+            && FMath::Abs(static_cast<int32>(RejectedTile.G) - static_cast<int32>(FilledTile.G)) <= 4
+            && FMath::Abs(static_cast<int32>(RejectedTile.B) - static_cast<int32>(FilledTile.B)) <= 4);
+    Arguments.Style.CustomProperties.Remove(TEXT("-ck-radial-tile-background"));
+    Failure.Reset();
+    TUniquePtr<ICkUiPreparedWidgetUpdate> TransparentUpdate = Component->PrepareReload(Arguments, Failure);
+    if (!TestTrue(TEXT("Omitted tile background restores transparent default"), TransparentUpdate.IsValid()))
+    { Slate.DestroyWindowImmediately(Window); AddError(Failure); return false; }
+    TransparentUpdate->Commit();
+    FColor RestoredTile;
+    TestTrue(TEXT("Transparent default retains other consumer paint behavior"),
+        CaptureTile(RestoredTile)
+            && FMath::Abs(static_cast<int32>(RestoredTile.G) - static_cast<int32>(DefaultTile.G)) <= 4
+            && FMath::Abs(static_cast<int32>(RestoredTile.B) - static_cast<int32>(DefaultTile.B)) <= 4);
     ParentOpacity = 0.0f;
     Slate.Tick();
     Slate.Tick();

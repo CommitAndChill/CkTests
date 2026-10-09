@@ -15,6 +15,8 @@
 #include "Widgets/Input/SSlider.h"
 #include "Widgets/SWindow.h"
 
+#include <limits>
+
 #if WITH_DEV_AUTOMATION_TESTS
 namespace ck_tests_ui_slider
 {
@@ -509,11 +511,110 @@ auto FCkUiSlider_CustomStyles::RunTest(const FString&) -> bool
     Fixture.Enabled = true;
     Tick(Fixture.Slate);
 
+    const FString FillStyles = ColorStyles + TEXT(" .slider { -ck-slider-fill-color: #39c9e2; }");
+    const FLinearColor FillColor(FColor(0x39, 0xc9, 0xe2));
+    Fixture.Value = 0.0f;
+    TestTrue(TEXT("Optional fill style reload succeeds"), Fixture.Reload(Range, TEXT("horizontal"), FillStyles));
+    Tick(Fixture.Slate);
+    TestTrue(TEXT("Retained fill reload preserves native slider"),
+        FindSlider(Fixture.View->GetRegion(TEXT("main"))) == Fixture.Slider);
+    TestEqual(TEXT("Zero value paints no filled segment"),
+        PaintBoxes(Fixture.Slider.ToSharedRef(), Fixture.Window).Num(), 2);
+
+    const auto CheckFill = [this, &Fixture, &FillColor](const TCHAR* InName, float InFraction)
+    {
+        Fixture.Value = InFraction * 100.0f;
+        Tick(Fixture.Slate);
+        const TArray<FSlateBoxElement> Boxes = PaintBoxes(Fixture.Slider.ToSharedRef(), Fixture.Window);
+        if (!TestEqual(FString{InName} + TEXT(" paints track, fill and thumb"), Boxes.Num(), 3))
+        { return; }
+        const float Track = Boxes[0].GetLocalSize().X;
+        const float Fill = Boxes[1].GetLocalSize().X;
+        TestTrue(FString{InName} + TEXT(" fill follows normalized live value"),
+            Track > 0.0f && FMath::IsNearlyEqual(Fill / Track, InFraction, 0.015f));
+        TestTrue(FString{InName} + TEXT(" fill color reaches native paint"),
+            Boxes[1].GetTint().Equals(FillColor));
+    };
+    CheckFill(TEXT("Horizontal quarter"), 0.25f);
+    CheckFill(TEXT("Horizontal full"), 1.0f);
+
+    const FString RecoloredFill = ColorStyles + TEXT(" .slider { -ck-slider-fill-color: #eea12a; }");
+    const int64 FillRevision = Fixture.View->GetRevision();
+    TestFalse(TEXT("Malformed fill CSS rejects atomically"), Fixture.Reload(Range,
+        TEXT("horizontal"), ColorStyles + TEXT(" .slider { -ck-slider-fill-color: 12px; }")));
+    TestEqual(TEXT("Malformed fill leaves retained revision"), Fixture.View->GetRevision(), FillRevision);
+    const TArray<FSlateBoxElement> RejectedBoxes = PaintBoxes(Fixture.Slider.ToSharedRef(), Fixture.Window);
+    TestTrue(TEXT("Malformed fill leaves retained paint"), RejectedBoxes.Num() == 3
+        && RejectedBoxes[1].GetTint().Equals(FillColor));
+
+    FCkUiWidgetRegistry DirectRegistry;
+    if (!TestTrue(TEXT("Direct fill factory registers"), FCkUiSlider::Register(DirectRegistry).Succeeded))
+    { return false; }
+    const TSharedRef<const FCkUiWidgetRegistrySnapshot> Snapshot = DirectRegistry.CreateSnapshot();
+    const FCkUiCustomWidgetRegistration* Registration = Snapshot->Find(TEXT("slider"));
+    if (!TestTrue(TEXT("Direct fill factory exists"), Registration != nullptr && !!Registration->RetainedFactory))
+    { return false; }
+    FCkUiCustomWidgetArguments Arguments;
+    Arguments.Id = TEXT("direct-fill-slider");
+    Arguments.NumberBindings.Add(TEXT("value"), TAttribute<float>(25.0f));
+    Arguments.NumberInteraction.Add(TEXT("interaction"),
+        FCkUiOnNumberInteraction::CreateLambda([](const FCkUiNumberInteraction&) {}));
+    Arguments.BindingNames.Add(TEXT("value"), TEXT("value"));
+    FCkUiCustomStyleValue InvalidFill;
+    InvalidFill.Kind = ECkUiCustomStyleKind::Length;
+    Arguments.Style.CustomProperties.Add(TEXT("-ck-slider-fill-color"), InvalidFill);
+    FString DirectFailure;
+    TestFalse(TEXT("Direct factory rejects wrong fill kind"),
+        Registration->RetainedFactory(Arguments, DirectFailure).IsValid());
+    TestEqual(TEXT("Wrong fill kind diagnostic"), DirectFailure,
+        FString(TEXT("Slider fill color must be a finite color.")));
+    InvalidFill.Kind = ECkUiCustomStyleKind::Color;
+    InvalidFill.Color = FLinearColor(std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f, 1.0f);
+    Arguments.Style.CustomProperties.Add(TEXT("-ck-slider-fill-color"), InvalidFill);
+    DirectFailure.Reset();
+    TestFalse(TEXT("Direct factory rejects nonfinite fill"),
+        Registration->RetainedFactory(Arguments, DirectFailure).IsValid());
+    TestEqual(TEXT("Nonfinite fill diagnostic"), DirectFailure,
+        FString(TEXT("Slider fill color must be a finite color.")));
+    TestEqual(TEXT("Direct invalid arguments leave mounted revision"), Fixture.View->GetRevision(), FillRevision);
+
+    TestTrue(TEXT("Color-only fill reload accepts"), Fixture.Reload(Range, TEXT("horizontal"), RecoloredFill));
+    Tick(Fixture.Slate);
+    const TArray<FSlateBoxElement> RecoloredBoxes = PaintBoxes(Fixture.Slider.ToSharedRef(), Fixture.Window);
+    TestTrue(TEXT("Retained fill color updates native paint without replacing slider"),
+        FindSlider(Fixture.View->GetRegion(TEXT("main"))) == Fixture.Slider
+            && RecoloredBoxes.Num() == 3
+            && RecoloredBoxes[1].GetTint().Equals(FLinearColor(FColor(0xee, 0xa1, 0x2a))));
+    TestTrue(TEXT("Vertical fill reload succeeds"), Fixture.Reload(Range, TEXT("vertical"), FillStyles));
+    Tick(Fixture.Slate);
+    TestTrue(TEXT("Vertical fill retains native identity and tall geometry"),
+        FindSlider(Fixture.View->GetRegion(TEXT("main"))) == Fixture.Slider
+            && Fixture.Slider->GetCachedGeometry().GetLocalSize().Y
+                > Fixture.Slider->GetCachedGeometry().GetLocalSize().X);
+    Fixture.Value = 0.0f;
+    Tick(Fixture.Slate);
+    TestEqual(TEXT("Vertical zero paints no filled segment"),
+        PaintBoxes(Fixture.Slider.ToSharedRef(), Fixture.Window).Num(), 2);
+    CheckFill(TEXT("Vertical quarter"), 0.25f);
+    CheckFill(TEXT("Vertical full"), 1.0f);
+    Fixture.Enabled = false;
+    Tick(Fixture.Slate);
+    const TArray<FSlateBoxElement> FilledDisabledBoxes = PaintBoxes(Fixture.Slider.ToSharedRef(), Fixture.Window);
+    TestTrue(TEXT("Disabled filled slider paints all native layers disabled"),
+        FilledDisabledBoxes.Num() == 3
+            && EnumHasAnyFlags(FilledDisabledBoxes[0].GetDrawEffects(), ESlateDrawEffect::DisabledEffect)
+            && EnumHasAnyFlags(FilledDisabledBoxes[1].GetDrawEffects(), ESlateDrawEffect::DisabledEffect)
+            && EnumHasAnyFlags(FilledDisabledBoxes[2].GetDrawEffects(), ESlateDrawEffect::DisabledEffect));
+    Fixture.Enabled = true;
+    Tick(Fixture.Slate);
+
     const TSharedPtr<SSlider> HeldSlider = Fixture.Slider;
+    const FVector2D RetainedDesiredSize = HeldSlider->GetDesiredSize();
     Fixture.View.Reset();
     HeldSlider->Invalidate(EInvalidateWidgetReason::Layout);
     HeldSlider->SlatePrepass();
-    TestTrue(TEXT("Released styled slider remains safe to prepass"), HeldSlider->GetDesiredSize().Y >= 36.0f);
+    TestTrue(TEXT("Released styled slider preserves its vertical desired size after prepass"),
+        RetainedDesiredSize.X >= 36.0f && HeldSlider->GetDesiredSize().Equals(RetainedDesiredSize));
     TestFalse(TEXT("Owner expiry reaches native enabled state"), HeldSlider->IsEnabled());
     const TArray<FSlateBoxElement> HeldBoxes = PaintBoxes(HeldSlider.ToSharedRef(), Fixture.Window);
     if (!TestEqual(TEXT("Owner-expired held slider emits bar and thumb boxes"), HeldBoxes.Num(), 2)) { return false; }

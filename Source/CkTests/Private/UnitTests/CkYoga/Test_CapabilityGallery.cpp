@@ -172,7 +172,9 @@ auto ContainsEffectivelyVisibleText(const TSharedRef<SWidget>& InRoot, const FSt
 
 auto FindHeader(const TSharedRef<SWidget>& InRoot, const FString& InLabel) -> TSharedPtr<SButton>
 {
-    if (InRoot->GetTypeAsString() == TEXT("SButton") && ContainsText(InRoot, InLabel))
+    if ((InRoot->GetTypeAsString() == TEXT("SButton")
+        || InRoot->GetTypeAsString() == TEXT("SCkUiTabsHeaderButton"))
+        && ContainsText(InRoot, InLabel))
     {
         return StaticCastSharedRef<SButton>(InRoot);
     }

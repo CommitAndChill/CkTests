@@ -13,6 +13,8 @@
 #include "Widgets/SWindow.h"
 #include "Widgets/Text/STextBlock.h"
 
+#include <limits>
+
 #if WITH_DEV_AUTOMATION_TESTS
 
 namespace ck_tests_ui_tabs_visual_style
@@ -29,14 +31,17 @@ namespace ck_tests_ui_tabs_visual_style
 
     auto Styles(const bool bReloaded = false) -> FString
     {
-        return bReloaded
+        const FString Base = bReloaded
             ? TEXT(".tab-strip { -ck-tabs-inactive-color: #c27745; -ck-tabs-active-color: #fac866; -ck-tabs-underline-color: #f0a23d; -ck-tabs-underline-height: 3px; -ck-tabs-font-size: 11px; -ck-tabs-font-weight: normal; -ck-tabs-header-padding-x: 9px; -ck-tabs-header-padding-y: 4px; -ck-tabs-header-width: 90px; -ck-tabs-header-align: right; }")
             : TEXT(".tab-strip { -ck-tabs-inactive-color: #667385; -ck-tabs-active-color: #66dcfa; -ck-tabs-underline-color: #1fb8eb; -ck-tabs-underline-height: 2px; -ck-tabs-font-size: 10px; -ck-tabs-font-weight: bold; -ck-tabs-header-padding-x: 7px; -ck-tabs-header-padding-y: 3px; -ck-tabs-header-width: 80px; -ck-tabs-header-align: center; }");
+        return Base.Replace(TEXT("-ck-tabs-underline-color:"),
+            TEXT("-ck-tabs-focus-outline-color: #ef31c4; -ck-tabs-underline-color:"));
     }
 
     auto FindHeader(const TSharedRef<SWidget>& InRoot, const FString& InLabel) -> TSharedPtr<SButton>
     {
-        if (InRoot->GetTypeAsString() == TEXT("SButton"))
+        if (InRoot->GetTypeAsString() == TEXT("SButton")
+            || InRoot->GetTypeAsString() == TEXT("SCkUiTabsHeaderButton"))
         {
             const FChildren* Children = InRoot->GetChildren();
             for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
@@ -81,6 +86,36 @@ namespace ck_tests_ui_tabs_visual_style
     }
 
     auto Tick(FSlateApplication& InSlate) -> void { InSlate.PumpMessages(); InSlate.Tick(); InSlate.Tick(); }
+
+    auto CaptureHeader(FSlateApplication& InSlate, const TSharedRef<SButton>& InHeader,
+        TArray<FColor>& OutPixels, FIntVector& OutSize) -> bool
+    {
+        Tick(InSlate);
+        OutPixels.Reset(); OutSize = FIntVector::ZeroValue;
+        return InSlate.TakeScreenshot(InHeader, OutPixels, OutSize)
+            && OutSize.X >= 40 && OutSize.Y >= 15 && OutPixels.Num() >= OutSize.X * OutSize.Y;
+    }
+
+    auto CountMagenta(const TArray<FColor>& InPixels) -> int32
+    {
+        int32 Count = 0;
+        for (const FColor& Pixel : InPixels)
+        { if (Pixel.R > 150 && Pixel.B > 95 && Pixel.G < 110) { ++Count; } }
+        return Count;
+    }
+
+    auto ChangedPixels(const TArray<FColor>& A, const TArray<FColor>& B) -> int32
+    {
+        if (A.Num() != B.Num()) { return -1; }
+        int32 Count = 0;
+        for (int32 Index = 0; Index < A.Num(); ++Index)
+        {
+            const FColor X = A[Index], Y = B[Index];
+            if (FMath::Abs(int32(X.R) - int32(Y.R)) + FMath::Abs(int32(X.G) - int32(Y.G))
+                + FMath::Abs(int32(X.B) - int32(Y.B)) > 20) { ++Count; }
+        }
+        return Count;
+    }
 
     auto Click(const TSharedRef<SButton>& InButton) -> bool
     {
@@ -188,12 +223,44 @@ auto FCkUiTabs_VisualStyle::RunTest(const FString&) -> bool
     bPropertiesEnabled = true;
     Tick(Slate);
 
+    Slate.SetKeyboardFocus(Properties, EFocusCause::Navigation);
+    TArray<FColor> InitialFocusPixels;
+    FIntVector InitialFocusSize;
+    if (!TestTrue(TEXT("Focused native tab header captures"),
+        CaptureHeader(Slate, Properties.ToSharedRef(), InitialFocusPixels, InitialFocusSize))) { return false; }
+    TestTrue(TEXT("Opt-in tab header paints its magenta focus outline under navigation focus"),
+        Slate.GetKeyboardFocusedWidget().Get() == Properties.Get()
+            && CountMagenta(InitialFocusPixels) > 8);
+
+    FCkUiTabsVisualStyle InvalidFocusStyle;
+    InvalidFocusStyle.FocusOutlineColor = FLinearColor(
+        std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f, 1.0f);
+    Tabs->SetConfiguration({}, TAttribute<FString>(Active), FCkUiOnStringChanged{},
+        TAttribute<bool>(true), FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 12), InvalidFocusStyle);
+    Tick(Slate);
+    TestTrue(TEXT("Direct nonfinite focus color rejects before replacing live headers or selection"),
+        FindHeader(Region, TEXT("Overview")) == Overview
+            && FindHeader(Region, TEXT("Properties")) == Properties
+            && FindHeader(Region, TEXT("System")) == System
+            && Active == TEXT("properties") && ActivationCalls == 1
+            && Slate.GetKeyboardFocusedWidget().Get() == Properties.Get());
+
     const int64 AcceptedRevision = View->GetRevision();
     if (!TestTrue(TEXT("Compatible styled tabs reload succeeds"), View->TryReload(Markup(), Styles(true), TEXT("UiTabsVisualStyleReload")).Succeeded)) { return false; }
     Tick(Slate);
     TestTrue(TEXT("Compatible style reload retains the native tabs and keyed header identities"), View->GetRevision() == AcceptedRevision + 1
         && View->GetTabs(TEXT("tabs")) == Tabs && FindHeader(Region, TEXT("Overview")) == Overview && FindHeader(Region, TEXT("Properties")) == Properties
         && FindHeader(Region, TEXT("System")) == System && Active == TEXT("properties") && ActivationCalls == CallsBeforeDisabledClick);
+    const bool bReloadRetainedFocus = Slate.GetKeyboardFocusedWidget().Get() == Properties.Get();
+    Slate.ClearKeyboardFocus(EFocusCause::Navigation);
+    Slate.SetKeyboardFocus(Properties, EFocusCause::Navigation);
+    TArray<FColor> ReloadFocusPixels;
+    FIntVector ReloadFocusSize;
+    if (!TestTrue(TEXT("Retained focused header captures after style reload"),
+        CaptureHeader(Slate, Properties.ToSharedRef(), ReloadFocusPixels, ReloadFocusSize))) { return false; }
+    TestTrue(TEXT("Compatible reload retains focus and repaints the authored outline on navigation"),
+        bReloadRetainedFocus && Slate.GetKeyboardFocusedWidget().Get() == Properties.Get()
+            && CountMagenta(ReloadFocusPixels) > 8);
     TestTrue(TEXT("Compatible style reload updates uniform width and right rail alignment in native geometry"),
         FMath::IsNearlyEqual(Overview->GetCachedGeometry().GetLocalSize().X, 90.0f, 1.0f)
         && FMath::IsNearlyEqual(Properties->GetCachedGeometry().GetLocalSize().X, 90.0f, 1.0f)
@@ -221,6 +288,8 @@ auto FCkUiTabs_VisualStyle::RunTest(const FString&) -> bool
             && FMath::IsNearlyEqual(HeaderX(Overview.ToSharedRef()), 90.0, 2.0));
     };
     ExpectRejected(TEXT("UiTabsVisualStyleInvalidColor"), TEXT(".tab-strip { -ck-tabs-active-color: not-a-color; }"));
+    ExpectRejected(TEXT("UiTabsVisualStyleInvalidFocusColor"),
+        TEXT(".tab-strip { -ck-tabs-focus-outline-color: not-a-color; }"));
     ExpectRejected(TEXT("UiTabsVisualStyleNegativeUnderline"), TEXT(".tab-strip { -ck-tabs-underline-height: -1px; }"));
     ExpectRejected(TEXT("UiTabsVisualStyleZeroFont"), TEXT(".tab-strip { -ck-tabs-font-size: 0px; }"));
     ExpectRejected(TEXT("UiTabsVisualStyleInvalidWeight"), TEXT(".tab-strip { -ck-tabs-font-weight: heavy; }"));
@@ -239,6 +308,53 @@ auto FCkUiTabs_VisualStyle::RunTest(const FString&) -> bool
         View->GetRevision() == StableRevision && View->GetTabs(TEXT("tabs")) == Tabs
         && FindHeader(Region, TEXT("Overview")) == Overview && Active == TEXT("properties")
         && ActivationCalls == 1);
+    const FCkUiLoadResult WrongFocusNode = View->TryReload(
+        Markup().Replace(TEXT("id=\"overview\""), TEXT("id=\"overview\" class=\"tab-entry\"")),
+        TEXT(".tab-entry { -ck-tabs-focus-outline-color: #ef31c4; }"),
+        TEXT("UiTabsVisualStyleWrongFocusNode"));
+    TestFalse(TEXT("Tab focus CSS on a tab panel rejects"), WrongFocusNode.Succeeded);
+    TestTrue(TEXT("Wrong-node focus CSS preserves mounted headers and selection"),
+        View->GetRevision() == StableRevision && View->GetTabs(TEXT("tabs")) == Tabs
+            && FindHeader(Region, TEXT("Properties")) == Properties
+            && Active == TEXT("properties") && ActivationCalls == 1);
+
+    const FString TransparentFocusStyles = Styles(true).Replace(TEXT("#ef31c4"), TEXT("#00000000"));
+    if (!TestTrue(TEXT("Transparent tab focus style reloads compatibly"),
+        View->TryReload(Markup(), TransparentFocusStyles, TEXT("UiTabsVisualStyleTransparentFocus")).Succeeded)) { return false; }
+    Tick(Slate);
+    const bool bTransparentRetainedFocus = Slate.GetKeyboardFocusedWidget().Get() == Properties.Get();
+    Slate.ClearKeyboardFocus(EFocusCause::Navigation);
+    Slate.SetKeyboardFocus(Properties, EFocusCause::Navigation);
+    TArray<FColor> TransparentPixels;
+    FIntVector TransparentSize;
+    if (!TestTrue(TEXT("Transparent focused header captures"),
+        CaptureHeader(Slate, Properties.ToSharedRef(), TransparentPixels, TransparentSize))) { return false; }
+    TestTrue(TEXT("Transparent override hides outline without dropping native focus or selection"),
+        bTransparentRetainedFocus && Slate.GetKeyboardFocusedWidget().Get() == Properties.Get()
+            && FindHeader(Region, TEXT("Properties")) == Properties
+            && Active == TEXT("properties") && CountMagenta(TransparentPixels) == 0);
+
+    const FString StockFocusStyles = TransparentFocusStyles.Replace(
+        TEXT("-ck-tabs-focus-outline-color: #00000000; "), TEXT(""));
+    if (!TestTrue(TEXT("Stock focus candidate removes only the opt-in declaration"),
+        StockFocusStyles != TransparentFocusStyles
+            && View->TryReload(Markup(), StockFocusStyles, TEXT("UiTabsVisualStyleStockFocus")).Succeeded)) { return false; }
+    Tick(Slate);
+    const bool bStockRetainedFocus = Slate.GetKeyboardFocusedWidget().Get() == Properties.Get();
+    Slate.ClearKeyboardFocus(EFocusCause::Navigation);
+    Slate.SetKeyboardFocus(Properties, EFocusCause::Navigation);
+    TArray<FColor> StockPixels;
+    FIntVector StockSize;
+    if (!TestTrue(TEXT("Stock focused header captures"),
+        CaptureHeader(Slate, Properties.ToSharedRef(), StockPixels, StockSize))) { return false; }
+    const int32 FocusPaintDifferences = StockSize == TransparentSize
+        ? ChangedPixels(StockPixels, TransparentPixels) : -1;
+    AddInfo(*FString::Printf(TEXT("Tabs stock focus restoration: retained=%d changed-pixels=%d"),
+        bStockRetainedFocus, FocusPaintDifferences));
+    TestTrue(TEXT("Omitting focus override restores stock native brush on retained header"),
+        bStockRetainedFocus && Slate.GetKeyboardFocusedWidget().Get() == Properties.Get()
+            && FindHeader(Region, TEXT("Properties")) == Properties
+            && Active == TEXT("properties") && FocusPaintDifferences > 8);
     const int64 BeforeDefault = View->GetRevision();
     if (!TestTrue(TEXT("Omitted rail properties restore natural left-aligned headers"),
         View->TryReload(Markup(), TEXT(".tab-strip { -ck-tabs-active-color: #fac866; }"), TEXT("UiTabsVisualStyleDefault")).Succeeded)) { return false; }

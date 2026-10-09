@@ -93,6 +93,18 @@ namespace ck_tests_ui_authored_session
         return {};
     }
 
+    auto FindTagged(const TSharedRef<SWidget>& InRoot, const FName InTag) -> TSharedPtr<SWidget>
+    {
+        if (InRoot->GetTag() == InTag) { return InRoot; }
+        const FChildren* Children = InRoot->GetChildren();
+        for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
+        {
+            if (const auto Found = FindTagged(ConstCastSharedRef<SWidget>(Children->GetChildAt(Index)), InTag))
+            { return Found; }
+        }
+        return {};
+    }
+
     auto Child(const TSharedRef<SWidget>& InRoot) -> TSharedPtr<SWidget>
     {
         const FChildren* Children = InRoot->GetChildren();
@@ -795,6 +807,74 @@ auto FCkUiAuthoredSession_Lifetime::RunTest(const FString&) -> bool
     Toggle(HeldCheckbox.ToSharedRef());
     TestTrue(TEXT("Native weak adapters remain inert after session GC"), Listener->ActionCalls == 1
         && Listener->TextCalls == 0 && Listener->NumberCalls == 0 && Listener->BoolCalls == 0);
+    return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkUiAuthoredSession_StyleTokens,
+    "Ck.UiAuthoring.UMG.Session.StyleTokens",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+auto FCkUiAuthoredSession_StyleTokens::RunTest(const FString&) -> bool
+{
+    using namespace ck_tests_ui_authored_session;
+    TArray<FString> Errors;
+    TStrongObjectPtr<UCk_UI_AuthoredSession_UE> Invalid{NewObject<UCk_UI_AuthoredSession_UE>()};
+    auto InvalidConfig = Config();
+    InvalidConfig.Set_StyleTokens({{TEXT("inset-x"), TEXT("12px")}});
+    TestFalse(TEXT("Style token without native -- name rejects initialization"),
+        Invalid->TryInitialize(InvalidConfig, Errors));
+    TestTrue(TEXT("Rejected style token publishes no view"), !Errors.IsEmpty()
+        && !Invalid->Get_IsUsable() && !Invalid->Get_View().IsValid());
+
+    TStrongObjectPtr<UCk_UI_AuthoredSession_UE> Session{NewObject<UCk_UI_AuthoredSession_UE>()};
+    ON_SCOPE_EXIT { Session->Request_Release(); };
+    auto Accepted = Config();
+    Accepted.Set_StyleTokens({{TEXT("--inset-y"), TEXT("6px")},
+        {TEXT("--inset-x"), TEXT("12px")}, {TEXT("--bad"), TEXT("not-a-length")}});
+    const FString Html = TEXT("<ui version=\"1\"><region name=\"main\"><overlay id=\"root\">"
+        "<column id=\"panel\" class=\"panel\"><text id=\"label\">Token</text></column>"
+        "</overlay></region></ui>");
+    const FString Css = TEXT(".panel { width: 120px; height: 80px; padding: var(--inset-y) var(--inset-x); }");
+    if (!TestTrue(TEXT("Reflected session admits native padding tokens"),
+        Session->TryInitialize(Accepted, Errors) && Session->TryReload(Html, Css, Errors)))
+    { for (const FString& Error : Errors) { AddError(Error); } return false; }
+    const auto View = Session->Get_View();
+    if (!TestTrue(TEXT("Accepted token session owns a view"), View.IsValid())) { return false; }
+    const auto Region = View->GetRegion(TEXT("main"));
+    FWindowScope Window;
+    Window.Window = SNew(SWindow).AutoCenter(EAutoCenter::None)
+        .ClientSize(FVector2D{240.0f, 160.0f}).CreateTitleBar(false)[Region];
+    auto& Slate = FSlateApplication::Get();
+    Slate.AddWindow(Window.Window.ToSharedRef(), true);
+    Tick(Slate);
+    const auto PaddingIsApplied = [&Region]() -> bool
+    {
+        const auto Panel = FindTagged(Region, TEXT("panel"));
+        const auto Label = FindTagged(Region, TEXT("label"));
+        if (!Panel.IsValid() || !Label.IsValid()) { return false; }
+        const FVector2D Offset = Panel->GetCachedGeometry().AbsoluteToLocal(
+            Label->GetCachedGeometry().GetAbsolutePosition());
+        return FMath::IsNearlyEqual(Offset.X, 12.0, 0.5)
+            && FMath::IsNearlyEqual(Offset.Y, 6.0, 0.5);
+    };
+    TestTrue(TEXT("Native layout applies two independently resolved padding tokens"), PaddingIsApplied());
+    Accepted.Set_StyleTokens({{TEXT("--inset-y"), TEXT("40px")}, {TEXT("--inset-x"), TEXT("50px")}});
+    TestTrue(TEXT("Later caller config changes cannot alter accepted token snapshot"),
+        Session->TryReload(Html, Css, Errors));
+    Tick(Slate);
+    TestTrue(TEXT("Accepted token geometry survives reload from mutated caller config"), PaddingIsApplied());
+    const int64 Revision = Session->Get_Revision();
+    const auto Root = Child(Region);
+    TestFalse(TEXT("Malformed token value rejects source reload"), Session->TryReload(Html,
+        TEXT(".panel { width: 120px; height: 80px; padding: var(--bad) 12px; }"), Errors));
+    TestTrue(TEXT("Malformed token reload preserves accepted view and layout"), !Errors.IsEmpty()
+        && Session->Get_Revision() == Revision && Session->Get_View() == View && Child(Region) == Root
+        && PaddingIsApplied());
+    TestFalse(TEXT("Unresolved token rejects source reload"), Session->TryReload(Html,
+        TEXT(".panel { width: 120px; height: 80px; padding: var(--missing) 12px; }"), Errors));
+    TestTrue(TEXT("Unresolved token reload preserves accepted view and layout"), !Errors.IsEmpty()
+        && Session->Get_Revision() == Revision && Session->Get_View() == View && Child(Region) == Root
+        && PaddingIsApplied());
     return !HasAnyErrors();
 }
 
