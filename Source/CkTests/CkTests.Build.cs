@@ -35,6 +35,10 @@ public class CkTests : CkModuleRules
         // Read the Compass gym's actual POI, display and range state.
         PrivateDependencyModuleNames.AddRange(new string[] { "CkPoi", "CkVisibleRange", "CkCompass" });
 
+        // Selection mirrors use the runtime overlay without bringing it into Shipping.
+        if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+        { PrivateDependencyModuleNames.Add("CkEntityDebugOverlay"); }
+
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.css"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "CapabilityGallery", "CapabilityGallery.ui.html"), StagedFileType.NonUFS);
