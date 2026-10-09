@@ -31,6 +31,8 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("ImageCore");
         PrivateDependencyModuleNames.Add("CkRuntimeMesh");
         PrivateDependencyModuleNames.Add("Sockets"); // Inspect the active listen endpoint.
+        // Read the Compass gym's actual POI, display and range state.
+        PrivateDependencyModuleNames.AddRange(new string[] { "CkPoi", "CkVisibleRange", "CkCompass" });
 
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.css"), StagedFileType.NonUFS);
@@ -126,6 +128,7 @@ public class CkTests : CkModuleRules
             "CkPerception",
             "CkPixelArtRenderer",
             "CkPmg",
+            "CkPoiDisplayDefinition", // Public Compass catalog rows expose offscreen policy.
             "CkPhysics",
             "CkProfile",
             "TraceLog", // CPU-work trace writer lifecycle fixture.
