@@ -194,7 +194,10 @@ namespace ck_test_gamesettings_exact_capture
         if (!Run.Probe.IsValid()) { Run.Probe = MakeShared<FPassThroughProbe>(); }
         else { FSlateApplication::Get().UnregisterInputPreProcessor(Run.Probe); }
         Run.Probe->ResetCounts();
-        Row->OnRebindRequested.Broadcast(MappingName, EPlayerMappableKeySlot::First);
+        auto* Button = Row->WidgetTree->FindWidget<UCk_GameSettingsGym_Button>(
+            TEXT("RebindButton"));
+        if (!IsValid(Button) || !GetVisiblePath(Page)) return false;
+        Button->Test_DispatchNativeClick();
         return FSlateApplication::Get().RegisterInputPreProcessor(Run.Probe);
     }
 
