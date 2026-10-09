@@ -5,6 +5,7 @@
 
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkCompassGym_Mirror.h"
+#include "CkGym_AdmissionRuntime.h"
 #include "CkCompassGym_MirrorRetirementProbe.h"
 #include "CkCompassGym_PingTtlProbe.h"
 #include "CkCompassGym_SourceCatalog.h"
@@ -831,6 +832,401 @@ bool FCkCompassGym_MirrorBaseStress::RunTest(const FString& Parameters)
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*) {
             TestFalse(TEXT("BaseStress fixture never entered an early failure path"),
+                Run->Failed);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+namespace ck_compass_mirror_test
+{
+    struct FDeadlineRun
+    {
+        FRun Source;
+        TArray<FCk_Handle> UnrequestedSuffix;
+        TArray<FCkCompassGym_SourceRow> LastNine;
+        int32 CursorAtFault = -1;
+        int64 WithdrawalRevision = 0;
+        bool Failed = false;
+    };
+
+    bool Uninitiated(const FCk_Handle& H)
+    {
+        return Allocated(H) && ck::IsValid(H) &&
+            !H.Has_Any<ck::FTag_DestroyEntity_Initiate,
+                ck::FTag_DestroyEntity_EndPlay,
+                ck::FTag_DestroyEntity_Teardown,
+                ck::FTag_DestroyEntity_Await,
+                ck::FTag_DestroyEntity_Finalize>();
+    }
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkCompassGym_MirrorSourceDeadline,
+    "Ck.Compass.Gym.MirrorSourceDeadline.Network",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkCompassGym_MirrorSourceDeadline::RunTest(const FString& Parameters)
+{
+    using namespace ck_compass_mirror_test;
+    bool Dedicated = false;
+    if (!ck::auto_test::net::TryGet_DedicatedServer(Parameters, Dedicated))
+    { AddError(TEXT("unsupported mirror topology")); return false; }
+    const auto Run = MakeShared<FDeadlineRun>();
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+        3, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 60.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool {
+            auto* Server = ck::auto_test::net::Get_ServerWorld();
+            auto* Client0 = ck::auto_test::net::Get_ClientWorld(0);
+            auto* Client1 = ck::auto_test::net::Get_ClientWorld(1);
+            if (!IsValid(Server) || !IsValid(Client0) || !IsValid(Client1) ||
+                !IsValid(Server->GetGameState()) ||
+                !IsValid(Client0->GetGameState()) ||
+                !IsValid(Client1->GetGameState()) ||
+                Server == Client0 || Server == Client1 || Client0 == Client1 ||
+                !Client0->IsNetMode(NM_Client) || !Client1->IsNetMode(NM_Client))
+            { return false; }
+            for (auto* World : {Server, Client0, Client1})
+            {
+                if (!Allocated(UCk_Utils_EcsWorld_Subsystem_UE::
+                        TryGet_TransientEntityForWorld(*World)))
+                { return false; }
+            }
+            return true;
+        }), 60.0, TEXT("deadline fixture has authority and two real clients")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
+            auto& S = Run->Source;
+            const bool Built = BuildBase(S, World) &&
+                BindClient(S.Clients[0], ck::auto_test::net::Get_ClientWorld(0)) &&
+                BindClient(S.Clients[1], ck::auto_test::net::Get_ClientWorld(1)) &&
+                NoMirrorInAuthorityWorld(World);
+            TestTrue(TEXT("deadline source Base9 and two local mirror roots are real"),
+                Built);
+            Run->Failed = !Built;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->Failed) { return true; }
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            return UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
+                World, Run->Source.SourceGameState.Get(),
+                Run->Source.SourceRoot, true, Run->Source.Base, Rows, Why) ==
+                ECkCompassGym_CatalogOutcome::Complete && Rows.Num() == 9;
+        }), 60.0, TEXT("deadline source Base9 physically settles")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
+            if (Run->Failed) { return; }
+            FString Why;
+            const bool Bound = UCkCompassGym_SourceMembership::
+                TryInitialize_BaseCohort(World,
+                    Run->Source.SourceGameState.Get(),
+                    Run->Source.SourceRoot, Run->Source.Base, Why);
+            TestTrue(TEXT("deadline source Base9 enters real journal"),
+                Bound && Why.IsEmpty());
+            Run->Failed = !Bound;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->Failed) { return true; }
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            int64 Revision = 0;
+            return SourceRows(World, Run->Source, 9, Rows, Revision);
+        }), 30.0, TEXT("deadline source publishes Base9")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
+            if (Run->Failed) { return; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            int64 Revision = 0;
+            const bool Queued = SourceRows(World, Run->Source, 9,
+                Rows, Revision) && QueueBoth(Run->Source, MakeWire(Rows, Revision));
+            Run->Source.LastSourceRevision = Revision;
+            TestTrue(TEXT("real authority Base9 wire reaches both client mirrors"),
+                Queued);
+            Run->Failed = !Queued;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->Failed) { return true; }
+            return Installed(Run->Source.Clients[0], 9,
+                       Run->Source.LastSourceRevision, true) &&
+                Installed(Run->Source.Clients[1], 9,
+                       Run->Source.LastSourceRevision, true);
+        }), 60.0, TEXT("both clients retain only physical Base9")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
+            if (Run->Failed) { return; }
+            auto& S = Run->Source;
+            const bool BaseStable = CaptureBase(S.Clients[0]) &&
+                CaptureBase(S.Clients[1]);
+            FString Why;
+            const bool Accepted = BaseStable && BuildStress(S) &&
+                UCkCompassGym_SourceMembership::TryRequest_StressAdmission(
+                    World, S.SourceGameState.Get(), S.SourceRoot,
+                    S.Base, S.Stress, 1, Why);
+            TestTrue(TEXT("real 500-source admission requested without client 500"),
+                Accepted && Why.IsEmpty());
+            Run->Failed = !Accepted;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->Failed) { return true; }
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Current, Historical;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why;
+            int64 Revision = 0;
+            return SourceRows(World, Run->Source, 509, Current, Revision) &&
+                UCkCompassGym_SourceMembership::Get_Result(
+                    World, Run->Source.SourceGameState.Get(),
+                    Run->Source.SourceRoot, 1, Historical, Frozen, Why) ==
+                    ECkCompassGym_MembershipResult::Committed &&
+                Historical.Num() == 509 && Frozen.IsEmpty();
+        }), 60.0, TEXT("real source commits 509 before withdrawal")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
+            if (Run->Failed) { return; }
+            auto& S = Run->Source;
+            TArray<FCkCompassGym_SourceReceipt> Active = S.Base;
+            Active.Append(S.Stress);
+            FString Why;
+            const bool Accepted = UCkCompassGym_SourceMembership::
+                TryRequest_StressWithdrawal(World,
+                    S.SourceGameState.Get(), S.SourceRoot, Active, 2, Why);
+            TestTrue(TEXT("real source accepts exact 509-to-9 withdrawal"),
+                Accepted && Why.IsEmpty());
+            Run->Failed = !Accepted;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->Failed) { return true; }
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Current, Historical;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why;
+            int64 Revision = 0;
+            return SourceRows(World, Run->Source, 9, Current, Revision) &&
+                UCkCompassGym_SourceMembership::Get_Result(
+                    World, Run->Source.SourceGameState.Get(),
+                    Run->Source.SourceRoot, 2, Historical, Frozen, Why) ==
+                    ECkCompassGym_MembershipResult::Committed &&
+                Historical.Num() == 9 && Frozen.Num() == 500 &&
+                Revision > Run->Source.LastSourceRevision;
+        }), 60.0, TEXT("real source commits nine-only withdrawal")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
+            if (Run->Failed) { return; }
+            auto& S = Run->Source;
+            TArray<FCkCompassGym_SourceRow> Historical;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why;
+            int64 Revision = 0;
+            const bool Captured = SourceRows(World, S, 9,
+                    Run->LastNine, Revision) &&
+                UCkCompassGym_SourceMembership::Get_Result(
+                    World, S.SourceGameState.Get(), S.SourceRoot, 2,
+                    Historical, Frozen, Why) ==
+                    ECkCompassGym_MembershipResult::Committed &&
+                Historical.Num() == 9 && Frozen.Num() == 500 &&
+                Allocated(S.SourceRoot) && ck::IsValid(S.SourceRoot) &&
+                S.SourceRoot.Has<ck::FFragment_CompassGym_SourceMembership>();
+            bool ExactSuffix = Captured;
+            if (Captured)
+            {
+                auto& State = S.SourceRoot.Get<
+                    ck::FFragment_CompassGym_SourceMembership>();
+                Run->CursorAtFault = State.FrozenStressCursor;
+                Run->WithdrawalRevision = Revision;
+                ExactSuffix &= State.JournalEnabled &&
+                    State.Result == ECkCompassGym_MembershipResult::Committed &&
+                    State.Serial == 2 && State.FrozenRetiring.Num() == 500 &&
+                    Run->CursorAtFault >= 0 && Run->CursorAtFault < 500 &&
+                    State.FrozenStressDeadlineSeconds > FPlatformTime::Seconds();
+                if (ExactSuffix)
+                {
+                    for (int32 I = Run->CursorAtFault; I < 500; ++I)
+                    {
+                        const auto& Receipt = State.FrozenRetiring[I];
+                        if (Receipt.CatalogId != Frozen[I].CatalogId ||
+                            Receipt.Kind != Frozen[I].Kind ||
+                            Receipt.Host != Frozen[I].Host ||
+                            Receipt.Marker != Frozen[I].Marker ||
+                            Receipt.Timer != Frozen[I].Timer ||
+                            Receipt.ExpectedCategory != Frozen[I].ExpectedCategory ||
+                            Receipt.Admitted != Frozen[I].Admitted ||
+                            !Uninitiated(Receipt.Host))
+                        { ExactSuffix = false; break; }
+                        Run->UnrequestedSuffix.Add(Receipt.Host);
+                    }
+                    ExactSuffix &= !Run->UnrequestedSuffix.IsEmpty();
+                }
+                if (ExactSuffix)
+                { State.FrozenStressDeadlineSeconds = FPlatformTime::Seconds() - 1.0; }
+            }
+            TestTrue(TEXT("accepted journal has nonempty unrequested suffix; only deadline is expired"),
+                ExactSuffix);
+            Run->Failed = !ExactSuffix;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->Failed) { return true; }
+            const auto Root = Run->Source.SourceRoot;
+            if (!Allocated(Root) || !ck::IsValid(Root) ||
+                !Root.Has<ck::FFragment_CompassGym_SourceMembership>())
+            { return false; }
+            const auto& State = Root.Get<
+                ck::FFragment_CompassGym_SourceMembership>();
+            return State.Result == ECkCompassGym_MembershipResult::Rejected &&
+                State.ClosedUnproven;
+        }), 15.0, TEXT("expired accepted source deadline terminally rejects")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
+            if (Run->Failed) { return; }
+            auto& S = Run->Source;
+            const bool RootSafe = Allocated(S.SourceRoot) &&
+                ck::IsValid(S.SourceRoot) &&
+                S.SourceRoot.Has<ck::FFragment_CompassGym_SourceMembership>();
+            TestTrue(TEXT("rejected source journal remains inspectable"), RootSafe);
+            if (!RootSafe) { Run->Failed = true; return; }
+            const auto& State = S.SourceRoot.Get<
+                ck::FFragment_CompassGym_SourceMembership>();
+            bool SuffixUntouched = Run->CursorAtFault >= 0 &&
+                State.FrozenStressCursor == Run->CursorAtFault &&
+                State.FrozenRetiring.Num() == 500 &&
+                Run->UnrequestedSuffix.Num() == 500 - Run->CursorAtFault;
+            for (const auto& Host : Run->UnrequestedSuffix)
+            { SuffixUntouched &= Uninitiated(Host); }
+            TArray<FCkCompassGym_SourceRow> ResultRows, Current;
+            TArray<FCkCompassGym_SourceReceipt> ResultFrozen;
+            FString ResultWhy, CurrentWhy, RetryWhy;
+            int64 CurrentRevision = -1;
+            ResultRows.AddDefaulted();
+            ResultFrozen.AddDefaulted();
+            Current.AddDefaulted();
+            const auto Result = UCkCompassGym_SourceMembership::Get_Result(
+                World, S.SourceGameState.Get(), S.SourceRoot, 2,
+                ResultRows, ResultFrozen, ResultWhy);
+            const bool CurrentReadable = UCkCompassGym_SourceMembership::
+                TryGet_CurrentRows(World, S.SourceGameState.Get(),
+                    S.SourceRoot, CurrentRevision, Current, CurrentWhy);
+            const bool Retried = UCkCompassGym_SourceMembership::
+                TryRequest_StressAdmission(World, S.SourceGameState.Get(),
+                    S.SourceRoot, S.Base, S.Stress, 3, RetryWhy);
+            const bool Closed = UCk_Utils_Compass_UE::
+                Get_IsWorldProjectionClosed(S.SourceWorldRoot) &&
+                UCkGym_AdmissionRuntime_UE::Get_IsClosedUnproven(
+                    S.SourceWorldRoot);
+            const bool Terminal = State.Result ==
+                    ECkCompassGym_MembershipResult::Rejected &&
+                State.ClosedUnproven && State.Serial == 2 &&
+                State.Failure.Contains(TEXT("Frozen Stress retirement timed out")) &&
+                Result == ECkCompassGym_MembershipResult::Rejected &&
+                ResultRows.IsEmpty() && ResultFrozen.IsEmpty() &&
+                !ResultWhy.IsEmpty() && !CurrentReadable &&
+                CurrentRevision == 0 && Current.IsEmpty() &&
+                !CurrentWhy.IsEmpty() && !Retried && !RetryWhy.IsEmpty() &&
+                Closed && SuffixUntouched;
+            TestTrue(TEXT("timeout closes source/projection without advancing or initiating frozen suffix"),
+                Terminal);
+            Run->Failed = !Terminal;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*) {
+            if (Run->Failed) { return; }
+            auto FailedWire = FCkCompassGym_WireSnapshot{};
+            FailedWire.SourceGeneration = 1;
+            FailedWire.Sequence = Run->WithdrawalRevision + 1;
+            FailedWire.Lifecycle = ECkCompassGym_WireLifecycle::Failed;
+            FailedWire.DeclaredRowCount = 0;
+            TArray<FCkCompassGym_SourceRow> Expanded;
+            const bool ValidFailed =
+                UCkCompassGym_Wire::TryValidateAndExpand(FailedWire, Expanded) &&
+                Expanded.IsEmpty();
+            bool BothClosed = ValidFailed;
+            for (auto& Client : Run->Source.Clients)
+            {
+                FString Why, RetryWhy;
+                const bool Queued = UCkCompassGym_Mirror::TryQueue_Snapshot(
+                    Client.World.Get(), Client.GameState.Get(),
+                    Client.MirrorRoot, FailedWire, Why);
+                bool Busy = true, Failed = false;
+                FString StatusWhy;
+                const bool Status = UCkCompassGym_Mirror::TryGet_Status(
+                    Client.World.Get(), Client.GameState.Get(),
+                    Client.MirrorRoot, Busy, Failed, StatusWhy);
+                auto Active = MakeWire(Run->LastNine, FailedWire.Sequence + 1);
+                const bool Revived = UCkCompassGym_Mirror::TryQueue_Snapshot(
+                    Client.World.Get(), Client.GameState.Get(),
+                    Client.MirrorRoot, Active, RetryWhy);
+                int64 Generation = -1, Sequence = -1;
+                TArray<FCkCompassGym_SourceRow> Rows;
+                Rows.AddDefaulted();
+                FString ReadWhy;
+                const bool Readable = UCkCompassGym_Mirror::TryGet_Installed(
+                    Client.World.Get(), Client.GameState.Get(),
+                    Client.MirrorRoot, Generation, Sequence, Rows, ReadWhy);
+                TArray<FCk_Handle> Children;
+                const bool NineChildren =
+                    UCk_EntityScriptGym_Spawn_Runtime_UE::
+                        TryGet_AllocatedDirectLifetimeDependents(
+                            Client.MirrorRoot, Client.WorldRoot, Children) &&
+                    Children.Num() == 9;
+                BothClosed &= !Queued && !Why.IsEmpty() && Status &&
+                    !Busy && Failed &&
+                    UCk_Utils_Compass_UE::Get_IsWorldProjectionClosed(
+                        Client.WorldRoot) && !Revived && !RetryWhy.IsEmpty() &&
+                    !Readable && Generation == 0 && Sequence == 0 &&
+                    Rows.IsEmpty() && NineChildren &&
+                    StableBase(Client);
+            }
+            TestTrue(TEXT("newer valid Failed wire terminally closes both Base9 mirrors without recovery"),
+                BothClosed);
+            Run->Failed = !BothClosed;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*) {
+            if (Run->Failed) { return; }
+            const auto Root = Run->Source.SourceRoot;
+            const bool RootSafe = Allocated(Root) && ck::IsValid(Root) &&
+                Root.Has<ck::FFragment_CompassGym_SourceMembership>();
+            bool StillTerminal = RootSafe;
+            if (RootSafe)
+            {
+                const auto& State = Root.Get<
+                    ck::FFragment_CompassGym_SourceMembership>();
+                StillTerminal &= State.Result ==
+                    ECkCompassGym_MembershipResult::Rejected &&
+                    State.ClosedUnproven && State.Serial == 2 &&
+                    State.FrozenStressCursor == Run->CursorAtFault;
+            }
+            for (const auto& Host : Run->UnrequestedSuffix)
+            { StillTerminal &= Uninitiated(Host); }
+            for (const auto& Client : Run->Source.Clients)
+            {
+                bool Busy = true, Failed = false;
+                FString Why;
+                StillTerminal &= UCkCompassGym_Mirror::TryGet_Status(
+                    Client.World.Get(), Client.GameState.Get(),
+                    Client.MirrorRoot, Busy, Failed, Why) &&
+                    !Busy && Failed &&
+                    UCk_Utils_Compass_UE::Get_IsWorldProjectionClosed(
+                        Client.WorldRoot) && StableBase(Client);
+            }
+            TestTrue(TEXT("source suffix and both client closures remain terminal after another barrier"),
+                StillTerminal);
+            Run->Failed = !StillTerminal;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*) {
+            TestFalse(TEXT("deadline fixture never entered an unexpected early failure"),
                 Run->Failed);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
