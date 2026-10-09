@@ -92,6 +92,15 @@ class CKTESTS_API UCkCompassGym_SourceCatalog : public UBlueprintFunctionLibrary
 {
     GENERATED_BODY()
 public:
+    // Pure physical proof of nine fully authored but unexposed source hosts.
+    // Deferred category or marker materialization returns Pending with no rows.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static ECkCompassGym_CatalogOutcome TryGet_UnexposedBase9(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        const TArray<FCkCompassGym_SourceReceipt>& BaseReceipts9,
+        TArray<FCkCompassGym_SourceRow>& OutRows,
+        FString& OutFailureReason);
+
     // Clears both outputs first. Caller validates its source epoch and closed-world
     // state before and after this passive read, and bounds Pending in wall time.
     UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")

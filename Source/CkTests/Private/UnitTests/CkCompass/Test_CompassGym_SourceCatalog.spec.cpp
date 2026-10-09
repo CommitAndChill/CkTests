@@ -102,6 +102,18 @@ namespace ck_compass_catalog_test
         int64 JournalRevision = 0;
         TArray<FCkCompassGym_SourceRow> JournalRows;
         FString JournalFailure;
+        FDelegateHandle BaseAdmissionTick;
+        bool BaseSawPartialPoi = false;
+        bool BaseSawEarlyCurrent = false;
+        bool StressSawPartialPoi = false;
+        int64 BaseStressRevision = 0;
+        TArray<FCkCompassGym_SourceRow> BaseStressRows;
+
+        ~FRun()
+        {
+            if (BaseAdmissionTick.IsValid())
+            { FWorldDelegates::OnWorldPostActorTick.Remove(BaseAdmissionTick); }
+        }
     };
 
     auto Allocated(const FCk_Handle& Handle) -> bool
@@ -148,7 +160,7 @@ namespace ck_compass_catalog_test
 
     auto AddPoi(FRun& Run, ECkCompassGym_SourceKind Kind,
         const TCHAR* CategoryName, const FVector& Location, int32 Priority,
-        bool WithDisplay) -> bool
+        bool WithDisplay, bool ExposePoi = true) -> bool
     {
         FCkCompassGym_SourceReceipt Receipt;
         Receipt.CatalogId = Run.NextCatalogId++;
@@ -157,12 +169,24 @@ namespace ck_compass_catalog_test
         if (!Receipt.ExpectedCategory.IsValid()) { return false; }
         Receipt.Host = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Run.SourceRoot);
         if (!Allocated(Receipt.Host)) { return false; }
-        UCk_Utils_Transform_UE::Add(Receipt.Host,
+        const auto Transform = UCk_Utils_Transform_UE::Add(Receipt.Host,
             FTransform(FRotator::ZeroRotator, Location),
             ECk_Replication::DoesNotReplicate);
-        const auto Poi = UCk_Utils_Poi_UE::Add(
-            Receipt.Host, FCk_Poi_Spec(Receipt.ExpectedCategory));
-        if (!Allocated(Poi)) { return false; }
+        if (!Allocated(Transform) ||
+            !Receipt.Host.Has<ck::FFragment_Transform>()) { return false; }
+        if (ExposePoi)
+        {
+            const auto Poi = UCk_Utils_Poi_UE::Add(
+                Receipt.Host, FCk_Poi_Spec(Receipt.ExpectedCategory));
+            if (!Allocated(Poi)) { return false; }
+        }
+        else
+        {
+            const auto Tagged = UCk_Utils_EntityTag_UE::Add_UsingGameplayTag(
+                Receipt.Host, Receipt.ExpectedCategory);
+            if (!Allocated(Tagged) || Receipt.Host.Has<ck::FTag_Poi>())
+            { return false; }
+        }
         if (WithDisplay && !Allocated(AttachDisplay(Receipt.Host, Priority,
             (Kind == ECkCompassGym_SourceKind::Waypoint ||
              Kind == ECkCompassGym_SourceKind::Ping)
@@ -216,7 +240,7 @@ namespace ck_compass_catalog_test
         return Run.StagedStress.Num() == 500;
     }
 
-    auto BuildHealthyBase(FRun& Run) -> bool
+    auto BuildHealthyBase(FRun& Run, bool ExposePoi = true) -> bool
     {
         constexpr const TCHAR* Categories[8] = {
             TEXT("Poi.Category.Quest"), TEXT("Poi.Category.Shop"),
@@ -230,12 +254,13 @@ namespace ck_compass_catalog_test
         for (int32 I = 0; I < 8; ++I)
         {
             if (!AddPoi(Run, ECkCompassGym_SourceKind::Ring, Categories[I],
-                    Center + FVector(Offsets[I].X, Offsets[I].Y, 0), I + 1, true))
+                    Center + FVector(Offsets[I].X, Offsets[I].Y, 0), I + 1,
+                    true, ExposePoi))
             { return false; }
         }
         return AddPoi(Run, ECkCompassGym_SourceKind::Waypoint,
             TEXT("Poi.Category.Waypoint"), Center + FVector(-2500, 0, 0),
-            10, true) && Run.Receipts.Num() == 9;
+            10, true, ExposePoi) && Run.Receipts.Num() == 9;
     }
 
     // Validator-only proof on physical source rows. Clearing NotReplicated
@@ -2855,6 +2880,316 @@ bool FCkCompassGym_NativeJournalReentrant::RunTest(const FString& Parameters)
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([Run](UWorld*) {
+            if (Allocated(Run->SourceRoot))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->SourceRoot); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkCompassGym_BaseAdmission,
+    "Ck.Compass.Gym.BaseAdmission.Network",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkCompassGym_BaseAdmission::RunTest(const FString& Parameters)
+{
+    using namespace ck_compass_catalog_test;
+    bool Dedicated = false;
+    if (!ck::auto_test::net::TryGet_DedicatedServer(Parameters, Dedicated))
+    { AddError(TEXT("unsupported Base9 admission topology")); return false; }
+    const auto Run = MakeShared<FRun>();
+    Run->Dedicated = Dedicated;
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+        3, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 60.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool {
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            return IsValid(W) && IsValid(W->GetGameState()) &&
+                Allocated(UCk_Utils_EcsWorld_Subsystem_UE::
+                    TryGet_TransientEntityForWorld(*W));
+        }), 60.0, TEXT("Base9 authority world ready")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            Run->GameState = W->GetGameState();
+            Run->WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
+                TryGet_TransientEntityForWorld(*W);
+            Run->SourceRoot = UCk_Utils_EntityLifetime_UE::
+                Request_CreateEntity(Run->WorldRoot);
+            Run->Built = Allocated(Run->SourceRoot) &&
+                BuildHealthyBase(*Run, false);
+            int32 Visible = 0;
+            for (const auto& R : Run->Receipts)
+            { Visible += R.Host.Has<ck::FTag_Poi>() ? 1 : 0; }
+            TestTrue(TEXT("real unexposed eight rings and waypoint authored"),
+                Run->Built && Run->Receipts.Num() == 9 && Visible == 0);
+            if (!Run->Built) { return; }
+            TWeakPtr<FRun> WeakRun = Run;
+            Run->BaseAdmissionTick = FWorldDelegates::OnWorldPostActorTick.AddLambda(
+                [WeakRun](UWorld* TickWorld, ELevelTick, float) {
+                    const auto Pinned = WeakRun.Pin();
+                    if (!Pinned) { return; }
+                    auto* GS = Pinned->GameState.Get();
+                    if (!IsValid(GS) || TickWorld != GS->GetWorld()) { return; }
+                    int32 Count = 0;
+                    for (const auto& R : Pinned->Receipts)
+                    { Count += Allocated(R.Host) && R.Host.Has<ck::FTag_Poi>() ? 1 : 0; }
+                    if (Count != 0 && Count != 9) { Pinned->BaseSawPartialPoi = true; }
+                    if (Pinned->StagedStress.Num() == 500)
+                    {
+                        int32 StressVisible = 0;
+                        for (const auto& R : Pinned->StagedStress)
+                        { StressVisible += Allocated(R.Host) && R.Host.Has<ck::FTag_Poi>() ? 1 : 0; }
+                        if (StressVisible != 0 && StressVisible != 500)
+                        { Pinned->StressSawPartialPoi = true; }
+                    }
+                    if (Count == 0)
+                    {
+                        TArray<FCkCompassGym_SourceRow> CurrentRows;
+                        FString CurrentWhy;
+                        int64 Revision = -1;
+                        const bool Current = UCkCompassGym_SourceMembership::
+                            TryGet_CurrentRows(TickWorld, GS, Pinned->SourceRoot,
+                                Revision, CurrentRows, CurrentWhy);
+                        if (Current || Revision != 0 || !CurrentRows.IsEmpty())
+                        { Pinned->BaseSawEarlyCurrent = true; }
+                    }
+                });
+            FString Why;
+            const bool Queued = UCkCompassGym_SourceMembership::
+                TryRequest_BaseAdmission(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 1, Why);
+            TArray<FCkCompassGym_SourceRow> Rows, CurrentRows;
+            TArray<FCkCompassGym_SourceReceipt> Retirees;
+            FString ResultWhy, CurrentWhy;
+            int64 Revision = -1;
+            const auto BaseStatus = Result(W, *Run, 1, Rows, Retirees, ResultWhy);
+            const bool Current = UCkCompassGym_SourceMembership::
+                TryGet_CurrentRows(W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, CurrentRows, CurrentWhy);
+            TestTrue(TEXT("Base9 is queued without any published subset"),
+                Queued && Why.IsEmpty() &&
+                BaseStatus == ECkCompassGym_MembershipResult::Pending &&
+                Rows.IsEmpty() && Retirees.IsEmpty() && !Current &&
+                Revision == 0 && CurrentRows.IsEmpty());
+            Run->JournalSetupFailed = !Queued;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed || Run->BaseSawPartialPoi ||
+                Run->BaseSawEarlyCurrent) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            TArray<FCkCompassGym_SourceReceipt> Retirees;
+            FString Why;
+            return Result(W, *Run, 1, Rows, Retirees, Why) ==
+                ECkCompassGym_MembershipResult::Committed && Rows.Num() == 9;
+        }), 60.0, TEXT("ordered Base9 complete without prefix")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (Run->JournalSetupFailed) { return; }
+            TArray<FCkCompassGym_SourceRow> Rows, CurrentRows;
+            TArray<FCkCompassGym_SourceReceipt> Retirees;
+            FString Why, CurrentWhy;
+            int64 Revision = 0;
+            const auto Admission = Result(W, *Run, 1, Rows, Retirees, Why);
+            const bool Current = UCkCompassGym_SourceMembership::
+                TryGet_CurrentRows(W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, CurrentRows, CurrentWhy);
+            bool SameIdentities = Current && Rows.Num() == 9 &&
+                CurrentRows.Num() == 9 && Retirees.IsEmpty();
+            for (const auto& R : Run->Receipts)
+            {
+                int32 Matches = 0;
+                for (const auto& Row : Rows)
+                { Matches += Row.CatalogId == R.CatalogId ? 1 : 0; }
+                SameIdentities &= Matches == 1 && R.Host.Has<ck::FTag_Poi>();
+            }
+            TestTrue(TEXT("Base9 publishes all exact IDs at revision one"),
+                !Run->BaseSawPartialPoi && !Run->BaseSawEarlyCurrent &&
+                SameIdentities &&
+                Admission == ECkCompassGym_MembershipResult::Committed &&
+                Revision == 1 && Why.IsEmpty() && CurrentWhy.IsEmpty());
+            Run->JournalSetupFailed = !SameIdentities ||
+                Run->BaseSawPartialPoi || Run->BaseSawEarlyCurrent;
+            if (Run->JournalSetupFailed) { return; }
+            Run->OriginalNine = Run->Receipts;
+            const bool Staged = StageStress(*Run);
+            Why.Reset();
+            const bool Next = Staged && UCkCompassGym_SourceMembership::
+                TryRequest_StressAdmission(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->OriginalNine, Run->StagedStress, 2, Why);
+            TestTrue(TEXT("next serial can queue real stress admission"),
+                Staged && Next && Why.IsEmpty());
+            Run->JournalSetupFailed = !Next;
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed || Run->StressSawPartialPoi) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            TArray<FCkCompassGym_SourceReceipt> Retirees;
+            FString Why;
+            TArray<FCkCompassGym_SourceRow> CurrentRows;
+            FString CurrentWhy;
+            int64 Revision = 0;
+            const bool Current = UCkCompassGym_SourceMembership::
+                TryGet_CurrentRows(W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, CurrentRows, CurrentWhy);
+            const bool Ready = Result(W, *Run, 2, Rows, Retirees, Why) ==
+                ECkCompassGym_MembershipResult::Committed && Rows.Num() == 509 &&
+                Current && Revision == 2 && CurrentRows.Num() == 509 &&
+                Retirees.IsEmpty() && Why.IsEmpty() && CurrentWhy.IsEmpty();
+            if (Ready)
+            {
+                Run->BaseStressRevision = Revision;
+                Run->BaseStressRows = MoveTemp(CurrentRows);
+            }
+            return Ready;
+        }), 60.0, TEXT("Base9 next stress serial publishes whole 509")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (Run->BaseAdmissionTick.IsValid())
+            { FWorldDelegates::OnWorldPostActorTick.Remove(Run->BaseAdmissionTick);
+              Run->BaseAdmissionTick.Reset(); }
+            if (Run->JournalSetupFailed) { return; }
+            int32 BaseCount = 0, StressCount = 0, MarkerCount = 0, PingCount = 0;
+            bool EveryRowExpected = true;
+            bool SameBaseHosts = Run->OriginalNine.Num() == 9 &&
+                Run->Receipts.Num() == 9 && Run->StagedStress.Num() == 500;
+            for (int32 I = 0; I < Run->OriginalNine.Num() && I < 9; ++I)
+            {
+                const auto& Before = Run->OriginalNine[I];
+                const auto& After = Run->Receipts[I];
+                SameBaseHosts &= Before.CatalogId == After.CatalogId &&
+                    Before.Host == After.Host && Before.Marker == After.Marker;
+            }
+            for (const auto& Row : Run->BaseStressRows)
+            {
+                int32 Matches = 0;
+                if (Row.Kind == ECkCompassGym_SourceKind::Ping) { ++PingCount; }
+                if (Row.HasMarker) { ++MarkerCount; }
+                for (const auto& Base : Run->OriginalNine)
+                {
+                    if (Row.CatalogId == Base.CatalogId && Row.Kind == Base.Kind)
+                    { ++BaseCount; ++Matches; EveryRowExpected &= Row.HasMarker; }
+                }
+                for (const auto& Stress : Run->StagedStress)
+                {
+                    if (Row.CatalogId == Stress.CatalogId &&
+                        Row.Kind == ECkCompassGym_SourceKind::Stress)
+                    { ++StressCount; ++Matches; EveryRowExpected &= !Row.HasMarker; }
+                }
+                EveryRowExpected &= Matches == 1;
+            }
+            const bool WholeStress = Run->BaseStressRevision == 2 &&
+                Run->BaseStressRows.Num() == 509 && SameBaseHosts &&
+                EveryRowExpected && !Run->StressSawPartialPoi &&
+                BaseCount == 9 && StressCount == 500 && MarkerCount == 9 &&
+                PingCount == 0;
+            TestTrue(TEXT("revision two retains Base9 and publishes 500 Stress without Ping"),
+                WholeStress);
+            Run->JournalSetupFailed = !WholeStress;
+            if (!WholeStress) { return; }
+            auto Display = ck::StaticCast<FCk_Handle_PoiDisplayDefinition>(
+                Run->Receipts[8].Host);
+            const auto Changed = UCk_Utils_PoiDisplayDefinition_UE::Request_SetTint(
+                Display, FCk_Request_PoiDisplayDefinition_SetTint(
+                    FLinearColor(0.2f, 0.4f, 0.8f)), {});
+            TestTrue(TEXT("real retained waypoint tint request accepted"),
+                Allocated(Changed));
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            return UCk_Utils_Compass_UE::Get_IsWorldProjectionClosed(
+                Run->WorldRoot);
+        }), 30.0, TEXT("same CatalogId value mutation closes source")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (Run->JournalSetupFailed) { return; }
+            bool Closed = false;
+            const bool Admission = UCkGym_AdmissionRuntime_UE::
+                TryGet_IsClosedUnproven(Run->WorldRoot, Closed);
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Why;
+            int64 Revision = -1;
+            const bool Current = UCkCompassGym_SourceMembership::
+                TryGet_CurrentRows(W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, Rows, Why);
+            TestTrue(TEXT("changed retained ID has no new publication"),
+                Admission && Closed &&
+                UCk_Utils_Compass_UE::Get_IsWorldProjectionClosed(Run->WorldRoot) &&
+                !Current && Revision == 0 && Rows.IsEmpty());
+            if (Allocated(Run->SourceRoot))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->SourceRoot); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkCompassGym_BaseAdmissionFailure,
+    "Ck.Compass.Gym.NegativeBaseAdmissionFailure.Network",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkCompassGym_BaseAdmissionFailure::RunTest(const FString& Parameters)
+{
+    using namespace ck_compass_catalog_test;
+    bool Dedicated = false;
+    if (!ck::auto_test::net::TryGet_DedicatedServer(Parameters, Dedicated))
+    { AddError(TEXT("unsupported Base9 failure topology")); return false; }
+    const auto Run = MakeShared<FRun>();
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+        3, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 60.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool {
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            return IsValid(W) && IsValid(W->GetGameState()) &&
+                Allocated(UCk_Utils_EcsWorld_Subsystem_UE::
+                    TryGet_TransientEntityForWorld(*W));
+        }), 60.0, TEXT("invalid Base9 authority world ready")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            Run->GameState = W->GetGameState();
+            Run->WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
+                TryGet_TransientEntityForWorld(*W);
+            Run->SourceRoot = UCk_Utils_EntityLifetime_UE::
+                Request_CreateEntity(Run->WorldRoot);
+            const bool Built = Allocated(Run->SourceRoot) &&
+                BuildHealthyBase(*Run, false);
+            Run->ExtraChild = Built ? UCk_Utils_EntityLifetime_UE::
+                Request_CreateEntity(Run->SourceRoot) : FCk_Handle{};
+            TestTrue(TEXT("unknown real direct child retained"),
+                Built && Allocated(Run->ExtraChild));
+            if (!Built || !Allocated(Run->ExtraChild)) { return; }
+            FString Why;
+            const bool Accepted = UCkCompassGym_SourceMembership::
+                TryRequest_BaseAdmission(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 1, Why);
+            TArray<FCkCompassGym_SourceRow> Rows;
+            TArray<FCkCompassGym_SourceReceipt> Retirees;
+            FString ResultWhy;
+            const auto Failed = Result(W, *Run, 1, Rows, Retirees, ResultWhy);
+            bool Closed = false;
+            const bool Admission = UCkGym_AdmissionRuntime_UE::
+                TryGet_IsClosedUnproven(Run->WorldRoot, Closed);
+            int32 Visible = 0;
+            for (const auto& R : Run->Receipts)
+            { Visible += R.Host.Has<ck::FTag_Poi>() ? 1 : 0; }
+            FString RetryWhy;
+            const bool Retry = UCkCompassGym_SourceMembership::
+                TryRequest_BaseAdmission(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 2, RetryWhy);
+            TestTrue(TEXT("invalid Base9 closes without exposing subset or retiring foreign child"),
+                !Accepted && !Why.IsEmpty() &&
+                Failed == ECkCompassGym_MembershipResult::Rejected &&
+                Rows.IsEmpty() && Retirees.IsEmpty() && !ResultWhy.IsEmpty() &&
+                Admission && Closed &&
+                UCk_Utils_Compass_UE::Get_IsWorldProjectionClosed(Run->WorldRoot) &&
+                Visible == 0 && LiveUninitiated(Run->ExtraChild) && !Retry);
             if (Allocated(Run->SourceRoot))
             { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->SourceRoot); }
         })));

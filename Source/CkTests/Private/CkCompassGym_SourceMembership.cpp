@@ -232,12 +232,99 @@ namespace ck_compass_membership
         return true;
     }
 
+    // A retained CatalogId names immutable source values for this gym.
+    // Adding or retiring a row changes membership, never a surviving row.
+    bool SameRetainedCatalogValues(
+        const TArray<FCkCompassGym_SourceRow>& Previous,
+        const TArray<FCkCompassGym_SourceRow>& Current)
+    {
+        const auto* Type = FCkCompassGym_SourceRow::StaticStruct();
+        for (const auto& Old : Previous)
+        {
+            for (const auto& New : Current)
+            {
+                if (Old.CatalogId == New.CatalogId &&
+                    !Type->CompareScriptStruct(&Old, &New, PPF_None))
+                { return false; }
+            }
+        }
+        return true;
+    }
+
     int64 HighestId(const TArray<FCkCompassGym_SourceReceipt>& Receipts)
     {
         int64 Highest = 0;
         for (const auto& R : Receipts)
         { Highest = FMath::Max(Highest, R.CatalogId); }
         return Highest;
+    }
+
+    void ProcessBaseAdmit(UWorld* World, AActor* GameState,
+        const FCk_Handle& SourceRoot,
+        ck::FFragment_CompassGym_SourceMembership& State)
+    {
+        if (State.BaseInitialized || State.JournalEnabled ||
+            State.Active.Num() != 9 || !State.Staged.IsEmpty() ||
+            !State.ActivePings.IsEmpty() || !State.StagedPings.IsEmpty() ||
+            !State.FrozenPings.IsEmpty() || !State.FrozenRetiring.IsEmpty())
+        { Reject(State, TEXT("Base admission ledger changed")); return; }
+        TArray<FCkCompassGym_SourceRow> BeforeRows;
+        FString Why;
+        const auto Before = UCkCompassGym_SourceCatalog::TryGet_UnexposedBase9(
+            World, GameState, SourceRoot, State.Active, BeforeRows, Why);
+        if (Before == ECkCompassGym_CatalogOutcome::Pending) { return; }
+        if (Before != ECkCompassGym_CatalogOutcome::Complete ||
+            BeforeRows.Num() != 9)
+        { Reject(State, Why.IsEmpty() ? TEXT("Base nine proof invalid") : Why); return; }
+        TArray<FCk_Handle> Changed;
+        Changed.Reserve(9);
+        for (const auto& R : State.Active)
+        {
+            if (!Preflight(World, GameState, SourceRoot) || !Open(World) ||
+                !SafeOwned(R.Host, SourceRoot) || R.Host.Has<ck::FTag_Poi>())
+            {
+                const bool Repaired = RollbackPoi(Changed, SourceRoot, false);
+                Reject(State, Repaired ? TEXT("Base changed during admission") :
+                    TEXT("Base changed and rollback unproven"));
+                return;
+            }
+            auto MutableHost = R.Host;
+            MutableHost.Add<ck::FTag_Poi>();
+            Changed.Add(R.Host);
+            if (!Preflight(World, GameState, SourceRoot) || !Open(World) ||
+                !SafeOwned(R.Host, SourceRoot) || !R.Host.Has<ck::FTag_Poi>())
+            {
+                const bool Repaired = RollbackPoi(Changed, SourceRoot, false);
+                Reject(State, Repaired ? TEXT("Base tag admission failed") :
+                    TEXT("Base tag admission rollback unproven"));
+                return;
+            }
+        }
+        auto ProvenReceipts = State.Active;
+        for (auto& R : ProvenReceipts) { R.Admitted = true; }
+        TArray<FCkCompassGym_SourceRow> AfterRows;
+        const auto After = UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
+            World, GameState, SourceRoot, true, ProvenReceipts, AfterRows, Why);
+        if (After != ECkCompassGym_CatalogOutcome::Complete ||
+            AfterRows.Num() != 9 || !SameRows(BeforeRows, AfterRows) ||
+            !AllPoi(ProvenReceipts, SourceRoot, true) ||
+            !Preflight(World, GameState, SourceRoot) || !Open(World))
+        {
+            const bool Repaired = RollbackPoi(Changed, SourceRoot, false);
+            Reject(State, Repaired ? (Why.IsEmpty() ?
+                TEXT("Exposed Base9 proof failed") : Why) :
+                TEXT("Exposed Base9 proof failed; rollback unproven"));
+            return;
+        }
+        State.Base = ProvenReceipts;
+        State.Active = MoveTemp(ProvenReceipts);
+        State.BaseInitialized = true;
+        State.JournalEnabled = true;
+        State.HighestAcceptedCatalogId = HighestId(State.Base);
+        State.CommittedRows = MoveTemp(AfterRows);
+        State.Result = ECkCompassGym_MembershipResult::Committed;
+        State.CurrentRowsDirty = true;
+        State.Failure.Reset();
     }
 
     void ProcessAdmit(UWorld* World, AActor* GameState,
@@ -672,6 +759,58 @@ namespace ck_compass_membership
     }
 }
 
+bool UCkCompassGym_SourceMembership::TryRequest_BaseAdmission(
+    UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+    const TArray<FCkCompassGym_SourceReceipt>& BaseReceipts9,
+    int64 RequestSerial, FString& OutFailureReason)
+{
+    using namespace ck_compass_membership;
+    OutFailureReason.Reset();
+    if (RequestSerial <= 0 || !Preflight(World, ExactGameState, SourceRoot) ||
+        !Open(World) ||
+        SourceRoot.Has<ck::FFragment_CompassGym_SourceMembership>())
+    { OutFailureReason = TEXT("Base admission unavailable or already requested"); return false; }
+    if (BaseReceipts9.Num() != 9)
+    {
+        auto MutableRoot = SourceRoot;
+        auto& Failed = MutableRoot.AddOrGet<ck::FFragment_CompassGym_SourceMembership>();
+        Failed.World = World;
+        Failed.GameState = ExactGameState;
+        Failed.Serial = RequestSerial;
+        Failed.Request = ck::ECompassGym_SourceRequest::BaseAdmit;
+        Reject(Failed, TEXT("Base admission requires exactly nine first returns"));
+        OutFailureReason = Failed.Failure;
+        return false;
+    }
+    TArray<FCkCompassGym_SourceRow> Rows;
+    const auto Proof = UCkCompassGym_SourceCatalog::TryGet_UnexposedBase9(
+        World, ExactGameState, SourceRoot, BaseReceipts9, Rows, OutFailureReason);
+    if (Proof == ECkCompassGym_CatalogOutcome::Invalid)
+    {
+        auto MutableRoot = SourceRoot;
+        auto& Failed = MutableRoot.AddOrGet<ck::FFragment_CompassGym_SourceMembership>();
+        Failed.World = World;
+        Failed.GameState = ExactGameState;
+        Failed.Serial = RequestSerial;
+        Failed.Request = ck::ECompassGym_SourceRequest::BaseAdmit;
+        Reject(Failed, OutFailureReason.IsEmpty() ?
+            TEXT("Unexposed Base9 proof invalid") : OutFailureReason);
+        OutFailureReason = Failed.Failure;
+        return false;
+    }
+    auto MutableRoot = SourceRoot;
+    auto& State = MutableRoot.AddOrGet<ck::FFragment_CompassGym_SourceMembership>();
+    State.World = World;
+    State.GameState = ExactGameState;
+    State.Active = BaseReceipts9;
+    State.Serial = RequestSerial;
+    State.Request = ck::ECompassGym_SourceRequest::BaseAdmit;
+    State.Result = ECkCompassGym_MembershipResult::Pending;
+    State.DeadlineSeconds = FPlatformTime::Seconds() + PendingTimeoutSeconds;
+    OutFailureReason.Reset();
+    return true;
+}
+
 bool UCkCompassGym_SourceMembership::TryInitialize_BaseCohort(
     UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
     const TArray<FCkCompassGym_SourceReceipt>& BaseReceipts9,
@@ -951,11 +1090,15 @@ bool UCkCompassGym_SourceMembership::TryRequest_StressAdmission(
         const bool InitialIdle =
             Existing.Request == ck::ECompassGym_SourceRequest::None &&
             Existing.Result == ECkCompassGym_MembershipResult::Unavailable;
+        const bool BaseAdmitted =
+            Existing.Request == ck::ECompassGym_SourceRequest::BaseAdmit &&
+            Existing.Result == ECkCompassGym_MembershipResult::Committed &&
+            SameReceipts(Existing.Active, ActiveReceipts);
         const bool Withdrawn =
             Existing.Result == ECkCompassGym_MembershipResult::Committed &&
             Existing.Request == ck::ECompassGym_SourceRequest::Withdraw &&
             SameReceipts(Existing.Active, ActiveReceipts);
-        if (!InitialIdle && !Withdrawn)
+        if (!InitialIdle && !BaseAdmitted && !Withdrawn)
         { OutFailureReason = TEXT("Previous stress membership is not withdrawn"); return false; }
         for (const auto& R : Existing.FrozenRetiring)
         {
@@ -1103,22 +1246,31 @@ void ck::FProcessor_CompassGym_SourceMembership::ForEachEntity(
     TimeType, HandleType SourceRoot,
     FFragment_CompassGym_SourceMembership& State)
 {
-    if (State.ClosedUnproven || !State.BaseInitialized) { return; }
-    if (!State.JournalEnabled &&
+    if (State.ClosedUnproven) { return; }
+    const bool BasePending = !State.BaseInitialized &&
+        State.Request == ECompassGym_SourceRequest::BaseAdmit &&
+        State.Result == ECkCompassGym_MembershipResult::Pending;
+    if (!State.BaseInitialized && !BasePending) { return; }
+    if (!BasePending && !State.JournalEnabled &&
         State.Result != ECkCompassGym_MembershipResult::Pending)
     { return; }
     auto* World = State.World.Get();
     auto* GameState = State.GameState.Get();
     if (!ck_compass_membership::Preflight(World, GameState, SourceRoot) ||
         !ck_compass_membership::Open(World) ||
-        !ck_compass_membership::BoundBase(State, World, GameState))
+        (!BasePending && !ck_compass_membership::BoundBase(State, World, GameState)) ||
+        (BasePending && (State.World.Get() != World ||
+            State.GameState.Get() != GameState)))
     { ck_compass_membership::Reject(State, TEXT("Accepted source authority or base changed")); return; }
     if (State.Result == ECkCompassGym_MembershipResult::Pending)
     {
-        if (State.Serial <= 0 ||
+        if (State.Serial <= 0 || !FMath::IsFinite(State.DeadlineSeconds) ||
+            State.DeadlineSeconds <= 0.0 ||
             FPlatformTime::Seconds() > State.DeadlineSeconds)
         { ck_compass_membership::Reject(State, TEXT("Membership proof timed out")); return; }
-        if (State.Request == ECompassGym_SourceRequest::Admit)
+        if (State.Request == ECompassGym_SourceRequest::BaseAdmit)
+        { ck_compass_membership::ProcessBaseAdmit(World, GameState, SourceRoot, State); }
+        else if (State.Request == ECompassGym_SourceRequest::Admit)
         { ck_compass_membership::ProcessAdmit(World, GameState, SourceRoot, State); }
         else if (State.Request == ECompassGym_SourceRequest::Withdraw)
         { ck_compass_membership::ProcessWithdraw(World, GameState, SourceRoot, State); }
@@ -1140,6 +1292,9 @@ void ck::FProcessor_CompassGym_SourceMembership::ForEachEntity(
     if (Outcome == ECkCompassGym_CatalogOutcome::Invalid)
     { ck_compass_membership::Reject(State, Why.IsEmpty() ?
         TEXT("Accepted source union unproven") : Why); return; }
+    if (Outcome == ECkCompassGym_CatalogOutcome::Complete &&
+        !ck_compass_membership::SameRetainedCatalogValues(State.CurrentRows, Active))
+    { ck_compass_membership::Reject(State, TEXT("Retained source CatalogId values changed")); return; }
     if (Outcome == ECkCompassGym_CatalogOutcome::Complete &&
         (State.CurrentRowsDirty || State.CurrentRevision == 0 ||
          !ck_compass_membership::SameRows(State.CurrentRows, Active)))
