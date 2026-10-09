@@ -2,6 +2,8 @@
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
 #include "CkGym_StartupSettings.h"
+#include "CkGym_NetworkRuntime.h"
+#include "CkPoi/CkPoi_Fragment.h"
 #include "CkGymRegistry_Utils.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkCompassGym_Wire.h"
@@ -878,5 +880,332 @@ CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkCompassGym_SharedWorld_Network,
 
 bool FCkCompassGym_SharedWorld_Network::RunTest(const FString& Parameters)
 { return RunCompassAuthoredNetworkFixture(*this, Parameters); }
+
+namespace ck_compass_authored_network
+{
+    struct FLifecycle
+    {
+        FRun Initial;
+        TWeakObjectPtr<UWorld> OldWorld[4];
+        FCk_Handle OldSource;
+        FCk_Handle OldMirror[3];
+        FCk_Handle OldMirrorHosts[3][9];
+        FCk_Handle OldBase[9];
+        FCk_Handle OldCompass[3];
+        FCk_Handle OldHostCompass;
+        FCk_Handle NewSource;
+        FCk_Handle NewMirror[3];
+    };
+
+    bool ExactBaseClient(UWorld* World, const FRun& Run,
+        const FCkCompassGym_WireSnapshot& Source,
+        FCk_Handle& OutMirror, FCk_Handle& OutCompass)
+    {
+        OutMirror = {};
+        OutCompass = {};
+        auto* PC = IsValid(World) ? World->GetFirstPlayerController() : nullptr;
+        auto* State = IsValid(World) ? World->GetGameState() : nullptr;
+        auto* GymState = Cast<ACkGym_GameState_UE>(State);
+        if (!IsValid(World) || World->GetNetMode() != NM_Client ||
+            !PlayerReady(PC, World, Run) || !PC->IsLocalController() ||
+            !IsValid(State) || State->GetClass() != Run.StateClass ||
+            !IsValid(GymState) || !GymState->Get_HasPublishedCatalog() ||
+            !Run.SnapshotProperty ||
+            Run.SnapshotProperty->Struct != FCkCompassGym_WireSnapshot::StaticStruct() ||
+            !FindMirrorRoot(World, State, OutMirror))
+        { return false; }
+        const auto* Received = Run.SnapshotProperty->
+            ContainerPtrToValuePtr<FCkCompassGym_WireSnapshot>(State);
+        if (!Received || !UCkCompassGym_Wire::Get_IsSameFrame(*Received, Source))
+        { return false; }
+        bool Busy = true, Failed = true;
+        int64 Generation = 0, Sequence = 0;
+        TArray<FCkCompassGym_SourceRow> Rows;
+        FString Why;
+        if (!UCkCompassGym_Mirror::TryGet_Status(World, State, OutMirror,
+                Busy, Failed, Why) || Busy || Failed ||
+            !UCkCompassGym_Mirror::TryGet_Installed(World, State, OutMirror,
+                Generation, Sequence, Rows, Why) || Rows.Num() != 9)
+        { return false; }
+        auto Installed = *Received;
+        Installed.SourceGeneration = Generation;
+        Installed.Sequence = Sequence;
+        Installed.Rows = Rows;
+        Installed.DeclaredRowCount = Rows.Num();
+        FCk_Handle_Compass Compass;
+        if (!UCkCompassGym_Wire::Get_IsSameFrame(*Received, Installed) ||
+            !HasLocalCompass(PC, &Compass)) { return false; }
+        OutCompass = FCk_Handle(Compass);
+        return Direct(OutMirror, WorldRoot(World)) &&
+            OutCompass == UCk_Utils_OwningActor_UE::
+                TryGet_ActorEntityHandle(PC->GetPawn()) &&
+            Allocated(OutCompass);
+    }
+
+    bool ExactBaseAuthority(UWorld* Server, const FRun& Run,
+        FCk_Handle& OutSource, FCkCompassGym_WireSnapshot& OutWire)
+    {
+        OutSource = {};
+        OutWire = {};
+        auto* Mode = IsValid(Server) ? Server->GetAuthGameMode() : nullptr;
+        auto* State = IsValid(Server) ? Server->GetGameState() : nullptr;
+        if (!IsValid(Server) || Server->GetNetMode() !=
+                (Run.Dedicated ? NM_DedicatedServer : NM_ListenServer) ||
+            !IsValid(Mode) || Mode->GetClass() != Run.Mode ||
+            !IsValid(State) || State->GetClass() != Run.StateClass ||
+            !Run.SnapshotProperty ||
+            Run.SnapshotProperty->Struct != FCkCompassGym_WireSnapshot::StaticStruct() ||
+            !FindSourceRoot(Server, State, OutSource))
+        { return false; }
+        const auto* Published = Run.SnapshotProperty->
+            ContainerPtrToValuePtr<FCkCompassGym_WireSnapshot>(State);
+        if (!Published || Published->Lifecycle !=
+                ECkCompassGym_WireLifecycle::Active ||
+            Published->SourceGeneration != 1 || Published->Sequence <= 0 ||
+            Published->DeclaredRowCount != 9 || Published->Rows.Num() != 9)
+        { return false; }
+        int64 Revision = 0;
+        TArray<FCkCompassGym_SourceRow> Rows;
+        FString Why;
+        if (!UCkCompassGym_SourceMembership::TryGet_CurrentRows(Server,
+                State, OutSource, Revision, Rows, Why) ||
+            Revision != Published->Sequence || Rows.Num() != 9)
+        { return false; }
+        OutWire = *Published;
+        auto Physical = OutWire;
+        Physical.Rows = Rows;
+        Physical.DeclaredRowCount = Rows.Num();
+        return UCkCompassGym_Wire::Get_IsSameFrame(OutWire, Physical) &&
+            NoAuthorityMirror(Server);
+    }
+
+    bool JoinedBase(FLifecycle& L)
+    {
+        using namespace ck::auto_test::net;
+        auto* Server = Get_ServerWorld();
+        const auto WorldsNow = Get_AllPIEWorlds();
+        if (!IsValid(Server) || WorldsNow.Num() != 4 ||
+            Get_NumClientWorlds() != 3 ||
+            Server != L.Initial.World[0].Get() ||
+            !Allocated(L.OldSource) || !SameBaseHosts(L.Initial, L.Initial.BaseFrame))
+        { return false; }
+        FCk_Handle Source;
+        FCkCompassGym_WireSnapshot Published;
+        if (!ExactBaseAuthority(Server, L.Initial, Source, Published) ||
+            Source != L.OldSource ||
+            !UCkCompassGym_Wire::Get_IsSameFrame(Published,
+                L.Initial.BaseFrame)) { return false; }
+        for (int32 I = 0; I < 3; ++I)
+        {
+            auto* World = Get_ClientWorld(I);
+            FCk_Handle Mirror, Compass;
+            if (!IsValid(World) ||
+                (I < 2 && World != L.Initial.World[I + 1].Get()) ||
+                !ExactBaseClient(World, L.Initial, Published, Mirror, Compass) ||
+                (I < 2 &&
+                    (Mirror != L.OldMirror[I] || Compass != L.OldCompass[I])))
+            { return false; }
+            if (!Allocated(Mirror) || !ck::IsValid(Mirror) ||
+                !Mirror.Has<ck::FFragment_CompassGym_Mirror>())
+            { return false; }
+            const auto& Installed = Mirror.Get<
+                ck::FFragment_CompassGym_Mirror>().Installed;
+            if (Installed.Num() != 9) { return false; }
+            for (int32 Slot = 0; Slot < 9; ++Slot)
+            {
+                const auto& Entry = Installed[Slot];
+                if (Entry.Row.CatalogId != L.Initial.BaseIds[Slot] ||
+                    !Allocated(Entry.Host) || !ck::IsValid(Entry.Host) ||
+                    !Entry.Host.Has<ck::FTag_Poi>() ||
+                    !Direct(Entry.Host, Mirror) ||
+                    (I < 2 && Entry.Host != L.OldMirrorHosts[I][Slot]))
+                { return false; }
+                if (I == 2) { L.OldMirrorHosts[I][Slot] = Entry.Host; }
+            }
+            if (I == 2)
+            {
+                L.OldWorld[3] = World;
+                L.OldMirror[2] = Mirror;
+                L.OldCompass[2] = Compass;
+            }
+        }
+        if (!L.Initial.Dedicated)
+        {
+            FCk_Handle_Compass Host;
+            if (!HasLocalCompass(L.Initial.Host.Get(), &Host) ||
+                FCk_Handle(Host) != L.OldHostCompass)
+            { return false; }
+        }
+        return true;
+    }
+
+    bool TraveledBase(FLifecycle& L)
+    {
+        using namespace ck::auto_test::net;
+        auto* Server = Get_ServerWorld();
+        if (!IsValid(Server) || Get_AllPIEWorlds().Num() != 4 ||
+            Get_NumClientWorlds() != 3 || Server == L.OldWorld[0].Get())
+        { return false; }
+        FCk_Handle Source;
+        FCkCompassGym_WireSnapshot Published;
+        if (!ExactBaseAuthority(Server, L.Initial, Source, Published) ||
+            Source == L.OldSource || Allocated(L.OldSource))
+        { return false; }
+        for (int32 I = 0; I < 9; ++I)
+        {
+            if (Published.Rows[I].CatalogId != L.Initial.BaseIds[I] ||
+                Allocated(L.OldBase[I])) { return false; }
+        }
+        for (int32 I = 0; I < 3; ++I)
+        {
+            auto* World = Get_ClientWorld(I);
+            FCk_Handle Mirror, Compass;
+            if (!IsValid(World) || World == L.OldWorld[I + 1].Get() ||
+                !ExactBaseClient(World, L.Initial, Published, Mirror, Compass) ||
+                Mirror == L.OldMirror[I] || Compass == L.OldCompass[I] ||
+                Allocated(L.OldMirror[I]) || Allocated(L.OldCompass[I]))
+            { return false; }
+            L.NewMirror[I] = Mirror;
+            for (int32 Slot = 0; Slot < 9; ++Slot)
+            { if (Allocated(L.OldMirrorHosts[I][Slot])) { return false; } }
+        }
+        if (!L.Initial.Dedicated)
+        {
+            auto* GI = Server->GetGameInstance();
+            auto* Host = IsValid(GI) && GI->GetLocalPlayers().Num() == 1
+                ? GI->GetLocalPlayers()[0]->GetPlayerController(Server) : nullptr;
+            FCk_Handle_Compass HostCompass;
+            if (!PlayerReady(Host, Server, L.Initial) ||
+                !HasLocalCompass(Host, &HostCompass) ||
+                FCk_Handle(HostCompass) == L.OldHostCompass ||
+                Allocated(L.OldHostCompass)) { return false; }
+        }
+        L.NewSource = Source;
+        return true;
+    }
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkCompassGym_SharedWorld_TravelLateJoin,
+    "Ck.Compass.Gym.TravelLateJoin.Network",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext |
+    EAutomationTestFlags::EngineFilter)
+
+bool FCkCompassGym_SharedWorld_TravelLateJoin::RunTest(const FString& Parameters)
+{
+    using namespace ck_compass_authored_network;
+    auto L = MakeShared<FLifecycle>();
+    auto& Test = *this;
+    auto& Run = L->Initial;
+    if (!ck::auto_test::net::TryGet_DedicatedServer(Parameters, Run.Dedicated))
+    { AddError(TEXT("unsupported Compass lifecycle topology")); return false; }
+    Run.BaseMode = FSoftClassPath(BaseModePath).TryLoadClass<AGameModeBase>();
+    Run.Mode = FSoftClassPath(ModePath).TryLoadClass<AGameModeBase>();
+    Run.StateClass = FSoftClassPath(StatePath).TryLoadClass<AGameStateBase>();
+    Run.PCClass = FSoftClassPath(PCPath).TryLoadClass<APlayerController>();
+    Run.PawnClass = FSoftClassPath(PawnPath).TryLoadClass<APawn>();
+    Run.SnapshotProperty = Field<FStructProperty>(Run.StateClass,
+        TEXT("Snapshot"));
+    if (!TestTrue(TEXT("lifecycle authored classes and typed snapshot exist"),
+            Run.BaseMode && Run.Mode && Run.StateClass && Run.PCClass &&
+            Run.PawnClass && Run.SnapshotProperty &&
+            Run.SnapshotProperty->Struct == FCkCompassGym_WireSnapshot::StaticStruct()))
+    { return false; }
+    const auto* Settings = GetDefault<UCkGym_StartupSettings>();
+    Run.Startup = Settings->StartupMode;
+    Run.LastGym = Settings->LastGymName;
+    Run.Recents = Settings->RecentGymNames;
+    GetMutableDefault<UCkGym_StartupSettings>()->StartupMode =
+        ECkGym_StartupMode::Cycler;
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+        Worlds, EntryMap, Parameters, Run.BaseMode));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(Worlds, 60));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() {
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            auto* GI = IsValid(W) ? W->GetGameInstance() : nullptr;
+            auto* Registry = IsValid(GI)
+                ? GI->GetSubsystem<UCkGym_Registry_Subsystem>() : nullptr;
+            return IsValid(Registry) &&
+                Registry->Find_GymIndexByName(TEXT("Compass")) != INDEX_NONE;
+        }), 30, TEXT("lifecycle Compass gym registered")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
+        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* W) {
+            auto* PC = IsValid(W) ? W->GetFirstPlayerController() : nullptr;
+            TestTrue(TEXT("lifecycle owner requests Compass travel"),
+                IsValid(PC) && UCk_Utils_GymRegistry_UE::
+                    TryRequest_TravelToGymFromPlayer(PC, TEXT("Compass")));
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([L]() {
+            auto& R = L->Initial;
+            if (!AuthorityFrame(R, 9, R.BaseFrame) ||
+                !AllClientsInstalled(R, R.BaseFrame) ||
+                !CaptureBaseHosts(R) || !SameBaseHosts(R, R.BaseFrame) ||
+                !CaptureHostCompass(R)) { return false; }
+            for (int32 I = 0; I < Worlds; ++I)
+            { L->OldWorld[I] = R.World[I]; }
+            L->OldSource = R.SourceRoot;
+            for (int32 I = 0; I < 2; ++I)
+            {
+                L->OldMirror[I] = R.MirrorRoot[I];
+                L->OldCompass[I] = FCk_Handle(R.Compass[I]);
+                for (int32 Slot = 0; Slot < 9; ++Slot)
+                { L->OldMirrorHosts[I][Slot] = R.BaseMirrorHosts[I][Slot]; }
+            }
+            for (int32 I = 0; I < 9; ++I)
+            { L->OldBase[I] = R.BaseSourceHosts[I]; }
+            L->OldHostCompass = FCk_Handle(R.HostCompass);
+            return true;
+        }), 60, TEXT("initial authored Base9 and two owner mirrors settle")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RequestLateJoin(60));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([L]() {
+            return JoinedBase(*L);
+        }), 60, TEXT("real late third owner installs same Base9 without changing original identities")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(2,
+        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* W) {
+            auto* PC = IsValid(W) ? W->GetFirstPlayerController() : nullptr;
+            TestTrue(TEXT("late owner requests registered same-gym travel"),
+                IsValid(PC) && UCk_Utils_GymRegistry_UE::
+                    TryRequest_TravelToGymFromPlayer(PC, TEXT("Compass")));
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([L]() {
+            return TraveledBase(*L);
+        }), 60, TEXT("same-gym travel retires old source and all three mirrors, then rebuilds whole Base9")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([L]() {
+            return Allocated(L->NewSource) &&
+                L->NewSource != L->OldSource &&
+                !Allocated(L->OldSource) &&
+                !Allocated(L->OldMirror[0]) &&
+                !Allocated(L->OldMirror[1]) &&
+                !Allocated(L->OldMirror[2]) &&
+                Allocated(L->NewMirror[0]) &&
+                Allocated(L->NewMirror[1]) &&
+                Allocated(L->NewMirror[2]);
+        }), TEXT("new world uses only fresh source and mirror identities")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([L]() {
+            if (!ck::auto_test::net::Get_AllPIEWorlds().IsEmpty() ||
+                Allocated(L->OldSource) || Allocated(L->NewSource))
+            { return false; }
+            for (int32 I = 0; I < 3; ++I)
+            { if (Allocated(L->OldMirror[I]) || Allocated(L->NewMirror[I]))
+                { return false; } }
+            for (int32 I = 0; I < 3; ++I)
+            { for (int32 Slot = 0; Slot < 9; ++Slot)
+                { if (Allocated(L->OldMirrorHosts[I][Slot]))
+                    { return false; } } }
+            return true;
+        }), TEXT("EndPIE releases old and new world membership"), true));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([L]() {
+            L->Initial.Restore();
+            return true;
+        }), TEXT("restore startup preference after lifecycle gate"), true));
+    return true;
+}
 
 #endif
