@@ -1,4 +1,6 @@
 #include "CkCompassGym_PingTtlProbe.h"
+#include "CkCompassGym_SourceMembership.h"
+#include "CkCompassGym_SourceMembership_Private.h"
 
 #include "CkEntityScriptGym_Runtime.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
@@ -97,6 +99,86 @@ bool UCkCompassGym_PingTtlProbe::Arm(UWorld* World, AActor* GameState,
 #endif
 }
 
+bool UCkCompassGym_PingTtlProbe::ArmJournal(UWorld* World,
+    AActor* GameState, const FCk_Handle& InSourceRoot,
+    const FCkCompassGym_SourceReceipt& StagedPing)
+{
+#if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
+    using namespace ck_compass_ping_ttl_probe;
+    if (bArmed || bFailed || DoneCount != 0 || !IsInGameThread() ||
+        !IsValid(World) || !World->IsGameWorld() || World->IsNetMode(NM_Client) ||
+        World->bIsTearingDown || World->IsBeingCleanedUp() ||
+        !IsValid(GameState) || GameState->IsActorBeingDestroyed() ||
+        GameState->GetWorld() != World || World->GetGameState() != GameState ||
+        StagedPing.Kind != ECkCompassGym_SourceKind::Ping ||
+        StagedPing.Admitted || StagedPing.CatalogId <= 0)
+    { return false; }
+    const auto Root = UCk_Utils_EcsWorld_Subsystem_UE::
+        TryGet_TransientEntityForWorld(*World);
+    if (!Live(Root) || !Direct(InSourceRoot, Root) ||
+        !Direct(StagedPing.Host, InSourceRoot) ||
+        !Direct(StagedPing.Marker, StagedPing.Host) ||
+        !Direct(StagedPing.Timer, StagedPing.Host) ||
+        StagedPing.Host.Has<ck::FTag_Poi>() ||
+        StagedPing.Timer.Has<ck::FTag_Timer_Countdown>())
+    { return false; }
+    ExactWorld = World;
+    ExactGameState = GameState;
+    WorldRoot = Root;
+    SourceRoot = InSourceRoot;
+    AdmittedReceipt = StagedPing;
+    AdmittedReceipt.Admitted = true;
+    bJournalMode = true;
+    bArmed = true;
+    return true;
+#else
+    (void)World; (void)GameState; (void)InSourceRoot; (void)StagedPing;
+    return false;
+#endif
+}
+
+bool UCkCompassGym_PingTtlProbe::ArmJournalReentrantMarker()
+{
+#if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
+    using namespace ck_compass_ping_ttl_probe;
+    if (!bArmed || !bJournalMode || bReentrantArmed ||
+        DoneCount != 0 || !Direct(AdmittedReceipt.Marker, AdmittedReceipt.Host) ||
+        !Direct(AdmittedReceipt.Timer, AdmittedReceipt.Host))
+    { return false; }
+    MarkerBeginDelegate.BindDynamic(this,
+        &UCkCompassGym_PingTtlProbe::OnMarkerBeginDestroy);
+    if (!MarkerBeginDelegate.IsBound()) { return false; }
+    auto Marker = AdmittedReceipt.Marker;
+    UCk_Utils_EntityLifetime_UE::BindTo_OnBeginDestroy(Marker,
+        MarkerBeginDelegate, ECk_Signal_BindingPolicy::IgnorePayloadInFlight);
+    bReentrantArmed = true;
+    return true;
+#else
+    return false;
+#endif
+}
+
+void UCkCompassGym_PingTtlProbe::OnMarkerBeginDestroy(FCk_Handle InHandle)
+{
+#if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
+    using namespace ck_compass_ping_ttl_probe;
+    ++ReentrantCallbackCount;
+    if (ReentrantCallbackCount != 1 || !bReentrantArmed ||
+        InHandle != AdmittedReceipt.Marker ||
+        !Live(AdmittedReceipt.Timer) ||
+        !AdmittedReceipt.Timer.Has<ck::FFragment_LifetimeOwner>() ||
+        AdmittedReceipt.Timer.Get<ck::FFragment_LifetimeOwner>()
+            .Get_Entity() != AdmittedReceipt.Host)
+    { bFailed = true; return; }
+    ReentrantUnknownChild = UCk_Utils_EntityLifetime_UE::
+        Request_CreateEntity(AdmittedReceipt.Timer);
+    if (!Direct(ReentrantUnknownChild, AdmittedReceipt.Timer))
+    { bFailed = true; }
+#else
+    (void)InHandle;
+#endif
+}
+
 void UCkCompassGym_PingTtlProbe::OnDone(FCk_Handle_Timer InTimer,
     FCk_Chrono InChrono, FCk_Time InDeltaT)
 {
@@ -137,6 +219,33 @@ void UCkCompassGym_PingTtlProbe::OnDone(FCk_Handle_Timer InTimer,
     bExactWorldCallback = true;
     bHostLiveBeforeDestroy = Live(AdmittedReceipt.Host);
     DoneElapsedSeconds = InChrono.Get_TimeElapsed().Get_Seconds();
+    if (bJournalMode)
+    {
+        FString Failure;
+        const bool Retired = UCkCompassGym_SourceMembership::TryRetire_Ping(
+            World, GameState, SourceRoot, FCk_Handle(InTimer), Failure);
+        bJournalRetired = Retired;
+        JournalFailure = Failure;
+        if (!Retired || !Failure.IsEmpty() ||
+            !SourceRoot.Has<ck::FFragment_CompassGym_SourceMembership>())
+        { bFailed = true; return; }
+        const auto& State = SourceRoot.Get<
+            ck::FFragment_CompassGym_SourceMembership>();
+        const bool Frozen = State.FrozenPings.ContainsByPredicate(
+            [this](const FCkCompassGym_SourceReceipt& R) {
+                return R.CatalogId == AdmittedReceipt.CatalogId &&
+                    R.Host == AdmittedReceipt.Host &&
+                    R.Marker == AdmittedReceipt.Marker &&
+                    R.Timer == AdmittedReceipt.Timer;
+            });
+        if (!Frozen || !Allocated(AdmittedReceipt.Host) ||
+            AdmittedReceipt.Host.Has<ck::FTag_Poi>())
+        { bFailed = true; return; }
+        FrozenReceipt = AdmittedReceipt;
+        bFrozeBeforeDestroy = true;
+        bRequestedDestroy = true;
+        return;
+    }
     auto MutableHost = AdmittedReceipt.Host;
     const bool Removed = MutableHost.Try_Remove<ck::FTag_Poi>();
     if (!Allocated(AdmittedReceipt.Host) || !Removed ||

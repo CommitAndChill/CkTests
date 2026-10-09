@@ -20,6 +20,43 @@ class CKTESTS_API UCkCompassGym_SourceMembership : public UBlueprintFunctionLibr
 {
     GENERATED_BODY()
 public:
+    // Bind the immutable nine-receipt source base after its whole physical
+    // proof. Repeating the exact same base is idempotent.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static bool TryInitialize_BaseCohort(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        const TArray<FCkCompassGym_SourceReceipt>& BaseReceipts9,
+        FString& OutFailureReason);
+
+    // Retain a newly authored, unexposed Ping first-return receipt. Its
+    // CatalogId must exceed every accepted base, Stress, or Ping ID, even
+    // after an older Ping is physically gone. The ordered processor alone
+    // publishes it after physical proof. Initialize the base first; bind
+    // OnDone before the timer starts counting, then stage its exact receipt.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static bool TryStage_Ping(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        const FCkCompassGym_SourceReceipt& StagedPingReceipt,
+        FString& OutFailureReason);
+
+    // Call from the authored timer's real OnDone delivery. The API checks
+    // current Done state and exact retained Timer identity, but cannot prove
+    // signal-call provenance by itself.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static bool TryRetire_Ping(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        const FCk_Handle& ExactDoneTimer,
+        FString& OutFailureReason);
+
+    // Last complete active source projection published by the ordered
+    // barrier; independent of the historical stress request result serial.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static bool TryGet_CurrentRows(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        int64& OutRevision,
+        TArray<FCkCompassGym_SourceRow>& OutActiveRows,
+        FString& OutFailureReason);
+
     UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
     static bool TryRequest_StressAdmission(
         UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
