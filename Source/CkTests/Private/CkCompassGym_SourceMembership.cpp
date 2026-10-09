@@ -383,6 +383,12 @@ namespace ck_compass_membership
         }
         State.Active = MoveTemp(Base);
         State.FrozenRetiring = MoveTemp(Stress);
+        if (State.JournalEnabled)
+        {
+            State.FrozenStressCursor = 0;
+            State.FrozenStressDeadlineSeconds = FPlatformTime::Seconds() + 30.0;
+            State.FrozenStressRetirementComplete = false;
+        }
         State.CommittedRows = WithoutPings(Proven9);
         State.Result = ECkCompassGym_MembershipResult::Committed;
         State.CurrentRowsDirty = true;
@@ -512,6 +518,62 @@ namespace ck_compass_membership
             ck::FTag_DestroyEntity_Finalize>();
     }
 
+    void ProcessFrozenStress(UWorld* World, AActor* GameState,
+        const FCk_Handle& SourceRoot,
+        ck::FFragment_CompassGym_SourceMembership& State)
+    {
+        constexpr int32 MaxStressLeafMutationsPerBarrier = 8;
+        if (State.FrozenRetiring.IsEmpty()) { return; }
+        if (State.FrozenRetiring.Num() != 500 ||
+            State.FrozenStressCursor < 0 || State.FrozenStressCursor > 500 ||
+            !FMath::IsFinite(State.FrozenStressDeadlineSeconds) ||
+            State.FrozenStressDeadlineSeconds <= 0.0)
+        { Reject(State, TEXT("Frozen Stress retirement state invalid")); return; }
+        if (State.FrozenStressRetirementComplete) { return; }
+        if (FPlatformTime::Seconds() > State.FrozenStressDeadlineSeconds)
+        { Reject(State, TEXT("Frozen Stress retirement timed out")); return; }
+        int32 Mutations = 0;
+        while (State.FrozenStressCursor < 500 &&
+            Mutations < MaxStressLeafMutationsPerBarrier)
+        {
+            const auto R = State.FrozenRetiring[State.FrozenStressCursor];
+            FString Why;
+            if (!ProveFrozenUnion(World, GameState, SourceRoot, State, Why))
+            { Reject(State, Why.IsEmpty() ? TEXT("Frozen Stress union unproven") : Why); return; }
+            if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(R.Host))
+            { ++State.FrozenStressCursor; continue; }
+            const auto WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
+                TryGet_TransientEntityForWorld(*World);
+            TArray<FCk_Handle> Children;
+            if (R.Kind != ECkCompassGym_SourceKind::Stress ||
+                R.Marker != FCk_Handle{} || R.Timer != FCk_Handle{} ||
+                !SafeOwned(R.Host, SourceRoot) || R.Host.Has<ck::FTag_Poi>() ||
+                !UCk_EntityScriptGym_Spawn_Runtime_UE::
+                    TryGet_AllocatedDirectLifetimeDependents(
+                        R.Host, WorldRoot, Children) || !Children.IsEmpty())
+            { Reject(State, TEXT("Frozen Stress host is not an exact unexposed leaf")); return; }
+            auto MutableHost = R.Host;
+            State.RetirementMutationInProgress = true;
+            UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(MutableHost);
+            State.RetirementMutationInProgress = false;
+            if (!RetiringOrGone(R.Host) ||
+                !ProveFrozenUnion(World, GameState, SourceRoot, State, Why))
+            { Reject(State, Why.IsEmpty() ? TEXT("Frozen Stress leaf action unproven") : Why); return; }
+            ++State.FrozenStressCursor;
+            ++Mutations;
+        }
+        if (State.FrozenStressCursor != 500) { return; }
+        for (const auto& R : State.FrozenRetiring)
+        {
+            if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(R.Host))
+            { return; }
+        }
+        FString Why;
+        if (!ProveFrozenUnion(World, GameState, SourceRoot, State, Why))
+        { Reject(State, Why.IsEmpty() ? TEXT("Frozen Stress final union unproven") : Why); return; }
+        State.FrozenStressRetirementComplete = true;
+    }
+
     void ProcessFrozenPings(UWorld* World, AActor* GameState,
         const FCk_Handle& SourceRoot,
         ck::FFragment_CompassGym_SourceMembership& State)
@@ -634,6 +696,14 @@ bool UCkCompassGym_SourceMembership::TryInitialize_BaseCohort(
         if (Existing.Result == ECkCompassGym_MembershipResult::Pending ||
             Existing.RetirementMutationInProgress)
         { OutFailureReason = TEXT("Legacy membership is busy"); return false; }
+        for (const auto& R : Existing.FrozenRetiring)
+        {
+            if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(R.Host))
+            {
+                OutFailureReason = TEXT("Legacy frozen Stress must retire before journal opt-in");
+                return false;
+            }
+        }
         TArray<FCkCompassGym_SourceRow> Active, Stress, Pings;
         const auto Proof = Observe(World, ExactGameState, SourceRoot, Existing,
             Active, Stress, Pings, OutFailureReason);
@@ -649,6 +719,12 @@ bool UCkCompassGym_SourceMembership::TryInitialize_BaseCohort(
         auto& State = MutableRoot.Get<ck::FFragment_CompassGym_SourceMembership>();
         for (auto& R : State.Base) { R.Admitted = true; }
         for (auto& R : State.Active) { R.Admitted = true; }
+        if (!State.FrozenRetiring.IsEmpty())
+        {
+            State.FrozenStressCursor = State.FrozenRetiring.Num();
+            State.FrozenStressDeadlineSeconds = FPlatformTime::Seconds() + 30.0;
+            State.FrozenStressRetirementComplete = true;
+        }
         State.JournalEnabled = true;
         State.CurrentRowsDirty = true;
         OutFailureReason.Reset();
@@ -927,6 +1003,9 @@ bool UCkCompassGym_SourceMembership::TryRequest_StressAdmission(
         State.HighestAcceptedCatalogId, HighestId(StagedStressReceipts));
     State.CommittedRows.Reset();
     State.FrozenRetiring.Reset();
+    State.FrozenStressCursor = 0;
+    State.FrozenStressDeadlineSeconds = 0.0;
+    State.FrozenStressRetirementComplete = false;
     OutFailureReason.Reset();
     return true;
 }
@@ -1048,6 +1127,8 @@ void ck::FProcessor_CompassGym_SourceMembership::ForEachEntity(
         if (State.ClosedUnproven) { return; }
     }
     if (!State.JournalEnabled) { return; }
+    ck_compass_membership::ProcessFrozenStress(World, GameState, SourceRoot, State);
+    if (State.ClosedUnproven) { return; }
     ck_compass_membership::ProcessFrozenPings(World, GameState, SourceRoot, State);
     if (State.ClosedUnproven) { return; }
     ck_compass_membership::ProcessStagedPings(World, GameState, SourceRoot, State);
