@@ -1,77 +1,296 @@
 // Language=angelscript
-
-//============================================================================
-// CK COMPASS GYM
-//
-// Interactive compass playground. The gym pawn carries a Compass (Auto
-// heading source -> falls back to the pawn entity's actor-synced transform
-// yaw, so mouse-turning the pawn sweeps the heading). A ring of category-
-// varied POIs surrounds the main station; a live readout traces the heading
-// and the nearest entries twice a second.
-//
-// Stations (content built toward -X from each anchor - house rule):
-//   - Main:   POI ring (Quest/Shop/Danger/Info, varied priorities, one
-//             ClampToEdge waypoint that pins to the arc edge when behind you)
-//   - Stress: 500 standalone POIs on demand (panel [M])
-//
-// Control panel rows:
-//   [J]        - TTL ping POI 1500uu ahead of the pawn
-//   [T]        - Quest-only category filter on/off
-//   [M] / [U]  - spawn / destroy the stress field
-//   [P]        - dump all entries to the log
-//============================================================================
+// One authority GameState owns the shared source; each owned local pawn
+// carries its own Compass and each local controller draws its own overlay.
+USTRUCT()
+struct FCkCompassGym_ControlAck
+{
+    UPROPERTY() int32 Serial = 0;
+    UPROPERTY() int64 SourceGeneration = 0;
+    UPROPERTY() int32 Action = 0;
+    // Admission only: 1 accepted, 2 rejected. Source completion is Snapshot.
+    UPROPERTY() int32 Result = 0;
+}
 
 class ACk_CompassGym_GameMode : ACkTests_Gym_Base_GameMode
 {
+    default GameStateClass = ACk_CompassGym_GameState;
     default PlayerControllerClass = ACk_CompassGym_PlayerController;
     default DefaultPawnClass = ACk_CompassGym_Pawn;
 }
 
 class ACk_CompassGym_Pawn : ACk_Gym_Base_Pawn
 {
-    // ADefaultPawn leaves the ACTOR un-yawed under mouse-look (only the control rotation moves).
-    // The compass' Auto heading falls back to the pawn ENTITY's actor-synced transform yaw - the
-    // actor must follow the controller yaw or the heading never sweeps.
     default bUseControllerRotationYaw = true;
-
     private FCk_Handle _PawnEntity;
     private FCk_Handle_Compass _Compass;
+    private ACk_CompassGym_PlayerController _CompassOwner;
+    private bool _CompassAttempted = false;
+    private bool _CompassFailed = false;
 
-    void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle) override
+    private bool HasLocalActorContext(ACk_CompassGym_PlayerController Owner)
     {
-        _PawnEntity = FCk_Handle(InEntityScriptHandle);
-
-        auto Params = FCk_Compass_Spec(180.0);
-        Params.Set_HeadingSource(ECk_Compass_HeadingSource::Auto);
-        Params.Set_MaxEntries(16);
-        _Compass = utils_compass::Add(_PawnEntity, Params);
-
-        ck::Trace("CompassGym: compass composed on pawn entity");
+        auto World = GetWorld();
+        return ck::IsValid(World) && World.GetNetMode() != ENetMode::NM_DedicatedServer &&
+            ck::IsValid(Owner) && Owner.IsLocalController() &&
+            Owner.GetWorld() == World && GetController() == Owner &&
+            Owner.GetControlledPawn() == this && !IsActorBeingDestroyed();
     }
 
-    FCk_Handle_Compass Get_Compass()
+    private bool HasLocalContext(ACk_CompassGym_PlayerController Owner)
     {
+        if (!HasLocalActorContext(Owner)) { return false; }
+        auto CurrentEntity = utils_owning_actor::TryGet_ActorEntityHandle(this);
+        return ck::IsValid(CurrentEntity) &&
+            UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(CurrentEntity) &&
+            utils_transform::Has(CurrentEntity) &&
+            utils_entity_lifetime::Get_WorldForEntity(CurrentEntity) == GetWorld() &&
+            !utils_entity_lifetime::Get_IsPendingDestroy(
+                CurrentEntity, ECk_EntityLifetime_DestructionPhase::BeginDestroy) &&
+            (!_CompassAttempted ||
+                (_CompassOwner == Owner && _PawnEntity == CurrentEntity));
+    }
+
+    FCk_Handle_Compass TryGetLocalCompass(ACk_CompassGym_PlayerController Owner)
+    {
+        if (_CompassFailed || !HasLocalContext(Owner) || !_CompassAttempted ||
+            ck::Is_NOT_Valid(_Compass) || FCk_Handle(_Compass) != _PawnEntity ||
+            !utils_compass::Has(_PawnEntity)) { return FCk_Handle_Compass(); }
         return _Compass;
     }
+
+    void Request_EnsureLocalCompass(ACk_CompassGym_PlayerController Owner)
+    {
+        if (_CompassAttempted && _CompassOwner != Owner) { _CompassFailed = true; return; }
+        if (_CompassFailed) { return; }
+        if (!HasLocalContext(Owner))
+        {
+            if (_CompassAttempted) { _CompassFailed = true; }
+            return;
+        }
+        if (_CompassAttempted)
+        {
+            if (ck::Is_NOT_Valid(TryGetLocalCompass(Owner))) { _CompassFailed = true; }
+            return;
+        }
+        _PawnEntity = utils_owning_actor::TryGet_ActorEntityHandle(this);
+        _CompassOwner = Owner;
+        _CompassAttempted = true;
+        if (!HasLocalContext(Owner) || utils_compass::Has(_PawnEntity))
+        { _CompassFailed = true; return; }
+        auto Spec = FCk_Compass_Spec(180.0);
+        Spec.Set_HeadingSource(ECk_Compass_HeadingSource::Auto);
+        Spec.Set_MaxEntries(16);
+        _Compass = utils_compass::Add(_PawnEntity, Spec);
+        _CompassFailed = ck::Is_NOT_Valid(TryGetLocalCompass(Owner));
+    }
+
+    bool Get_HasCompassFailure() const { return _CompassFailed; }
+    UFUNCTION(BlueprintPure)
+    FCk_Handle_Compass Get_Compass() { return TryGetLocalCompass(Cast<ACk_CompassGym_PlayerController>(GetController())); }
 }
 
 class ACk_CompassGym_PlayerController : ACk_Gym_Base_PlayerController
 {
-    private FVector _MainOrigin = FVector::ZeroVector;
-    private FVector _StressOrigin = FVector::ZeroVector;
-    private TArray<FCk_Handle> _StressPois;
-
-    // The compass holds the category filter as an FGameplayTagQuery with no getter, so the panel
-    // mirrors whether this controller last set the Quest-only query or cleared it.
+    UPROPERTY(Replicated) FCkCompassGym_ControlAck LastControlAck;
+    private bool _ControllerAdmitted = false;
+    private bool _Ending = false;
     private bool _QuestFilterActive = false;
     private float _ReadoutAccum = 0.0;
+    private int32 _RequestedSerial = 0;
+    private bool _LocalFailed = false;
+    private bool _StationsBound = false;
+    private TArray<FCk_Handle> _Stations;
+    private FCk_Handle _StationCohort;
+    private ACk_CompassGym_Pawn _LocalPawn;
+
+    FCk_Handle Get_StationLifetimeOwner() override
+    { return IsLocalController() ? ck::ToEntity(this) : FCk_Handle(); }
+    FString Get_StationTag(FString Tag) override
+    { return f"{Tag}_{GetName()}"; }
+
+    private ACk_CompassGym_GameState Get_ExactState()
+    {
+        auto World = GetWorld();
+        if (_Ending || IsActorBeingDestroyed() || ck::Is_NOT_Valid(World))
+        { return nullptr; }
+        auto State = Cast<ACk_CompassGym_GameState>(World.GetGameState());
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != World ||
+            State.GetClass() != ACk_CompassGym_GameState ||
+            State.IsActorBeingDestroyed() || !State.Get_HasPublishedCatalog())
+        { return nullptr; }
+        auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (Index < 0 || Index >= Registry.Num() ||
+            Registry[Index].DisplayName != "Compass" ||
+            Registry[Index].GameModeClass != ACk_CompassGym_GameMode)
+        { return nullptr; }
+        if (HasAuthority())
+        {
+            auto Mode = Gameplay::GetGameMode();
+            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != World ||
+                Mode.GetClass() != ACk_CompassGym_GameMode) { return nullptr; }
+        }
+        return State;
+    }
+
+    private bool Get_HasExactPawn(APawn Pawn)
+    {
+        return ck::IsValid(Pawn) && Pawn.GetWorld() == GetWorld() &&
+            !Pawn.IsActorBeingDestroyed() && Pawn.GetClass() == ACk_CompassGym_Pawn &&
+            GetControlledPawn() == Pawn && Pawn.GetController() == this;
+    }
+
+    private bool Get_HasLocalPresentation()
+    {
+        if (!_ControllerAdmitted || !IsLocalController() || _Ending || _LocalFailed ||
+            !_StationsBound || !CheckStations(false) ||
+            !Get_HasExactPawn(GetControlledPawn())) { return false; }
+        auto State = Get_ExactState();
+        return ck::IsValid(State) && State.Get_IsPresentationReady();
+    }
+
+    private bool IsDirect(FCk_Handle Child, FCk_Handle Owner)
+    {
+        return ck::IsValid(Child) && ck::IsValid(Owner) &&
+            !utils_entity_lifetime::Get_IsPendingDestroy(Child, ECk_EntityLifetime_DestructionPhase::BeginDestroy) &&
+            utils_entity_lifetime::Has_LifetimeOwner(Child) &&
+            utils_entity_lifetime::Get_LifetimeOwner(Child) == Owner;
+    }
+
+    private bool CheckStations(bool Bind)
+    {
+        auto Parent = ck::ToEntity(this);
+        auto WorldRoot = ck::TransientEntity();
+        if (!IsLocalController() || ck::Is_NOT_Valid(Parent) || ck::Is_NOT_Valid(WorldRoot)) { return false; }
+        TArray<FCk_Handle> Found;
+        FCk_Handle Cohort;
+        for (int32 I = 0; I < 2; ++I)
+        {
+            FString Tag = I == 0 ? "Gym.Compass.Main" : "Gym.Compass.Stress";
+            auto Matches = utils_entity_tag::ForEach_Entity(WorldRoot, FName(Get_StationTag(Tag)));
+            if (Matches.Num() != 1 || ck::Is_NOT_Valid(Matches[0]) ||
+                !Matches[0].Has_Fragment(FCkGym_Station_Anchors) ||
+                !utils_entity_lifetime::Has_LifetimeOwner(Matches[0])) { return false; }
+            auto Station = Matches[0];
+            auto Owner = utils_entity_lifetime::Get_LifetimeOwner(Station);
+            if (!IsDirect(Station, Owner) || !IsDirect(Owner, Parent) ||
+                (I > 0 && Owner != Cohort)) { return false; }
+            FVector Anchor = I == 0 ? FVector(500.0,-400.0,0.0) : FVector(500.0,400.0,0.0);
+            if ((Station.Get_Fragment(FCkGym_Station_Anchors).FootprintCenter - Anchor).SizeSquared() > 1.0) { return false; }
+            auto Script = Cast<UCk_EntityScript_GymStation>(UCk_Utils_EntityScript_UE::TryGet_EntityScript(Station));
+            if (ck::Is_NOT_Valid(Script) ||
+                UCk_GymStation_VisibleRuntime_UE::TryGet_StationEntity(Script) != Station) { return false; }
+            if (_StationsBound && (_Stations.Num() != 2 || _Stations[I] != Station || _StationCohort != Owner)) { return false; }
+            Found.Add(Station); Cohort = Owner;
+        }
+        if (Bind && !_StationsBound) { _Stations = Found; _StationCohort = Cohort; _StationsBound = true; }
+        return _StationsBound;
+    }
+
+    private void Request_CloseLocalFailure(FString Reason)
+    {
+        if (_LocalFailed) { return; }
+        _LocalFailed = true;
+        auto WorldRoot = ck::TransientEntity();
+        if (ck::IsValid(WorldRoot) && utils_entity_lifetime::Get_WorldForEntity(WorldRoot) == GetWorld())
+        {
+            CkGym_Admission::TryCloseWorldUnproven(WorldRoot);
+            utils_compass::TryCloseWorldProjection(WorldRoot);
+        }
+        auto State = Get_ExactState();
+        if (HasAuthority() && ck::IsValid(State)) { State.Request_Fail(Reason); }
+        ck::Error(f"Compass local presentation closed: {Reason}");
+    }
+
+    void Request_StartGym() override
+    {
+        _ControllerAdmitted = true;
+        auto State = Get_ExactState();
+        if (HasAuthority() && ck::IsValid(State)) { State.Request_EnsureSharedDemo(); }
+    }
+
+    private FCk_Handle_Compass DoGet_Compass()
+    {
+        if (!Get_HasLocalPresentation()) { return FCk_Handle_Compass(); }
+        auto Pawn = Cast<ACk_CompassGym_Pawn>(GetControlledPawn());
+        return ck::IsValid(Pawn) ? Pawn.TryGetLocalCompass(this) : FCk_Handle_Compass();
+    }
+
+    UFUNCTION(BlueprintOverride) void Tick(float DeltaSeconds)
+    {
+        if (!_ControllerAdmitted || _Ending) { return; }
+        auto State = Get_ExactState();
+        if (HasAuthority() && ck::IsValid(State)) { State.Request_EnsureSharedDemo(); }
+        if (!IsLocalController() || _LocalFailed) { return; }
+        if (!CheckStations(!_StationsBound)) { Request_CloseLocalFailure("Station cohort changed"); return; }
+        if (!Get_HasLocalPresentation()) { return; }
+        auto Pawn = Cast<ACk_CompassGym_Pawn>(GetControlledPawn());
+        if (ck::Is_NOT_Valid(Pawn)) { return; }
+        if (_LocalPawn != Pawn)
+        {
+            _LocalPawn = Pawn;
+            _QuestFilterActive = false;
+            _ReadoutAccum = 0.0;
+        }
+        Pawn.Request_EnsureLocalCompass(this);
+        if (Pawn.Get_HasCompassFailure()) { Request_CloseLocalFailure("Local Compass failed"); return; }
+        auto Compass = DoGet_Compass();
+        if (ck::Is_NOT_Valid(Compass)) { return; }
+        DoDrawCompassOverlay(Compass);
+        _ReadoutAccum += DeltaSeconds;
+        if (_ReadoutAccum < 0.5) { return; }
+        _ReadoutAccum = 0.0;
+        ck::Trace(f"Compass [{GetName()}]: heading {utils_compass::Get_Heading(Compass)} | {utils_compass::Get_Entries(Compass).Num()} entries");
+    }
+
+    UFUNCTION(Server) void Server_RequestCompassControl(int32 Serial, int64 Generation, int32 Action)
+    {
+        if (Action < 1 || Action > 3 || Serial <= 0 ||
+            LastControlAck.Serial >= 2147483647 || Serial != LastControlAck.Serial + 1 ||
+            !_ControllerAdmitted || !HasAuthority() || _Ending) { return; }
+        FCkCompassGym_ControlAck Ack;
+        Ack.Serial = Serial; Ack.SourceGeneration = Generation;
+        Ack.Action = Action; Ack.Result = 2;
+        auto State = Get_ExactState();
+        auto Pawn = GetControlledPawn();
+        if (ck::IsValid(State) && Get_HasExactPawn(Pawn) &&
+            Generation > 0 && Generation == State.Snapshot.SourceGeneration &&
+            State.Snapshot.Lifecycle == ECkCompassGym_WireLifecycle::Active)
+        {
+            bool Accepted = false;
+            if (Action == 1) { Accepted = State.TryRequestPing(this, Pawn); }
+            else if (Action == 2) { Accepted = State.TryRequestStressAdmission(this, Pawn); }
+            else if (Action == 3) { Accepted = State.TryRequestStressWithdrawal(this, Pawn); }
+            if (Accepted) { Ack.Result = 1; }
+        }
+        LastControlAck = Ack;
+        ForceNetUpdate();
+    }
+
+    private void Request_SharedControl(int32 Action)
+    {
+        if (!Get_HasLocalPresentation()) { return; }
+        auto State = Get_ExactState();
+        auto Serial = Math::Max(_RequestedSerial, LastControlAck.Serial);
+        if (Serial >= 2147483647 || ck::Is_NOT_Valid(State)) { return; }
+        _RequestedSerial = Serial + 1;
+        Server_RequestCompassControl(_RequestedSerial, State.Snapshot.SourceGeneration, Action);
+    }
+
+    UFUNCTION(BlueprintOverride) void EndPlay(EEndPlayReason Reason)
+    {
+        _Ending = true;
+        Super::EndPlay(Reason);
+    }
 
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
         auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
+        if (!IsLocalController()) { return Stations; }
 
         auto Main = FCkGym_Station_SpawnParams_Payload();
-        Main.Tags.Add(n"Gym.Compass.Main");
+        Main.Tags.Add(FName(Get_StationTag("Gym.Compass.Main")));
+        Main.Transform = FTransform(FRotator(0.0, 180.0, 0.0), FVector(500.0, -400.0, 0.0));
         Main.Title = FText::FromString("COMPASS");
         auto MainDescription = TArray<FText>();
         MainDescription.Add(FText::FromString("POI ring around the station.\nTurn the mouse to sweep the compass heading."));
@@ -81,10 +300,11 @@ class ACk_CompassGym_PlayerController : ACk_Gym_Base_PlayerController
         Stations.Add(Main);
 
         auto Stress = FCkGym_Station_SpawnParams_Payload();
-        Stress.Tags.Add(n"Gym.Compass.Stress");
+        Stress.Tags.Add(FName(Get_StationTag("Gym.Compass.Stress")));
+        Stress.Transform = FTransform(FRotator(0.0, 180.0, 0.0), FVector(500.0, 400.0, 0.0));
         Stress.Title = FText::FromString("COMPASS STRESS");
         auto StressDescription = TArray<FText>();
-        StressDescription.Add(FText::FromString("500 POIs on demand — watch the projector's cost."));
+        StressDescription.Add(FText::FromString("500 shared POIs on demand. Watch the projector cost."));
         StressDescription.Add(FText::FromString("Panel: [M] spawn 500\n[U] clear"));
         Stress.Description = StressDescription;
         Stress.AutoSize = true;
@@ -93,125 +313,6 @@ class ACk_CompassGym_PlayerController : ACk_Gym_Base_PlayerController
         return Stations;
     }
 
-    void Request_StartGym() override
-    {
-        _MainOrigin = Get_StationAnchorLocation("Gym.Compass.Main", ECk_GymStation_Anchor::FootprintCenter);
-        _StressOrigin = Get_StationAnchorLocation("Gym.Compass.Stress", ECk_GymStation_Anchor::FootprintCenter);
-
-        // Ring of POIs centered 800uu into -X from the main anchor (content faces -X).
-        auto RingCenter = _MainOrigin + FVector(-800.0, 0.0, 100.0);
-
-        // 8 ring positions at 45-degree steps, radius 600 (precomputed - no trig dependency).
-        DoAddRingPoi(RingCenter + FVector(600.0, 0.0, 0.0),      n"Poi.Category.Quest",  5);
-        DoAddRingPoi(RingCenter + FVector(424.3, 424.3, 0.0),    n"Poi.Category.Shop",   3);
-        DoAddRingPoi(RingCenter + FVector(0.0, 600.0, 0.0),      n"Poi.Category.Danger", 4);
-        DoAddRingPoi(RingCenter + FVector(-424.3, 424.3, 0.0),   n"Poi.Category.Info",   1);
-        DoAddRingPoi(RingCenter + FVector(-600.0, 0.0, 0.0),     n"Poi.Category.Quest",  2);
-        DoAddRingPoi(RingCenter + FVector(-424.3, -424.3, 0.0),  n"Poi.Category.Shop",   1);
-        DoAddRingPoi(RingCenter + FVector(0.0, -600.0, 0.0),     n"Poi.Category.Danger", 3);
-        DoAddRingPoi(RingCenter + FVector(424.3, -424.3, 0.0),   n"Poi.Category.Info",   2);
-
-        // One ClampToEdge waypoint far out - pins to the arc edge when behind the pawn.
-        auto Waypoint = DoCreateStandalonePoi(
-            FTransform(FRotator::ZeroRotator, RingCenter + FVector(-2500.0, 0.0, 0.0)),
-            FCk_Poi_Spec(utils_gameplay_tag::ResolveGameplayTag(n"Poi.Category.Waypoint")));
-        DoAddCompassDisplay(Waypoint, 10, ECk_Poi_OffscreenPolicy::ClampToEdge);
-
-        utils_pmg_basic_shapes::DrawFilledSphere(RingCenter + FVector(-2500.0, 0.0, 60.0), 55.0, 12, 12,
-            FLinearColor(0.7, 0.35, 0.95), true, 2.0, ECk_Plane_Axis::XY, -1.0);
-
-        SetActorTickEnabled(true);
-        ck::Trace("CompassGym: started - 8-POI ring + clamped waypoint built");
-    }
-
-    private void DoAddRingPoi(FVector InLocation, FName InCategoryName, int32 InPriority)
-    {
-        auto Poi = DoCreateStandalonePoi(FTransform(FRotator::ZeroRotator, InLocation),
-            FCk_Poi_Spec(utils_gameplay_tag::ResolveGameplayTag(InCategoryName)));
-        DoAddCompassDisplay(Poi, InPriority, ECk_Poi_OffscreenPolicy::Hide);
-
-        // Persistent in-world marker so the POI is visible where it stands (color = category)
-        utils_pmg_basic_shapes::DrawFilledSphere(InLocation + FVector(0.0, 0.0, 60.0), 40.0, 12, 12,
-            DoGet_CategoryColor(InCategoryName), true, 2.0, ECk_Plane_Axis::XY, -1.0);
-    }
-
-    // The standalone-POI pattern (utils_poi::Create was removed): own entity under the world's
-    // TransientEntity + Transform at the target location + Poi composed directly on it. Destroying
-    // the returned handle's entity removes the whole POI.
-    private FCk_Handle_Poi DoCreateStandalonePoi(FTransform InTransform, FCk_Poi_Spec InParams)
-    {
-        FCk_Handle TransientOwner = ck::TransientEntity();
-        auto Host = utils_entity_lifetime::Request_CreateEntity(TransientOwner);
-        utils_transform::Add(Host, InTransform, ECk_Replication::DoesNotReplicate);
-        return utils_poi::Add(Host, InParams);
-    }
-
-    // Presentation (priority/offscreen) now lives in CkPoiDisplayDefinition, keyed by the compass
-    // consumer (CkPoi v2). Compose one direct-attach definition on the POI's own entity.
-    private void DoAddCompassDisplay(FCk_Handle_Poi InPoi, int32 InPriority, ECk_Poi_OffscreenPolicy InOffscreenPolicy)
-    {
-        auto DisplayParams = FCk_PoiDisplayDefinition_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Poi.Consumer.Compass"));
-        DisplayParams.Set_Priority(InPriority);
-        DisplayParams.Set_OffscreenPolicy(InOffscreenPolicy);
-        utils_poi_display_definition::Add(InPoi, DisplayParams);
-    }
-
-    UFUNCTION()
-    private void OnPingTtlDone(FCk_Handle_Timer InTimer, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        auto Host = utils_entity_lifetime::Get_LifetimeOwner(InTimer);
-        if (ck::IsValid(Host))
-        { utils_entity_lifetime::Request_DestroyEntity(Host); }
-    }
-
-    private FLinearColor DoGet_CategoryColor(FName InCategoryName)
-    {
-        if (InCategoryName == n"Poi.Category.Quest")  { return FLinearColor(1.0, 0.78, 0.25); }
-        if (InCategoryName == n"Poi.Category.Shop")   { return FLinearColor(0.95, 0.5, 0.2); }
-        if (InCategoryName == n"Poi.Category.Danger") { return FLinearColor(0.9, 0.25, 0.25); }
-        if (InCategoryName == n"Poi.Category.Info")   { return FLinearColor(0.35, 0.6, 0.95); }
-        return FLinearColor(0.8, 0.8, 0.85);
-    }
-
-    private FCk_Handle_Compass DoGet_Compass()
-    {
-        auto GymPawn = Cast<ACk_CompassGym_Pawn>(ControlledPawn);
-        if (GymPawn == nullptr)
-        { return FCk_Handle_Compass(); }
-        return GymPawn.Get_Compass();
-    }
-
-    UFUNCTION(BlueprintOverride)
-    void Tick(float InDeltaSeconds)
-    {
-        auto Compass = DoGet_Compass();
-        if (ck::Is_NOT_Valid(Compass))
-        { return; }
-
-        DoDrawCompassOverlay(Compass);
-
-        _ReadoutAccum += InDeltaSeconds;
-        if (_ReadoutAccum < 0.5)
-        { return; }
-        _ReadoutAccum = 0.0;
-
-        auto Heading = utils_compass::Get_Heading(Compass);
-        auto Entries = utils_compass::Get_Entries(Compass);
-
-        // Diagnostic split: if the heading sticks, this names the broken link - control yaw moves
-        // with the mouse; entity yaw only moves if the actor yaws AND the transform actor-syncs.
-        auto ControlYaw = GetControlRotation().Yaw;
-        FCk_Handle Generic = Compass;
-        auto TransformHandle = utils_transform::DoCastChecked(Generic);
-        auto EntityYaw = ck::IsValid(TransformHandle)
-            ? utils_transform::Get_EntityCurrentRotation(TransformHandle).Yaw
-            : 0.0;
-        ck::Trace(f"Compass: heading {Heading} | ctrlYaw {ControlYaw} | entYaw {EntityYaw} | {Entries.Num()} entries");
-    }
-
-    // The compass itself, in world: a heading needle from the pawn plus North (white) and East
-    // (gray) reference ticks - redrawn every frame.
     private void DoDrawCompassOverlay(FCk_Handle_Compass InCompass)
     {
         if (ControlledPawn == nullptr)
@@ -228,32 +329,6 @@ class ACk_CompassGym_PlayerController : ACk_Gym_Base_PlayerController
             FLinearColor(1.0, 1.0, 1.0, 0.6), 0.05, 2.0);
         UCk_Utils_DebugDraw_UE::DrawDebugLine(Base, Base + FVector(0.0, 300.0, 0.0),
             FLinearColor(0.6, 0.6, 0.6, 0.5), 0.05, 2.0);
-    }
-
-    private void DoPingAhead()
-    {
-        if (ControlledPawn == nullptr)
-        { return; }
-
-        auto Ahead = ControlledPawn.GetActorLocation() +
-            ControlledPawn.GetActorForwardVector() * 1500.0;
-
-        auto Ping = DoCreateStandalonePoi(FTransform(FRotator::ZeroRotator, Ahead),
-            FCk_Poi_Spec(utils_gameplay_tag::ResolveGameplayTag(n"Poi.Category.Ping")));
-        DoAddCompassDisplay(Ping, 20, ECk_Poi_OffscreenPolicy::ClampToEdge);
-
-        // 5s TTL: a StopOnDone timer on the ping's host entity destroys it when done
-        FCk_Handle PingHost = Ping;
-        auto TtlParams = FCk_Timer_Spec(FCk_Time(5.0f));
-        TtlParams.Set_Behavior(ECk_Timer_Behavior::StopOnDone).Set_StartingState(ECk_Timer_State::Running);
-        auto TtlTimer = utils_timer::Add(PingHost, TtlParams);
-        TtlTimer.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnPingTtlDone"));
-
-        // Marker matches the ping's 5s TTL
-        utils_pmg_basic_shapes::DrawFilledSphere(Ahead + FVector(0.0, 0.0, 60.0), 45.0, 12, 12,
-            FLinearColor(0.3, 0.9, 0.95), true, 2.0, ECk_Plane_Axis::XY, 5.0);
-
-        ck::Trace("CompassGym: ping placed 1500uu ahead (TTL 5s)");
     }
 
     private void DoToggleQuestFilter()
@@ -278,47 +353,6 @@ class ACk_CompassGym_PlayerController : ACk_Gym_Base_PlayerController
         ck::Trace("CompassGym: category filter = Quest only");
     }
 
-    private void DoSpawnStressField()
-    {
-        if (_StressPois.Num() > 0)
-        {
-            ck::Trace("CompassGym: stress field already spawned - clear it first");
-            return;
-        }
-
-        auto Category = utils_gameplay_tag::ResolveGameplayTag(n"Poi.Category.Stress");
-        auto FieldCenter = _StressOrigin + FVector(-800.0, 0.0, 100.0);
-
-        // 500 POIs on a 25 x 20 grid, 200uu spacing.
-        for (int32 Row = 0; Row < 25; Row++)
-        {
-            for (int32 Col = 0; Col < 20; Col++)
-            {
-                auto Offset = FVector(
-                    float(Row - 12) * 200.0,
-                    float(Col - 10) * 200.0,
-                    0.0);
-                auto Poi = DoCreateStandalonePoi(
-                    FTransform(FRotator::ZeroRotator, FieldCenter + Offset),
-                    FCk_Poi_Spec(Category));
-                _StressPois.Add(FCk_Handle(Poi));
-            }
-        }
-
-        ck::Trace("CompassGym: 500 stress POIs spawned");
-    }
-
-    private void DoClearStressField()
-    {
-        for (auto Poi : _StressPois)
-        {
-            if (ck::IsValid(Poi))
-            { utils_entity_lifetime::Request_DestroyEntity(Poi); }
-        }
-        _StressPois.Empty();
-        ck::Trace("CompassGym: stress field cleared");
-    }
-
     private void DoReadout()
     {
         auto Compass = DoGet_Compass();
@@ -335,48 +369,42 @@ class ACk_CompassGym_PlayerController : ACk_Gym_Base_PlayerController
         }
     }
 
-    //--------------------------------------------------------------------------------------------------------------------------
-    // CONTROL PANEL (Script/Common/CkGym_ControlPanel.as)
-    //
-    // The heading only means something while you are turning, so the ping and the filter have to be
-    // reachable mid-turn - which a console command is not.
-    //--------------------------------------------------------------------------------------------------------------------------
-
-    FString Get_ControlPanelTitle() override
-    {
-        return "COMPASS";
-    }
+    FString Get_ControlPanelTitle() override { return "COMPASS"; }
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override
     {
-        auto Rows = TArray<FCkGym_ControlRow>();
-
+        TArray<FCkGym_ControlRow> Rows;
         auto Compass = DoGet_Compass();
-        auto Heading = ck::IsValid(Compass) ? utils_compass::Get_Heading(Compass) : 0.0f;
-        auto Entries = ck::IsValid(Compass) ? utils_compass::Get_Entries(Compass).Num() : 0;
-
+        const bool Ready = ck::IsValid(Compass);
+        auto Heading = Ready ? utils_compass::Get_Heading(Compass) : 0.0f;
+        auto Entries = Ready ? utils_compass::Get_Entries(Compass).Num() : 0;
+        int32 StressCount = 0;
+        auto State = Get_ExactState();
+        if (ck::IsValid(State))
+        {
+            for (auto Row : State.Snapshot.Rows)
+            { if (Row.Kind == ECkCompassGym_SourceKind::Stress) { StressCount++; } }
+        }
         Rows.Add(CkGym_Control::Header("COMPASS"));
         Rows.Add(CkGym_Control::Status("Heading", f"{Heading} - {Entries} entries"));
-        Rows.Add(CkGym_Control::Action(EKeys::J, "J", "Ping 1500uu ahead (5s TTL)"));
-        Rows.Add(CkGym_Control::Toggle(EKeys::T, "T", "Quest-only category filter", _QuestFilterActive));
-        Rows.Add(CkGym_Control::Action(EKeys::P, "P", "Readout to the log"));
-
-        Rows.Add(CkGym_Control::Header("STRESS"));
-        Rows.Add(CkGym_Control::Status("Stress POIs", f"{_StressPois.Num()}"));
-        Rows.Add(CkGym_Control::Action(EKeys::M, "M", "Spawn 500 POIs", _StressPois.Num() == 0));
-        Rows.Add(CkGym_Control::Action(EKeys::U, "U", "Clear the stress field", _StressPois.Num() > 0));
-
+        Rows.Add(CkGym_Control::Action(EKeys::J, "J", "Shared ping ahead (5s TTL)", Ready));
+        Rows.Add(CkGym_Control::Toggle(EKeys::T, "T", "My Quest-only category filter", _QuestFilterActive, false, Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::P, "P", "My readout to the log", Ready));
+        Rows.Add(CkGym_Control::Header("SHARED STRESS"));
+        Rows.Add(CkGym_Control::Status("Stress POIs", f"{StressCount}"));
+        Rows.Add(CkGym_Control::Action(EKeys::M, "M", "Spawn 500 shared POIs", Ready && StressCount == 0));
+        Rows.Add(CkGym_Control::Action(EKeys::U, "U", "Clear the shared field", Ready && StressCount == 500));
         return Rows;
     }
 
-    void Request_ControlActivated(int32 InRowIndex) override
+    UFUNCTION()
+    void Request_ControlActivated(int32 RowIndex) override
     {
-        // Rows 0, 1, 5 and 6 are headers or status readouts - no key, never dispatched, but they DO
-        // occupy an index.
-        if (InRowIndex == 2) { DoPingAhead(); }
-        else if (InRowIndex == 3) { DoToggleQuestFilter(); }
-        else if (InRowIndex == 4) { DoReadout(); }
-        else if (InRowIndex == 7) { DoSpawnStressField(); }
-        else if (InRowIndex == 8) { DoClearStressField(); }
+        if (!Get_HasLocalPresentation()) { return; }
+        if (RowIndex == 2) { Request_SharedControl(1); }
+        else if (RowIndex == 3) { DoToggleQuestFilter(); }
+        else if (RowIndex == 4) { DoReadout(); }
+        else if (RowIndex == 7) { Request_SharedControl(2); }
+        else if (RowIndex == 8) { Request_SharedControl(3); }
     }
 }
