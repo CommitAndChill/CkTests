@@ -133,4 +133,22 @@ public:
         TArray<FCkCompassGym_SourceRow>& OutActiveRows,
         TArray<FCkCompassGym_SourceRow>& OutStagedRows,
         FString& OutFailureReason);
+
+    // Pure source observation for simultaneous stress and Ping phases. A
+    // staged Ping is an unexposed retained Host/Marker/Timer subtree with a
+    // running timer; its POI tag is added only by a later ordered commit.
+    // Pending and Invalid clear all three row outputs.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogTransactionWithPingPhases(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        bool CompositionComplete,
+        const TArray<FCkCompassGym_SourceReceipt>& ActiveReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedPingReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringPingReceipts,
+        TArray<FCkCompassGym_SourceRow>& OutActiveRows,
+        TArray<FCkCompassGym_SourceRow>& OutStagedStressRows,
+        TArray<FCkCompassGym_SourceRow>& OutStagedPingRows,
+        FString& OutFailureReason);
 };

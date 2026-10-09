@@ -44,6 +44,14 @@ namespace ck_compass_catalog_test
         FCk_Handle RootBoundHost;
         TWeakObjectPtr<AActor> RootBoundActor;
         FCk_Handle PingHost;
+        FCkCompassGym_SourceReceipt StagedPing;
+        bool StagedPingBuilt = false;
+        FCk_Handle StagedPingExtraChild;
+        ECkCompassGym_CatalogOutcome StagedPingOutcome =
+            ECkCompassGym_CatalogOutcome::Pending;
+        TArray<FCkCompassGym_SourceRow> StagedPingActiveRows;
+        TArray<FCkCompassGym_SourceRow> StagedPingRows;
+        FString StagedPingFailure;
         FCk_Handle_Timer PingTimer;
         FCkCompassGym_SourceReceipt FrozenPing;
         FCk_Handle RetiringPingExtraChild;
@@ -191,6 +199,40 @@ namespace ck_compass_catalog_test
         return Run.StagedStress.Num() == 500;
     }
 
+    auto StagePing(FRun& Run, const FVector& Location) -> bool
+    {
+        auto& R = Run.StagedPing;
+        if (R.Host != FCk_Handle{} || Run.Receipts.Num() != 9)
+        { return false; }
+        R.CatalogId = Run.NextCatalogId++;
+        R.Kind = ECkCompassGym_SourceKind::Ping;
+        R.ExpectedCategory = Tag(TEXT("Poi.Category.Ping"));
+        if (!R.ExpectedCategory.IsValid()) { return false; }
+        R.Host = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Run.SourceRoot);
+        if (!Allocated(R.Host)) { return false; }
+        const auto Transform = UCk_Utils_Transform_UE::Add(R.Host,
+            FTransform(FRotator::ZeroRotator, Location),
+            ECk_Replication::DoesNotReplicate);
+        if (!Allocated(Transform)) { return false; }
+        const auto Tagged = UCk_Utils_EntityTag_UE::Add_UsingGameplayTag(
+            R.Host, R.ExpectedCategory);
+        if (!Allocated(Tagged)) { return false; }
+        if (!Allocated(AttachDisplay(R.Host, 20,
+            ECk_Poi_OffscreenPolicy::ClampToEdge))) { return false; }
+        R.Marker = UCk_Utils_Pmg_BasicShapes::Create_Sphere(R.Host,
+            FTransform(FRotator::ZeroRotator, Location + FVector(0, 0, 60)),
+            45.0f, 12, 12, ECk_Plane_Axis::XY,
+            FLinearColor(0.3f, 0.9f, 0.95f), true, 2.0f, -1.0f);
+        if (!Allocated(R.Marker)) { return false; }
+        auto TimerSpec = FCk_Timer_Spec(FCk_Time(5.0f));
+        TimerSpec.Set_Behavior(ECk_Timer_Behavior::StopOnDone)
+            .Set_StartingState(ECk_Timer_State::Running)
+            .Set_CountDirection(ECk_Timer_CountDirection::CountUp);
+        R.Timer = UCk_Utils_Timer_UE::Add(R.Host, TimerSpec);
+        return Allocated(R.Timer) && !R.Host.Has<ck::FTag_Poi>() &&
+            !R.Marker.Has<ck::FTag_Poi>() && !R.Timer.Has<ck::FTag_Poi>();
+    }
+
     auto Read(UWorld* World, const FRun& Run,
         const TArray<FCkCompassGym_SourceReceipt>& Receipts,
         bool CompositionComplete, TArray<FCkCompassGym_SourceRow>& OutRows,
@@ -228,6 +270,22 @@ namespace ck_compass_catalog_test
                 World, Run.GameState.Get(), Run.SourceRoot, true,
                 Active, Empty, Empty, FrozenPings,
                 OutActive, Staged, OutFailure);
+    }
+
+    auto ReadPingPhases(UWorld* World, const FRun& Run,
+        const TArray<FCkCompassGym_SourceReceipt>& Active,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedPings,
+        TArray<FCkCompassGym_SourceRow>& OutActive,
+        TArray<FCkCompassGym_SourceRow>& OutStagedStress,
+        TArray<FCkCompassGym_SourceRow>& OutStagedPings,
+        FString& OutFailure) -> ECkCompassGym_CatalogOutcome
+    {
+        const TArray<FCkCompassGym_SourceReceipt> Empty;
+        return UCkCompassGym_SourceCatalog::
+            TryGet_SourceCatalogTransactionWithPingPhases(
+                World, Run.GameState.Get(), Run.SourceRoot, true,
+                Active, Empty, Empty, StagedPings, Empty,
+                OutActive, OutStagedStress, OutStagedPings, OutFailure);
     }
 
     auto DirectChildren(const FCk_Handle& Parent, const FCk_Handle& WorldRoot,
@@ -524,6 +582,90 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
                 for (auto& Receipt : Run->StagedStress)
                 { Receipt.Admitted = true; }
             }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*)
+        {
+            if (Run->PhaseOutcome != ECkCompassGym_CatalogOutcome::Complete ||
+                Run->StagedStress.Num() != 500) { return; }
+            Run->StagedPingBuilt = StagePing(*Run, FVector(1450, 0, 100));
+            TestTrue(TEXT("real staged Ping authored alongside settled 500 Stress hosts"),
+                Run->StagedPingBuilt);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            if (!Run->StagedPingBuilt) { return true; }
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            const TArray<FCkCompassGym_SourceReceipt> Pings{Run->StagedPing};
+            Run->StagedPingOutcome = UCkCompassGym_SourceCatalog::
+                TryGet_SourceCatalogTransactionWithPingPhases(
+                    World, Run->GameState.Get(), Run->SourceRoot, true,
+                    Run->Receipts, Run->StagedStress, {}, Pings, {},
+                    Run->StagedPingActiveRows, Run->PhaseStagedRows,
+                    Run->StagedPingRows, Run->StagedPingFailure);
+            return Run->StagedPingOutcome != ECkCompassGym_CatalogOutcome::Pending;
+        }), 12.0, TEXT("simultaneous staged Stress and Ping physical proof settles")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->StagedPingBuilt)
+            {
+                TestTrue(TEXT("one pure observation returns whole 9 active, 500 staged Stress, one staged Ping"),
+                    Run->StagedPingOutcome == ECkCompassGym_CatalogOutcome::Complete &&
+                    Run->StagedPingActiveRows.Num() == 9 &&
+                    Run->PhaseStagedRows.Num() == 500 &&
+                    Run->StagedPingRows.Num() == 1 &&
+                    Run->StagedPingRows[0].CatalogId == Run->StagedPing.CatalogId &&
+                    Run->StagedPingRows[0].HasMarker &&
+                    Run->StagedPingRows[0].Marker.Lines.Num() == 96 &&
+                    Run->StagedPingFailure.IsEmpty() &&
+                    Allocated(Run->StagedPing.Host) &&
+                    !Run->StagedPing.Host.Has<ck::FTag_Poi>());
+                auto BadPing = TArray<FCkCompassGym_SourceReceipt>{Run->StagedPing};
+                BadPing[0].Host = Run->StagedStress[0].Host;
+                TArray<FCkCompassGym_SourceRow> Active, Stress, Pings;
+                Active.AddDefaulted(); Stress.AddDefaulted(); Pings.AddDefaulted();
+                FString Failure;
+                const auto Alias = UCkCompassGym_SourceCatalog::
+                    TryGet_SourceCatalogTransactionWithPingPhases(
+                        World, Run->GameState.Get(), Run->SourceRoot, true,
+                        Run->Receipts, Run->StagedStress, {}, BadPing, {},
+                        Active, Stress, Pings, Failure);
+                TestTrue(TEXT("cross-partition staged Stress/Ping Host alias rejects all outputs"),
+                    Alias == ECkCompassGym_CatalogOutcome::Invalid &&
+                    Active.IsEmpty() && Stress.IsEmpty() && Pings.IsEmpty() &&
+                    !Failure.IsEmpty());
+            }
+            if (Allocated(Run->StagedPing.Host))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Run->StagedPing.Host); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            return Run->StagedPing.Host == FCk_Handle{} ||
+                (!Allocated(Run->StagedPing.Host) &&
+                 !Allocated(Run->StagedPing.Marker) &&
+                 !Allocated(Run->StagedPing.Timer));
+        }), 30.0, TEXT("combined-stage Ping subtree physically retires before Stress commit")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("combined-stage Ping Host Marker Timer fully retired"),
+                !Allocated(Run->StagedPing.Host) &&
+                !Allocated(Run->StagedPing.Marker) &&
+                !Allocated(Run->StagedPing.Timer))) { return; }
+            Run->StagedPing = {};
+            Run->StagedPingBuilt = false;
+            TArray<FCkCompassGym_SourceRow> Active, Stress;
+            FString Failure;
+            const auto Restored = ReadTransaction(World, *Run,
+                Run->Receipts, Run->StagedStress, {}, true,
+                Active, Stress, Failure);
+            TestTrue(TEXT("original 9+500 Stress proof restored before ordered commit"),
+                Restored == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9 && Stress.Num() == 500 && Failure.IsEmpty());
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
@@ -1188,6 +1330,158 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
         FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
         { return !Allocated(Run->ExtraChild); }),
         30.0, TEXT("unclaimed child physically removed before source loss")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*)
+        {
+            Run->StagedPingBuilt = StagePing(*Run, FVector(1450, 0, 100));
+            TestTrue(TEXT("unexposed Ping authored through real retained helpers"),
+                Run->StagedPingBuilt);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            if (!Run->StagedPingBuilt) { return true; }
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            const TArray<FCkCompassGym_SourceReceipt> Staged{Run->StagedPing};
+            Run->StagedPingOutcome = ReadPingPhases(World, *Run,
+                Run->Receipts, Staged, Run->StagedPingActiveRows,
+                Run->PhaseStagedRows, Run->StagedPingRows,
+                Run->StagedPingFailure);
+            return Run->StagedPingOutcome != ECkCompassGym_CatalogOutcome::Pending;
+        }), 12.0, TEXT("real staged Ping physical category timer and mesh settle")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("staged Ping complete returns distinct active-nine and staged-one rows"),
+                Run->StagedPingBuilt &&
+                Run->StagedPingOutcome == ECkCompassGym_CatalogOutcome::Complete &&
+                Run->StagedPingActiveRows.Num() == 9 &&
+                Run->PhaseStagedRows.IsEmpty() &&
+                Run->StagedPingRows.Num() == 1 &&
+                Run->StagedPingRows[0].CatalogId == Run->StagedPing.CatalogId &&
+                Run->StagedPingRows[0].HasMarker &&
+                Run->StagedPingRows[0].Marker.Lines.Num() == 96 &&
+                Run->StagedPingFailure.IsEmpty() &&
+                Allocated(Run->StagedPing.Host) &&
+                !Run->StagedPing.Host.Has<ck::FTag_Poi>())) { return; }
+            TArray<FCkCompassGym_SourceRow> Strict;
+            FString Failure;
+            const auto Legacy = Read(World, *Run, Run->Receipts,
+                true, Strict, Failure);
+            TestTrue(TEXT("strict observer rejects staged unclaimed Ping host"),
+                Legacy == ECkCompassGym_CatalogOutcome::Invalid &&
+                Strict.IsEmpty() && !Failure.IsEmpty());
+            const TArray<FCkCompassGym_SourceReceipt> Stage{Run->StagedPing};
+            auto Reject = [this, World, Run](
+                const TCHAR* Label,
+                const TArray<FCkCompassGym_SourceReceipt>& Staged)
+            {
+                TArray<FCkCompassGym_SourceRow> Active, Stress, Pings;
+                Active.AddDefaulted(); Stress.AddDefaulted(); Pings.AddDefaulted();
+                FString Why;
+                const auto Outcome = ReadPingPhases(World, *Run,
+                    Run->Receipts, Staged, Active, Stress, Pings, Why);
+                TestTrue(Label, Outcome == ECkCompassGym_CatalogOutcome::Invalid &&
+                    Active.IsEmpty() && Stress.IsEmpty() && Pings.IsEmpty() &&
+                    !Why.IsEmpty());
+            };
+            auto Bad = Stage;
+            Bad[0].Marker = {};
+            Reject(TEXT("staged Ping default Marker receipt rejects all outputs"), Bad);
+            Bad = Stage;
+            Bad[0].Host = Run->Receipts[0].Host;
+            Reject(TEXT("staged Ping active Host alias rejects all outputs"), Bad);
+            Bad = Stage;
+            Bad.Add(Run->StagedPing);
+            Reject(TEXT("staged Ping duplicate receipt rejects all outputs"), Bad);
+            TArray<FCkCompassGym_SourceRow> Aliased, Third;
+            Aliased.AddDefaulted(); Third.AddDefaulted();
+            const TArray<FCkCompassGym_SourceReceipt> Empty;
+            Failure.Reset();
+            const auto AliasOutcome = UCkCompassGym_SourceCatalog::
+                TryGet_SourceCatalogTransactionWithPingPhases(
+                    World, Run->GameState.Get(), Run->SourceRoot, true,
+                    Run->Receipts, Empty, Empty, Stage, Empty,
+                    Aliased, Aliased, Third, Failure);
+            TestTrue(TEXT("staged Ping aliased row outputs reject and clear"),
+                AliasOutcome == ECkCompassGym_CatalogOutcome::Invalid &&
+                Aliased.IsEmpty() && Third.IsEmpty() &&
+                Failure.Contains(TEXT("alias")));
+            auto MutableHost = Run->StagedPing.Host;
+            MutableHost.Add<ck::FTag_Poi>();
+            if (TestTrue(TEXT("fixture-only staged Ping exposure tag added"),
+                Allocated(Run->StagedPing.Host) &&
+                Run->StagedPing.Host.Has<ck::FTag_Poi>()))
+            { Reject(TEXT("staged Ping exposure rejects all outputs"), Stage); }
+            if (!Allocated(Run->StagedPing.Host) ||
+                !MutableHost.Try_Remove<ck::FTag_Poi>() ||
+                !Allocated(Run->StagedPing.Host) ||
+                Run->StagedPing.Host.Has<ck::FTag_Poi>())
+            { TestTrue(TEXT("fixture-only staged Ping exposure tag restored"), false); return; }
+            TArray<FCkCompassGym_SourceRow> Active, Stress, Pings;
+            Failure.Reset();
+            const auto Restored = ReadPingPhases(World, *Run,
+                Run->Receipts, Stage, Active, Stress, Pings, Failure);
+            TestTrue(TEXT("staged Ping complete restores without POI tag"),
+                Restored == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9 && Stress.IsEmpty() && Pings.Num() == 1);
+            Run->StagedPingExtraChild =
+                UCk_Utils_EntityLifetime_UE::Request_CreateEntity(
+                    Run->StagedPing.Host);
+            if (TestTrue(TEXT("real unexpected staged Ping child allocated"),
+                Allocated(Run->StagedPingExtraChild)))
+            {
+                Reject(TEXT("staged Ping unexpected child rejects all outputs"), Stage);
+                UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(
+                    Run->StagedPingExtraChild);
+            }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        { return Run->StagedPingExtraChild == FCk_Handle{} ||
+            !Allocated(Run->StagedPingExtraChild); }),
+        30.0, TEXT("unexpected staged Ping child physically removed")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!Run->StagedPingBuilt ||
+                !Allocated(Run->StagedPing.Host)) { return; }
+            const TArray<FCkCompassGym_SourceReceipt> Stage{Run->StagedPing};
+            TArray<FCkCompassGym_SourceRow> Active, Stress, Pings;
+            FString Failure;
+            const auto Restored = ReadPingPhases(World, *Run,
+                Run->Receipts, Stage, Active, Stress, Pings, Failure);
+            TestTrue(TEXT("staged Ping whole proof restored after child removal"),
+                Restored == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9 && Stress.IsEmpty() && Pings.Num() == 1);
+            UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(
+                Run->StagedPing.Host);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        { return Run->StagedPing.Host == FCk_Handle{} ||
+            (!Allocated(Run->StagedPing.Host) &&
+             !Allocated(Run->StagedPing.Marker) &&
+             !Allocated(Run->StagedPing.Timer)); }),
+        30.0, TEXT("unadmitted staged Ping Host Marker Timer physically removed")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("unadmitted staged Ping source subtree removed"),
+                Run->StagedPingBuilt &&
+                !Allocated(Run->StagedPing.Host) &&
+                !Allocated(Run->StagedPing.Marker) &&
+                !Allocated(Run->StagedPing.Timer))) { return; }
+            Run->StagedPing = {};
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Failure;
+            const auto Restored = Read(World, *Run, Run->Receipts,
+                true, Rows, Failure);
+            TestTrue(TEXT("strict nine restored after staged Ping physical retirement"),
+                Restored == ECkCompassGym_CatalogOutcome::Complete &&
+                Rows.Num() == 9 && Failure.IsEmpty());
+        })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*)
         {
