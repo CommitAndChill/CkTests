@@ -37,6 +37,12 @@ public:
     static bool TryAcceptEnvelope(UWorld* World, AGameStateBase* ExactGameState,
         const FCkSelectionGym_WireSnapshot& Snapshot, FString& OutReason);
 
+    /** Fails only the mirror captured on this exact client world/root and GameState. */
+    UFUNCTION(BlueprintCallable, Category="CK|SelectionGym|Mirror")
+    static bool TryFailCaptured(UWorld* World, AGameStateBase* ExactGameState,
+        const FCk_Handle& CapturedWorldRoot, const FString& Reason,
+        FString& OutReason);
+
     /** Completes deferred SceneNode setup and publishes the entire staged bank at once. */
     UFUNCTION(BlueprintCallable, Category="CK|SelectionGym|Mirror")
     static bool TryAdvance(UWorld* World, AGameStateBase* ExactGameState,
