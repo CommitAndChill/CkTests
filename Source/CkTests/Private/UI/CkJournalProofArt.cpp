@@ -120,17 +120,37 @@ namespace ck_journal_art
             }
             else if (_Piece == EPiece::TitleOrnament)
             {
+                auto Curve = [&](FVector2f InA, FVector2f InB, FVector2f InC,
+                    FVector2f InD, FLinearColor InColor, float InThickness)
+                {
+                    auto Points = TArray<FVector2f>{};
+                    Points.Reserve(19);
+                    for (int32 Step = 0; Step <= 18; ++Step)
+                    {
+                        const float T = static_cast<float>(Step) / 18.0f;
+                        const float S = 1.0f - T;
+                        const FVector2f Point = InA * (S * S * S) + InB * (3.0f * S * S * T)
+                            + InC * (3.0f * S * T * T) + InD * (T * T * T);
+                        Points.Add(FVector2f(Point.X * Size.X, Point.Y * Size.Y));
+                    }
+                    FSlateDrawElement::MakeLines(InElements, InLayer + 1,
+                        InGeometry.ToPaintGeometry(), MoveTemp(Points), ESlateDrawEffect::None,
+                        InColor, true, InThickness);
+                };
                 for (const float Direction : {-1.0f, 1.0f})
                 {
-                    const float Center = Direction < 0.0f ? 0.11f : 0.89f;
-                    auto Wing = [&](float InX, float InY) { return FVector2f(Center + Direction * InX, InY); };
-                    Line({Wing(-0.10f, 0.53f), Wing(-0.07f, 0.3f), Wing(-0.015f, 0.24f),
-                        Wing(0.025f, 0.48f), Wing(0.055f, 0.40f), Wing(0.09f, 0.48f),
-                        Wing(0.09f, 0.68f), Wing(0.055f, 0.56f), Wing(0.025f, 0.64f),
-                        Wing(-0.015f, 0.4f), Wing(-0.07f, 0.43f), Wing(-0.10f, 0.53f)}, Ink);
-                    Line({Wing(-0.095f, 0.53f), Wing(-0.065f, 0.55f), Wing(-0.01f, 0.47f),
-                        Wing(0.02f, 0.57f), Wing(0.05f, 0.48f), Wing(0.075f, 0.54f)}, Ink, 1.0f);
-                    Diamond(Center + Direction * 0.006f, 0.47f, 10.0f, Ink);
+                    const float Center = Direction < 0.0f ? 0.12f : 0.88f;
+                    auto Knot = [&](float InX, float InY)
+                    { return FVector2f(Center + Direction * InX, InY); };
+                    Curve(Knot(-0.10f, 0.52f), Knot(-0.065f, 0.12f),
+                        Knot(0.015f, 0.15f), Knot(0.08f, 0.50f), Ink, 1.5f);
+                    Curve(Knot(-0.10f, 0.52f), Knot(-0.055f, 0.83f),
+                        Knot(0.02f, 0.85f), Knot(0.08f, 0.50f), Ink, 1.5f);
+                    Curve(Knot(-0.073f, 0.31f), Knot(-0.015f, 0.76f),
+                        Knot(0.025f, 0.24f), Knot(0.066f, 0.60f), Ink * 0.78f, 1.1f);
+                    Curve(Knot(-0.073f, 0.68f), Knot(-0.015f, 0.24f),
+                        Knot(0.025f, 0.76f), Knot(0.066f, 0.40f), Ink * 0.78f, 1.1f);
+                    Diamond(Center, 0.5f, 7.0f, Ink);
                 }
             }
             else if (_Piece == EPiece::FooterLine)

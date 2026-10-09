@@ -1,6 +1,7 @@
 <ui version="1">
  <region name="main">
-  <column id="journal-region">
+  <overlay id="journal-region">
+   <image id="replica-backdrop" bind="ReplicaBackdrop" class="replica-backdrop" />
    <column id="journal-layout" class="journal-layout">
     <column id="top-gap" class="top-gap" />
     <row id="journal-stage-row" class="journal-stage-row">
@@ -12,7 +13,10 @@
         <journal-art id="tab-markers" piece="tab-markers" value-bind="JournalTabIndex" class="header-art-leaf" />
        </overlay>
        <column id="header-body-gap" class="header-body-gap" />
-       <journal-art id="journal-frame" piece="frame" class="journal-frame" />
+       <overlay id="journal-body-art" class="journal-body-art">
+        <column id="journal-body-smoke" class="journal-body-smoke" />
+        <journal-art id="journal-frame" piece="frame" class="journal-frame" />
+       </overlay>
       </column>
       <tabs id="journal-tabs" value-bind="JournalTab" changed="SelectJournalTab" class="journal-tabs">
        <tab id="quests-tab" key="quests" label="QUESTS">
@@ -21,7 +25,7 @@
          <row id="quests-body" class="journal-body">
           <column id="quest-list-pane" class="quest-list-pane">
            <column id="quest-list-top-gap" class="quest-list-top-gap" />
-           <tree id="quest-list" bind="Quests" selection-action="SelectQuest" row-height="52" class="quest-tree">
+           <tree id="quest-list" bind="Quests" selection-action="SelectQuest" row-height="46" class="quest-tree">
             <row id="quest-row" class="quest-row">
              <column id="quest-row-grow" class="row-grow" />
              <text id="quest-row-name" bind-field="name" color-field="name-color" class="quest-row-name" />
@@ -37,7 +41,7 @@
            </overlay>
            <text id="quest-summary" bind="QuestSummary" visible="QuestSummaryVisible" class="quest-summary" />
            <column id="details-list-gap" class="details-list-gap" />
-           <tree id="objective-list" bind="Objectives" selection-action="SelectObjective" row-height="58" class="objective-tree">
+           <tree id="objective-list" bind="Objectives" selection-action="SelectObjective" row-height="52" class="objective-tree">
             <row id="objective-row" class="objective-row">
              <text id="objective-row-marker" bind-field="marker" class="objective-row-marker" />
              <text id="objective-row-name" bind-field="name" color-field="name-color" class="objective-row-name" />
@@ -80,12 +84,24 @@
     <journal-art id="footer-line" piece="footer-line" class="footer-line" />
     <column id="footer-text-gap" class="footer-text-gap" />
     <row id="journal-footer" class="journal-footer">
-     <text id="footer-keys" bind="FooterKeys" class="footer-keys" />
+     <row id="footer-keys" class="footer-keys" visible="QuestFooterVisible">
+      <key-hint id="footer-enter-key" label="ENTER" font-family="skyrim-ui" class="footer-key footer-key-wide" />
+      <text id="footer-toggle-label" class="footer-key-label">Toggle Active</text>
+      <key-hint id="footer-map-key" label="M" font-family="skyrim-ui" class="footer-key" />
+      <text id="footer-map-label" class="footer-key-label">Show on Map</text>
+     </row>
+     <row id="footer-category-keys" class="footer-keys" visible="CategoryFooterVisible">
+      <key-hint id="footer-previous-key" label="Q" font-family="skyrim-ui" class="footer-key" />
+      <key-hint id="footer-next-key" label="E" font-family="skyrim-ui" class="footer-key" />
+      <text id="footer-category-label" class="footer-key-label">Categories</text>
+      <key-hint id="footer-close-key" label="ESC" font-family="skyrim-ui" class="footer-key footer-key-wide" />
+      <text id="footer-close-label" class="footer-key-label">Close</text>
+     </row>
      <text id="footer-status" bind="FooterStatus" class="footer-status" />
      <column id="footer-grow" class="footer-grow" />
      <text id="footer-date" bind="FooterDate" class="footer-date" />
     </row>
    </column>
-  </column>
+  </overlay>
  </region>
 </ui>
