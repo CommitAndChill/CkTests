@@ -67,8 +67,8 @@
 		{
 			"Name": "CkDebugger",
 			"Enabled": true,
-			"TargetAllowList": [
-				"Editor"
+			"TargetConfigurationDenyList": [
+				"Shipping"
 			]
 		}
 	]
