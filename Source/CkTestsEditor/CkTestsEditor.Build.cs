@@ -35,5 +35,18 @@ public class CkTestsEditor : CkModuleRules
             "CkShapes",
             "CkTests",
         });
+        PrivateDependencyModuleNames.AddRange(new string[]
+        {
+            "BlueprintGraph",
+            "CkEcsExt",
+            "CkJolt",
+            "CkRuntimeMesh",
+            "GeometryFramework",
+            "MaterialEditor",
+            "MeshDescription",
+            "RHI",
+            "RenderCore",
+            "StaticMeshDescription",
+        });
     }
 }
