@@ -182,7 +182,7 @@ namespace ck_compass_catalog_test
         return true;
     }
 
-    auto StageStress(FRun& Run) -> bool
+    auto StageStress(FRun& Run, int64 FirstCatalogId = 10000) -> bool
     {
         const auto Category = Tag(TEXT("Poi.Category.Stress"));
         if (!Category.IsValid() || Run.Receipts.Num() != 9 ||
@@ -191,7 +191,7 @@ namespace ck_compass_catalog_test
         for (int32 Index = 0; Index < 500; ++Index)
         {
             FCkCompassGym_SourceReceipt Receipt;
-            Receipt.CatalogId = 10000 + Index;
+            Receipt.CatalogId = FirstCatalogId + Index;
             Receipt.Kind = ECkCompassGym_SourceKind::Stress;
             Receipt.ExpectedCategory = Category;
             Receipt.Host = UCk_Utils_EntityLifetime_UE::
@@ -2473,6 +2473,9 @@ bool FCkCompassGym_NativeJournal::RunTest(const FString& Parameters)
             TestTrue(TEXT("journal ten preserves base and historical U returns nine plus 500 retirees"),
                 SameBase && ResultTwo == ECkCompassGym_MembershipResult::Committed &&
                 Historical.Num() == 9 && Frozen.Num() == 500 && Why.IsEmpty());
+            if (ResultTwo == ECkCompassGym_MembershipResult::Committed &&
+                Frozen.Num() == 500)
+            { Run->CommittedRetirees = MoveTemp(Frozen); }
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
@@ -2500,14 +2503,175 @@ bool FCkCompassGym_NativeJournal::RunTest(const FString& Parameters)
             int64 Revision = 0;
             TArray<FCkCompassGym_SourceRow> Rows;
             FString Why;
-            return !Allocated(Run->StagedPing.Host) &&
+            const bool GoneAndCurrent = !Allocated(Run->StagedPing.Host) &&
                 !Allocated(Run->StagedPing.Marker) &&
                 !Allocated(Run->StagedPing.Timer) &&
                 UCkCompassGym_SourceMembership::TryGet_CurrentRows(
                     W, Run->GameState.Get(), Run->SourceRoot,
                     Revision, Rows, Why) &&
                 Revision > Run->JournalRevision && Rows.Num() == 9;
+            if (GoneAndCurrent)
+            { Run->JournalRevision = Revision; Run->JournalRows = MoveTemp(Rows); }
+            return GoneAndCurrent;
         }), 30.0, TEXT("journal Ping physical closure and current nine")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed || Run->CommittedRetirees.Num() != 500)
+            { return true; }
+            for (const auto& R : Run->CommittedRetirees)
+            { if (Allocated(R.Host)) { return false; } }
+            return true;
+        }), 40.0, TEXT("first frozen 500 Stress hosts physically retired")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            TArray<FCkCompassGym_SourceRow> Historical, Current;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why, CurrentWhy;
+            int64 Revision = 0;
+            const auto ResultTwo = UCkCompassGym_SourceMembership::Get_Result(
+                W, Run->GameState.Get(), Run->SourceRoot, 2,
+                Historical, Frozen, Why);
+            const bool ReadCurrent = UCkCompassGym_SourceMembership::
+                TryGet_CurrentRows(W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, Current, CurrentWhy);
+            bool Gone = Run->CommittedRetirees.Num() == 500;
+            for (const auto& R : Run->CommittedRetirees)
+            { Gone = Gone && !Allocated(R.Host); }
+            bool SameBase = Current.Num() == 9 && Historical.Num() == 9;
+            for (int32 I = 0; I < 9 && SameBase; ++I)
+            { SameBase = Current[I].CatalogId == Run->OriginalNine[I].CatalogId &&
+                Historical[I].CatalogId == Run->OriginalNine[I].CatalogId; }
+            const bool Proven = !Run->JournalSetupFailed && Gone &&
+                ResultTwo == ECkCompassGym_MembershipResult::Committed &&
+                Frozen.Num() == 500 && ReadCurrent && SameBase &&
+                Revision == Run->JournalRevision && Why.IsEmpty() &&
+                CurrentWhy.IsEmpty() &&
+                Run->NaturalPingProbe.IsValid() &&
+                Run->NaturalPingProbe->Get_DoneCount() == 1 &&
+                !Allocated(Run->StagedPing.Host);
+            TestTrue(TEXT("first frozen 500 are gone while U history and base nine remain coherent"),
+                Proven);
+            if (!Proven) { Run->JournalSetupFailed = true; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (Run->JournalSetupFailed) { return; }
+            Run->Receipts = Run->OriginalNine;
+            const bool Staged = StageStress(*Run, 10501);
+            bool FreshIds = Staged && Run->StagedStress.Num() == 500;
+            for (int32 I = 0; I < Run->StagedStress.Num() && FreshIds; ++I)
+            { FreshIds = Run->StagedStress[I].CatalogId == 10501 + I; }
+            FString Why;
+            const bool Requested = FreshIds && UCkCompassGym_SourceMembership::
+                TryRequest_StressAdmission(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->OriginalNine, Run->StagedStress, 3, Why);
+            TestTrue(TEXT("second actual 500 Stress admission uses fresh IDs beyond consumed Ping"),
+                FreshIds && Run->StagedPing.CatalogId == 10500 &&
+                Requested && Why.IsEmpty());
+            if (!Requested) { Run->JournalSetupFailed = true; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Current, Historical;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why, ResultWhy;
+            int64 Revision = 0;
+            const auto ResultThree = UCkCompassGym_SourceMembership::Get_Result(
+                W, Run->GameState.Get(), Run->SourceRoot, 3,
+                Historical, Frozen, ResultWhy);
+            if (ResultThree == ECkCompassGym_MembershipResult::Rejected)
+            { Run->JournalSetupFailed = true; return true; }
+            if (!UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                    W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, Current, Why) || Current.Num() != 509 ||
+                Revision <= Run->JournalRevision ||
+                ResultThree != ECkCompassGym_MembershipResult::Committed ||
+                Historical.Num() != 509 || !Frozen.IsEmpty())
+            { return false; }
+            Run->JournalRevision = Revision;
+            Run->JournalRows = MoveTemp(Current);
+            return true;
+        }), 40.0, TEXT("second ordered Stress admission publishes 509")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            if (!TestTrue(TEXT("second Stress commit retains original nine and has no Ping"),
+                !Run->JournalSetupFailed && Run->JournalRows.Num() == 509 &&
+                Run->JournalRows[0].CatalogId == Run->OriginalNine[0].CatalogId &&
+                Run->JournalRows.Last().CatalogId == 11000))
+            { Run->JournalSetupFailed = true; return; }
+            Run->Receipts.Append(Run->StagedStress);
+            Run->StagedStress.Reset();
+            FString Why;
+            const bool Withdraw = UCkCompassGym_SourceMembership::
+                TryRequest_StressWithdrawal(W, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 4, Why);
+            TestTrue(TEXT("second committed 509 requests real Stress withdrawal"),
+                Withdraw && Why.IsEmpty());
+            if (!Withdraw) { Run->JournalSetupFailed = true; }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed) { return true; }
+            auto* W = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(W)) { return false; }
+            TArray<FCkCompassGym_SourceRow> Current, Historical;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why, ResultWhy;
+            int64 Revision = 0;
+            const auto ResultFour = UCkCompassGym_SourceMembership::Get_Result(
+                W, Run->GameState.Get(), Run->SourceRoot, 4,
+                Historical, Frozen, ResultWhy);
+            if (ResultFour == ECkCompassGym_MembershipResult::Rejected)
+            { Run->JournalSetupFailed = true; return true; }
+            if (!UCkCompassGym_SourceMembership::TryGet_CurrentRows(
+                    W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, Current, Why) || Current.Num() != 9 ||
+                Revision <= Run->JournalRevision ||
+                ResultFour != ECkCompassGym_MembershipResult::Committed ||
+                Historical.Num() != 9 || Frozen.Num() != 500)
+            { return false; }
+            Run->JournalRevision = Revision;
+            Run->JournalRows = MoveTemp(Current);
+            Run->CommittedRetirees = MoveTemp(Frozen);
+            return true;
+        }), 40.0, TEXT("second ordered withdrawal publishes base nine and frozen 500")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool {
+            if (Run->JournalSetupFailed || Run->CommittedRetirees.Num() != 500)
+            { return true; }
+            for (const auto& R : Run->CommittedRetirees)
+            { if (Allocated(R.Host)) { return false; } }
+            return true;
+        }), 40.0, TEXT("second frozen 500 Stress hosts physically retired")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
+            TArray<FCkCompassGym_SourceRow> Historical, Current;
+            TArray<FCkCompassGym_SourceReceipt> Frozen;
+            FString Why, CurrentWhy;
+            int64 Revision = 0;
+            const auto ResultFour = UCkCompassGym_SourceMembership::Get_Result(
+                W, Run->GameState.Get(), Run->SourceRoot, 4,
+                Historical, Frozen, Why);
+            const bool ReadCurrent = UCkCompassGym_SourceMembership::
+                TryGet_CurrentRows(W, Run->GameState.Get(), Run->SourceRoot,
+                    Revision, Current, CurrentWhy);
+            bool Gone = Run->CommittedRetirees.Num() == 500;
+            for (const auto& R : Run->CommittedRetirees)
+            { Gone = Gone && !Allocated(R.Host); }
+            bool SameBase = Current.Num() == 9 && Historical.Num() == 9;
+            for (int32 I = 0; I < 9 && SameBase; ++I)
+            { SameBase = Current[I].CatalogId == Run->OriginalNine[I].CatalogId &&
+                Historical[I].CatalogId == Run->OriginalNine[I].CatalogId; }
+            TestTrue(TEXT("second frozen 500 gone with retained U history and unchanged base"),
+                !Run->JournalSetupFailed && Gone && SameBase && ReadCurrent &&
+                ResultFour == ECkCompassGym_MembershipResult::Committed &&
+                Frozen.Num() == 500 && Revision == Run->JournalRevision &&
+                Why.IsEmpty() && CurrentWhy.IsEmpty() &&
+                !Allocated(Run->StagedPing.Host));
+        })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* W) {
             if (!Run->JournalSetupFailed && Allocated(Run->SourceRoot))
@@ -2528,7 +2692,7 @@ bool FCkCompassGym_NativeJournal::RunTest(const FString& Parameters)
                     ck::FFragment_CompassGym_SourceMembership>() &&
                     Run->SourceRoot.Get<
                         ck::FFragment_CompassGym_SourceMembership>()
-                        .HighestAcceptedCatalogId == Run->StagedPing.CatalogId &&
+                        .HighestAcceptedCatalogId == 11000 &&
                     Run->SourceRoot.Get<
                         ck::FFragment_CompassGym_SourceMembership>()
                         .StagedPings.IsEmpty();

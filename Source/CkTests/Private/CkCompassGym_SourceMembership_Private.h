@@ -42,6 +42,9 @@ namespace ck
         TArray<FCkCompassGym_SourceReceipt> Staged;
         TArray<FCkCompassGym_SourceRow> CommittedRows;
         TArray<FCkCompassGym_SourceReceipt> FrozenRetiring;
+        int32 FrozenStressCursor = 0;
+        double FrozenStressDeadlineSeconds = 0.0;
+        bool FrozenStressRetirementComplete = false;
     };
 
     class FProcessor_CompassGym_SourceMembership : public ck_exp::TProcessor<
