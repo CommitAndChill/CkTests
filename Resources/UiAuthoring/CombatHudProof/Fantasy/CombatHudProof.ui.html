@@ -1,6 +1,7 @@
 <ui version="1">
  <region name="main">
   <overlay id="hud-root" class="hud-root">
+   <image id="replica-backdrop" bind="ReplicaBackdrop" class="replica-backdrop" />
    <replica-art id="damage-overlay" piece="damage" value-bind="DamageOpacity" class="damage-overlay" />
    <column id="hud-layout" class="hud-layout">
     <column id="top-hud" class="top-hud">
@@ -38,7 +39,8 @@
    <column id="interaction-cluster" class="interaction-cluster">
     <column id="interaction-offset" class="interaction-offset" />
     <row id="interaction-row" visible="ShowInteraction" class="interaction-row">
-     <text id="interaction-key" class="interaction-key">[E] Talk</text>
+     <key-hint id="interaction-keycap" label="E" font-family="skyrim-ui" class="interaction-keycap" />
+     <text id="interaction-key" class="interaction-key">Talk</text>
      <text id="interaction-target" class="interaction-target">Whiterun Guard</text>
     </row>
    </column>

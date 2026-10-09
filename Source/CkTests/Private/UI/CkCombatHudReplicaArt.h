@@ -16,6 +16,7 @@ enum class ECkCombatHudReplicaPiece : uint8
     BfMap,
     BfObjective,
     BfGrenade,
+    BfKit,
     SkCompass,
     SkMeter,
     SkEye,

@@ -1,34 +1,35 @@
 .hud-root { padding: 0px; }
+.replica-backdrop { width: 1920px; height: 1080px; }
 .hud-layout { width: 1920px; height: 1080px; }
 .damage-overlay { width: 1920px; height: 1080px; }
 .grow { flex-grow: 1; }
 .quickslots-row { width: 1920px; height: 100px; padding: 4px 104px 0px; }
-.quickslots { width: 470px; height: 84px; gap: 4px; padding: 0px 0px 12px; background-color: #0B294366; border-radius: 20px; }
-.quickslot { width: 54px; height: 64px; background-color: #35566C66; border-color: #6DB9D899; border-width: 1px; border-radius: 14px; }
-.quickslot-key { height: 20px; horizontal-align: center; font-size: 18; color: #C3EDFF; text-wrap: nowrap; }
+.quickslots { width: 470px; height: 78px; gap: 4px; padding: 0px 0px 9px; background-color: #071D2B8A; border-radius: 12px; }
+.quickslot { width: 54px; height: 64px; background-color: #244A6666; border-color: #82C7E9A6; border-width: 1px; border-radius: 8px; }
+.quickslot-key { width: 26px; height: 20px; horizontal-align: center; -ck-key-hint-font-size: 16px; -ck-key-hint-foreground: #D9F4FF; -ck-key-hint-background: #081E2B99; -ck-key-hint-border-color: #8BD9E3A6; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 3px; -ck-key-hint-padding-x: 5px; -ck-key-hint-padding-y: 0px; }
 .power-glyph { width: 38px; height: 38px; horizontal-align: center; }
-.objective-prompt { width: 440px; height: 54px; horizontal-align: center; padding: 10px 18px; background-color: #07141ED0; border-color: #61CEE8; border-width: 1px; border-radius: 16px; }
-.objective-text { horizontal-align: center; vertical-align: center; font-size: 22; color: #AADEEE; text-wrap: nowrap; }
+.objective-prompt { width: 440px; height: 48px; horizontal-align: center; padding: 8px 18px; background-color: #07141ED0; border-color: #61CEE8; border-width: 1px; border-radius: 9px; }
+.objective-text { font-family: me-ui; horizontal-align: center; vertical-align: center; font-size: 22; color: #D0F1FC; text-wrap: nowrap; }
 .bottom-hud { width: 1920px; height: 174px; padding: 0px 104px 20px; }
 .side-zone { width: 606px; height: 154px; }
 .ammo-cluster { width: 240px; height: 154px; }
 .grenade-readout { height: 28px; gap: 10px; }
 .grenade-icon { width: 22px; height: 22px; }
-.grenade-count { width: 40px; font-size: 18; font-weight: bold; color: #ADE6FC; text-wrap: nowrap; }
+.grenade-count { font-family: me-display; width: 40px; font-size: 20; font-weight: bold; color: #D1F1FF; text-wrap: nowrap; }
 .ammunition { height: 96px; gap: 16px; }
 .ammo-counts { width: 76px; height: 96px; }
-.reserve { height: 28px; font-size: 18; color: #95C4D8; text-wrap: nowrap; }
-.ammo { height: 68px; font-size: 40; color: #A9D7EF; text-wrap: nowrap; }
+.reserve { font-family: me-display; height: 28px; font-size: 20; color: #B0D8E8; text-wrap: nowrap; }
+.ammo { font-family: me-display; height: 68px; font-size: 36; color: #D5F3FF; text-wrap: nowrap; }
 .weapon-glyph-group { width: 140px; height: 96px; padding: 30px 0px 0px; gap: 8px; }
 .weapon-glyph { width: 140px; height: 34px; }
 .ammo-meter { width: 100px; height: 5px; -ck-hud-meter-fill: #B53235; -ck-hud-meter-background: #45141E80; -ck-hud-meter-trail: #DE6873; -ck-hud-meter-border-width: 0px; -ck-hud-meter-radius: 0px; -ck-hud-meter-response: 0.1; -ck-hud-meter-trail-delay: 0.1; -ck-hud-meter-low-threshold: 0; }
-.reload-status { height: 28px; font-size: 18; color: #9BDBEF; text-wrap: nowrap; }
+.reload-status { font-family: me-ui; height: 28px; font-size: 19; color: #F3959A; text-wrap: nowrap; }
 .squad-cluster { width: 500px; height: 142px; vertical-align: bottom; gap: 8px; }
 .vitals-arcs { width: 500px; height: 62px; }
 .shield-meter { width: 500px; height: 48px; horizontal-align: center; }
 .health-meter { width: 460px; height: 30px; horizontal-align: center; vertical-align: bottom; }
 .squad-portraits { width: 236px; height: 62px; horizontal-align: center; gap: 12px; }
-.portrait-frame { width: 58px; height: 58px; padding: 2px; border-width: 1px; border-color: #71C4EA; background-color: #12355ACC; }
+.portrait-frame { width: 58px; height: 58px; padding: 2px; border-width: 1px; border-color: #94DCFA; background-color: #0D2C45E8; }
 .portrait { width: 52px; height: 52px; }
 .squad-power { width: 42px; height: 42px; vertical-align: center; }
 .reticle-cluster { width: 140px; height: 140px; horizontal-align: center; vertical-align: center; }
@@ -36,4 +37,4 @@
 .cooldown-meter { width: 140px; height: 140px; }
 .empty-ammo-prompt { width: 240px; height: 90px; horizontal-align: center; vertical-align: center; }
 .empty-ammo-offset { height: 55px; }
-.no-ammo { horizontal-align: center; font-size: 18; color: #D14949; text-wrap: nowrap; }
+.no-ammo { font-family: me-ui; horizontal-align: center; font-size: 18; color: #D14949; text-wrap: nowrap; }

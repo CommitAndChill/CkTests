@@ -13,6 +13,7 @@
 #include "CkTests/UI/CkCombatHudProof.h"
 #include "UI/CkCombatHudProofModel.h"
 #include "UI/CkCombatHudReplicaArt.h"
+#include "UI/CkUiReplicaPresentation.h"
 
 #include "Engine/GameInstance.h"
 #include "Engine/GameViewportClient.h"
@@ -418,9 +419,25 @@ namespace ck_combat_hud_proof_test
         }
         else if (Hud->Get_Theme() == ECk_CombatHudProof_Theme::Tactical)
         {
+            const auto Root = Hud->Get_AuthoredView()->GetRegion(TEXT("main"));
+            const auto Friendly = FindDisplayed(Root, FName{TEXT("objective-icon")}, true);
+            const auto Hostile = FindDisplayed(Root, FName{TEXT("objective-icon-hostile")}, true);
+            FCkUiView::FDataBindings Ownership;
+            Hud->Get_Model()->PopulateBindings(Ownership);
+            const bool OwnerMatches = Friendly.IsSet() && Hostile.IsSet()
+                && Friendly.GetValue() == Ownership.Visibility.FindRef(TEXT("ObjectiveFriendly")).Get(false)
+                && Hostile.GetValue() == Ownership.Visibility.FindRef(TEXT("ObjectiveHostile")).Get(false)
+                && Friendly.GetValue() != Hostile.GetValue();
+            InState.Test->TestTrue(TEXT("mounted Battlefield objective matches exclusive typed ownership"), OwnerMatches);
+            TextFits &= OwnerMatches;
             for (const TCHAR* Id : {TEXT("friendly-side"), TEXT("tickets-friendly"), TEXT("ticket-divider"),
-                TEXT("enemy-side"), TEXT("tickets-enemy"), TEXT("round-timer")})
+                TEXT("enemy-side"), TEXT("tickets-enemy"), TEXT("round-timer"), TEXT("ammo-value"),
+                TEXT("reserve-value"), TEXT("fire-mode"), TEXT("health-value"), TEXT("grenade-count"),
+                TEXT("squad-one"), TEXT("squad-two"), TEXT("squad-three"), TEXT("squad-four"),
+                TEXT("objective-distance"), TEXT("capture-status"), TEXT("kill-feed-text"), TEXT("reload-status")})
             {
+                const auto Displayed = FindDisplayed(Hud->Get_AuthoredView()->GetRegion(TEXT("main")), FName{Id}, true);
+                if (Displayed.IsSet() && !Displayed.GetValue()) { continue; }
                 const auto Fit = MeasureHudText(Hud, FName{Id});
                 const bool Fits = Fit.IsSet() && Fit->Fits();
                 InState.Test->TestTrue(*FString::Printf(TEXT("%s native %s text fits: %s"), *InName, Id,
@@ -467,8 +484,15 @@ bool FCk_CombatHudProof_Model::RunTest(const FString&)
                     *FPaths::Combine(Root, TEXT("CombatHudProof.ui.css"))))) { return false; }
         auto Bindings = FCkUiView::FDataBindings{};
         Model->PopulateBindings(Bindings);
+        TSharedPtr<const FCkUiFontRegistrySnapshot> Fonts;
+        if (!TestTrue(TEXT("replica presentation publishes named fonts to the model fixture"),
+                ck_ui_replica_presentation::TryLoad(
+                    Case.Theme == ECk_CombatHudProof_Theme::Futuristic ? TEXT("MassEffect")
+                        : Case.Theme == ECk_CombatHudProof_Theme::Tactical ? TEXT("Battlefield") : TEXT("Skyrim"),
+                    Bindings, Fonts, Error) && Fonts.IsValid()))
+        { AddError(Error); return false; }
         const TSharedRef<FCkUiView> View = FCkUiView::Create({}, {}, {},
-            FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 24), MoveTemp(Bindings), Registry.CreateSnapshot());
+            FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 24), MoveTemp(Bindings), Registry.CreateSnapshot(), Fonts);
         View->GetRegion(TEXT("main"));
         const int64 BeforeRevision = View->GetRevision();
         const auto SourceResult = View->TryReload(Markup, Stylesheet, TEXT("CombatHudProof"));
@@ -497,11 +521,18 @@ bool FCk_CombatHudProof_Model::RunTest(const FString&)
         }
         else if (Case.Theme == ECk_CombatHudProof_Theme::Tactical)
         {
+            TestTrue(TEXT("Battlefield starts with one hostile objective presentation"),
+                Visible(TEXT("ObjectiveHostile")) && !Visible(TEXT("ObjectiveFriendly")));
             const auto Tickets = Presentation.Text.FindRef(TEXT("EnemyTickets")).Get().ToString();
             Model->Request_Command(ECk_CombatHudProof_Command::Ability);
             TestTrue(TEXT("Battlefield flag capture updates live ticket and ownership readouts"),
                 Visible(TEXT("ShowCapture")) && Presentation.Text.FindRef(TEXT("EnemyTickets")).Get().ToString() != Tickets
                     && Presentation.Text.FindRef(TEXT("FlagText")).Get().ToString().Contains(TEXT("[C]")));
+            TestTrue(TEXT("Battlefield capture switches the whole objective presentation exclusively"),
+                Visible(TEXT("ObjectiveFriendly")) && !Visible(TEXT("ObjectiveHostile")));
+            Model->Request_Command(ECk_CombatHudProof_Command::Reset);
+            TestTrue(TEXT("Battlefield reset restores hostile objective presentation"),
+                Visible(TEXT("ObjectiveHostile")) && !Visible(TEXT("ObjectiveFriendly")));
         }
         else
         {
@@ -704,6 +735,24 @@ bool FCk_CombatHudProof_PIE::RunTest(const FString&)
                         HasControl(Hud, TEXT("quickslots")) && HasControl(Hud, TEXT("shield-meter"))
                             && HasControl(Hud, TEXT("squad-one-portrait")) && HasControl(Hud, TEXT("squad-two-portrait")));
                     TestFalse(TEXT("Mass Effect has no persistent stamina panel"), HasControl(Hud, TEXT("stamina-meter")));
+                    const TSharedRef<SWidget> Root = View->GetRegion(TEXT("main"));
+                    const auto Ui = FindNativeText(Root, FName{TEXT("objective-text")});
+                    const auto Display = FindNativeText(Root, FName{TEXT("ammo-value")});
+                    const auto DefaultFont = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 12).GetCompositeFont();
+                    TestTrue(TEXT("Mass Effect body and numeric labels use two admitted named fonts"),
+                        Ui.IsValid() && Display.IsValid()
+                            && Ui->GetFont().GetCompositeFont() != DefaultFont
+                            && Display->GetFont().GetCompositeFont() != DefaultFont
+                            && Ui->GetFont().GetCompositeFont() != Display->GetFont().GetCompositeFont());
+                    bool HasAllQuickslotHints = true;
+                    for (int32 Index = 0; Index < 8; ++Index)
+                    {
+                        const FName Hint(*FString::Printf(TEXT("quickslot-%d-key"), Index));
+                        HasAllQuickslotHints &= FindTagged(Root, Hint).IsValid();
+                    }
+                    TestTrue(TEXT("Mass Effect mounts all eight shared native quickslot key hints"), HasAllQuickslotHints);
+                    TestTrue(TEXT("Mass Effect mounts its bound full-frame backdrop"),
+                        FindTagged(Root, FName{TEXT("replica-backdrop")}).IsValid());
                 }
                 else if (Case.Theme == ECk_CombatHudProof_Theme::Tactical)
                 {
@@ -712,6 +761,17 @@ bool FCk_CombatHudProof_PIE::RunTest(const FString&)
                             && HasControl(Hud, TEXT("squad-list")) && HasControl(Hud, TEXT("health-value")));
                     TestFalse(TEXT("Battlefield has no generic vitals or ability meters"),
                         HasControl(Hud, TEXT("health-meter")) || HasControl(Hud, TEXT("cooldown-meter")));
+                    const TSharedRef<SWidget> Root = View->GetRegion(TEXT("main"));
+                    const auto Ui = FindNativeText(Root, FName{TEXT("squad-one")});
+                    const auto Display = FindNativeText(Root, FName{TEXT("ammo-value")});
+                    const auto DefaultFont = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 12).GetCompositeFont();
+                    TestTrue(TEXT("Battlefield body and numeric labels use two admitted named fonts"),
+                        Ui.IsValid() && Display.IsValid()
+                            && Ui->GetFont().GetCompositeFont() != DefaultFont
+                            && Display->GetFont().GetCompositeFont() != DefaultFont
+                            && Ui->GetFont().GetCompositeFont() != Display->GetFont().GetCompositeFont());
+                    TestFalse(TEXT("Battlefield passive HUD leaves the gameplay scenery unobstructed"),
+                        FindTagged(Root, FName{TEXT("replica-backdrop")}).IsValid());
                 }
                 else
                 {
@@ -721,6 +781,20 @@ bool FCk_CombatHudProof_PIE::RunTest(const FString&)
                             && HasControl(Hud, TEXT("sneak-eye")));
                     TestFalse(TEXT("Skyrim has no magazine/reserve weapon card"),
                         HasControl(Hud, TEXT("reserve-value")) || HasControl(Hud, TEXT("weapon-panel")));
+                    const TSharedRef<SWidget> Root = View->GetRegion(TEXT("main"));
+                    const auto Ui = FindNativeText(Root, FName{TEXT("compass-north")});
+                    const auto Display = FindNativeText(Root, FName{TEXT("target-name")});
+                    const auto DefaultFont = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 12).GetCompositeFont();
+                    TestTrue(TEXT("Skyrim compass and target use two admitted named fonts"),
+                        Ui.IsValid() && Display.IsValid()
+                            && Ui->GetFont().GetCompositeFont() != DefaultFont
+                            && Display->GetFont().GetCompositeFont() != DefaultFont
+                            && Ui->GetFont().GetCompositeFont() != Display->GetFont().GetCompositeFont());
+                    const auto Keycap = FindTagged(Root, FName{TEXT("interaction-keycap")});
+                    TestTrue(TEXT("Skyrim interaction mounts a passive native E key hint"),
+                        Keycap.IsValid() && !Keycap->SupportsKeyboardFocus());
+                    TestTrue(TEXT("Skyrim mounts its bound full-frame backdrop"),
+                        FindTagged(Root, FName{TEXT("replica-backdrop")}).IsValid());
                 }
                 const auto Accepted = Hud->Get_State();
                 const FString BeforeInvalid = Hud->Get_Summary();
@@ -754,9 +828,9 @@ bool FCk_CombatHudProof_PIE::RunTest(const FString&)
                 if (Case.Theme == ECk_CombatHudProof_Theme::Futuristic)
                 {
                     const FString OversizedStyle = Style.Replace(
-                        TEXT(".ammo { height: 68px; font-size: 40;"),
-                        TEXT(".ammo { height: 58px; font-size: 52;"));
-                    if (!TestTrue(TEXT("regression source restores the former oversized ammo line"),
+                        TEXT(".ammo { font-family: me-display; height: 68px; font-size: 36;"),
+                        TEXT(".ammo { font-family: me-display; height: 40px; font-size: 64;"));
+                    if (!TestTrue(TEXT("regression source creates an oversized ammo line"),
                         OversizedStyle != Style)) { return; }
                     if (!TestTrue(TEXT("former ammo typography loads through the live source pipeline"),
                         Hud->Request_ApplySource(Markup, OversizedStyle))) { return; }
@@ -766,7 +840,7 @@ bool FCk_CombatHudProof_PIE::RunTest(const FString&)
                     if (Oversized.IsSet())
                     {
                         AddInfo(Oversized->Describe());
-                        TestFalse(TEXT("former 52-point ammo line fits its 58-pixel slot"), Oversized->Fits());
+                        TestFalse(TEXT("oversized 64-point ammo line fits its 40-pixel slot"), Oversized->Fits());
                     }
                     if (!TestTrue(TEXT("corrected authored typography restores after regression reproduction"),
                         Hud->Request_ApplySource(Markup, Style))) { return; }
@@ -781,16 +855,27 @@ bool FCk_CombatHudProof_PIE::RunTest(const FString&)
                 TestTrue(TEXT("initial Combat HUD 2560x1080 capture"),
                     Capture(InWorld, *State, FString{Case.Name} + TEXT("-replica-initial-2560x1080"),
                         FIntPoint{2560, 1080}));
+                if (Case.Theme != ECk_CombatHudProof_Theme::Tactical)
+                {
+                    const auto AuthoredView = Hud->Get_AuthoredView();
+                    const auto Backdrop = AuthoredView.IsValid() ? FindTagged(AuthoredView->GetRegion(TEXT("main")),
+                        FName{TEXT("replica-backdrop")}) : nullptr;
+                    TestTrue(TEXT("replica backdrop occupies its full authored frame"),
+                        Backdrop.IsValid()
+                            && Backdrop->GetCachedGeometry().GetLocalSize().X >= 1919.0
+                            && Backdrop->GetCachedGeometry().GetLocalSize().Y >= 1079.0);
+                }
                 State->RestoreWindow();
-                const FString LargerHeading = Style.Replace(TEXT("font-size: 18; font-weight: bold;"),
-                    TEXT("font-size: 19; font-weight: bold;"));
-                if (!TestTrue(TEXT("valid reload candidate changes authored heading style"),
-                    LargerHeading != Style)) { return; }
+                const FString ChangedStyle = Case.Theme == ECk_CombatHudProof_Theme::Fantasy
+                    ? Style.Replace(TEXT("font-size: 17px;"), TEXT("font-size: 18px;"))
+                    : Style.Replace(TEXT("font-size: 18;"), TEXT("font-size: 19;"));
+                if (!TestTrue(TEXT("valid reload candidate changes authored text style"),
+                    ChangedStyle != Style)) { return; }
                 const TSharedPtr<SCkCombatHudReplicaArt> RetainedArt = FindNativeArt(View->GetRegion(TEXT("main")),
                     FName{TEXT("aim-reticle")});
                 if (!TestTrue(TEXT("live HUD exposes its native reticle artwork"), RetainedArt.IsValid())) { return; }
                 const int64 InitialRevision = View->GetRevision();
-                TestTrue(TEXT("accepted HUD style reload"), Hud->Request_ApplySource(Markup, LargerHeading));
+                TestTrue(TEXT("accepted HUD style reload"), Hud->Request_ApplySource(Markup, ChangedStyle));
                 TestTrue(TEXT("HUD reload retains model and native artwork identity"),
                     Hud->Get_Model() == Model && Hud->Get_AuthoredView() == View
                         && View->GetRevision() > InitialRevision
@@ -798,6 +883,25 @@ bool FCk_CombatHudProof_PIE::RunTest(const FString&)
                 const TSharedPtr<SWidget> AcceptedArtPort = FindTagged(View->GetRegion(TEXT("main")),
                     FName{TEXT("aim-reticle")});
                 const int64 AcceptedRevision = View->GetRevision();
+                if (Case.Theme == ECk_CombatHudProof_Theme::Tactical)
+                {
+                    const FString MissingHostile = Markup.Replace(TEXT("id=\"objective-icon-hostile\""),
+                        TEXT("id=\"removed-hostile\""));
+                    const FString DuplicateOwner = Markup.Replace(TEXT("visible=\"ObjectiveHostile\""),
+                        TEXT("visible=\"ObjectiveFriendly\""));
+                    const FString WrongColor = Markup.Replace(TEXT("piece=\"bf-objective\" variant=\"1\""),
+                        TEXT("piece=\"bf-objective\" variant=\"0\""));
+                    TestTrue(TEXT("objective rejection fixtures alter the installed source"),
+                        MissingHostile != Markup && DuplicateOwner != Markup && WrongColor != Markup);
+                    for (const auto& Candidate : {MissingHostile, DuplicateOwner, WrongColor})
+                    {
+                        TestFalse(TEXT("incomplete or contradictory ownership reload rejects"),
+                            Hud->Request_ApplySource(Candidate, Style));
+                        TestTrue(TEXT("rejected ownership reload preserves accepted view and revision"),
+                            View->GetRevision() == AcceptedRevision && Hud->Get_Model() == Model
+                                && FindTagged(View->GetRegion(TEXT("main")), FName{TEXT("aim-reticle")}) == AcceptedArtPort);
+                    }
+                }
                 const FString MissingReticle = Markup.Replace(TEXT("id=\"aim-reticle\""), TEXT("id=\"removed-reticle\""));
                 TestFalse(TEXT("valid XML missing a required replica component rejects atomically"),
                     Hud->Request_ApplySource(MissingReticle, Style));

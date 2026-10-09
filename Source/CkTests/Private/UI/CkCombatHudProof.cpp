@@ -1,6 +1,7 @@
 #include "CkTests/UI/CkCombatHudProof.h"
 #include "UI/CkCombatHudProofModel.h"
 #include "UI/CkCombatHudReplicaArt.h"
+#include "UI/CkUiReplicaPresentation.h"
 #include "CkTests/CkTests_Log.h"
 
 #include "CkSlateLayout/CkUiHudControls.h"
@@ -116,11 +117,16 @@ auto UCk_CombatHudProof_UE::DoInitialize(ECk_CombatHudProof_Theme InTheme) -> bo
     const auto WeakThis = TWeakObjectPtr<UCk_CombatHudProof_UE>{this};
     Data.CanDispatchEvents = TAttribute<bool>::CreateLambda([WeakThis]()
     { return WeakThis.IsValid() && WeakThis->IsActive(); });
+    TSharedPtr<const FCkUiFontRegistrySnapshot> Fonts;
+    if (!ck_ui_replica_presentation::TryLoad(InTheme == ECk_CombatHudProof_Theme::Futuristic
+            ? TEXT("MassEffect") : InTheme == ECk_CombatHudProof_Theme::Tactical
+                ? TEXT("Battlefield") : TEXT("Skyrim"), Data, Fonts, _SourceError))
+    { return false; }
     auto BaseFont = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 24);
     BaseFont.OutlineSettings.OutlineSize = 1;
     BaseFont.OutlineSettings.OutlineColor = FLinearColor::Black;
     _View = FCkUiView::Create({}, {}, {}, BaseFont,
-        MoveTemp(Data), _ControlRegistry);
+        MoveTemp(Data), _ControlRegistry, Fonts);
     _View->GetRegion(TEXT("main"));
     return DoReloadFiles();
 }
@@ -197,11 +203,24 @@ auto UCk_CombatHudProof_UE::Request_ApplySource(const FString& InMarkup, const F
         RequiredText.Add(TEXT("reload-status"), TEXT("ReloadText"));
         if (NOT RequireArt(TEXT("grenade-icon"), TEXT("bf-grenade"), nullptr)
             || NOT RequireArt(TEXT("objective-icon"), TEXT("bf-objective"), nullptr)
+            || NOT RequireArt(TEXT("objective-icon-hostile"), TEXT("bf-objective"), nullptr)
+            || NOT RequireNode(TEXT("objective-icon"), ECkUiNodeKind::Custom, TEXT("ObjectiveFriendly"))
+            || NOT RequireNode(TEXT("objective-icon-hostile"), ECkUiNodeKind::Custom, TEXT("ObjectiveHostile"))
             || NOT RequireNode(TEXT("squad-list"), ECkUiNodeKind::Column)
             || NOT RequireNode(TEXT("kill-feed"), ECkUiNodeKind::Column, TEXT("ShowKillFeed"))
             || NOT RequireNode(TEXT("capture-status"), ECkUiNodeKind::Text, TEXT("ShowCapture"))
             || NOT RequireNode(TEXT("reload-status"), ECkUiNodeKind::Text, TEXT("ShowReload"))
             || NOT RequireNode(TEXT("fire-mode"), ECkUiNodeKind::Text)) { return false; }
+        for (const auto& [Id, Expected] : TMap<FString, float>{{TEXT("objective-icon"), 0.0f},
+            {TEXT("objective-icon-hostile"), 1.0f}})
+        {
+            const auto* Node = ck_combat_hud_host::FindNode(*Main, Id);
+            const auto* Variant = Node != nullptr ? Node->CustomProperties.Find(TEXT("variant")) : nullptr;
+            const bool Valid = Node != nullptr && (Variant == nullptr ? Expected == 0.0f
+                : Variant->Kind == ECkUiCustomPropertyKind::Number && Variant->Number == Expected);
+            if (NOT Valid)
+            { _SourceError = TEXT("Battlefield objective variants must preserve friendly and hostile colors."); return false; }
+        }
     }
     else
     {
