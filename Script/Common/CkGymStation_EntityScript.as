@@ -335,8 +335,33 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	private void Reject_BaselineCreation()
 	{ _CreatorBroken = true; _BaselinePresentationClosed = true; }
 
+	// A terminal world admission closes all station presentation, including
+	// pending Shared construction under a different direct parent. The raw
+	// failed-owner check also witnesses the exact retained admission hierarchy.
+	private bool Get_IsClosedAdmissionWorld() const
+	{ return CkGym_Admission::Get_IsClosedUnproven(ck::TransientEntity()); }
+
+	private bool Get_IsClosedAdmissionStation(FCk_Handle InStation) const
+	{
+		if (InStation == FCk_Handle() || ck::Is_NOT_Valid(InStation) ||
+			!utils_entity_lifetime::Has_LifetimeOwner(InStation)) { return false; }
+		auto Parent = utils_entity_lifetime::Get_LifetimeOwner(InStation);
+		return CkGym_Admission::Get_IsClosedOwner(ck::TransientEntity(), Parent);
+	}
+
+	private bool Get_IsPresentationBlocked()
+	{
+		if (_CreatorBroken || _BaselinePresentationClosed) { return true; }
+		if (!Get_IsClosedAdmissionWorld() &&
+			!Get_IsClosedAdmissionStation(_CreatorStation)) { return false; }
+		Reject_BaselineCreation();
+		return true;
+	}
+
 	private bool Can_CreateBaselineChild(FCk_Handle InOwner) const
 	{
+		if (Get_IsClosedAdmissionWorld() ||
+			Get_IsClosedAdmissionStation(_CreatorStation)) { return false; }
 		if (ck::Is_NOT_Valid(InOwner)) { return false; }
 		if (utils_entity_lifetime::Get_IsPendingDestroy(InOwner,
 			ECk_EntityLifetime_DestructionPhase::BeginDestroy)) { return false; }
@@ -352,7 +377,9 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private bool Get_IsCurrentCreatorStation() const
 	{
-		if (!_CreatorStarted || !Get_IsLiveBaselineHandle(_CreatorStation)) { return false; }
+		if (!_CreatorStarted || !Get_IsLiveBaselineHandle(_CreatorStation) ||
+			Get_IsClosedAdmissionWorld() ||
+			Get_IsClosedAdmissionStation(_CreatorStation)) { return false; }
 		return UCk_GymStation_VisibleRuntime_UE::TryGet_StationEntity(this) == _CreatorStation;
 	}
 
@@ -487,7 +514,9 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		Candidate.Finished = _CreatorFinished;
 		Candidate.Broken = _CreatorBroken;
 		Candidate.UnsupportedTopologyAttempted = _CreatorUnsupportedTopologyAttempted;
-		Candidate.PresentationClosed = _BaselinePresentationClosed;
+		Candidate.PresentationClosed = _BaselinePresentationClosed ||
+			Get_IsClosedAdmissionWorld() ||
+			Get_IsClosedAdmissionStation(_CreatorStation);
 		Out = Candidate;
 		return true;
 	}
@@ -516,6 +545,8 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		_CreatorStation = InHandle;
 		_CreatorHandles.SetNum(28);
 		_CreatorParents.SetNum(28);
+		if (Get_IsPresentationBlocked())
+		{ return ECk_EntityScript_ConstructionFlow::Continue; }
 		_CreatorUnsupportedTopologyAttempted =
 			_CreatorUnsupportedTopologyAttempted || ShowAnchors || ShowDebugOverlays;
 		if (!Can_CreateBaselineChild(InHandle))
@@ -534,36 +565,36 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		auto StationTH = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
 		if (ck::Is_NOT_Valid(StationTH))
 		{ Reject_BaselineCreation(); return ECk_EntityScript_ConstructionFlow::Continue; }
-		if (_CreatorBroken || _BaselinePresentationClosed || !utils_transform::Has(FCk_Handle(StationTH)))
+		if (Get_IsPresentationBlocked() || !utils_transform::Has(FCk_Handle(StationTH)))
 		{ Reject_BaselineCreation(); return ECk_EntityScript_ConstructionFlow::Continue; }
 
 		Build_Body(StationTH);
-		if (_CreatorBroken || _BaselinePresentationClosed)
+		if (Get_IsPresentationBlocked())
 		{ return ECk_EntityScript_ConstructionFlow::Continue; }
 		Build_Text(StationTH);
-		if (_CreatorBroken || _BaselinePresentationClosed)
+		if (Get_IsPresentationBlocked())
 		{ return ECk_EntityScript_ConstructionFlow::Continue; }
 		Build_Spotlight(StationTH);
-		if (_CreatorBroken || _BaselinePresentationClosed)
+		if (Get_IsPresentationBlocked())
 		{ return ECk_EntityScript_ConstructionFlow::Continue; }
 		Build_Anchors(StationTH);
-		if (_CreatorBroken || _BaselinePresentationClosed)
+		if (Get_IsPresentationBlocked())
 		{ return ECk_EntityScript_ConstructionFlow::Continue; }
 		Populate_AnchorsFragment(InHandle);
-		if (_CreatorBroken || _BaselinePresentationClosed)
+		if (Get_IsPresentationBlocked())
 		{ return ECk_EntityScript_ConstructionFlow::Continue; }
 
 		if (ShowAnchors)
 		{
 			Build_AnchorVisuals(InHandle);
-			if (_CreatorBroken || _BaselinePresentationClosed)
+			if (Get_IsPresentationBlocked())
 			{ return ECk_EntityScript_ConstructionFlow::Continue; }
 		}
 
 		if (ShowDebugOverlays)
 		{
 			Build_DebugOverlays(InHandle);
-			if (_CreatorBroken || _BaselinePresentationClosed)
+			if (Get_IsPresentationBlocked())
 			{ return ECk_EntityScript_ConstructionFlow::Continue; }
 		}
 
@@ -572,7 +603,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		for (auto Tag : StationTags)
 		{
 			utils_entity_tag::Add(InHandle, Tag);
-			if (_CreatorBroken || _BaselinePresentationClosed)
+			if (Get_IsPresentationBlocked())
 			{ return ECk_EntityScript_ConstructionFlow::Continue; }
 		}
 
@@ -589,12 +620,12 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		TimerParams.Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
 		_DisplayTickHandle = utils_timer::Add(TimerOwner, TimerParams);
 		Record_BaselineReturn(27, FCk_Handle(_DisplayTickHandle), InHandle);
-		if (_CreatorBroken || _BaselinePresentationClosed ||
+		if (Get_IsPresentationBlocked() ||
 			ck::Is_NOT_Valid(_DisplayTickHandle) || !utils_timer::DoCast(FCk_Handle(_DisplayTickHandle)).IsSet())
 		{ Reject_BaselineCreation(); return ECk_EntityScript_ConstructionFlow::Continue; }
 		auto Bound = utils_timer::BindTo_OnUpdate(_DisplayTickHandle,
 			FCk_Delegate_Timer(this, n"OnDisplayTick"));
-		if (Bound != _DisplayTickHandle || _CreatorBroken || _BaselinePresentationClosed ||
+		if (Bound != _DisplayTickHandle || Get_IsPresentationBlocked() ||
 			ck::Is_NOT_Valid(Bound) || !utils_timer::DoCast(FCk_Handle(Bound)).IsSet())
 		{ Reject_BaselineCreation(); return ECk_EntityScript_ConstructionFlow::Continue; }
 		_CreatorFinished = true;
@@ -608,6 +639,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	// math). Static stations only - moving stations would need this re-run.
 	private void Populate_AnchorsFragment(FCk_Handle& InHandle)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		const auto W_cm = Width * 100.0;
 		const auto D_cm = Depth * 100.0;
 		const auto H_cm = Height * 100.0;
@@ -631,7 +663,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void OnDisplayTick(FCk_Handle_Timer InTimer, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		auto Tick = FCk_Handle(InTimer);
 		if (!Get_IsCurrentCreatorStation() || InTimer != _DisplayTickHandle ||
 			!Get_IsLiveBaselineHandle(Tick) || !utils_timer::DoCast(FCk_Handle(InTimer)).IsSet() ||
@@ -646,7 +678,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		if (ColouredBody.Active)
 		{
 			Apply_ColouredBody(ColouredBody);
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 
 			if (AutoSize)
 			{
@@ -662,19 +694,19 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		{
 			_CachedTitle = Fragment.Title;
 			Apply_TitleText(Fragment.Title);
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 		}
 		if (!Fragment.Description.EqualTo(_CachedDescription))
 		{
 			_CachedDescription = Fragment.Description;
 			Apply_DescriptionText(Fragment.Description);
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 		}
 		if (!Fragment.Instructions.EqualTo(_CachedInstructions))
 		{
 			_CachedInstructions = Fragment.Instructions;
 			Apply_FloorDescriptionText(Fragment.Instructions);
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 		}
 
 		// Grow-only resize from actual rendered text bounds (read after
@@ -688,7 +720,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Apply_TitleText(FText InText)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(_TitleHandle, 23, 23))
 		{ Reject_BaselineCreation(); return; }
 		auto Comp = utils_unreal_component::Get_Component(_TitleHandle);
@@ -699,7 +731,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Apply_DescriptionText(FText InText)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(_DescriptionHandle, 24, 24))
 		{ Reject_BaselineCreation(); return; }
 		auto Comp = utils_unreal_component::Get_Component(_DescriptionHandle);
@@ -710,7 +742,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Apply_FloorDescriptionText(FText InText)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(_FloorDescriptionHandle, 25, 25))
 		{ Reject_BaselineCreation(); return; }
 		auto Comp = utils_unreal_component::Get_Component(_FloorDescriptionHandle);
@@ -731,6 +763,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Apply_ColouredBody(FCkGym_Station_ColoredBody& InBody)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		_CreatorUnsupportedTopologyAttempted = true;
 		if (!_DescriptionClearedForColour)
 		{
@@ -747,13 +780,13 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		{
 			_CachedTitle = InBody.Title;
 			Apply_TitleText(InBody.Title);
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 		}
 		if (!InBody.Instructions.EqualTo(_CachedInstructions))
 		{
 			_CachedInstructions = InBody.Instructions;
 			Apply_FloorDescriptionText(InBody.Instructions);
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 		}
 
 		Apply_ColouredRuns(InBody.Lines);
@@ -761,6 +794,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Apply_ColouredRuns(TArray<FCkGym_ColoredLine>& InLines)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		auto RunTexts = TArray<FString>();
 		auto RunColours = TArray<FColor>();
 		auto RunStartLines = TArray<int32>();
@@ -791,7 +825,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		if (RunCountChanged)
 		{
 			Rebuild_ColouredRunComponents(RunTexts.Num());
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 		}
 		else if (LayoutChanged)
 		{
@@ -801,7 +835,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		for (auto Index = 0; Index < RunTexts.Num(); Index++)
 		{
 			Apply_ColouredRun(Index, RunTexts[Index], RunColours[Index]);
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 		}
 	}
 
@@ -828,7 +862,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	// the text on the floor.
 	private void Apply_ColouredRun(int32 InIndex, FString InText, FColor InColour)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (InIndex < 0 || InIndex >= _ColouredRunHandles.Num() ||
 			InIndex >= _ColouredRunAppliedText.Num() || InIndex >= _ColouredRunAppliedColour.Num())
 		{
@@ -859,7 +893,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	private void Rebuild_ColouredRunComponents(int32 InCount)
 	{
 		_CreatorUnsupportedTopologyAttempted = true;
-		if (_CreatorBroken || _BaselinePresentationClosed || !Get_IsCurrentCreatorStation())
+		if (Get_IsPresentationBlocked() || !Get_IsCurrentCreatorStation())
 		{ Reject_BaselineCreation(); return; }
 		Destroy_ColouredRunComponents();
 
@@ -868,7 +902,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 		for (auto Index = 0; Index < InCount; Index++)
 		{
-			if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+			if (Get_IsPresentationBlocked()) { return; }
 			auto RunSCN = FCk_Handle_SceneNode();
 			auto RunComponent = Spawn_TextPiece(StationTH, -1, n"ColouredRunText", n"OnColouredRunAdded",
 				Get_ColouredRunLocalLocation(Index),
@@ -884,6 +918,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Destroy_ColouredRunComponents()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		// Destroying the run's SceneNode entity takes its UTextRenderComponent
 		// with it - same cascade the station itself relies on.
 		for (auto RunSCN : _ColouredRunSCNs)
@@ -900,7 +935,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void OnColouredRunAdded(FCk_Handle_UnrealComponent InHandle)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedOptionalTextComponent(InHandle))
 		{ Reject_BaselineCreation(); return; }
 		auto Text = Cast<UTextRenderComponent>(utils_unreal_component::Get_Component(InHandle));
@@ -939,6 +974,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Update_ColouredRunTransforms()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		for (auto Index = 0; Index < _ColouredRunSCNs.Num(); Index++)
 		{
 			auto RunSCN = _ColouredRunSCNs[Index];
@@ -973,14 +1009,14 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 			FVector(-D_cm * 0.5 + WT * 0.5, 0.0, H_cm * 0.5),
 			FVector(WT / 100.0, Width, Height),
 			_BackWallSCN);
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 
 		// Floor stage at Z=0.
 		_FloorStageHandle = Spawn_StaticMeshPiece(InStationTH, 1, n"FloorStage", n"OnBodyMeshAdded",
 			FVector(0.0, 0.0, FT * 0.5),
 			FVector(Depth, Width, FT / 100.0),
 			_FloorStageSCN);
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 
 		// Trim - picture-frame around the back wall, flush with the back wall's
 		// front face, projecting forward by TrimDepth.
@@ -990,19 +1026,19 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 			FVector(TrimCenterX, W_cm * 0.5 - WT * 0.5, H_cm * 0.5),
 			FVector(TrimDepth / 100.0, WT / 100.0, Height),
 			_LeftTrimSCN);
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 
 		_RightTrimHandle = Spawn_StaticMeshPiece(InStationTH, 3, n"RightTrim", n"OnTrimMeshAdded",
 			FVector(TrimCenterX, -W_cm * 0.5 + WT * 0.5, H_cm * 0.5),
 			FVector(TrimDepth / 100.0, WT / 100.0, Height),
 			_RightTrimSCN);
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 
 		_TopTrimHandle = Spawn_StaticMeshPiece(InStationTH, 4, n"TopTrim", n"OnTrimMeshAdded",
 			FVector(TrimCenterX, 0.0, H_cm - WT * 0.5),
 			FVector(TrimDepth / 100.0, Width, WT / 100.0),
 			_TopTrimSCN);
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 
 		_BottomTrimHandle = Spawn_StaticMeshPiece(InStationTH, 5, n"BottomTrim", n"OnTrimMeshAdded",
 			FVector(TrimCenterX, 0.0, FT + WT * 0.5),
@@ -1019,12 +1055,12 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		FVector InLocalScale,
 		FCk_Handle_SceneNode& OutSCN)
 	{
-		if (_CreatorBroken || _BaselinePresentationClosed || !Can_CreateBaselineChild(FCk_Handle(InStationTH)))
+		if (Get_IsPresentationBlocked() || !Can_CreateBaselineChild(FCk_Handle(InStationTH)))
 		{ Reject_BaselineCreation(); return FCk_Handle_UnrealComponent(); }
 		auto LocalTransform = FTransform(FRotator::ZeroRotator, InLocalLocation, InLocalScale);
 		OutSCN = utils_scene_node::Create(InStationTH, LocalTransform);
 		Record_BaselineReturn(InRole, FCk_Handle(OutSCN), FCk_Handle(InStationTH));
-		if (_CreatorBroken || _BaselinePresentationClosed || ck::Is_NOT_Valid(OutSCN) || !utils_scene_node::Has(FCk_Handle(OutSCN)) ||
+		if (Get_IsPresentationBlocked() || ck::Is_NOT_Valid(OutSCN) || !utils_scene_node::Has(FCk_Handle(OutSCN)) ||
 			!utils_transform::Has(FCk_Handle(OutSCN)))
 		{ Reject_BaselineCreation(); return FCk_Handle_UnrealComponent(); }
 		if (!Can_CreateBaselineChild(FCk_Handle(OutSCN)))
@@ -1036,14 +1072,14 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		const auto Params = utils_unreal_component::Make_Params(UStaticMeshComponent, ECk_UnrealComponent_TickPolicy::DoNotTick, InDebugName);
 		auto ComponentHandle = utils_unreal_component::Add(PieceEntity, Params);
 		Record_BaselineReturn(17 + InRole, FCk_Handle(ComponentHandle), FCk_Handle(OutSCN));
-		if (_CreatorBroken || _BaselinePresentationClosed || ck::Is_NOT_Valid(ComponentHandle) ||
+		if (Get_IsPresentationBlocked() || ck::Is_NOT_Valid(ComponentHandle) ||
 			!utils_unreal_component::Has(FCk_Handle(ComponentHandle)))
 		{ Reject_BaselineCreation(); return ComponentHandle; }
 
 		auto Bound = utils_unreal_component::BindTo_OnAdded(
 			ComponentHandle,
 			FCk_Delegate_UnrealComponent_OnAdded(this, InOnAddedHandler));
-		if (Bound != ComponentHandle || _CreatorBroken || _BaselinePresentationClosed ||
+		if (Bound != ComponentHandle || Get_IsPresentationBlocked() ||
 			ck::Is_NOT_Valid(Bound) || !utils_unreal_component::Has(FCk_Handle(Bound)))
 		{ Reject_BaselineCreation(); return ComponentHandle; }
 
@@ -1053,7 +1089,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void OnBodyMeshAdded(FCk_Handle_UnrealComponent InHandle)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(InHandle, 17, 18))
 		{ Reject_BaselineCreation(); return; }
 		Configure_StaticMesh(InHandle, BodyColour);
@@ -1062,7 +1098,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void OnTrimMeshAdded(FCk_Handle_UnrealComponent InHandle)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(InHandle, 19, 22))
 		{ Reject_BaselineCreation(); return; }
 		Configure_StaticMesh(InHandle, TrimColour);
@@ -1070,6 +1106,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Configure_StaticMesh(FCk_Handle_UnrealComponent InHandle, FLinearColor InColour)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		auto Comp = utils_unreal_component::Get_Component(InHandle);
 		auto Mesh = Cast<UStaticMeshComponent>(Comp);
 		if (Mesh == nullptr) { Reject_BaselineCreation(); return; }
@@ -1103,13 +1140,13 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 			FVector(TextX, TextY, TitleZ),
 			FRotator::ZeroRotator,
 			_TitleSCN);
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 
 		_DescriptionHandle = Spawn_TextPiece(InStationTH, 7, n"DescriptionText", n"OnDescriptionAdded",
 			FVector(TextX, TextY, DescZ),
 			FRotator::ZeroRotator,
 			_DescriptionSCN);
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 
 		// Floor description is created unconditionally; the OnAdded handler hides
 		// the component when FloorDescriptionText is empty.
@@ -1132,12 +1169,12 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		FRotator InLocalRotation,
 		FCk_Handle_SceneNode& OutSCN)
 	{
-		if (_CreatorBroken || _BaselinePresentationClosed || !Can_CreateBaselineChild(FCk_Handle(InStationTH)))
+		if (Get_IsPresentationBlocked() || !Can_CreateBaselineChild(FCk_Handle(InStationTH)))
 		{ Reject_BaselineCreation(); return FCk_Handle_UnrealComponent(); }
 		auto LocalTransform = FTransform(InLocalRotation, InLocalLocation, FVector(1.0, 1.0, 1.0));
 		OutSCN = utils_scene_node::Create(InStationTH, LocalTransform);
 		Record_BaselineReturn(InRole, FCk_Handle(OutSCN), FCk_Handle(InStationTH));
-		if (_CreatorBroken || _BaselinePresentationClosed || ck::Is_NOT_Valid(OutSCN) || !utils_scene_node::Has(FCk_Handle(OutSCN)) ||
+		if (Get_IsPresentationBlocked() || ck::Is_NOT_Valid(OutSCN) || !utils_scene_node::Has(FCk_Handle(OutSCN)) ||
 			!utils_transform::Has(FCk_Handle(OutSCN)))
 		{ Reject_BaselineCreation(); return FCk_Handle_UnrealComponent(); }
 		if (!Can_CreateBaselineChild(FCk_Handle(OutSCN)))
@@ -1151,14 +1188,14 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		auto ComponentHandle = utils_unreal_component::Add(PieceEntity, Params);
 		Record_BaselineReturn(InRole < 0 ? -1 : 17 + InRole,
 			FCk_Handle(ComponentHandle), FCk_Handle(OutSCN));
-		if (_CreatorBroken || _BaselinePresentationClosed || ck::Is_NOT_Valid(ComponentHandle) ||
+		if (Get_IsPresentationBlocked() || ck::Is_NOT_Valid(ComponentHandle) ||
 			!utils_unreal_component::Has(FCk_Handle(ComponentHandle)))
 		{ Reject_BaselineCreation(); return ComponentHandle; }
 
 		auto Bound = utils_unreal_component::BindTo_OnAdded(
 			ComponentHandle,
 			FCk_Delegate_UnrealComponent_OnAdded(this, InOnAddedHandler));
-		if (Bound != ComponentHandle || _CreatorBroken || _BaselinePresentationClosed ||
+		if (Bound != ComponentHandle || Get_IsPresentationBlocked() ||
 			ck::Is_NOT_Valid(Bound) || !utils_unreal_component::Has(FCk_Handle(Bound)))
 		{ Reject_BaselineCreation(); return ComponentHandle; }
 
@@ -1168,7 +1205,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void OnTitleAdded(FCk_Handle_UnrealComponent InHandle)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(InHandle, 23, 23))
 		{ Reject_BaselineCreation(); return; }
 		auto Text = Cast<UTextRenderComponent>(utils_unreal_component::Get_Component(InHandle));
@@ -1188,7 +1225,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void OnDescriptionAdded(FCk_Handle_UnrealComponent InHandle)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(InHandle, 24, 24))
 		{ Reject_BaselineCreation(); return; }
 		auto Text = Cast<UTextRenderComponent>(utils_unreal_component::Get_Component(InHandle));
@@ -1206,7 +1243,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void OnFloorDescriptionAdded(FCk_Handle_UnrealComponent InHandle)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(InHandle, 25, 25))
 		{ Reject_BaselineCreation(); return; }
 		auto Text = Cast<UTextRenderComponent>(utils_unreal_component::Get_Component(InHandle));
@@ -1268,7 +1305,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Build_Spotlight(FCk_Handle_Transform& InStationTH)
 	{
-		if (_CreatorBroken || _BaselinePresentationClosed || !Can_CreateBaselineChild(FCk_Handle(InStationTH)))
+		if (Get_IsPresentationBlocked() || !Can_CreateBaselineChild(FCk_Handle(InStationTH)))
 		{ Reject_BaselineCreation(); return; }
 		const auto SpotX = Depth * 30.0;     // 30% of half-depth toward front opening
 		const auto SpotZ = Height * 90.0;    // near the top of the alcove
@@ -1278,7 +1315,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		auto LocalTransform = FTransform(FRotator(-30.0, 180.0, 0.0), FVector(SpotX, 0.0, SpotZ), FVector(1.0, 1.0, 1.0));
 		_SpotlightSCN = utils_scene_node::Create(InStationTH, LocalTransform);
 		Record_BaselineReturn(9, FCk_Handle(_SpotlightSCN), FCk_Handle(InStationTH));
-		if (_CreatorBroken || _BaselinePresentationClosed || ck::Is_NOT_Valid(_SpotlightSCN) ||
+		if (Get_IsPresentationBlocked() || ck::Is_NOT_Valid(_SpotlightSCN) ||
 			!utils_scene_node::Has(FCk_Handle(_SpotlightSCN)) ||
 			!utils_transform::Has(FCk_Handle(_SpotlightSCN)))
 		{ Reject_BaselineCreation(); return; }
@@ -1291,14 +1328,14 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 		_SpotlightHandle = utils_unreal_component::Add(PieceEntity, Params);
 		Record_BaselineReturn(26, FCk_Handle(_SpotlightHandle), FCk_Handle(_SpotlightSCN));
-		if (_CreatorBroken || _BaselinePresentationClosed || ck::Is_NOT_Valid(_SpotlightHandle) ||
+		if (Get_IsPresentationBlocked() || ck::Is_NOT_Valid(_SpotlightHandle) ||
 			!utils_unreal_component::Has(FCk_Handle(_SpotlightHandle)))
 		{ Reject_BaselineCreation(); return; }
 
 		auto Bound = utils_unreal_component::BindTo_OnAdded(
 			_SpotlightHandle,
 			FCk_Delegate_UnrealComponent_OnAdded(this, n"OnSpotlightAdded"));
-		if (Bound != _SpotlightHandle || _CreatorBroken || _BaselinePresentationClosed ||
+		if (Bound != _SpotlightHandle || Get_IsPresentationBlocked() ||
 			ck::Is_NOT_Valid(Bound) || !utils_unreal_component::Has(FCk_Handle(Bound)))
 		{ Reject_BaselineCreation(); return; }
 	}
@@ -1306,7 +1343,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	UFUNCTION()
 	private void OnSpotlightAdded(FCk_Handle_UnrealComponent InHandle)
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		if (!Get_IsExpectedBaselineComponent(InHandle, 26, 26))
 		{ Reject_BaselineCreation(); return; }
 		auto Light = Cast<USpotLightComponent>(utils_unreal_component::Get_Component(InHandle));
@@ -1333,28 +1370,28 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 		const auto H_cm = Height * 100.0;
 
 		_AnchorFootprintCenter  = Make_AnchorSCN(InStationTH, 10, FVector(0.0, 0.0, 0.0));
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		_AnchorAgentSpawnFront  = Make_AnchorSCN(InStationTH, 11, FVector( D_cm * 0.5 + AgentSpawnOffset, 0.0, 0.0));
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		_AnchorAgentSpawnBack   = Make_AnchorSCN(InStationTH, 12, FVector(-D_cm * 0.5 - AgentSpawnOffset, 0.0, 0.0));
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		_AnchorAgentSpawnLeft   = Make_AnchorSCN(InStationTH, 13, FVector(0.0,  W_cm * 0.5 + AgentSpawnOffset, 0.0));
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		_AnchorAgentSpawnRight  = Make_AnchorSCN(InStationTH, 14, FVector(0.0, -W_cm * 0.5 - AgentSpawnOffset, 0.0));
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		_AnchorPanelTopFront    = Make_AnchorSCN(InStationTH, 15, FVector(D_cm * 0.5, 0.0, H_cm));
-		if (_CreatorBroken || _BaselinePresentationClosed) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		_AnchorPanelCenter      = Make_AnchorSCN(InStationTH, 16, FVector(0.0, 0.0, H_cm * 0.5));
 	}
 
 	private FCk_Handle_SceneNode Make_AnchorSCN(FCk_Handle_Transform& InStationTH, int32 InRole, FVector InLocalLocation)
 	{
-		if (_CreatorBroken || _BaselinePresentationClosed || !Can_CreateBaselineChild(FCk_Handle(InStationTH)))
+		if (Get_IsPresentationBlocked() || !Can_CreateBaselineChild(FCk_Handle(InStationTH)))
 		{ Reject_BaselineCreation(); return FCk_Handle_SceneNode(); }
 		auto LocalTransform = FTransform(FRotator::ZeroRotator, InLocalLocation, FVector(1.0, 1.0, 1.0));
 		auto Node = utils_scene_node::Create(InStationTH, LocalTransform);
 		Record_BaselineReturn(InRole, FCk_Handle(Node), FCk_Handle(InStationTH));
-		if (_CreatorBroken || _BaselinePresentationClosed || ck::Is_NOT_Valid(Node) ||
+		if (Get_IsPresentationBlocked() || ck::Is_NOT_Valid(Node) ||
 			!utils_scene_node::Has(FCk_Handle(Node)) || !utils_transform::Has(FCk_Handle(Node)))
 		{ Reject_BaselineCreation(); }
 		return Node;
@@ -1378,6 +1415,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	// mobile.
 	private void Build_AnchorVisuals(FCk_Handle& InStation)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		_CreatorUnsupportedTopologyAttempted = true;
 		// PMG idiom: translucent fill (alpha 0.35) + wireframe overlay so the
 		// underlying station geometry stays readable through the marker.
@@ -1400,6 +1438,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Create_AnchorSphere(FCk_Handle& InOwner, FVector InLocalLocation, FLinearColor InColour, float InRadius)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		const auto WorldLoc = InitialTransform.TransformPosition(InLocalLocation);
 		const auto WorldRot = InitialTransform.Rotator();
 		const auto WorldT = FTransform(WorldRot, WorldLoc, FVector(1.0, 1.0, 1.0));
@@ -1598,6 +1637,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Apply_AutoSize_FromSpawnParams()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		int32 LongestChars = TitleText.ToString().Len();
 		for (auto Line : DescriptionText)
 		{
@@ -1619,7 +1659,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	// height (line stack). X is the quad's normal and is always 0.
 	private void Refit_FromMeasuredBounds()
 	{
-		if (_BaselinePresentationClosed || _CreatorBroken) { return; }
+		if (Get_IsPresentationBlocked()) { return; }
 		// A synchronous OnAdded callback may precede the other text creator.
 		if (_CreatorHandles.Num() != 28 || _CreatorHandles[23] == FCk_Handle() ||
 			_CreatorHandles[24] == FCk_Handle()) { return; }
@@ -1686,6 +1726,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Resize_Alcove()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		Update_BodyTransforms();
 		Update_TextTransforms();
 		Update_SpotlightTransform();
@@ -1700,6 +1741,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Update_BodyTransforms()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		const auto W_cm = Width * 100.0;
 		const auto D_cm = Depth * 100.0;
 		const auto H_cm = Height * 100.0;
@@ -1753,6 +1795,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Update_TextTransforms()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		const auto BackWallInnerX = -Depth * 50.0 + WallThickness;
 		const auto TextX = BackWallInnerX + 5.0;
 		const auto PanelTopZ = Height * 100.0;
@@ -1774,6 +1817,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Update_SpotlightTransform()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		const auto SpotX = Depth * 30.0;
 		const auto SpotZ = Height * 90.0;
 		Update_PieceLocAndRot(_SpotlightSCN, FVector(SpotX, 0.0, SpotZ), FRotator(-30.0, 180.0, 0.0));
@@ -1781,6 +1825,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Update_AnchorTransforms()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		const auto W_cm = Width * 100.0;
 		const auto D_cm = Depth * 100.0;
 		const auto H_cm = Height * 100.0;
@@ -1812,6 +1857,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 	// the round-trip entirely.
 	private void Update_PieceLocAndScale(FCk_Handle_SceneNode& InSCN, FVector InLoc, FVector InScale)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		auto NewOffset = utils_scene_node::Get_Offset(InSCN);
 		NewOffset.SetLocation(InLoc);
 		NewOffset.SetScale3D(InScale);
@@ -1820,6 +1866,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Update_PieceLocAndRot(FCk_Handle_SceneNode& InSCN, FVector InLoc, FRotator InRot)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		auto NewOffset = utils_scene_node::Get_Offset(InSCN);
 		NewOffset.SetLocation(InLoc);
 		NewOffset.SetRotation(InRot.Quaternion());
@@ -1828,6 +1875,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Update_PieceLocOnly(FCk_Handle_SceneNode& InSCN, FVector InLoc)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		auto NewOffset = utils_scene_node::Get_Offset(InSCN);
 		NewOffset.SetLocation(InLoc);
 		utils_scene_node::Request_UpdateOffset(InSCN, FCk_Request_SceneNode_UpdateRelativeTransform(NewOffset));
@@ -1850,6 +1898,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Build_DebugOverlays(FCk_Handle& InOwner)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		_CreatorUnsupportedTopologyAttempted = true;
 		Destroy_DebugOverlays();
 		Push_BodyOverlays(InOwner);
@@ -1857,6 +1906,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Rebuild_DebugOverlays()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		_CreatorUnsupportedTopologyAttempted = true;
 		auto SelfEntity = ck::ToEntity(this);
 		Destroy_DebugOverlays();
@@ -1865,6 +1915,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Destroy_DebugOverlays()
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		for (auto Handle : _DebugOverlays)
 		{
 			utils_entity_lifetime::Request_DestroyEntity(Handle);
@@ -1874,6 +1925,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Push_BodyOverlays(FCk_Handle& InOwner)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		const auto W_cm = Width * 100.0;
 		const auto D_cm = Depth * 100.0;
 		const auto H_cm = Height * 100.0;
@@ -1920,6 +1972,7 @@ class UCk_EntityScript_GymStation : UCk_GenericEntityScript_UE
 
 	private void Push_OverlayBoxAt(FCk_Handle& InOwner, FVector InLocalLocation, FVector InHalfExtent, FLinearColor InColour)
 	{
+		if (Get_IsPresentationBlocked()) { return; }
 		const auto WorldLoc = InitialTransform.TransformPosition(InLocalLocation);
 		const auto WorldRot = InitialTransform.Rotator();
 		const auto BoxTransform = FTransform(WorldRot, WorldLoc, FVector(1.0, 1.0, 1.0));
