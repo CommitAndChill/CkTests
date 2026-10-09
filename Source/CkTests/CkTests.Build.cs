@@ -21,6 +21,7 @@ public class CkTests : CkModuleRules
             "CommonUI",
             "Text3D",
             "PhysicsCore",
+            "ProceduralMeshComponent", // Inspect authored Cue PMG mesh sections directly.
         });
 
         // Direct C API integration coverage lives in this module's private unit-test source.
