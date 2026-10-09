@@ -2,6 +2,7 @@
 
 #include "UserSettings/EnhancedInputUserSettings.h"
 #include "CkGameSettings/UI/CkGameSettingsUI_KeyBindingPageWidget.h"
+#include "CkGameSettingsGym_Widgets.h"
 #include "Blueprint/UserWidget.h"
 #include "CkTest_GameSettings_TransientInputSettings.generated.h"
 
@@ -34,7 +35,7 @@ private:
 // rows, binds its delegate, and starts capture itself; the fixture never writes capture state.
 UCLASS()
 class UCkTest_GameSettings_ForwardedKeyBindingPage final
-    : public UCk_GameSettingsUI_KeyBindingPageWidget
+    : public UCk_GameSettingsGym_KeyPage
 {
     GENERATED_BODY()
 
