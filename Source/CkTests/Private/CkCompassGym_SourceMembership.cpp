@@ -32,6 +32,7 @@ namespace ck_compass_membership
     {
         if (!IsInGameThread() || !IsValid(World) || !World->IsGameWorld() ||
             World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+            World->bIsTearingDown || World->IsBeingCleanedUp() ||
             World->IsNetMode(NM_Client) || !IsValid(ExactGameState) ||
             ExactGameState->IsActorBeingDestroyed() ||
             World->GetGameState() != ExactGameState ||
@@ -50,9 +51,20 @@ namespace ck_compass_membership
 
     bool Open(UWorld* World)
     {
+        if (!IsInGameThread() || !IsValid(World) || !World->IsGameWorld() ||
+            World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+            World->bIsTearingDown || World->IsBeingCleanedUp())
+        { return false; }
         const auto WorldRoot =
             UCk_Utils_EcsWorld_Subsystem_UE::TryGet_TransientEntityForWorld(*World);
-        return !UCkGym_AdmissionRuntime_UE::Get_IsClosedUnproven(WorldRoot) &&
+        if (!Live(WorldRoot) || !WorldRoot.Has<TWeakObjectPtr<UWorld>>() ||
+            WorldRoot.Get<TWeakObjectPtr<UWorld>>().Get() != World)
+        { return false; }
+        bool AdmissionClosed = true;
+        if (!UCkGym_AdmissionRuntime_UE::TryGet_IsClosedUnproven(
+                WorldRoot, AdmissionClosed))
+        { return false; }
+        return !AdmissionClosed &&
             !UCk_Utils_Compass_UE::Get_IsWorldProjectionClosed(WorldRoot);
     }
 

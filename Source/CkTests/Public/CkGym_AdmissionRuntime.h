@@ -22,6 +22,12 @@ class CKTESTS_API UCkGym_AdmissionRuntime_UE : public UBlueprintFunctionLibrary
 {
     GENERATED_BODY()
 public:
+    // Absence is open. Invalid world or unreadable existing storage is
+    // unavailable, with OutClosed=true; callers must require success.
+    UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|Admission")
+    static bool TryGet_IsClosedUnproven(
+        const FCk_Handle& InWorldRoot, bool& OutClosed);
+
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|Admission")
     static bool Get_IsClosedUnproven(const FCk_Handle& InWorldRoot);
 
