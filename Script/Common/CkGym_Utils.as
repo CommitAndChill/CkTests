@@ -84,6 +84,157 @@ struct FCkGym_Station_TitleAndDescription
     FText Instructions;
 };
 
+// Stored on this world's transient entity. Admission is serialized until all
+// deferred station tags settle, so joining controllers reuse a complete set.
+USTRUCT()
+struct FCkGym_StationAdmission
+{
+    UPROPERTY() FCk_Handle ActiveOwner;
+    UPROPERTY() int32 ReservationTicket = 0;
+    UPROPERTY() int32 ActiveTicket = 0;
+    UPROPERTY() int32 NextTicket = 0;
+    UPROPERTY() bool ClosedUnproven = false;
+}
+
+// A ticket is reserved before the first fallible owner allocation. The raw owner
+// remains in the slot after an uncertain failure, even if it is no longer live.
+namespace CkGym_Admission
+{
+    bool Get_IsBusy(FCk_Handle World)
+    {
+        if (!ck::IsValid(World) || World != ck::TransientEntity() ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy)) { return true; }
+        if (!World.Has_Fragment(FCkGym_StationAdmission)) { return false; }
+        auto Slot = World.Get_Fragment(FCkGym_StationAdmission);
+        return Slot.ClosedUnproven || Slot.ActiveOwner != FCk_Handle() ||
+            Slot.ReservationTicket != 0 || Slot.ActiveTicket != 0 ||
+            Slot.NextTicket < 0 || Slot.NextTicket >= 2147483647;
+    }
+
+    bool Get_IsClosedUnproven(FCk_Handle World)
+    {
+        if (!ck::IsValid(World) || World != ck::TransientEntity() ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+            !World.Has_Fragment(FCkGym_StationAdmission)) { return false; }
+        return World.Get_Fragment(FCkGym_StationAdmission).ClosedUnproven;
+    }
+
+    // Inspect a retained raw owner after terminal admission closure. Never
+    // dereference RawOwner: it may already be pending kill or deallocated.
+    bool Get_IsClosedOwner(FCk_Handle World, FCk_Handle RawOwner)
+    {
+        if (!ck::IsValid(World) || World != ck::TransientEntity() ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+            RawOwner == FCk_Handle() ||
+            !World.Has_Fragment(FCkGym_StationAdmission)) { return false; }
+        auto Slot = World.Get_Fragment(FCkGym_StationAdmission);
+        return Slot.ClosedUnproven && Slot.ActiveOwner == RawOwner;
+    }
+
+    // A terminal failure after publication may no longer own the active ticket.
+    // Closing this exact world is monotone and grants no release or cleanup right.
+    bool TryCloseWorldUnproven(FCk_Handle World)
+    {
+        if (!ck::IsValid(World) || World != ck::TransientEntity() ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+            (!World.Has_Fragment(FCkGym_StationAdmission) &&
+             !utils_entity_lifetime::Get_CanCreateEntity(World))) { return false; }
+        // A malformed local cohort can fail before reservation created this
+        // fragment. Closing still cannot claim, release, or destroy its owner.
+        auto MutableWorld = World;
+        auto& Slot = MutableWorld.AddOrGet_Fragment(FCkGym_StationAdmission);
+        Slot.ClosedUnproven = true;
+        return true;
+    }
+
+    int32 TryReserve(FCk_Handle World)
+    {
+        if (Get_IsBusy(World) || !utils_entity_lifetime::Get_CanCreateEntity(World))
+        { return 0; }
+        auto MutableWorld = World;
+        auto& Slot = MutableWorld.AddOrGet_Fragment(FCkGym_StationAdmission);
+        if (Slot.ClosedUnproven || Slot.ActiveOwner != FCk_Handle() ||
+            Slot.ReservationTicket != 0 || Slot.ActiveTicket != 0 ||
+            Slot.NextTicket < 0 || Slot.NextTicket >= 2147483647) { return 0; }
+        Slot.NextTicket += 1;
+        Slot.ReservationTicket = Slot.NextTicket;
+        return Slot.ReservationTicket;
+    }
+
+    bool TryCommitOwner(FCk_Handle World, int32 Ticket, FCk_Handle Owner)
+    {
+        if (!ck::IsValid(World) || World != ck::TransientEntity() ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy) || Ticket <= 0 ||
+            Owner == FCk_Handle() || Owner == World || !ck::IsValid(Owner) ||
+            !World.Has_Fragment(FCkGym_StationAdmission)) { return false; }
+        // The controller's admission owner can be below its controller entity;
+        // every link must still reach this exact transient world root.
+        TArray<FCk_Handle> Seen;
+        auto Current = Owner;
+        while (Current != World)
+        {
+            if (Current == FCk_Handle() || !ck::IsValid(Current) ||
+                utils_entity_lifetime::Get_IsPendingDestroy(
+                    Current, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+                Seen.Contains(Current) || !utils_entity_lifetime::Has_LifetimeOwner(Current))
+            { return false; }
+            Seen.Add(Current);
+            Current = utils_entity_lifetime::Get_LifetimeOwner(Current);
+        }
+        auto& Slot = World.Get_Fragment(FCkGym_StationAdmission);
+        if (Slot.ClosedUnproven || Slot.NextTicket != Ticket ||
+            Slot.ReservationTicket != Ticket || Slot.ActiveTicket != 0 || Slot.ActiveOwner != FCk_Handle()) { return false; }
+        Slot.ActiveOwner = Owner;
+        Slot.ActiveTicket = Ticket;
+        Slot.ReservationTicket = 0;
+        return true;
+    }
+
+    bool Get_IsOwned(FCk_Handle World, int32 Ticket, FCk_Handle Owner)
+    {
+        if (!ck::IsValid(World) || World != ck::TransientEntity() ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy) || Ticket <= 0 ||
+            Owner == FCk_Handle() || Owner == World || !World.Has_Fragment(FCkGym_StationAdmission))
+        { return false; }
+        auto Slot = World.Get_Fragment(FCkGym_StationAdmission);
+        return !Slot.ClosedUnproven && Slot.NextTicket == Ticket &&
+            Slot.ReservationTicket == 0 && Slot.ActiveTicket == Ticket && Slot.ActiveOwner == Owner;
+    }
+
+    bool TryReleasePublished(FCk_Handle World, int32 Ticket, FCk_Handle Owner)
+    {
+        if (!Get_IsOwned(World, Ticket, Owner)) { return false; }
+        auto& Slot = World.Get_Fragment(FCkGym_StationAdmission);
+        Slot.ActiveOwner = FCk_Handle();
+        Slot.ActiveTicket = 0;
+        return true;
+    }
+
+    bool TryCloseUnproven(FCk_Handle World, int32 Ticket, FCk_Handle RawOwner)
+    {
+        if (!ck::IsValid(World) || World != ck::TransientEntity() ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy) || Ticket <= 0 ||
+            !World.Has_Fragment(FCkGym_StationAdmission)) { return false; }
+        auto& Slot = World.Get_Fragment(FCkGym_StationAdmission);
+        const bool Reserved = Slot.ReservationTicket == Ticket && Slot.ActiveTicket == 0;
+        const bool Active = Slot.ReservationTicket == 0 && Slot.ActiveTicket == Ticket;
+        if (Slot.NextTicket != Ticket || (!Reserved && !Active)) { return false; }
+        if (Active && Slot.ActiveOwner != RawOwner) { return false; }
+        if (Reserved && Slot.ActiveOwner != FCk_Handle() &&
+            RawOwner != FCk_Handle() && Slot.ActiveOwner != RawOwner) { return false; }
+        if (Reserved && RawOwner != FCk_Handle()) { Slot.ActiveOwner = RawOwner; }
+        Slot.ClosedUnproven = true;
+        return true;
+    }
+}
+
 //--------------------------------------------------------------------------------------------------------------------------
 // COLOURED PANEL BODY
 //
