@@ -13,6 +13,10 @@ namespace ck_inventory_menu_proof
     };
 
     enum class ECategory : uint8 { Equipment, Supplies, Materials };
+    enum class EPrimaryStat : uint8 { None, Damage, Defense };
+    enum class EResource : uint8 { None, Health, Focus, Stamina };
+    enum class ERarity : uint8 { None, Common, Rare };
+    constexpr float RowEdges[] = {0.0f, 394.0f / 1086.0f, 741.0f / 1086.0f, 1.0f};
 
     struct FDefinition
     {
@@ -22,35 +26,66 @@ namespace ck_inventory_menu_proof
         int32 InitialQuantity;
         const TCHAR* Meta;
         const TCHAR* Description;
-        const TCHAR* Stats;
+        EPrimaryStat PrimaryStat;
+        int32 PrimaryValue;
+        float Weight;
+        int32 RestoreAmount;
+        EResource Resource;
+        ERarity Rarity;
     };
 
     constexpr FDefinition Definitions[] = {
         {TEXT("iron-longsword"), TEXT("Iron Longsword"), ECategory::Equipment, 1, TEXT("Melee weapon"),
-            TEXT("A dependable blade with a balanced grip."), TEXT("Damage 28  /  Weight 3.5")},
+            TEXT("A dependable blade with a balanced grip."), EPrimaryStat::Damage, 28, 3.5f, 0, EResource::None, ERarity::None},
         {TEXT("oak-bow"), TEXT("Oak Bow"), ECategory::Equipment, 1, TEXT("Ranged weapon"),
-            TEXT("A sturdy hunting bow carved from seasoned oak."), TEXT("Damage 19  /  Weight 2.0")},
+            TEXT("A sturdy hunting bow carved from seasoned oak."), EPrimaryStat::Damage, 19, 2.0f, 0, EResource::None, ERarity::None},
         {TEXT("steel-shield"), TEXT("Steel Shield"), ECategory::Equipment, 1, TEXT("Shield"),
-            TEXT("A reinforced shield for the road ahead."), TEXT("Defense 24  /  Weight 5.0")},
+            TEXT("A reinforced shield for the road ahead."), EPrimaryStat::Defense, 24, 5.0f, 0, EResource::None, ERarity::None},
         {TEXT("trail-hood"), TEXT("Trail Hood"), ECategory::Equipment, 1, TEXT("Head armor"),
-            TEXT("A light hood that keeps the weather off."), TEXT("Defense 7  /  Weight 0.8")},
+            TEXT("A light hood that keeps the weather off."), EPrimaryStat::Defense, 7, 0.8f, 0, EResource::None, ERarity::None},
         {TEXT("leather-boots"), TEXT("Leather Boots"), ECategory::Equipment, 1, TEXT("Foot armor"),
-            TEXT("Soft leather boots made for long journeys."), TEXT("Defense 9  /  Weight 1.2")},
+            TEXT("Soft leather boots made for long journeys."), EPrimaryStat::Defense, 9, 1.2f, 0, EResource::None, ERarity::None},
         {TEXT("scout-vest"), TEXT("Scout Vest"), ECategory::Equipment, 1, TEXT("Body armor"),
-            TEXT("Flexible protection for a quick moving scout."), TEXT("Defense 16  /  Weight 2.5")},
+            TEXT("Flexible protection for a quick moving scout."), EPrimaryStat::Defense, 16, 2.5f, 0, EResource::None, ERarity::None},
         {TEXT("health-tonic"), TEXT("Health Tonic"), ECategory::Supplies, 3, TEXT("Restorative"),
-            TEXT("A bright tonic that restores vitality."), TEXT("Restores 40 health")},
+            TEXT("A bright tonic that restores vitality."), EPrimaryStat::None, 0, 0.0f, 40, EResource::Health, ERarity::None},
         {TEXT("focus-draught"), TEXT("Focus Draught"), ECategory::Supplies, 2, TEXT("Restorative"),
-            TEXT("A calming draught that clears the mind."), TEXT("Restores 30 focus")},
+            TEXT("A calming draught that clears the mind."), EPrimaryStat::None, 0, 0.0f, 30, EResource::Focus, ERarity::None},
         {TEXT("travel-rations"), TEXT("Travel Rations"), ECategory::Supplies, 5, TEXT("Food"),
-            TEXT("Packed provisions for a day on the trail."), TEXT("Restores 15 stamina")},
+            TEXT("Packed provisions for a day on the trail."), EPrimaryStat::None, 0, 0.0f, 15, EResource::Stamina, ERarity::None},
         {TEXT("bandages"), TEXT("Bandages"), ECategory::Supplies, 4, TEXT("Medical"),
-            TEXT("Clean wraps for tending minor wounds."), TEXT("Restores 12 health")},
+            TEXT("Clean wraps for tending minor wounds."), EPrimaryStat::None, 0, 0.0f, 12, EResource::Health, ERarity::None},
         {TEXT("iron-ore"), TEXT("Iron Ore"), ECategory::Materials, 8, TEXT("Crafting material"),
-            TEXT("Raw ore ready for the forge."), TEXT("Material  /  Common")},
+            TEXT("Raw ore ready for the forge."), EPrimaryStat::None, 0, 0.0f, 0, EResource::None, ERarity::Common},
         {TEXT("moonstone"), TEXT("Moonstone"), ECategory::Materials, 2, TEXT("Crafting material"),
-            TEXT("A pale mineral with a faint inner glow."), TEXT("Material  /  Rare")},
+            TEXT("A pale mineral with a faint inner glow."), EPrimaryStat::None, 0, 0.0f, 0, EResource::None, ERarity::Rare},
     };
+
+    struct FStatRows
+    {
+        FString LabelOne;
+        FString ValueOne;
+        FString LabelTwo;
+        FString ValueTwo;
+    };
+
+    auto StatRows(const FDefinition& InDefinition) -> FStatRows
+    {
+        if (InDefinition.Category == ECategory::Equipment)
+        {
+            return {InDefinition.PrimaryStat == EPrimaryStat::Damage ? TEXT("Damage") : TEXT("Defense"),
+                FString::FromInt(InDefinition.PrimaryValue), TEXT("Weight"),
+                FString::Printf(TEXT("%.1f"), InDefinition.Weight)};
+        }
+        if (InDefinition.Category == ECategory::Supplies)
+        {
+            const auto* Resource = InDefinition.Resource == EResource::Health ? TEXT("health")
+                : InDefinition.Resource == EResource::Focus ? TEXT("focus") : TEXT("stamina");
+            return {TEXT("Restores"), FString::FromInt(InDefinition.RestoreAmount), TEXT("Resource"), Resource};
+        }
+        return {TEXT("Type"), TEXT("Material"), TEXT("Rarity"),
+            InDefinition.Rarity == ERarity::Common ? TEXT("Common") : TEXT("Rare")};
+    }
 
     auto FindIndex(const FString& InKey) -> int32
     {
@@ -114,6 +149,9 @@ namespace ck_inventory_menu_proof
 
     auto Bool(bool InValue) -> FCkUiFieldValue
     { return FCkUiFieldValue{.Kind = ECkUiFieldKind::Bool, .Bool = InValue}; }
+
+    auto Number(float InValue) -> FCkUiFieldValue
+    { return FCkUiFieldValue{.Kind = ECkUiFieldKind::Number, .Number = InValue}; }
 }
 
 auto FCkInventoryMenuProofModel::TryValidateState(const FCk_UiAuthoringProof_InventoryState& InState,
@@ -136,18 +174,24 @@ auto FCkInventoryMenuProofModel::TryCreate(const FCk_UiAuthoringProof_InventoryS
     }
     auto Candidate = MakeShared<FCkInventoryMenuProofModel>();
     Candidate->_AtlasRoot = MakeShared<TStrongObjectPtr<UTexture2D>>(Texture);
-    constexpr float RowEdges[] = {0.0f, 394.0f / 1086.0f, 741.0f / 1086.0f, 1.0f};
+    auto AtlasBrush = MakeShared<ck_inventory_menu_proof::FInventoryBrush>();
+    AtlasBrush->TextureRoot = Candidate->_AtlasRoot;
+    AtlasBrush->DrawAs = ESlateBrushDrawType::Image;
+    AtlasBrush->ImageSize = FVector2D{1448.0f, 1086.0f};
+    AtlasBrush->SetResourceObject(Texture);
+    Candidate->_AtlasBrush = MoveTemp(AtlasBrush);
     for (auto Index = 0; Index < UE_ARRAY_COUNT(ck_inventory_menu_proof::Definitions); ++Index)
     {
         auto Brush = MakeShared<ck_inventory_menu_proof::FInventoryBrush>();
         Brush->TextureRoot = Candidate->_AtlasRoot;
         Brush->DrawAs = ESlateBrushDrawType::Image;
-        Brush->ImageSize = FVector2D{96.0f, 96.0f};
+        const auto Row = Index / 4;
+        Brush->ImageSize = FVector2D{362.0f, (ck_inventory_menu_proof::RowEdges[Row + 1]
+            - ck_inventory_menu_proof::RowEdges[Row]) * 1086.0f};
         Brush->SetResourceObject(Texture);
         const auto Column = Index % 4;
-        const auto Row = Index / 4;
-        Brush->SetUVRegion(FBox2f{FVector2f{Column / 4.0f, RowEdges[Row]},
-            FVector2f{(Column + 1) / 4.0f, RowEdges[Row + 1]}});
+        Brush->SetUVRegion(FBox2f{FVector2f{Column / 4.0f, ck_inventory_menu_proof::RowEdges[Row]},
+            FVector2f{(Column + 1) / 4.0f, ck_inventory_menu_proof::RowEdges[Row + 1]}});
         Candidate->_Brushes.Add(MoveTemp(Brush));
     }
     auto Schema = TArray<FCkUiFieldSchema>{
@@ -156,6 +200,11 @@ auto FCkInventoryMenuProofModel::TryCreate(const FCk_UiAuthoringProof_InventoryS
         {TEXT("meta"), ECkUiFieldKind::Text, true},
         {TEXT("selected"), ECkUiFieldKind::Bool, true},
         {TEXT("equipped"), ECkUiFieldKind::Bool, true},
+        {TEXT("index"), ECkUiFieldKind::Number, true},
+        {TEXT("cropLeft"), ECkUiFieldKind::Number, true},
+        {TEXT("cropTop"), ECkUiFieldKind::Number, true},
+        {TEXT("cropRight"), ECkUiFieldKind::Number, true},
+        {TEXT("cropBottom"), ECkUiFieldKind::Number, true},
     };
     if (NOT FCkUiCollection::TryCreate(MoveTemp(Schema), Candidate->_Items).Succeeded)
     {
@@ -207,6 +256,13 @@ auto FCkInventoryMenuProofModel::TryProject(const FCk_UiAuthoringProof_Inventory
         Record.Fields.Add(TEXT("meta"), ck_inventory_menu_proof::Text(FString::Printf(TEXT("x%d  %s"), Quantity, Definition.Meta)));
         Record.Fields.Add(TEXT("selected"), ck_inventory_menu_proof::Bool(Key == InPreferredSelection));
         Record.Fields.Add(TEXT("equipped"), ck_inventory_menu_proof::Bool(Key == InState.Get_EquippedKey()));
+        const auto Column = Index % 4;
+        const auto Row = Index / 4;
+        Record.Fields.Add(TEXT("index"), ck_inventory_menu_proof::Number(0.0f));
+        Record.Fields.Add(TEXT("cropLeft"), ck_inventory_menu_proof::Number(Column / 4.0f));
+        Record.Fields.Add(TEXT("cropTop"), ck_inventory_menu_proof::Number(ck_inventory_menu_proof::RowEdges[Row]));
+        Record.Fields.Add(TEXT("cropRight"), ck_inventory_menu_proof::Number((Column + 1) / 4.0f));
+        Record.Fields.Add(TEXT("cropBottom"), ck_inventory_menu_proof::Number(ck_inventory_menu_proof::RowEdges[Row + 1]));
         OutRecords.Add(MoveTemp(Record));
         OutKeys.Add(Key);
     }
@@ -320,8 +376,46 @@ auto FCkInventoryMenuProofModel::SelectedDescription() const -> FText
     : FText::FromString(ck_inventory_menu_proof::Definitions[Index].Description); }
 
 auto FCkInventoryMenuProofModel::SelectedStats() const -> FText
+{
+    const auto Index = SelectedIndex();
+    if (Index == INDEX_NONE) { return FText::GetEmpty(); }
+    const auto& Definition = ck_inventory_menu_proof::Definitions[Index];
+    const auto Rows = ck_inventory_menu_proof::StatRows(Definition);
+    if (Definition.Category == ck_inventory_menu_proof::ECategory::Supplies)
+    { return FText::FromString(FString::Printf(TEXT("%s %s %s"), *Rows.LabelOne, *Rows.ValueOne, *Rows.ValueTwo)); }
+    if (Definition.Category == ck_inventory_menu_proof::ECategory::Materials)
+    { return FText::FromString(FString::Printf(TEXT("%s  /  %s"), *Rows.ValueOne, *Rows.ValueTwo)); }
+    return FText::FromString(FString::Printf(TEXT("%s %s  /  %s %s"),
+        *Rows.LabelOne, *Rows.ValueOne, *Rows.LabelTwo, *Rows.ValueTwo));
+}
+
+auto FCkInventoryMenuProofModel::SelectedStatLabelOne() const -> FText
 { const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
-    : FText::FromString(ck_inventory_menu_proof::Definitions[Index].Stats); }
+    : FText::FromString(ck_inventory_menu_proof::StatRows(ck_inventory_menu_proof::Definitions[Index]).LabelOne); }
+
+auto FCkInventoryMenuProofModel::SelectedStatValueOne() const -> FText
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+    : FText::FromString(ck_inventory_menu_proof::StatRows(ck_inventory_menu_proof::Definitions[Index]).ValueOne); }
+
+auto FCkInventoryMenuProofModel::SelectedStatLabelTwo() const -> FText
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+    : FText::FromString(ck_inventory_menu_proof::StatRows(ck_inventory_menu_proof::Definitions[Index]).LabelTwo); }
+
+auto FCkInventoryMenuProofModel::SelectedStatValueTwo() const -> FText
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+    : FText::FromString(ck_inventory_menu_proof::StatRows(ck_inventory_menu_proof::Definitions[Index]).ValueTwo); }
+
+auto FCkInventoryMenuProofModel::SelectedCropLeft() const -> float
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 0.0f : (Index % 4) / 4.0f; }
+
+auto FCkInventoryMenuProofModel::SelectedCropTop() const -> float
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 0.0f : ck_inventory_menu_proof::RowEdges[Index / 4]; }
+
+auto FCkInventoryMenuProofModel::SelectedCropRight() const -> float
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 1.0f : ((Index % 4) + 1) / 4.0f; }
+
+auto FCkInventoryMenuProofModel::SelectedCropBottom() const -> float
+{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 1.0f : ck_inventory_menu_proof::RowEdges[Index / 4 + 1]; }
 
 auto FCkInventoryMenuProofModel::SelectedOwned() const -> FText
 {
@@ -377,6 +471,14 @@ auto FCkInventoryMenuProofModel::PopulateBindings(FCkUiView::FDataBindings& InOu
     { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedDescription() : FText::GetEmpty(); }));
     InOutData.Text.Add(TEXT("InventoryDetailStats"), TAttribute<FText>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedStats() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryStatLabelOne"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedStatLabelOne() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryStatValueOne"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedStatValueOne() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryStatLabelTwo"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedStatLabelTwo() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryStatValueTwo"), TAttribute<FText>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedStatValueTwo() : FText::GetEmpty(); }));
     InOutData.Text.Add(TEXT("InventoryDetailOwned"), TAttribute<FText>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedOwned() : FText::GetEmpty(); }));
     InOutData.Text.Add(TEXT("InventoryPrimaryLabel"), TAttribute<FText>::CreateLambda([Weak]()
@@ -390,6 +492,17 @@ auto FCkInventoryMenuProofModel::PopulateBindings(FCkUiView::FDataBindings& InOu
     { if (const auto Self = Weak.Pin(); Self.IsValid()) { Self->Request_Search(InText); } }));
     InOutData.Images.Add(TEXT("InventoryDetailImage"), TAttribute<const FSlateBrush*>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedBrush() : nullptr; }));
+    InOutData.Images.Add(TEXT("InventoryAtlas"), TAttribute<const FSlateBrush*>::CreateLambda([Weak]() -> const FSlateBrush*
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->_AtlasBrush.Get() : nullptr; }));
+    InOutData.Number.Add(TEXT("InventoryAtlasIndex"), 0.0f);
+    InOutData.Number.Add(TEXT("InventoryCropLeft"), TAttribute<float>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedCropLeft() : 0.0f; }));
+    InOutData.Number.Add(TEXT("InventoryCropTop"), TAttribute<float>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedCropTop() : 0.0f; }));
+    InOutData.Number.Add(TEXT("InventoryCropRight"), TAttribute<float>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedCropRight() : 1.0f; }));
+    InOutData.Number.Add(TEXT("InventoryCropBottom"), TAttribute<float>::CreateLambda([Weak]()
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedCropBottom() : 1.0f; }));
     InOutData.Visibility.Add(TEXT("InventoryHasSelection"), TAttribute<bool>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() && Self->SelectedIndex() != INDEX_NONE; }));
     InOutData.Visibility.Add(TEXT("InventoryIsEmpty"), TAttribute<bool>::CreateLambda([Weak]()

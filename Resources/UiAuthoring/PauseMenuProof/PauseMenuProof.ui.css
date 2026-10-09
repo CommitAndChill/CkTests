@@ -10,20 +10,20 @@
 .pause-bar { width: 14px; height: 54px; background-color: #E7AD4A; border-radius: 0px; }
 .title-space { height: 32px; }
 .title {
-    height: 88px; horizontal-align: center; vertical-align: center;
-    font-family: sans-serif; font-weight: bold; font-size: 54; color: #F4F0E6; text-wrap: nowrap;
+    height: 88px; horizontal-align: center; vertical-align: center; text-align: center;
+    font-family: menu-display; font-weight: bold; font-size: 48; color: #F4F0E6; text-wrap: nowrap;
 }
 .subtitle-space { height: 8px; }
 .subtitle {
-    height: 36px; horizontal-align: center; vertical-align: center;
-    font-size: 21; color: #ADB4BA; text-wrap: nowrap;
+    height: 36px; horizontal-align: center; vertical-align: center; text-align: center;
+    font-family: menu-ui; font-size: 18; color: #ADB4BA; text-wrap: nowrap;
 }
 .divider-space { height: 26px; }
 .divider { height: 2px; background-color: #56616A; border-radius: 0px; }
 .actions-space { height: 44px; }
 .actions { height: 296px; gap: 16px; }
 .game-button {
-    height: 88px; font-size: 27; font-weight: bold; text-wrap: wrap;
+    height: 88px; font-family: menu-ui; font-size: 22; font-weight: bold; text-wrap: wrap;
     -ck-button-text-align: center;
     -ck-button-content-vertical-align: center;
     -ck-button-background: #25333E;
@@ -51,8 +51,14 @@
 .hint-space { height: 36px; }
 .input-hint { width: 192px; height: 52px; gap: 16px; horizontal-align: center; }
 .keycap {
-    width: 68px; height: 52px; padding: 8px 10px;
-    background-color: #182129; border-color: #7B8790; border-width: 1px; border-radius: 8px;
+    width: 68px; height: 52px;
+    -ck-key-hint-font-size: 18px;
+    -ck-key-hint-foreground: #F4F0E6;
+    -ck-key-hint-background: #182129;
+    -ck-key-hint-border-color: #7B8790;
+    -ck-key-hint-border-width: 1px;
+    -ck-key-hint-radius: 8px;
+    -ck-key-hint-padding-x: 10px;
+    -ck-key-hint-padding-y: 8px;
 }
-.key-label { font-size: 18; color: #F4F0E6; horizontal-align: center; vertical-align: center; text-wrap: nowrap; }
-.hint-label { font-size: 18; color: #ADB4BA; vertical-align: center; text-wrap: nowrap; }
+.hint-label { font-family: menu-ui; font-size: 18; color: #ADB4BA; vertical-align: center; text-wrap: nowrap; }

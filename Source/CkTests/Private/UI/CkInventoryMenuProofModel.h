@@ -51,12 +51,21 @@ private:
     auto SelectedCategory() const -> FText;
     auto SelectedDescription() const -> FText;
     auto SelectedStats() const -> FText;
+    auto SelectedStatLabelOne() const -> FText;
+    auto SelectedStatValueOne() const -> FText;
+    auto SelectedStatLabelTwo() const -> FText;
+    auto SelectedStatValueTwo() const -> FText;
+    auto SelectedCropLeft() const -> float;
+    auto SelectedCropTop() const -> float;
+    auto SelectedCropRight() const -> float;
+    auto SelectedCropBottom() const -> float;
     auto SelectedOwned() const -> FText;
     auto PrimaryLabel() const -> FText;
     auto HasPrimaryAction() const -> bool;
 
     FCk_UiAuthoringProof_InventoryState _State;
     TSharedPtr<TStrongObjectPtr<UTexture2D>> _AtlasRoot;
+    TSharedPtr<FSlateBrush> _AtlasBrush;
     TArray<TSharedPtr<FSlateBrush>> _Brushes;
     TSharedPtr<FCkUiCollection> _Items;
     TArray<FString> _VisibleKeys;

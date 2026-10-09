@@ -6,6 +6,8 @@
 #include "CkGym_StartupSettings.h"
 #include "CkGym_Switchboard_Subsystem.h"
 #include "CkSlateLayout/SCkUiSurface.h"
+#include "CkSlateLayout/CkFlexText.h"
+#include "Styling/CoreStyle.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkTests/UI/CkPauseMenuProof.h"
 #include "CkScriptedPause_TestAdapter.h"
@@ -201,7 +203,34 @@ namespace ck_settings_menu_proof_test
             && Menu->Get_Screen() == ECk_UiAuthoringProof_Screen::Settings;
     }
 
-    auto Capture(UWorld* InWorld, FState& InState, const FString& InName, FIntPoint InSize) -> bool
+    auto FindTagged(const TSharedRef<SWidget>& InRoot, FName InTag) -> TSharedPtr<SWidget>;
+    auto CheckTextTree(FAutomationTestBase& InTest, const TSharedRef<SWidget>& InRoot) -> bool
+    {
+        if (!InRoot->GetVisibility().IsVisible()) { return true; }
+        bool Passed = true;
+        if (InRoot->GetTypeAsString() == TEXT("SCkFlexText"))
+        {
+            const auto Text = StaticCastSharedRef<SCkFlexText>(InRoot);
+            if (!Text->GetText().IsEmpty())
+            {
+                const auto& Geometry = Text->GetCachedGeometry();
+                const auto Required = Text->Measure(YGUndefined, YGMeasureModeUndefined,
+                    YGUndefined, YGMeasureModeUndefined, Geometry.Scale);
+                const auto Allocated = Geometry.GetLocalSize();
+                Passed = InTest.TestTrue(FString::Printf(TEXT("Settings '%s' natural %.2fx%.2f fits %.2fx%.2f"),
+                    *Text->GetText().ToString(), Required.X, Required.Y, Allocated.X, Allocated.Y),
+                    Required.X <= Allocated.X + 0.5 && Required.Y <= Allocated.Y + 0.5) && Passed;
+                Passed = InTest.TestTrue(TEXT("Settings text uses admitted named font"),
+                    Text->GetFont().GetCompositeFont() != FCoreStyle::GetDefaultFontStyle("Regular",18).GetCompositeFont()) && Passed;
+            }
+        }
+        const auto* Children = InRoot->GetChildren();
+        for (int32 I = 0; Children != nullptr && I < Children->Num(); ++I)
+        { Passed = CheckTextTree(InTest, ConstCastSharedRef<SWidget>(Children->GetChildAt(I))) && Passed; }
+        return Passed;
+    }
+
+    auto Capture(FAutomationTestBase& InTest, UWorld* InWorld, FState& InState, const FString& InName, FIntPoint InSize) -> bool
     {
         UGameViewportClient* Client = IsValid(InWorld) ? InWorld->GetGameViewport() : nullptr;
         const TSharedPtr<SViewport> Viewport = IsValid(Client) ? Client->GetGameViewportWidget() : nullptr;
@@ -232,8 +261,33 @@ namespace ck_settings_menu_proof_test
         if (Size.X != InSize.X || Size.Y != InSize.Y) { return false; }
         const FString Directory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation/SettingsMenuProof"));
         IFileManager::Get().MakeDirectory(*Directory, true);
-        return FImageUtils::SaveImageByExtension(*FPaths::Combine(Directory, InName + TEXT(".png")),
+        const auto Menu = GetActiveMenu(GetPlayer(InWorld));
+        const auto View = IsValid(Menu) ? Menu->Get_AuthoredView() : nullptr;
+        const bool Fits = View.IsValid() && CheckTextTree(InTest, View->GetRegion(TEXT("main")));
+        const auto Slider = IsValid(Menu) ? Menu->Get_ControlWidget(FName{TEXT("settings-volume")}) : nullptr;
+        if (Slider.IsValid() && Menu->Get_DraftSettings().Get_Volume() >= 50.0f
+            && Menu->Get_DraftSettings().Get_Volume() <= 85.0f)
+        {
+            const auto PixelAt = [&](double Fraction) -> FColor
+            {
+                const auto Geometry = Slider->GetCachedGeometry();
+                const auto Position = Geometry.LocalToAbsolute(FVector2D{Geometry.GetLocalSize().X * Fraction,
+                    Geometry.GetLocalSize().Y * 0.5}) - Viewport->GetCachedGeometry().GetAbsolutePosition();
+                const int32 X = FMath::Clamp(FMath::RoundToInt(Position.X), 0, Size.X - 1);
+                const int32 Y = FMath::Clamp(FMath::RoundToInt(Position.Y), 0, Size.Y - 1);
+                return Pixels[Y * Size.X + X];
+            };
+            const auto Filled = PixelAt(0.25);
+            const auto Unfilled = PixelAt(0.95);
+            const auto Amber = [](const FColor& C) -> bool
+            { return FMath::Abs(int32(C.R)-0xE7) < 12 && FMath::Abs(int32(C.G)-0xAD) < 12 && FMath::Abs(int32(C.B)-0x4A) < 12; };
+            InTest.TestTrue(TEXT("native volume bar paints amber before thumb"), Amber(Filled));
+            InTest.TestFalse(TEXT("native volume bar keeps unfilled track after thumb"), Amber(Unfilled));
+        }
+
+        const bool Saved = FImageUtils::SaveImageByExtension(*FPaths::Combine(Directory, InName + TEXT(".png")),
             FImageView(Pixels.GetData(), Size.X, Size.Y, ERawImageFormat::BGRA8));
+        return Saved && Fits;
     }
 
     auto GetControl(UCk_PauseMenuProof_UE* InMenu, const TCHAR* InId) -> TSharedPtr<SWidget>
@@ -464,19 +518,19 @@ bool FCk_SettingsMenuProof_PIE::RunTest(const FString&)
                     && Menu->Get_ActionCount(FName{TEXT("ApplySettingsRequested")}) == ApplyCount
                     && NOT Menu->Get_SourceError().IsEmpty());
             TestTrue(TEXT("clean Settings 1920x1080 capture"),
-                Capture(InWorld, *State, TEXT("settings-clean-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("settings-clean-1920x1080"), FIntPoint{1920, 1080}));
             TestTrue(TEXT("1920x1080 Settings card matches authored reference bounds"),
                 PanelMatchesReference(Menu, InWorld, FIntPoint{1920, 1080}));
             TestTrue(TEXT("clean Settings 1280x720 capture"),
-                Capture(InWorld, *State, TEXT("settings-clean-1280x720"), FIntPoint{1280, 720}));
+                Capture(*this, InWorld, *State, TEXT("settings-clean-1280x720"), FIntPoint{1280, 720}));
             TestTrue(TEXT("1280x720 Settings card scales inside viewport"),
                 PanelMatchesReference(Menu, InWorld, FIntPoint{1280, 720}));
             TestTrue(TEXT("clean Settings 2560x1080 capture"),
-                Capture(InWorld, *State, TEXT("settings-clean-2560x1080"), FIntPoint{2560, 1080}));
+                Capture(*this, InWorld, *State, TEXT("settings-clean-2560x1080"), FIntPoint{2560, 1080}));
             TestTrue(TEXT("2560x1080 Settings card stays centered in authored frame"),
                 PanelMatchesReference(Menu, InWorld, FIntPoint{2560, 1080}));
             TestTrue(TEXT("interactive 1920x1080 size restored"),
-                Capture(InWorld, *State, TEXT("settings-clean-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("settings-clean-1920x1080"), FIntPoint{1920, 1080}));
             PressKey(EKeys::One, User);
             PressKey(EKeys::Two, User);
             TestTrue(TEXT("gym number shortcuts stay suspended while Settings owns input"),
@@ -497,7 +551,7 @@ bool FCk_SettingsMenuProof_PIE::RunTest(const FString&)
                 FocusControl(Menu, TEXT("settings-display-mode")))) { return; }
             TestTrue(TEXT("select Space opens the native dropdown"), PressKey(EKeys::SpaceBar, User));
             TestTrue(TEXT("open dropdown viewport capture"),
-                Capture(InWorld, *State, TEXT("settings-popup-open-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("settings-popup-open-1920x1080"), FIntPoint{1920, 1080}));
             TestTrue(TEXT("open dropdown native popup capture"), CapturePopup(Select.ToSharedRef()));
             const TSharedRef<SMenuAnchor> SelectAnchor = StaticCastSharedRef<SMenuAnchor>(Select.ToSharedRef());
             const TSharedPtr<SWindow> PopupBeforeReload = SelectAnchor->GetMenuWindow();
@@ -538,7 +592,7 @@ bool FCk_SettingsMenuProof_PIE::RunTest(const FString&)
             TestTrue(TEXT("reference Tab focuses Apply"), PressKey(EKeys::Tab, User)
                 && FocusContains(Apply.ToSharedRef(), User));
             TestTrue(TEXT("dirty Settings reference capture"),
-                Capture(InWorld, *State, TEXT("settings-dirty-reference-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("settings-dirty-reference-1920x1080"), FIntPoint{1920, 1080}));
             if (NOT TestTrue(TEXT("select refocuses to discard reference-only draft"),
                 FocusControl(Menu, TEXT("settings-display-mode")))) { return; }
             TestTrue(TEXT("select Up returns reference draft to clean Windowed"), PressKey(EKeys::Up, User));
@@ -565,7 +619,7 @@ bool FCk_SettingsMenuProof_PIE::RunTest(const FString&)
             TestTrue(TEXT("dirty Tab reaches newly enabled Apply"), PressKey(EKeys::Tab, User)
                 && FocusContains(Apply.ToSharedRef(), User));
             TestTrue(TEXT("all-fields dirty Settings capture"),
-                Capture(InWorld, *State, TEXT("settings-dirty-all-fields-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("settings-dirty-all-fields-1920x1080"), FIntPoint{1920, 1080}));
             TestTrue(TEXT("Apply Enter is handled"), PressKey(EKeys::Enter, User));
             TestTrue(TEXT("Apply commits all three fixture fields"),
                 Menu->Get_AppliedSettings() == Menu->Get_DraftSettings()

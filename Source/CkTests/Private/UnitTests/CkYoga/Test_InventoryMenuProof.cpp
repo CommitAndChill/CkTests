@@ -37,6 +37,7 @@
 #include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 #include "Widgets/Text/STextBlock.h"
+#include "Styling/CoreStyle.h"
 
 namespace ck_inventory_menu_proof_test
 {
@@ -279,7 +280,69 @@ namespace ck_inventory_menu_proof_test
         return FocusContains(InControl.ToSharedRef(), User) && PressKey(EKeys::Enter, User);
     }
 
-    auto Capture(UWorld* InWorld, FState& InState, const FString& InName, FIntPoint InSize) -> bool
+    auto CheckPresentation(FAutomationTestBase& InTest, UCk_PauseMenuProof_UE* InMenu) -> bool
+    {
+        const auto View = IsValid(InMenu) ? InMenu->Get_AuthoredView() : nullptr;
+        const auto Repeat = GetRepeat(InMenu);
+        if (!View.IsValid() || !Repeat.IsValid()) { return false; }
+        bool Passed = true;
+        const auto CheckText = [&](const TSharedRef<SWidget>& Root, const TCHAR* Id, bool Ellipsis)
+        {
+            const auto Tagged = FindTagged(Root, FName{Id});
+            const auto Found = Tagged.IsValid() ? FindType(Tagged.ToSharedRef(), TEXT("SCkFlexText")) : nullptr;
+            if (!Found.IsValid()) { Passed = InTest.TestTrue(FString{Id} + TEXT(" native text exists"), false) && Passed; return; }
+            const auto Text = StaticCastSharedPtr<SCkFlexText>(Found);
+            if (Text->GetText().IsEmpty()) { return; }
+            const auto& Geometry = Text->GetCachedGeometry();
+            const auto Allocated = Geometry.GetLocalSize();
+            // Measure wrapped text at its actual width, without an exact-height clamp.
+            const bool Button = FindType(Tagged.ToSharedRef(), TEXT("SCkUiStyledButton")).IsValid();
+            const auto Required = Text->Measure(Ellipsis || Button ? YGUndefined : Allocated.X,
+                Ellipsis || Button ? YGMeasureModeUndefined : YGMeasureModeAtMost,
+                YGUndefined, YGMeasureModeUndefined, Geometry.Scale);
+            Passed = InTest.TestTrue(FString::Printf(TEXT("%s native height %.2f fits %.2f"),
+                Id, Required.Y, Allocated.Y), Required.Y > 0.0 && Required.Y <= Allocated.Y + 0.5) && Passed;
+            if (Button)
+            { Passed = InTest.TestTrue(FString{Id} + TEXT(" unwrapped label fits content width"), Required.X <= Allocated.X + 0.5) && Passed; }
+            Passed = InTest.TestTrue(FString{Id} + TEXT(" uses admitted Inventory font"),
+                Text->GetFont().GetCompositeFont() != FCoreStyle::GetDefaultFontStyle("Regular", 18).GetCompositeFont()) && Passed;
+        };
+        const auto Root = View->GetRegion(TEXT("main"));
+        for (const auto* Id : {TEXT("inventory-title"), TEXT("inventory-subtitle"), TEXT("inventory-count"),
+            TEXT("inventory-detail-category"), TEXT("inventory-detail-name"), TEXT("inventory-detail-description"),
+            TEXT("inventory-detail-stat-label-one"), TEXT("inventory-detail-stat-value-one"),
+            TEXT("inventory-detail-stat-label-two"), TEXT("inventory-detail-stat-value-two"),
+            TEXT("inventory-detail-owned"), TEXT("inventory-feedback"), TEXT("inventory-hint-label")})
+        {
+            if (InMenu->Get_InventoryModel()->Get_SelectedKey().IsEmpty()
+                && FString{Id}.StartsWith(TEXT("inventory-detail-"))) { continue; }
+            CheckText(Root, Id, false);
+        }
+        for (const auto* Id : {TEXT("inventory-primary-action"), TEXT("inventory-close"),
+            TEXT("inventory-filter-all"), TEXT("inventory-filter-equipment"),
+            TEXT("inventory-filter-supplies"), TEXT("inventory-filter-materials")})
+        { CheckText(Root, Id, false); }
+        const auto Results = FindTagged(Root, FName{TEXT("inventory-results")});
+        if (!Results.IsValid()) { return false; }
+        const auto Bounds = Results->GetCachedGeometry().GetLayoutBoundingRect();
+        for (const auto& Key : InMenu->Get_InventoryModel()->Get_VisibleKeys())
+        {
+            const auto Card = GetCard(InMenu, *Key);
+            if (!Card.IsValid()) { return false; }
+            const auto Rect = Card->GetCachedGeometry().GetLayoutBoundingRect();
+            Passed = InTest.TestTrue(Key + TEXT(" card fully contained in results"),
+                Rect.Left >= Bounds.Left - 1.0 && Rect.Top >= Bounds.Top - 1.0
+                && Rect.Right <= Bounds.Right + 1.0 && Rect.Bottom <= Bounds.Bottom + 1.0) && Passed;
+            CheckText(Card.ToSharedRef(), TEXT("inventory-card-title"), true);
+            CheckText(Card.ToSharedRef(), TEXT("inventory-card-meta"), true);
+        }
+        const auto Hint = FindTagged(Root, FName{TEXT("inventory-keycap")});
+        Passed = InTest.TestTrue(TEXT("Inventory uses shared key hint"), Hint.IsValid()
+            && FindType(Hint.ToSharedRef(), TEXT("SKeyHint")).IsValid()) && Passed;
+        return Passed;
+    }
+
+    auto Capture(FAutomationTestBase& InTest, UWorld* InWorld, FState& InState, const FString& InName, FIntPoint InSize) -> bool
     {
         UGameViewportClient* Client = IsValid(InWorld) ? InWorld->GetGameViewport() : nullptr;
         const TSharedPtr<SViewport> Viewport = IsValid(Client) ? Client->GetGameViewportWidget() : nullptr;
@@ -310,6 +373,11 @@ namespace ck_inventory_menu_proof_test
         if (Size.X != InSize.X || Size.Y != InSize.Y) { return false; }
         const FString Directory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation/InventoryMenuProof"));
         IFileManager::Get().MakeDirectory(*Directory, true);
+        const auto Menu = GetActiveMenu(GetPlayer(InWorld));
+        if (IsValid(Menu))
+        {
+            if (!CheckPresentation(InTest, Menu)) { return false; }
+        }
         return FImageUtils::SaveImageByExtension(*FPaths::Combine(Directory, InName + TEXT(".png")),
             FImageView(Pixels.GetData(), Size.X, Size.Y, ERawImageFormat::BGRA8));
     }
@@ -529,26 +597,26 @@ bool FCk_InventoryMenuProof_PIE::RunTest(const FString&)
             TestTrue(TEXT("initial selected sword has an enabled native primary action"),
                 GetCard(Menu, TEXT("iron-longsword")).IsValid() && Primary->IsEnabled());
             TestTrue(TEXT("Inventory 1920x1080 native capture"),
-                Capture(InWorld, *State, TEXT("inventory-all-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("inventory-all-1920x1080"), FIntPoint{1920, 1080}));
             TestTrue(TEXT("Inventory panel follows authored 1920x1080 bounds"),
                 PanelMatchesReference(Menu, InWorld, FIntPoint{1920, 1080}));
             TestTrue(TEXT("Inventory 1280x720 native capture"),
-                Capture(InWorld, *State, TEXT("inventory-all-1280x720"), FIntPoint{1280, 720}));
+                Capture(*this, InWorld, *State, TEXT("inventory-all-1280x720"), FIntPoint{1280, 720}));
             TestTrue(TEXT("Inventory panel scales into 1280x720"),
                 PanelMatchesReference(Menu, InWorld, FIntPoint{1280, 720}));
             TestTrue(TEXT("Inventory 2560x1080 native capture"),
-                Capture(InWorld, *State, TEXT("inventory-all-2560x1080"), FIntPoint{2560, 1080}));
+                Capture(*this, InWorld, *State, TEXT("inventory-all-2560x1080"), FIntPoint{2560, 1080}));
             TestTrue(TEXT("Inventory panel centers in 2560x1080"),
                 PanelMatchesReference(Menu, InWorld, FIntPoint{2560, 1080}));
             TestTrue(TEXT("Inventory interactive size restored"),
-                Capture(InWorld, *State, TEXT("inventory-all-restored-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("inventory-all-restored-1920x1080"), FIntPoint{1920, 1080}));
             const TSharedPtr<SScrollBox> Scroll = View->GetScroll(TEXT("inventory-scroll"));
             if (TestTrue(TEXT("authored Inventory owns a native scroll box"), Scroll.IsValid()))
             {
                 Scroll->SetScrollOffset(220.0f);
                 Tick(Slate);
                 TestTrue(TEXT("scrolled Inventory 1920x1080 native capture"),
-                    Capture(InWorld, *State, TEXT("inventory-scrolled-1920x1080"), FIntPoint{1920, 1080}));
+                    Capture(*this, InWorld, *State, TEXT("inventory-scrolled-1920x1080"), FIntPoint{1920, 1080}));
             }
 
             const FString BeforeInvalid = Model->Get_Summary();
@@ -655,7 +723,7 @@ bool FCk_InventoryMenuProof_PIE::RunTest(const FString&)
             TestEqual(TEXT("bow is equipped in persisted inventory state"),
                 Model->Get_State().Get_EquippedKey(), FString{TEXT("oak-bow")});
             TestTrue(TEXT("equipped Inventory 1920x1080 capture"),
-                Capture(InWorld, *State, TEXT("inventory-equipped-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("inventory-equipped-1920x1080"), FIntPoint{1920, 1080}));
             TestTrue(TEXT("Unequip routes through same native action"), FocusAndActivate(Menu, Primary));
             TestTrue(TEXT("unequip clears persisted equipment key"),
                 Model->Get_State().Get_EquippedKey().IsEmpty());
@@ -667,7 +735,7 @@ bool FCk_InventoryMenuProof_PIE::RunTest(const FString&)
                 Model->Get_Category() == TEXT("Supplies") && Model->Get_VisibleKeys().Num() == 4
                     && Repeat->GetItemCount() == 4 && Model->Get_SelectedKey() == TEXT("health-tonic"));
             TestTrue(TEXT("Supplies 1920x1080 native capture"),
-                Capture(InWorld, *State, TEXT("inventory-supplies-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("inventory-supplies-1920x1080"), FIntPoint{1920, 1080}));
             const FString BeforeStaleBow = Model->Get_SelectedKey();
             SendHeldButtonEnter(OldBowCard, User);
             TestEqual(TEXT("filtered-out held card cannot select absent key"),
@@ -734,7 +802,7 @@ bool FCk_InventoryMenuProof_PIE::RunTest(const FString&)
                 EmptyState.IsValid() && EmptyState->GetVisibility() == EVisibility::Visible
                     && HasText(View->GetRegion(TEXT("main")), TEXT("No items match your search.")));
             TestTrue(TEXT("empty Inventory 1920x1080 native capture"),
-                Capture(InWorld, *State, TEXT("inventory-empty-1920x1080"), FIntPoint{1920, 1080}));
+                Capture(*this, InWorld, *State, TEXT("inventory-empty-1920x1080"), FIntPoint{1920, 1080}));
             Search->SetText(FText::GetEmpty());
             Tick(Slate);
             TestTrue(TEXT("clearing search restores eleven remaining cards"),
