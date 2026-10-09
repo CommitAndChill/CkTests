@@ -1,0 +1,61 @@
+.shade { background-color: #0507068A; }
+.shell { width: 1880px; height: 1036px; horizontal-align: center; vertical-align: center; padding: 12px 20px; gap: 10px; background-color: #0B0D0DC8; border-radius: 0px; }
+.navigation { height: 52px; gap: 26px; padding: 0px 8px; }
+.tab { vertical-align: center; font-family: tactical-ui; font-size: 16px; color: var(--ink-main); letter-spacing: 0.08em; text-wrap: nowrap; }
+.active-tab { color: var(--ink-accent); font-weight: bold; }
+.profile { flex-grow: 1; text-align: right; vertical-align: center; }
+.rule { height: 1px; background-color: #999B8248; }
+.body { height: 852px; gap: 16px; }
+.operator-panel { width: 416px; }
+.pack-panel { width: 340px; padding: 0px 12px; }
+.stash-panel { width: 544px; padding: 0px 12px; }
+.inspection-panel { width: 488px; padding: 0px 12px; }
+.section-header { height: 44px; padding: 0px 10px; gap: 10px; background-color: #7D7B651E; border-radius: 0px; border-color: #B1AB7F42; border-width: 1px; }
+.heading { flex-grow: 1; vertical-align: center; font-family: tactical-ui; font-size: 15px; font-weight: bold; color: #C2BEA5; letter-spacing: 0.09em; text-wrap: nowrap; }
+.small { vertical-align: center; font-family: tactical-ui; font-size: 10px; color: var(--ink-main); text-wrap: nowrap; }
+.muted { color: #8D928C; }
+.accent { color: #C3B588; }
+.body-text { vertical-align: center; font-family: tactical-ui; font-size: 12px; color: #C6CCC5; text-wrap: nowrap; }
+.green { color: #9FAE83; }
+.blue { color: #8CABB9; }
+.operator-stage { height: 552px; }
+.operator-image { width: 342px; height: 548px; horizontal-align: center; vertical-align: bottom; }
+.equipment-preview { padding: 22px 8px; gap: 12px; }
+.gear-column { width: 112px; gap: 12px; }
+.operator-gap { flex-grow: 1; }
+.gear { gap: 3px; }
+.gear-frame { width: 110px; height: 114px; background-color: #171C18BA; border-width: 1px; border-color: #6266588A; border-radius: 0px; }
+.gear-art { width: 102px; height: 98px; horizontal-align: center; vertical-align: center; }
+.gear-name { text-align: right; color: #B3B9AB; }
+.weapon-preview { height: 112px; padding: 4px 12px; background-color: #141A16B0; border-width: 1px; border-color: #62665880; border-radius: 0px; gap: 8px; }
+.sling-art { width: 270px; height: 96px; vertical-align: center; }
+.sling-labels { flex-grow: 1; vertical-align: center; gap: 4px; }
+.vitals { height: 80px; padding: 16px 8px; gap: 8px; background-color: #080D09A8; border-radius: 0px; }
+.vital { width: 122px; gap: 6px; }
+.vital-value { font-family: tactical-ui; font-size: 14px; color: #C8CCBF; text-wrap: nowrap; }
+.context { height: 28px; }
+.meta-row { height: 34px; padding: 0px 4px; }
+.meta-right { flex-grow: 1; text-align: right; }
+.pack-grid { width: 312px; height: 312px; }
+.stash-grid { width: 520px; height: 728px; }
+.case-grid { width: 208px; height: 208px; horizontal-align: center; }
+.case-panel { padding: 14px; gap: 4px; background-color: #151815EE; border-width: 1px; border-color: #777C64; border-radius: 0px; }
+.case-header { height: 42px; gap: 6px; }
+.inspection-content { padding: 18px 16px; gap: 10px; background-color: #151915B8; border-radius: 0px; }
+.item-name { font-family: tactical-ui; font-size: 18px; font-weight: bold; color: #D3CEAE; text-wrap: wrap; }
+.inspection-art-frame { height: 206px; background-color: #080B0968; border-width: 1px; border-color: #69715860; border-radius: 0px; }
+.inspection-art { width: 394px; height: 184px; horizontal-align: center; vertical-align: center; }
+.stat-row { height: 30px; padding: 0px 4px; }
+.stat-label { flex-grow: 1; }
+.stat-value { width: 184px; text-align: right; }
+.description { font-family: tactical-ui; font-size: 12px; color: #929C90; text-wrap: wrap; }
+.action { height: 44px; -ck-action-card-background: #292E23B0; -ck-action-card-hover-background: #454C36; -ck-action-card-pressed-background: #555C40; -ck-action-card-disabled-background: #15191090; -ck-action-card-border-color: #73765C; -ck-action-card-border-width: 1px; -ck-action-card-padding: 0px; -ck-action-card-radius: 0px; }
+.action-content { height: 44px; padding: 0px 12px; gap: 12px; vertical-align: center; }
+.key-hint { width: 26px; height: 26px; vertical-align: center; -ck-key-hint-font-size: 11px; -ck-key-hint-foreground: #CECEBA; -ck-key-hint-background: #2B302580; -ck-key-hint-border-color: #8C9070; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 1px; -ck-key-hint-padding-x: 1px; -ck-key-hint-padding-y: 1px; }
+.wide-key { width: 58px; -ck-key-hint-font-size: 10px; }
+.footer { height: 50px; gap: 12px; padding: 0px 8px; }
+.status { flex-grow: 1; vertical-align: center; font-family: tactical-ui; font-size: 11px; color: #B6B99E; text-wrap: wrap; }
+.green { color: #9FAE83; }
+.blue { color: #8CABB9; }
+.inventory-grid { -ck-inventory-grid-background: #10140DB0; -ck-inventory-grid-cell-background: #272B2298; -ck-inventory-grid-item-background: #35392AA8; -ck-inventory-grid-border: #777B6080; -ck-inventory-grid-selected: #C3B588; -ck-inventory-grid-label-font-size: 9px; }
+.action-label { vertical-align: center; }

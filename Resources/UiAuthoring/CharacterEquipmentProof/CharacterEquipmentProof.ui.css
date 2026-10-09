@@ -1,0 +1,101 @@
+.ornamental-frame { width: 1870px; height: 1060px; horizontal-align: center; vertical-align: center; }
+.shade { background-color: #06070698; }
+.shell { width: 1810px; height: 1000px; horizontal-align: center; vertical-align: center; padding: 18px 28px; gap: 10px; background-color: #10100EDA; }
+.header { height: 44px; padding: 0px 72px; gap: var(--space-l); }
+.title { width: 500px; vertical-align: center; font-family: fantasy-display; font-size: 23px; letter-spacing: 0.18em; color: #D8C7A8; text-wrap: nowrap; }
+.realm { flex-grow: 1; vertical-align: center; text-align: right; font-family: fantasy-body; font-size: 11px; letter-spacing: 0.09em; color: #938673; }
+.body { height: 864px; gap: 24px; }
+.character-panel { width: 830px; gap: 8px; padding: 0px 12px; border-color: #564734; border-width: 1px; }
+.identity { padding: var(--identity-inset); gap: var(--space-xs); }
+.character-name { text-align: center; font-family: fantasy-display; font-size: 22px; letter-spacing: 0.14em; color: var(--ink-title); }
+.character-class { width: 238px; height: 24px; horizontal-align: center; gap: var(--space-xs); }
+.character-stage { height: 622px; }
+.alcove { width: 802px; height: 622px; }
+.portrait { width: 404px; height: 606px; horizontal-align: center; vertical-align: bottom; }
+.equipment-layout { height: 618px; width: 778px; horizontal-align: center; vertical-align: top; gap: 10px; }
+.equipment-column { width: 116px; gap: 8px; }
+.equipment-slot { width: 116px; height: 117px; gap: 1px; }
+.slot-caption { font-family: fantasy-body; font-size: 10px; letter-spacing: 0.07em; color: #B8AA91; text-align: center; text-wrap: nowrap; }
+.equipment-card { width: 116px; height: 97px; -ck-item-slot-background: #0A0B0ADD; -ck-item-slot-border: #726047; -ck-item-slot-selected: #E8CF95; -ck-item-slot-focus: #D5CEB1; -ck-item-slot-valid: #6BAF75; -ck-item-slot-invalid: #B63F32; -ck-item-slot-border-width: 1px; -ck-item-slot-padding: 2px; }
+.equipment-inlay { width: 110px; height: 91px; }
+.slot-art { horizontal-align: fill; vertical-align: fill; }
+.placeholder { horizontal-align: fill; vertical-align: fill; }
+.ghost-shade { background-color: #080908DE; }
+.equipment-icon { width: 84px; height: 84px; horizontal-align: center; vertical-align: center; }
+.portrait-space { width: 526px; }
+.attributes { padding: var(--space-xs) var(--space-m); gap: 0px; }
+.stat { width: 190px; padding: 2px; gap: 0px; }
+.stat-glyph { width: 36px; height: 36px; horizontal-align: center; }
+.stat-label { text-align: center; font-family: fantasy-body; font-size: 11px; letter-spacing: 0.07em; color: var(--ink-secondary); }
+.stat-value { text-align: center; font-family: fantasy-body; font-size: 21px; color: var(--ink-title); }
+.inventory-panel { width: 888px; padding: 0px 12px; gap: 8px; }
+.inventory-heading { height: 44px; padding: 0px 20px; }
+.section-title { flex-grow: 1; vertical-align: center; font-family: fantasy-display; font-size: 18px; letter-spacing: 0.13em; color: #DACAAA; }
+.inventory-count { width: 116px; vertical-align: center; text-align: right; font-family: fantasy-body; font-size: 13px; color: #BAAA8B; }
+.filters { height: 36px; gap: var(--space-xs); }
+.filter-button { width: 130px; height: 36px; -ck-action-card-background: #151512B8; -ck-action-card-hover-background: #3B2920; -ck-action-card-pressed-background: #632F20; -ck-action-card-selected-background: #641D16C8; -ck-action-card-border-color: #554C3F; -ck-action-card-selected-border-color: #AD824A; -ck-action-card-focus-border-color: #CEC4AA; -ck-action-card-border-width: 1px; -ck-action-card-padding: 0px; -ck-action-card-radius: 0px; }
+.filter-label { horizontal-align: center; vertical-align: center; text-align: center; font-family: fantasy-body; font-size: 12px; color: #C5B799; }
+.filter-context { flex-grow: 1; vertical-align: center; text-align: right; font-family: fantasy-ui; font-size: 10px; color: #958C7A; }
+.inventory-grid-row { height: 440px; gap: var(--space-s); }
+.inventory-grid { width: 748px; height: 440px; flex-wrap: wrap; gap: var(--space-xs); }
+.inventory-card { width: 104px; height: 104px; -ck-item-slot-background: #10110FDB; -ck-item-slot-border: #66533B; -ck-item-slot-selected: #EAD6A3; -ck-item-slot-focus: #D8D0B8; -ck-item-slot-valid: #6BAF75; -ck-item-slot-invalid: #B63F32; -ck-item-slot-border-width: 1px; -ck-item-slot-padding: 2px; }
+.item-content { width: 98px; height: 98px; }
+.item-icon { width: 84px; height: 88px; horizontal-align: center; vertical-align: center; }
+.quantity { width: 28px; horizontal-align: right; vertical-align: bottom; text-align: center; font-family: fantasy-body; font-size: 15px; color: #E9DFC9; }
+.inventory-side { width: 104px; height: 440px; }
+.side-stone { width: 104px; height: 440px; }
+.side-inscription { width: 104px; height: 440px; padding: 80px 5px; gap: var(--space-s); background-color: #08090890; }
+.side-motto { text-align: center; font-family: fantasy-body; font-size: 12px; letter-spacing: 0.1em; color: #978266; }
+.side-cross { text-align: center; font-family: fantasy-display; font-size: 26px; color: #AD9268; }
+.inspection { height: 316px; gap: var(--space-s); }
+.detail-frame { width: 426px; height: 316px; }
+.selected-frame { border-width: 1px; border-color: #AC8B4C; }
+.equipped-frame { border-width: 1px; border-color: #777263; }
+.detail-card { padding: var(--panel-inset); gap: 2px; }
+.detail-heading { text-align: right; font-family: fantasy-body; font-size: 9px; letter-spacing: 0.1em; color: var(--ink-secondary); }
+.detail-identity { height: 68px; gap: var(--space-s); }
+.detail-thumb { width: 60px; height: 66px; }
+.detail-icon { width: 52px; height: 60px; horizontal-align: center; vertical-align: center; }
+.detail-names { flex-grow: 1; gap: 0px; padding: 2px 0px; }
+.detail-name { text-align: left; font-family: fantasy-display; font-size: 15px; letter-spacing: 0.05em; color: var(--ink-gold); text-wrap: wrap; }
+.detail-rarity { text-align: left; font-family: fantasy-body; font-size: 11px; color: var(--ink-secondary); }
+.detail-power { text-align: left; font-family: fantasy-body; font-size: 10px; letter-spacing: 0.04em; color: var(--ink-muted); }
+.rule { height: 1px; background-color: #8A6B3A80; }
+.detail-primary { text-align: left; font-family: fantasy-body; font-size: 17px; color: var(--ink-title); }
+.affix-row { height: 24px; gap: var(--space-xxs); }
+.affix-value { width: 42px; vertical-align: center; text-align: right; font-family: fantasy-body; font-size: 13px; color: var(--ink-title); }
+.affix-delta { width: 72px; }
+.delta { flex-grow: 1; vertical-align: center; text-align: right; font-family: fantasy-body; font-size: 13px; }
+.gain { color: var(--ink-gain); }
+.loss { color: var(--ink-loss); }
+.neutral { color: var(--ink-muted); }
+.detail-description { text-align: left; font-family: fantasy-flavor; font-size: 12px; color: var(--ink-secondary); text-wrap: wrap; }
+.footer { height: 36px; gap: 18px; padding: 0px 60px; }
+.footer-action { vertical-align: center; gap: 8px; }
+.key-hint { vertical-align: center; width: 29px; height: 28px; -ck-key-hint-font-size: 13px; -ck-key-hint-foreground: #D0C4AA; -ck-key-hint-background: #111310B8; -ck-key-hint-border-color: #93856C; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 1px; -ck-key-hint-padding-x: 1px; -ck-key-hint-padding-y: 1px; }
+.wide-key { width: 54px; -ck-key-hint-font-size: 11px; }
+.footer-label { vertical-align: center; font-family: fantasy-body; font-size: 11px; color: #BEB5A0; text-wrap: nowrap; }
+.status { flex-grow: 1; vertical-align: center; font-family: fantasy-ui; font-size: 10px; color: #A99D85; text-wrap: wrap; }
+.equipment-tooltip { width: 310px; padding: 16px; gap: 6px; background-color: #10100FEE; border-color: #978058; border-width: 1px; }
+.item-tooltip { width: 326px; padding: 16px; gap: 6px; background-color: #10100FEE; border-color: #A2874D; border-width: 1px; }
+.tooltip-name { font-family: fantasy-display; font-size: 16px; color: #D8BD7B; text-wrap: wrap; }
+.tooltip-rarity { font-family: fantasy-body; font-size: 12px; color: #AEA087; }
+.tooltip-stats { font-family: fantasy-body; font-size: 14px; color: #D6CFBE; text-wrap: wrap; }
+.tooltip-description { font-family: fantasy-flavor; font-size: 12px; color: #A89F8C; text-wrap: wrap; }
+.tooltip-comparison { font-family: fantasy-body; font-size: 12px; color: #B7C2A7; text-wrap: wrap; }
+.affix-label { flex-grow: 1; vertical-align: center; text-align: left; font-family: fantasy-body; font-size: 13px; color: var(--ink-body); }
+
+.fill-art { horizontal-align: fill; vertical-align: fill; }
+.header-frame { height: 44px; }
+.identity-frame { height: 108px; }
+.inventory-heading-frame { height: 44px; }
+.level-label { width: 60px; vertical-align: center; text-align: right; font-family: fantasy-body; font-size: 12px; letter-spacing: 0.08em; color: var(--ink-muted); }
+.level-value { width: 30px; vertical-align: center; text-align: center; font-family: fantasy-display; font-size: 17px; color: var(--ink-gold); }
+.class-divider { width: 12px; vertical-align: center; text-align: center; font-family: fantasy-body; font-size: 14px; color: var(--ink-muted); }
+.class-name { width: 86px; vertical-align: center; text-align: left; font-family: fantasy-display; font-size: 13px; letter-spacing: 0.1em; color: var(--ink-body); }
+.attributes-frame { height: 114px; }
+.attribute-divider { width: 1px; height: 66px; vertical-align: center; background-color: #8A6B3A50; }
+.gear-stats { gap: 0px; }
+.affix-icon { width: 24px; height: 24px; vertical-align: center; }
+.delta-state { gap: 2px; }
+.delta-arrow { width: 18px; height: 18px; vertical-align: center; }
