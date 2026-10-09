@@ -84,18 +84,6 @@ struct FCkGym_Station_TitleAndDescription
     FText Instructions;
 };
 
-// Stored on this world's transient entity. Admission is serialized until all
-// deferred station tags settle, so joining controllers reuse a complete set.
-USTRUCT()
-struct FCkGym_StationAdmission
-{
-    UPROPERTY() FCk_Handle ActiveOwner;
-    UPROPERTY() int32 ReservationTicket = 0;
-    UPROPERTY() int32 ActiveTicket = 0;
-    UPROPERTY() int32 NextTicket = 0;
-    UPROPERTY() bool ClosedUnproven = false;
-}
-
 // A ticket is reserved before the first fallible owner allocation. The raw owner
 // remains in the slot after an uncertain failure, even if it is no longer live.
 namespace CkGym_Admission
@@ -116,9 +104,8 @@ namespace CkGym_Admission
     {
         if (!ck::IsValid(World) || World != ck::TransientEntity() ||
             utils_entity_lifetime::Get_IsPendingDestroy(
-                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
-            !World.Has_Fragment(FCkGym_StationAdmission)) { return false; }
-        return World.Get_Fragment(FCkGym_StationAdmission).ClosedUnproven;
+                World, ECk_EntityLifetime_DestructionPhase::BeginDestroy)) { return false; }
+        return UCkGym_AdmissionRuntime_UE::Get_IsClosedUnproven(World);
     }
 
     // Inspect a retained raw owner after terminal admission closure. Never
@@ -143,12 +130,9 @@ namespace CkGym_Admission
                 World, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
             (!World.Has_Fragment(FCkGym_StationAdmission) &&
              !utils_entity_lifetime::Get_CanCreateEntity(World))) { return false; }
-        // A malformed local cohort can fail before reservation created this
-        // fragment. Closing still cannot claim, release, or destroy its owner.
-        auto MutableWorld = World;
-        auto& Slot = MutableWorld.AddOrGet_Fragment(FCkGym_StationAdmission);
-        Slot.ClosedUnproven = true;
-        return true;
+        // A malformed cohort can fail before reservation created the slot.
+        // The native bridge writes the same named dynamic fragment used below.
+        return UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(World);
     }
 
     int32 TryReserve(FCk_Handle World)
@@ -229,8 +213,10 @@ namespace CkGym_Admission
         if (Active && Slot.ActiveOwner != RawOwner) { return false; }
         if (Reserved && Slot.ActiveOwner != FCk_Handle() &&
             RawOwner != FCk_Handle() && Slot.ActiveOwner != RawOwner) { return false; }
+        // Close first. A failed native preflight cannot publish a raw owner.
+        if (!UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(World))
+        { return false; }
         if (Reserved && RawOwner != FCk_Handle()) { Slot.ActiveOwner = RawOwner; }
-        Slot.ClosedUnproven = true;
         return true;
     }
 }

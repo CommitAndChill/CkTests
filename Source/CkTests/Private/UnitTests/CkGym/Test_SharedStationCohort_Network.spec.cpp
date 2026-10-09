@@ -2,6 +2,8 @@
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkEntityScriptGym_Runtime.h"
+#include "CkGym_AdmissionRuntime.h"
+#include "CkDynamic/CkDynamic_Utils.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/EntityScript/CkEntityScript_Fragment.h"
 #include "CkEcs/EntityScript/CkEntityScript.h"
@@ -129,6 +131,28 @@ namespace ck_shared_cohort_integration
         return Called && Unchanged && SameChildren &&
             Return->GetPropertyValue_InContainer(C.Args->GetStructMemory());
     }
+    auto ReadAdmissionSlot(const FCk_Handle& Root) -> const FCkGym_StationAdmission*
+    {
+        const auto* Type = FCkGym_StationAdmission::StaticStruct();
+        if (!Live(Root) ||
+            !UCk_Utils_DynamicFragment_UE::Has_Fragment(Root, Type))
+        { return nullptr; }
+        const auto* Storage = UCk_Utils_DynamicFragment_UE::
+            TryGet_Fragment_TypeUnsafe(Root, Type);
+        return Storage && Storage->GetScriptStruct() == Type
+            ? Storage->GetPtr<FCkGym_StationAdmission>() : nullptr;
+    }
+
+    auto SameAdmissionSlot(const FCkGym_StationAdmission& A,
+        const FCkGym_StationAdmission& B) -> bool
+    {
+        return A.ActiveOwner == B.ActiveOwner &&
+            A.ReservationTicket == B.ReservationTicket &&
+            A.ActiveTicket == B.ActiveTicket &&
+            A.NextTicket == B.NextTicket &&
+            A.ClosedUnproven == B.ClosedUnproven;
+    }
+
     struct FPlayer
     { TWeakObjectPtr<UWorld> World; TWeakObjectPtr<APlayerController> PC; TWeakObjectPtr<APawn> Pawn; TWeakObjectPtr<APlayerState> PS; };
     struct FState
@@ -270,6 +294,20 @@ namespace ck_shared_cohort_integration
                             Archetype->GetClass() != State->StationClass || !Request.Get_SpawnParams().IsValid())
                         { return Reject(TEXT("Actual carrier target/class/typed spawn tuple differs from the real station request")); }
                     }
+                    const auto* BeforeSlot = ReadAdmissionSlot(Root);
+                    if (!BeforeSlot || BeforeSlot->ClosedUnproven ||
+                        BeforeSlot->ActiveTicket <= 0 ||
+                        BeforeSlot->ReservationTicket != 0)
+                    { return Reject(TEXT("Native admission slot missing after real AS start")); }
+                    const auto Before = *BeforeSlot;
+                    if (UCkGym_AdmissionRuntime_UE::Get_IsClosedUnproven(FCk_Handle{}) ||
+                        UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(FCk_Handle{}) ||
+                        UCkGym_AdmissionRuntime_UE::Get_IsClosedUnproven(Requests[0]) ||
+                        UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(Requests[0]))
+                    { return Reject(TEXT("Default or non-root admission close was accepted")); }
+                    const auto* AfterSlot = ReadAdmissionSlot(Root);
+                    if (!AfterSlot || !SameAdmissionSlot(Before, *AfterSlot))
+                    { return Reject(TEXT("Rejected admission close changed real AS slot")); }
                     State->Carriers.Add(Requests);
                 }
                 State->Spawned = true;
@@ -353,6 +391,29 @@ namespace ck_shared_cohort_integration
                     for (const auto& H : Captured)
                     { AnyAllocated |= UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(H); }
                     if (!AnyAllocated) { return Reject(TEXT("Terminal failure destroyed every retained creator identity")); }
+                    auto* W = State->Worlds[I].Get();
+                    const auto Root = UCk_Utils_EcsWorld_Subsystem_UE::
+                        TryGet_TransientEntityForWorld(*W);
+                    const auto* Slot = ReadAdmissionSlot(Root);
+                    if (!Slot)
+                    { return Reject(TEXT("Native close has no real AS admission slot")); }
+                    // Ready releases admission before the later transfer and reentrant failures.
+                    const bool Released = State->Scenario == 0 || State->Scenario == 3;
+                    const bool IdentityMatches = Released ?
+                        Slot->ActiveOwner == FCk_Handle() && Slot->ActiveTicket == 0 :
+                        Slot->ActiveOwner == Owner &&
+                        Slot->ActiveTicket > 0 &&
+                        Slot->ActiveTicket == Slot->NextTicket;
+                    if (!UCkGym_AdmissionRuntime_UE::Get_IsClosedUnproven(Root) ||
+                        !Slot->ClosedUnproven || Slot->ReservationTicket != 0 ||
+                        Slot->NextTicket <= 0 || !IdentityMatches)
+                    {
+                        return Reject(FString::Printf(TEXT("Native close and real AS terminal slot diverged: scenario=%d released=%d closed=%d reservation=%d active=%d next=%d ownerMatches=%d ownerEmpty=%d"),
+                            State->Scenario, Released, Slot->ClosedUnproven,
+                            Slot->ReservationTicket, Slot->ActiveTicket,
+                            Slot->NextTicket, Slot->ActiveOwner == Owner,
+                            Slot->ActiveOwner == FCk_Handle()));
+                    }
                     if (State->TerminalOwner[I] != FCk_Handle() && State->TerminalOwner[I] != Owner)
                     { return Reject(TEXT("Terminal owner changed during post-failure ticks")); }
                     if (State->TerminalPostTicks[I] == 0)
