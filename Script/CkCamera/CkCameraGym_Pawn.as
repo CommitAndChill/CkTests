@@ -6,11 +6,9 @@
 //
 // A flyable pawn (ADefaultPawn movement) carrying the GameplayCamera director, plus a visible subject so the
 // driven camera has something to frame. On ready it:
-//   - adds the camera director on the pawn entity (whose actor-synced transform is the camera anchor, so the
-//     boom follows the pawn) and hands it this pawn's UCk_CameraComponent, which the default
-//     PlayerCameraManager reads via GetCameraView,
-//   - spawns reference geometry centered on the pawn (floor + a ring of pillars for orbit parallax and camera
-//     collision push-in) and a bright beacon as the lock-on target, and
+//   - admits one owner-local camera on a fresh SceneNode child following the
+//     replicated pawn transform, using this pawn's UCk_CameraComponent,
+//   - waits for the authority GameState's complete shared floor/pillar/beacon bank, and
 //   - pushes the first camera mode.
 //
 // The pawn carries a visible body sphere + a forward "nose" cube (ADefaultPawn has no in-game mesh) so you can
@@ -29,7 +27,7 @@ class ACk_CameraGym_Pawn : ACk_Gym_Base_Pawn
 {
     // We drive the view via the GameplayCamera director, so turn off ADefaultPawn's built-in WASD + mouse-look
     // those move along / pitch the hidden control rotation (the cause of "W/S goes up/down" and the double-acting
-    // mouse). Instead the mouse only orbits the camera, and movement is polled in Tick (enabled in Request_OnPawnReady)
+    // mouse). Instead the mouse only orbits the camera, and movement is driven from routed key edges in Tick (enabled in Request_OnPawnReady)
     // and applied on the horizontal plane relative to the camera's view yaw.
     default bAddDefaultMovementBindings = false;
 
@@ -47,7 +45,12 @@ class ACk_CameraGym_Pawn : ACk_Gym_Base_Pawn
     UPROPERTY(DefaultComponent)
     UStaticMeshComponent NoseMesh;
 
-    private FCk_Handle                _PawnEntity;
+    private FCk_Handle _PawnEntity;
+    private FCkCameraGym_LocalAdmission _LocalAdmission;
+    private bool _CameraAttempted = false;
+    private bool _CameraFailed = false;
+    private bool _Ending = false;
+    private float32 _StartupElapsed = 0.0f;
     private FCk_Handle_Camera _Camera;
     private FCk_Handle_Transform      _LockOnTarget;
 
@@ -79,133 +82,246 @@ class ACk_CameraGym_Pawn : ACk_Gym_Base_Pawn
 
     void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle) override
     {
-        _PawnEntity = FCk_Handle(InEntityScriptHandle);
+        if (_Ending) { return; }
+        auto Returned = FCk_Handle(InEntityScriptHandle);
+        if (ck::Is_NOT_Valid(Returned) ||
+            utils_owning_actor::TryGet_ActorEntityHandle(this) != Returned)
+        { Request_CloseCamera("Pawn completion has no exact actor entity"); return; }
+        _PawnEntity = Returned;
         Request_OnPawnReady();
     }
 
     void Request_OnPawnReady() override
     {
-        if (ck::Is_NOT_Valid(_PawnEntity))
-        { return; }
-
-        // The pawn entity (a WithActor entity script) already carries an actor-synced transform - that IS the camera
-        // anchor, and the POV reads it each frame, so the boom follows the pawn with no extra transform to add.
-
-        auto PawnTransform = _PawnEntity.As_Transform();
-        _Camera = utils_camera::Add(PawnTransform, FCk_Camera_Spec(CameraComponent));
-
-        Request_SpawnReferenceGeometry();
-
-        // Poll WASD / Space / Ctrl each frame for camera-relative free-fly (see Tick).
+        // A client receives its actor entity later. Tick reads that durable link;
+        // it never creates a second camera on a remote pawn or dedicated server.
         SetActorTickEnabled(true);
+    }
 
+    private ACk_CameraGym_GameState Get_ExactState()
+    {
+        auto World = GetWorld();
+        if (_Ending || IsActorBeingDestroyed() || ck::Is_NOT_Valid(World)) { return nullptr; }
+        auto State = Cast<ACk_CameraGym_GameState>(World.GetGameState());
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != World ||
+            State.GetClass() != ACk_CameraGym_GameState || State.IsActorBeingDestroyed())
+        { return nullptr; }
+        return State;
+    }
+
+    private ACk_CameraGym_PlayerController Get_ExactLocalOwner()
+    {
+        auto Owner = Cast<ACk_CameraGym_PlayerController>(GetController());
+        auto World = GetWorld();
+        if (_Ending || IsActorBeingDestroyed() || ck::Is_NOT_Valid(World) ||
+            World.GetNetMode() == ENetMode::NM_DedicatedServer ||
+            ck::Is_NOT_Valid(Owner) || Owner.IsActorBeingDestroyed() ||
+            Owner.GetClass() != ACk_CameraGym_PlayerController ||
+            !Owner.IsLocalController() || Owner.GetWorld() != World ||
+            Owner.GetControlledPawn() != this || ck::Is_NOT_Valid(Owner.GetLocalPlayer()))
+        { return nullptr; }
+        return Owner;
+    }
+
+    private void Request_CloseCamera(FString Reason)
+    {
+        if (_CameraFailed) { return; }
+        _CameraFailed = true;
+        Request_ResetMovementKeys();
+        UCk_CameraGym_LocalAdmission_UE::TryClose_LocalCamera(_LocalAdmission);
+        _Camera = FCk_Handle_Camera();
+        _LockOnTarget = FCk_Handle_Transform();
+        ck::Error("Camera gym local setup closed: " + Reason);
+    }
+
+    private void Request_EnsureCamera(float32 DeltaSeconds)
+    {
+        if (_Ending || _CameraFailed) { return; }
+        auto State = Get_ExactState();
+        auto CurrentEntity = utils_owning_actor::TryGet_ActorEntityHandle(this);
+        if (HasAuthority() && ck::IsValid(State) && ck::IsValid(CurrentEntity))
+        { State.TryEnsureReferenceGeometry(this); }
+        auto Owner = Get_ExactLocalOwner();
+        if (ck::Is_NOT_Valid(Owner))
+        {
+            if (_CameraAttempted) { Request_CloseCamera("Local possession was lost"); }
+            return;
+        }
+        if (!Math::IsFinite(DeltaSeconds) || DeltaSeconds < 0.0f)
+        { Request_CloseCamera("Startup delta is invalid"); return; }
+        _StartupElapsed += DeltaSeconds;
+        if (!Owner.Get_IsCameraControllerAdmitted())
+        {
+            if (_StartupElapsed >= 20.0f)
+            { Request_CloseCamera("Local controller admission timed out"); }
+            return;
+        }
+        if (ck::Is_NOT_Valid(State))
+        {
+            if (_CameraAttempted || _StartupElapsed >= 20.0f)
+            { Request_CloseCamera("Exact shared state is unavailable"); }
+            return;
+        }
+        auto Readiness = State.Get_ReferenceReadiness();
+        if (Readiness == ECkCameraGym_SourceReadiness::Failed)
+        { Request_CloseCamera("Shared reference bank failed"); return; }
+        if (Readiness != ECkCameraGym_SourceReadiness::Ready || ck::Is_NOT_Valid(CurrentEntity))
+        {
+            if (_CameraAttempted || _StartupElapsed >= 20.0f)
+            { Request_CloseCamera("Shared bank or pawn entity did not converge"); }
+            return;
+        }
+        if (_CameraAttempted)
+        {
+            if (_PawnEntity != CurrentEntity ||
+                !UCk_CameraGym_LocalAdmission_UE::Get_IsExactLocalAdmission(_LocalAdmission))
+            { Request_CloseCamera("Local camera admission changed"); }
+            return;
+        }
+        _CameraAttempted = true;
+        _PawnEntity = CurrentEntity;
+        if (!UCk_CameraGym_LocalAdmission_UE::TryCreate_LocalCamera(this, Owner,
+            Owner.GetLocalPlayer(), GetWorld(), _PawnEntity, State.SourceActors[9],
+            CameraComponent, _LocalAdmission))
+        { Request_CloseCamera("Local camera composition was rejected"); return; }
+        _Camera = UCk_CameraGym_LocalAdmission_UE::Get_Director(_LocalAdmission);
+        _LockOnTarget = UCk_CameraGym_LocalAdmission_UE::Get_Target(_LocalAdmission);
         _Modes.Add(UCk_CameraLayer_ThirdPerson);
         _Modes.Add(UCk_CameraLayer_TopDown);
         _Modes.Add(UCk_CameraLayer_LockOn);
-
         _ModeIndex = 0;
         Request_ApplyMode();
     }
 
-    // Floor + pillar ring + beacon, centered on the pawn's spawn point (robust to wherever the PlayerStart is).
-    private void Request_SpawnReferenceGeometry()
+    UFUNCTION()
+    bool Get_IsLocalCameraReady()
     {
-        const auto Center = GetActorLocation();
-
-        // Floor: 4000cm x 4000cm slab. ACk_Gym_Floor puts its walkable surface ON its origin, so
-        // spawning at Center lands the top face at the pawn's spawn height.
-        auto Floor = SpawnActor(ACk_Gym_Floor, Center, FRotator::ZeroRotator, NAME_None, true);
-        if (Floor != nullptr)
-        {
-            Floor.SetActorScale3D(FVector(40.0f, 40.0f, 0.5f));
-            FinishSpawningActor(Floor);
-        }
-
-        // A ring of tall grey pillars (block ECC_Camera) - orbit parallax + camera collision push-in when one
-        // passes between the camera and the pawn. 100cm footprint, 400cm tall, base on the floor.
-        TArray<FVector2D> Offsets;
-        Offsets.Add(FVector2D( 700.0f,    0.0f));
-        Offsets.Add(FVector2D(-700.0f,    0.0f));
-        Offsets.Add(FVector2D(   0.0f,  700.0f));
-        Offsets.Add(FVector2D(   0.0f, -700.0f));
-        Offsets.Add(FVector2D( 500.0f,  500.0f));
-        Offsets.Add(FVector2D(-500.0f,  500.0f));
-        Offsets.Add(FVector2D( 500.0f, -500.0f));
-        Offsets.Add(FVector2D(-500.0f, -500.0f));
-
-        for (auto Offset : Offsets)
-        {
-            const auto PillarLocation = Center + FVector(Offset.X, Offset.Y, 200.0f);
-            auto Pillar = SpawnActor(ACk_Gym_ObstacleWall, PillarLocation, FRotator::ZeroRotator, NAME_None, true);
-            if (Pillar != nullptr)
-            {
-                Pillar.SetActorScale3D(FVector(1.0f, 1.0f, 4.0f));
-                FinishSpawningActor(Pillar);
-            }
-        }
-
-        // Beacon = the fixed lock-on target, ~600cm in front (+X) of spawn at eye height. The lock-on transform
-        // entity sits at the same world point so the auto-reorient mode tracks the visible sphere.
-        const auto BeaconLocation = Center + FVector(600.0f, 0.0f, 150.0f);
-
-        auto Beacon = SpawnActor(ACk_CameraGym_Beacon, BeaconLocation, FRotator::ZeroRotator, NAME_None, true);
-        if (Beacon != nullptr)
-        {
-            Beacon.SetActorScale3D(FVector(1.5f, 1.5f, 1.5f));
-            FinishSpawningActor(Beacon);
-        }
-
-        auto TargetEntity = utils_entity_lifetime::Request_CreateEntity(_PawnEntity);
-        TargetEntity.Set_DebugName(n"Camera.LockOnTarget");
-        _LockOnTarget = utils_transform::Add(
-            TargetEntity, FTransform(BeaconLocation), ECk_Replication::DoesNotReplicate);
+        if (_CameraFailed || !_CameraAttempted || ck::Is_NOT_Valid(Get_ExactLocalOwner()))
+        { return false; }
+        auto State = Get_ExactState();
+        return ck::IsValid(State) &&
+            State.Get_ReferenceReadiness() == ECkCameraGym_SourceReadiness::Ready &&
+            UCk_CameraGym_LocalAdmission_UE::Get_IsExactLocalAdmission(_LocalAdmission);
     }
 
-    // Mouse-look sensitivity: scales raw Mouse2D pixel-delta into a roughly-normalized [0,1] orbit intention.
+    UFUNCTION(BlueprintPure)
+    FCk_Handle Get_LocalCameraScope()
+    { return UCk_CameraGym_LocalAdmission_UE::Get_Scope(_LocalAdmission); }
+    void Request_CloseOwnerInputFailure(FString Reason) { Request_CloseCamera(Reason); }
+    private FVector2D _PendingLook = FVector2D::ZeroVector;
+    private bool _ForwardHeld = false;
+    private bool _BackHeld = false;
+    private bool _RightHeld = false;
+    private bool _LeftHeld = false;
+    private bool _UpHeld = false;
+    private bool _DownHeld = false;
+    void Request_ResetMovementKeys()
+    {
+        _PendingLook = FVector2D::ZeroVector;
+        _ForwardHeld = false; _BackHeld = false; _RightHeld = false;
+        _LeftHeld = false; _UpHeld = false; _DownHeld = false;
+    }
+    void Request_MovementKey(FKey Key, bool Pressed)
+    {
+        // Release is always safe for this pawn's held state, including focus or
+        // possession loss. A new press requires its current local camera.
+        if (Pressed && !Get_IsLocalCameraReady()) { return; }
+        if (Key == EKeys::W) { _ForwardHeld = Pressed; }
+        else if (Key == EKeys::S) { _BackHeld = Pressed; }
+        else if (Key == EKeys::D) { _RightHeld = Pressed; }
+        else if (Key == EKeys::A) { _LeftHeld = Pressed; }
+        else if (Key == EKeys::SpaceBar) { _UpHeld = Pressed; }
+        else if (Key == EKeys::LeftControl) { _DownHeld = Pressed; }
+    }
+    bool Get_HasCameraFailure() const { return _CameraFailed; }
+    UFUNCTION(BlueprintPure)
+    int32 Get_ModeIndex() const { return _ModeIndex; }
+    bool Get_IsZoomActive() const { return _ZoomActive; }
+
+    UFUNCTION(BlueprintOverride)
+    void EndPlay(EEndPlayReason Reason)
+    {
+        _Ending = true;
+        Request_ResetMovementKeys();
+        UCk_CameraGym_LocalAdmission_UE::TryClose_LocalCamera(_LocalAdmission);
+        _Camera = FCk_Handle_Camera();
+        _LockOnTarget = FCk_Handle_Transform();
+        Super::EndPlay(Reason);
+    }
+
+    // Mouse-look sensitivity scales routed MouseX/MouseY deltas into a roughly-normalized orbit intention.
     // The modifier's OrientationControl speeds (deg/sec) then set the actual orbit rate. Bump this for faster look.
     const float32 _LookSensitivity = 0.05f;
 
     void Request_Look(FVector2D InLook)
     {
-        if (ck::Is_NOT_Valid(_Camera))
+        if (!Get_IsLocalCameraReady() || InLook.ContainsNaN() ||
+            !Math::IsFinite(InLook.X) || !Math::IsFinite(InLook.Y))
         { return; }
 
         // X = yaw intention, Y = pitch intention. User-pref invert would also be applied here in a real game.
-        _Camera.Request_SetOrientationIntention(
-            FVector(InLook.X * _LookSensitivity, InLook.Y * _LookSensitivity, 0.0f));
+        auto Pending = _PendingLook + InLook;
+        if (Pending.ContainsNaN() || !Math::IsFinite(Pending.X) || !Math::IsFinite(Pending.Y))
+        { return; }
+        _PendingLook = Pending;
     }
 
-    // Free-fly movement, polled each frame and applied relative to the camera's view yaw so "forward" always means
+    // Free-fly movement, driven from routed held state each frame and applied relative to the camera's view yaw so "forward" always means
     // "into the screen" regardless of where the pawn faces. Horizontal only (camera pitch is ignored) - Space/Ctrl
     // handle vertical. ADefaultPawn's default WASD/mouse-look are disabled (see class defaults), so nothing fights this.
     UFUNCTION(BlueprintOverride)
     void Tick(float32 InDeltaSeconds)
     {
         auto _CkPerfScope = ck::ScopedStat();
-        if (ck::Is_NOT_Valid(_Camera))
-        { return; }
+        Request_EnsureCamera(InDeltaSeconds);
+        if (!Get_IsLocalCameraReady())
+        { Request_ResetMovementKeys(); return; }
 
-        auto PC = Cast<APlayerController>(GetController());
-        if (PC == nullptr)
-        { return; }
+        auto PC = Get_ExactLocalOwner();
+        if (ck::Is_NOT_Valid(PC))
+        { Request_ResetMovementKeys(); return; }
+
+        // A key held before the menu opened remains owned by this input layer
+        // until its physical release. Clear its local latch now: the menu's
+        // higher-priority catch-all masks NEW presses but sends no synthetic
+        // release merely because it opened. The same rule clears a pending
+        // mouse delta, and zeroes the last orientation intention.
+        auto LocalPlayer = PC.GetLocalPlayer();
+        auto Switchboard = UCkGym_Switchboard_Subsystem::Get(PC);
+        const bool HasExactSwitchboard = ck::IsValid(LocalPlayer) &&
+            UCk_CameraGym_LocalAdmission_UE::Get_HasExactLocalPlayerWorld(LocalPlayer, GetWorld()) &&
+            ck::IsValid(Switchboard) && Switchboard.GetOuter() == LocalPlayer;
+        if (!HasExactSwitchboard || Switchboard.Get_IsOpen())
+        {
+            Request_ResetMovementKeys();
+            _Camera.Request_SetOrientationIntention(FVector::ZeroVector);
+            return;
+        }
+
+        // Source axes arrive separately. Publish their accumulated pair once
+        // per frame so a MouseY event cannot erase this frame's MouseX intention.
+        _Camera.Request_SetOrientationIntention(FVector(
+            _PendingLook.X * _LookSensitivity, _PendingLook.Y * _LookSensitivity, 0.0f));
+        _PendingLook = FVector2D::ZeroVector;
 
         const auto YawRot  = FRotator(0.0f, utils_camera::Get_ViewRotation(_Camera).Yaw, 0.0f);
         const auto Forward = YawRot.GetForwardVector();
         const auto Right   = YawRot.GetRightVector();
 
-        if (PC.IsInputKeyDown(EKeys::W)) { AddMovementInput(Forward,  1.0f); }
-        if (PC.IsInputKeyDown(EKeys::S)) { AddMovementInput(Forward, -1.0f); }
-        if (PC.IsInputKeyDown(EKeys::D)) { AddMovementInput(Right,    1.0f); }
-        if (PC.IsInputKeyDown(EKeys::A)) { AddMovementInput(Right,   -1.0f); }
+        if (_ForwardHeld) { AddMovementInput(Forward,  1.0f); }
+        if (_BackHeld) { AddMovementInput(Forward, -1.0f); }
+        if (_RightHeld) { AddMovementInput(Right,    1.0f); }
+        if (_LeftHeld) { AddMovementInput(Right,   -1.0f); }
 
         // Vertical free-fly - Space up, Left Ctrl down (E/Q are taken by mode cycling).
-        if (PC.IsInputKeyDown(EKeys::SpaceBar))    { AddMovementInput(FVector(0.0f, 0.0f, 1.0f),  1.0f); }
-        if (PC.IsInputKeyDown(EKeys::LeftControl)) { AddMovementInput(FVector(0.0f, 0.0f, 1.0f), -1.0f); }
+        if (_UpHeld)    { AddMovementInput(FVector(0.0f, 0.0f, 1.0f),  1.0f); }
+        if (_DownHeld) { AddMovementInput(FVector(0.0f, 0.0f, 1.0f), -1.0f); }
     }
 
     void Request_CycleMode(int32 InDir)
     {
-        if (_Modes.Num() == 0)
+        if (!Get_IsLocalCameraReady() || _Modes.Num() != 3 ||
+            (InDir != -1 && InDir != 1))
         { return; }
 
         _ModeIndex = (_ModeIndex + InDir + _Modes.Num()) % _Modes.Num();
@@ -217,7 +333,7 @@ class ACk_CameraGym_Pawn : ACk_Gym_Base_Pawn
     // the mode's FOV next frame.
     void Request_ToggleZoom()
     {
-        if (ck::Is_NOT_Valid(_Camera))
+        if (!Get_IsLocalCameraReady())
         { return; }
 
         if (_ZoomActive)
@@ -242,7 +358,7 @@ class ACk_CameraGym_Pawn : ACk_Gym_Base_Pawn
 
     private void Request_ApplyMode()
     {
-        if (ck::Is_NOT_Valid(_Camera))
+        if (!Get_IsLocalCameraReady())
         { return; }
 
         auto ModeClass = _Modes[_ModeIndex];
