@@ -4,6 +4,9 @@
 
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkCompassGym_SourceCatalog.h"
+#include "CkCompassGym_SourceMembership.h"
+#include "../../CkCompassGym_SourceMembership_Private.h"
+#include "CkCompass/CkCompass_Utils.h"
 #include "CkEntityScriptGym_Runtime.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
@@ -54,6 +57,16 @@ namespace ck_compass_catalog_test
         ECkCompassGym_CatalogOutcome PhaseOutcome =
             ECkCompassGym_CatalogOutcome::Pending;
         FCk_Handle UnexpectedStressChild;
+        FCk_Handle CompassObserver;
+        FCk_Handle_Compass Compass;
+        bool Dedicated = false;
+        bool AdmissionPartialProjection = false;
+        bool WithdrawalPartialProjection = false;
+        ECkCompassGym_MembershipResult MembershipResult =
+            ECkCompassGym_MembershipResult::Unavailable;
+        TArray<FCkCompassGym_SourceRow> CommittedRows;
+        TArray<FCkCompassGym_SourceReceipt> CommittedRetirees;
+        FString MembershipFailure;
         TWeakObjectPtr<AGameStateBase> GameState;
         FCk_Handle_PoiDisplayDefinition WaypointDisplay;
         ECkCompassGym_CatalogOutcome LastOutcome = ECkCompassGym_CatalogOutcome::Pending;
@@ -196,6 +209,32 @@ namespace ck_compass_catalog_test
         return UCk_EntityScriptGym_Spawn_Runtime_UE::
             TryGet_AllocatedDirectLifetimeDependents(Parent, WorldRoot, Out);
     }
+
+    auto Result(UWorld* World, const FRun& Run, int64 Serial,
+        TArray<FCkCompassGym_SourceRow>& OutRows,
+        TArray<FCkCompassGym_SourceReceipt>& OutRetirees,
+        FString& OutFailure) -> ECkCompassGym_MembershipResult
+    {
+        return UCkCompassGym_SourceMembership::Get_Result(World,
+            Run.GameState.Get(), Run.SourceRoot, Serial,
+            OutRows, OutRetirees, OutFailure);
+    }
+
+    auto ProjectedExact(const FRun& Run,
+        const TArray<FCkCompassGym_SourceReceipt>& Expected) -> bool
+    {
+        if (Run.Dedicated || !Allocated(Run.Compass)) { return false; }
+        const auto Entries = UCk_Utils_Compass_UE::Get_Entries(Run.Compass);
+        if (Entries.Num() != Expected.Num()) { return false; }
+        for (const auto& Receipt : Expected)
+        {
+            int32 Matches = 0;
+            for (const auto& Entry : Entries)
+            { Matches += Entry.Get_Poi() == Receipt.Host ? 1 : 0; }
+            if (Matches != 1) { return false; }
+        }
+        return true;
+    }
 }
 
 CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkCompassGym_SourceCatalog,
@@ -209,6 +248,7 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
     if (!ck::auto_test::net::TryGet_DedicatedServer(Parameters, Dedicated))
     { AddError(TEXT("unsupported Compass catalog topology")); return false; }
     const auto Run = MakeShared<FRun>();
+    Run->Dedicated = Dedicated;
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
         3, TEXT("/Engine/Maps/Entry"), Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 60.0f));
@@ -339,7 +379,34 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
                     Row.Marker.Segments == 12 && Row.Marker.Rings == 12 &&
                     Row.Marker.Lines.Num() == 96);
             }
+            if (!Run->Dedicated)
+            {
+                Run->CompassObserver = UCk_Utils_EntityLifetime_UE::
+                    Request_CreateEntity(Run->WorldRoot);
+                if (!TestTrue(TEXT("listen-server Compass observer is a real world-root sibling"),
+                    Allocated(Run->CompassObserver))) { return; }
+                UCk_Utils_Transform_UE::Add(Run->CompassObserver,
+                    FTransform(FRotator::ZeroRotator, FVector(-800, 0, 100)),
+                    ECk_Replication::DoesNotReplicate);
+                if (!TestTrue(TEXT("listen-server Compass observer has a real Transform"),
+                    Run->CompassObserver.Has<ck::FFragment_Transform>()))
+                { return; }
+                auto Spec = FCk_Compass_Spec(360.0f);
+                Spec.Set_MaxEntries(1024);
+                Run->Compass = UCk_Utils_Compass_UE::Create(
+                    Run->CompassObserver, Spec);
+                TestTrue(TEXT("listen-server Compass created with capacity above full 509 cohort"),
+                    Allocated(Run->Compass) &&
+                    UCk_Utils_Compass_UE::Get_ArcDegrees(Run->Compass) == 360.0f);
+            }
         })));
+    if (!Dedicated)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+            { return ProjectedExact(*Run, Run->Receipts); }),
+            30.0, TEXT("listen-server real Compass projects exactly original nine POIs")));
+    }
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
         {
@@ -549,52 +616,324 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
             if (!TestTrue(TEXT("staged 9+500 proof restored after child removal"),
                 Restored == ECkCompassGym_CatalogOutcome::Complete &&
                 Active.Num() == 9 && Staged.Num() == 500)) { return; }
-            // Fixture membership preparation uses the same FCk_Handle primitive
-            // as Poi::Add. This test does not claim an ordered commit scheduler.
-            for (auto& Receipt : Run->StagedStress)
+            TArray<FCk_Handle> RootBefore, RootAfter;
+            const bool CensusBefore = DirectChildren(Run->SourceRoot,
+                Run->WorldRoot, RootBefore);
+            const auto Untagged = [&]() -> bool
             {
-                if (!TestTrue(TEXT("stress host remains unexposed before admission"),
-                    Allocated(Receipt.Host) &&
-                    !Receipt.Host.Has<ck::FTag_Poi>())) { return; }
-                Receipt.Host.Add<ck::FTag_Poi>();
+                for (const auto& Receipt : Run->StagedStress)
+                {
+                    if (!Allocated(Receipt.Host) ||
+                        Receipt.Host.Has<ck::FTag_Poi>()) { return false; }
+                }
+                return true;
+            };
+            auto Partial = Run->StagedStress;
+            Partial.Pop();
+            Failure.Reset();
+            const bool Malformed = UCkCompassGym_SourceMembership::
+                TryRequest_StressAdmission(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, Partial, 1, Failure);
+            TArray<FCkCompassGym_SourceRow> ResultRows;
+            TArray<FCkCompassGym_SourceReceipt> ResultRetirees;
+            FString ResultFailure;
+            const auto Missing = Result(World, *Run, 1,
+                ResultRows, ResultRetirees, ResultFailure);
+            const bool CensusAfter = DirectChildren(Run->SourceRoot,
+                Run->WorldRoot, RootAfter);
+            TestTrue(TEXT("partial admission rejects without queue record, source tags, or child mutation"),
+                CensusBefore && CensusAfter && RootBefore.Num() == 509 &&
+                RootBefore == RootAfter && !Malformed && !Failure.IsEmpty() &&
+                Missing == ECkCompassGym_MembershipResult::Unavailable &&
+                ResultRows.IsEmpty() && ResultRetirees.IsEmpty() && Untagged());
+
+            Failure.Reset();
+            if (!TestTrue(TEXT("production source queues serial-one stress admission"),
+                UCkCompassGym_SourceMembership::TryRequest_StressAdmission(
+                    World, Run->GameState.Get(), Run->SourceRoot,
+                    Run->Receipts, Run->StagedStress, 1, Failure) &&
+                Failure.IsEmpty())) { return; }
+            ResultRows.AddDefaulted();
+            ResultRetirees.AddDefaulted();
+            const auto Pending = Result(World, *Run, 1,
+                ResultRows, ResultRetirees, ResultFailure);
+            Failure.Reset();
+            const bool Busy = UCkCompassGym_SourceMembership::
+                TryRequest_StressAdmission(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, Run->StagedStress, 2,
+                    Failure);
+            FString ReplayFailure;
+            const bool Replay = UCkCompassGym_SourceMembership::
+                TryRequest_StressAdmission(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, Run->StagedStress, 1,
+                    ReplayFailure);
+            ResultRows.AddDefaulted();
+            ResultRetirees.AddDefaulted();
+            ResultFailure.Reset();
+            const auto Retained = Result(World, *Run, 1,
+                ResultRows, ResultRetirees, ResultFailure);
+            TArray<FCk_Handle> RootAfterBusy;
+            const bool CensusAfterBusy = DirectChildren(Run->SourceRoot,
+                Run->WorldRoot, RootAfterBusy);
+            TestTrue(TEXT("busy and replayed admission preserve serial-one Pending record and unexposed 500"),
+                Pending == ECkCompassGym_MembershipResult::Pending &&
+                Retained == ECkCompassGym_MembershipResult::Pending &&
+                ResultRows.IsEmpty() && ResultRetirees.IsEmpty() &&
+                !Busy && !Failure.IsEmpty() && !Replay &&
+                !ReplayFailure.IsEmpty() && Untagged() &&
+                CensusAfterBusy && RootAfterBusy == RootBefore);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            if (!Run->Dedicated && Run->Receipts.Num() == 9 &&
+                Run->StagedStress.Num() == 500)
+            {
+                auto Combined = Run->Receipts;
+                Combined.Append(Run->StagedStress);
+                Run->AdmissionPartialProjection |=
+                    !ProjectedExact(*Run, Run->Receipts) &&
+                    !ProjectedExact(*Run, Combined);
             }
+            Run->MembershipResult = Result(World, *Run, 1,
+                Run->CommittedRows, Run->CommittedRetirees,
+                Run->MembershipFailure);
+            return Run->MembershipResult != ECkCompassGym_MembershipResult::Pending;
+        }), 30.0, TEXT("ordered source membership admission serial one committed")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("serial-one production commit publishes whole 509 and no retirees"),
+                Run->MembershipResult == ECkCompassGym_MembershipResult::Committed &&
+                Run->CommittedRows.Num() == 509 &&
+                Run->CommittedRetirees.IsEmpty() &&
+                Run->MembershipFailure.IsEmpty())) { return; }
             Run->Receipts.Append(Run->StagedStress);
             Run->StagedStress.Reset();
-            Active.Reset();
-            Staged.Reset();
-            Failure.Reset();
-            const auto ActiveOutcome = ReadTransaction(World, *Run,
-                Run->Receipts, {}, {}, true, Active, Staged, Failure);
-            TestTrue(TEXT("admitted real 500 stress tags yield complete 509 active rows"),
-                ActiveOutcome == ECkCompassGym_CatalogOutcome::Complete &&
-                Active.Num() == 509 && Staged.IsEmpty());
-            Active.AddDefaulted();
-            Failure.Reset();
+            TArray<FCkCompassGym_SourceRow> StrictRows;
+            FString StrictFailure;
             const auto Strict = Read(World, *Run, Run->Receipts,
-                true, Active, Failure);
-            TestTrue(TEXT("legacy strict catalog independently accepts 509 active rows"),
+                true, StrictRows, StrictFailure);
+            bool StableNine = Run->OriginalNine.Num() == 9;
+            for (int32 Index = 0; Index < 9 && StableNine; ++Index)
+            {
+                StableNine = Run->Receipts[Index].CatalogId ==
+                    Run->OriginalNine[Index].CatalogId &&
+                    Run->Receipts[Index].Host == Run->OriginalNine[Index].Host &&
+                    Run->Receipts[Index].Marker == Run->OriginalNine[Index].Marker &&
+                    Run->CommittedRows[Index].CatalogId ==
+                        Run->OriginalNine[Index].CatalogId;
+            }
+            TestTrue(TEXT("strict 509 and original nine identities survive queued admission"),
                 Strict == ECkCompassGym_CatalogOutcome::Complete &&
-                Active.Num() == 509);
+                StrictRows.Num() == 509 && StableNine);
+            FString ReplayFailure;
+            const bool Replay = UCkCompassGym_SourceMembership::
+                TryRequest_StressWithdrawal(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 1, ReplayFailure);
+            TArray<FCkCompassGym_SourceRow> StillCommitted;
+            TArray<FCkCompassGym_SourceReceipt> NoRetirees;
+            FString ResultFailure;
+            const auto ResultOne = Result(World, *Run, 1,
+                StillCommitted, NoRetirees, ResultFailure);
+            TestTrue(TEXT("committed serial-one replay rejects without replacing readable 509 result"),
+                !Replay && !ReplayFailure.IsEmpty() &&
+                ResultOne == ECkCompassGym_MembershipResult::Committed &&
+                StillCommitted.Num() == 509 && NoRetirees.IsEmpty());
         })));
+    if (!Dedicated)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+            {
+                if (Run->Receipts.Num() != 509) { return false; }
+                const bool NewWhole = ProjectedExact(*Run, Run->Receipts);
+                Run->AdmissionPartialProjection |=
+                    !NewWhole && !ProjectedExact(*Run, Run->OriginalNine);
+                return NewWhole;
+            }),
+            30.0, TEXT("listen-server real Compass projects whole 509 POI cohort")));
+    }
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
         {
             if (Run->Receipts.Num() != 509) { return; }
-            const auto StressTag = Tag(TEXT("Poi.Category.Stress"));
-            Run->RetiringStress.Reserve(500);
-            for (int32 Index = 9; Index < 509; ++Index)
+            if (!Run->Dedicated)
             {
-                auto Receipt = Run->Receipts[Index];
-                if (!TestTrue(TEXT("retiring stress host allocated before tag withdrawal"),
-                    Allocated(Receipt.Host) &&
-                    Receipt.Host.Has<ck::FTag_Poi>())) { return; }
-                Receipt.Host.Try_Remove<ck::FTag_Poi>();
-                UCk_Utils_EntityTag_UE::Request_TryRemove_UsingGameplayTag(
-                    Receipt.Host, StressTag, {});
-                Run->RetiringStress.Add(Receipt);
+                TestFalse(TEXT("listen-server admission never projected a partial POI cohort"),
+                    Run->AdmissionPartialProjection);
             }
-            Run->Receipts.SetNum(9);
+            TArray<FCk_Handle> RootBefore, RootAfter;
+            const bool CensusBefore = DirectChildren(Run->SourceRoot,
+                Run->WorldRoot, RootBefore);
+            const auto AllExposed = [&]() -> bool
+            {
+                for (int32 Index = 9; Index < 509; ++Index)
+                {
+                    if (!Allocated(Run->Receipts[Index].Host) ||
+                        !Run->Receipts[Index].Host.Has<ck::FTag_Poi>())
+                    { return false; }
+                }
+                return true;
+            };
+            auto Partial = Run->Receipts;
+            Partial.Pop();
+            FString Failure;
+            const bool Malformed = UCkCompassGym_SourceMembership::
+                TryRequest_StressWithdrawal(World, Run->GameState.Get(),
+                    Run->SourceRoot, Partial, 2, Failure);
+            TArray<FCkCompassGym_SourceRow> PreviousRows;
+            TArray<FCkCompassGym_SourceReceipt> PreviousRetirees;
+            FString PreviousFailure;
+            const auto Previous = Result(World, *Run, 1,
+                PreviousRows, PreviousRetirees, PreviousFailure);
+            const bool CensusAfter = DirectChildren(Run->SourceRoot,
+                Run->WorldRoot, RootAfter);
+            TestTrue(TEXT("partial withdrawal rejects while serial-one committed record and 509 tags remain"),
+                CensusBefore && CensusAfter && RootBefore == RootAfter &&
+                !Malformed && !Failure.IsEmpty() && AllExposed() &&
+                Previous == ECkCompassGym_MembershipResult::Committed &&
+                PreviousRows.Num() == 509 && PreviousRetirees.IsEmpty());
+
+            Failure.Reset();
+            if (!TestTrue(TEXT("production source queues serial-two stress withdrawal"),
+                UCkCompassGym_SourceMembership::TryRequest_StressWithdrawal(
+                    World, Run->GameState.Get(), Run->SourceRoot,
+                    Run->Receipts, 2, Failure) && Failure.IsEmpty()))
+            { return; }
+            TArray<FCkCompassGym_SourceRow> ResultRows;
+            TArray<FCkCompassGym_SourceReceipt> ResultRetirees;
+            FString ResultFailure;
+            const auto Pending = Result(World, *Run, 2,
+                ResultRows, ResultRetirees, ResultFailure);
+            Failure.Reset();
+            const bool Busy = UCkCompassGym_SourceMembership::
+                TryRequest_StressWithdrawal(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 3, Failure);
+            FString ReplayFailure;
+            const bool Replay = UCkCompassGym_SourceMembership::
+                TryRequest_StressWithdrawal(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 2, ReplayFailure);
+            ResultRows.AddDefaulted();
+            ResultRetirees.AddDefaulted();
+            ResultFailure.Reset();
+            const auto Retained = Result(World, *Run, 2,
+                ResultRows, ResultRetirees, ResultFailure);
+            TArray<FCk_Handle> RootAfterBusy;
+            const bool CensusAfterBusy = DirectChildren(Run->SourceRoot,
+                Run->WorldRoot, RootAfterBusy);
+            TestTrue(TEXT("busy and replayed withdrawal preserve serial-two Pending record and 509 tags"),
+                Pending == ECkCompassGym_MembershipResult::Pending &&
+                Retained == ECkCompassGym_MembershipResult::Pending &&
+                ResultRows.IsEmpty() && ResultRetirees.IsEmpty() &&
+                !Busy && !Failure.IsEmpty() && !Replay &&
+                !ReplayFailure.IsEmpty() && AllExposed() &&
+                CensusAfterBusy && RootAfterBusy == RootBefore);
         })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            auto* World = ck::auto_test::net::Get_ServerWorld();
+            if (!IsValid(World)) { return false; }
+            if (!Run->Dedicated && Run->Receipts.Num() == 509)
+            {
+                Run->WithdrawalPartialProjection |=
+                    !ProjectedExact(*Run, Run->Receipts) &&
+                    !ProjectedExact(*Run, Run->OriginalNine);
+            }
+            Run->MembershipResult = Result(World, *Run, 2,
+                Run->CommittedRows, Run->CommittedRetirees,
+                Run->MembershipFailure);
+            return Run->MembershipResult != ECkCompassGym_MembershipResult::Pending;
+        }), 30.0, TEXT("ordered source membership withdrawal serial two committed")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (!TestTrue(TEXT("serial-two production commit returns original nine and exact frozen 500"),
+                Run->MembershipResult == ECkCompassGym_MembershipResult::Committed &&
+                Run->CommittedRows.Num() == 9 &&
+                Run->CommittedRetirees.Num() == 500 &&
+                Run->MembershipFailure.IsEmpty())) { return; }
+            bool SameRetirement = true;
+            for (int32 Index = 0; Index < 500 && SameRetirement; ++Index)
+            {
+                const auto& Frozen = Run->CommittedRetirees[Index];
+                const auto& Prior = Run->Receipts[9 + Index];
+                SameRetirement = Frozen.CatalogId == Prior.CatalogId &&
+                    Frozen.Host == Prior.Host && Frozen.Marker == Prior.Marker &&
+                    Frozen.Timer == Prior.Timer &&
+                    Frozen.ExpectedCategory == Prior.ExpectedCategory &&
+                    !Frozen.Host.Has<ck::FTag_Poi>();
+            }
+            TestTrue(TEXT("frozen retirement receipts preserve all 500 exact identities and remove membership"),
+                SameRetirement);
+            FString ReplayFailure;
+            const bool Replay = UCkCompassGym_SourceMembership::
+                TryRequest_StressWithdrawal(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, 2, ReplayFailure);
+            TArray<FCkCompassGym_SourceRow> StillCommitted;
+            TArray<FCkCompassGym_SourceReceipt> SameFrozen;
+            FString ResultFailure;
+            const auto ResultTwo = Result(World, *Run, 2,
+                StillCommitted, SameFrozen, ResultFailure);
+            TestTrue(TEXT("committed serial-two replay rejects without replacing frozen 9/500 result"),
+                !Replay && !ReplayFailure.IsEmpty() &&
+                ResultTwo == ECkCompassGym_MembershipResult::Committed &&
+                StillCommitted.Num() == 9 && SameFrozen.Num() == 500);
+            Run->RetiringStress = Run->CommittedRetirees;
+            Run->Receipts.SetNum(9);
+            bool StableNine = Run->OriginalNine.Num() == 9;
+            for (int32 Index = 0; Index < 9 && StableNine; ++Index)
+            {
+                StableNine = Run->Receipts[Index].CatalogId ==
+                    Run->OriginalNine[Index].CatalogId &&
+                    Run->Receipts[Index].Host == Run->OriginalNine[Index].Host &&
+                    Run->Receipts[Index].Marker == Run->OriginalNine[Index].Marker &&
+                    Run->CommittedRows[Index].CatalogId ==
+                        Run->OriginalNine[Index].CatalogId;
+            }
+            TestTrue(TEXT("original nine POI identities retained through queued withdrawal"),
+                StableNine);
+            const auto StressTag = Tag(TEXT("Poi.Category.Stress"));
+            for (const auto& Receipt : Run->RetiringStress)
+            {
+                auto MutableHost = Receipt.Host;
+                UCk_Utils_EntityTag_UE::Request_TryRemove_UsingGameplayTag(
+                    MutableHost, StressTag, {});
+            }
+            TArray<FCkCompassGym_SourceRow> Active, Staged;
+            FString PhaseFailure;
+            const auto Retiring = ReadTransaction(World, *Run,
+                Run->Receipts, {}, Run->RetiringStress, true,
+                Active, Staged, PhaseFailure);
+            TestTrue(TEXT("ordered withdrawal exposes original nine while frozen 500 remain allocated"),
+                Retiring == ECkCompassGym_CatalogOutcome::Complete &&
+                Active.Num() == 9 && Staged.IsEmpty());
+        })));
+    if (!Dedicated)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+            {
+                if (Run->Receipts.Num() != 9 ||
+                    Run->RetiringStress.Num() != 500) { return false; }
+                auto OldWhole = Run->Receipts;
+                OldWhole.Append(Run->RetiringStress);
+                const bool NewWhole = ProjectedExact(*Run, Run->Receipts);
+                Run->WithdrawalPartialProjection |=
+                    !NewWhole && !ProjectedExact(*Run, OldWhole);
+                return NewWhole;
+            }),
+            30.0, TEXT("listen-server real Compass projects original nine after withdrawal")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*)
+            {
+                TestFalse(TEXT("listen-server withdrawal never projected a partial POI cohort"),
+                    Run->WithdrawalPartialProjection);
+            })));
+    }
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
         {
@@ -625,7 +964,7 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
                 Retiring == ECkCompassGym_CatalogOutcome::Complete &&
                 Active.Num() == 9 && Staged.IsEmpty());
             for (auto& Receipt : Run->RetiringStress)
-            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Receipt.Host); }
+            { auto MutableHost = Receipt.Host; UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(MutableHost); }
             Active.AddDefaulted();
             Staged.AddDefaulted();
             Failure.Reset();
@@ -680,6 +1019,101 @@ bool FCkCompassGym_SourceCatalog::RunTest(const FString& Parameters)
             Run->StagedStress.Reset();
             Run->PhaseActiveRows.Reset();
             Run->PhaseStagedRows.Reset();
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            // Re-stage real hosts after the first 500 have physically gone.
+            // A malformed base-nine request would otherwise be rejected by
+            // the frozen-retirement busy check or missing staged receipts,
+            // without exercising the retained identity check.
+            if (!TestTrue(TEXT("base-nine provenance probe starts after exact stress retirement"),
+                Run->Receipts.Num() == 9 && Run->RetiringStress.IsEmpty() &&
+                Run->StagedStress.IsEmpty())) { return; }
+            if (!TestTrue(TEXT("second real 500-host stress stage composed"),
+                StageStress(*Run)))
+            {
+                for (const auto& Receipt : Run->StagedStress)
+                {
+                    if (Allocated(Receipt.Host))
+                    { auto MutableHost = Receipt.Host; UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(MutableHost); }
+                }
+                return;
+            }
+            TArray<FCk_Handle> Before, After;
+            const bool BeforeCensus = DirectChildren(
+                Run->SourceRoot, Run->WorldRoot, Before);
+            // Deliberately corrupt only the private retained weak authority
+            // for one synchronous request, then restore the entire record.
+            // This does not replace the world's real GameState or tick a
+            // processor while the fault exists.
+            auto MutableRoot = Run->SourceRoot;
+            auto Saved = MutableRoot.Get<ck::FFragment_CompassGym_SourceMembership>();
+            MutableRoot.Get<ck::FFragment_CompassGym_SourceMembership>()
+                .GameState.Reset();
+            FString ForeignFailure;
+            const bool ForeignAccepted = UCkCompassGym_SourceMembership::
+                TryRequest_StressAdmission(World, Run->GameState.Get(),
+                    Run->SourceRoot, Run->Receipts, Run->StagedStress,
+                    3, ForeignFailure);
+            MutableRoot.Get<ck::FFragment_CompassGym_SourceMembership>() =
+                MoveTemp(Saved);
+            TestTrue(TEXT("mismatched retained weak GameState rejects without replacing record"),
+                !ForeignAccepted && !ForeignFailure.IsEmpty());
+            auto ChangedBase = Run->Receipts;
+            ChangedBase[0].CatalogId = 900001;
+            FString Failure;
+            const bool Accepted = UCkCompassGym_SourceMembership::
+                TryRequest_StressAdmission(World, Run->GameState.Get(),
+                    Run->SourceRoot, ChangedBase, Run->StagedStress, 3, Failure);
+            TArray<FCkCompassGym_SourceRow> OldRows, NewRows;
+            TArray<FCkCompassGym_SourceReceipt> OldFrozen, NewFrozen;
+            FString OldFailure, NewFailure;
+            const auto Old = Result(World, *Run, 2,
+                OldRows, OldFrozen, OldFailure);
+            const auto New = Result(World, *Run, 3,
+                NewRows, NewFrozen, NewFailure);
+            const bool AfterCensus = DirectChildren(
+                Run->SourceRoot, Run->WorldRoot, After);
+            bool Untagged = true;
+            for (const auto& Receipt : Run->StagedStress)
+            {
+                if (!Allocated(Receipt.Host) || Receipt.Host.Has<ck::FTag_Poi>())
+                { Untagged = false; break; }
+            }
+            TestTrue(TEXT("changed base-nine ID rejects before queue and preserves serial-two result and source"),
+                BeforeCensus && AfterCensus && Before == After &&
+                Before.Num() == 509 && !Accepted && !Failure.IsEmpty() &&
+                Untagged && Old == ECkCompassGym_MembershipResult::Committed &&
+                OldRows.Num() == 9 && OldFrozen.Num() == 500 &&
+                New == ECkCompassGym_MembershipResult::Unavailable &&
+                NewRows.IsEmpty() && NewFrozen.IsEmpty());
+            for (const auto& Receipt : Run->StagedStress)
+            {
+                if (Allocated(Receipt.Host))
+                { auto MutableHost = Receipt.Host; UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(MutableHost); }
+            }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Run]() -> bool
+        {
+            if (Run->StagedStress.IsEmpty()) { return true; }
+            for (const auto& Receipt : Run->StagedStress)
+            { if (Allocated(Receipt.Host)) { return false; } }
+            return true;
+        }), 60.0, TEXT("base-nine provenance probe hosts physically deallocated")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
+        {
+            if (Run->StagedStress.IsEmpty()) { return; }
+            TArray<FCkCompassGym_SourceRow> Rows;
+            FString Failure;
+            const auto Outcome = Read(World, *Run, Run->Receipts,
+                true, Rows, Failure);
+            TestTrue(TEXT("strict original-nine source restored after provenance probe cleanup"),
+                Outcome == ECkCompassGym_CatalogOutcome::Complete &&
+                Rows.Num() == 9);
+            Run->StagedStress.Reset();
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World)
