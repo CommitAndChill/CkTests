@@ -28,6 +28,7 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("CkSlateLayout");
         PrivateDependencyModuleNames.Add("AppFramework"); // Exercise native color-picker behavior through authored controls.
         PrivateDependencyModuleNames.Add("ImageCore");
+        PrivateDependencyModuleNames.Add("CkRuntimeMesh");
 
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.css"), StagedFileType.NonUFS);
