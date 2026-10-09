@@ -27,6 +27,7 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Styling/CoreStyle.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
@@ -156,6 +157,15 @@ namespace ck_power_wheel_pie
         for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
         { if (auto Found = Find(Children->GetChildAt(Index), Tag)) { return Found; } }
         return {};
+    }
+
+    auto FindTagged(const TSharedRef<SWidget>& Root, FName Tag) -> TSharedPtr<SWidget>
+    {
+        if (Root->GetTag() == Tag) { return Root; }
+        const FChildren* Children = Root->GetChildren();
+        for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
+        { if (const auto Found = FindTagged(ConstCastSharedRef<SWidget>(Children->GetChildAt(Index)), Tag); Found.IsValid()) { return Found; } }
+        return nullptr;
     }
 
     auto Native(UCk_PowerWheelProof_UE* Wheel) -> TSharedPtr<SCkUiRadialSelector>
@@ -386,6 +396,25 @@ bool FCk_PowerWheelProof_PIE::RunTest(const FString&)
             State->HeldNative = Native(Wheel);
             TestTrue(TEXT("native wheel owns local-user focus after CommonUI activation"),
                 FSlateApplication::Get().GetUserFocusedWidget(Wheel->Get_SlateUserIndex()) == State->HeldNative);
+            const TSharedRef<SWidget> RegionRoot = State->HeldView->GetRegion(TEXT("main"));
+            const auto Ui = NativeText(RegionRoot, FName{TEXT("power-description")});
+            const auto Display = NativeText(RegionRoot, FName{TEXT("power-name")});
+            const auto DefaultFont = FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 12).GetCompositeFont();
+            TestTrue(TEXT("Power wheel body and power name use two admitted named fonts"),
+                Ui.IsValid() && Display.IsValid()
+                    && Ui->GetFont().GetCompositeFont() != DefaultFont
+                    && Display->GetFont().GetCompositeFont() != DefaultFont
+                    && Ui->GetFont().GetCompositeFont() != Display->GetFont().GetCompositeFont());
+            bool HasAllHints = true;
+            for (const TCHAR* Id : {TEXT("input-label-1"), TEXT("input-label-2"), TEXT("input-label-3"),
+                TEXT("center-click-key"), TEXT("center-enter-key")})
+            {
+                const auto Hint = FindTagged(RegionRoot, FName{Id});
+                HasAllHints &= Hint.IsValid() && !Hint->SupportsKeyboardFocus();
+            }
+            TestTrue(TEXT("Power wheel mounts five passive shared native key hints"), HasAllHints);
+            TestTrue(TEXT("Power wheel mounts its bound full-frame backdrop"),
+                FindTagged(RegionRoot, FName{TEXT("replica-backdrop")}).IsValid());
             struct FViewportCase { const TCHAR* Name; FIntPoint Size; };
             const FViewportCase Viewports[] = {
                 {TEXT("initial-1280x720"), FIntPoint{1280, 720}},
@@ -394,6 +423,11 @@ bool FCk_PowerWheelProof_PIE::RunTest(const FString&)
             for (const FViewportCase& Case : Viewports)
             { TestTrue(*FString::Printf(TEXT("native %s capture"), Case.Name),
                 Capture(World, *State, Case.Name, Case.Size)); }
+            const auto Backdrop = FindTagged(RegionRoot, FName{TEXT("replica-backdrop")});
+            TestTrue(TEXT("power wheel backdrop occupies its full authored frame"),
+                Backdrop.IsValid()
+                    && Backdrop->GetCachedGeometry().GetLocalSize().X >= 1919.0
+                    && Backdrop->GetCachedGeometry().GetLocalSize().Y >= 1079.0);
             for (const TCHAR* Power : {TEXT("shepard-warp"), TEXT("garrus-overload"), TEXT("liara-warp")})
             {
                 TestTrue(*FString::Printf(TEXT("real hover selects %s"), Power), Hover(Wheel, FName{Power}));
