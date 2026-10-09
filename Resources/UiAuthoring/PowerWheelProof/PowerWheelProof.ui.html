@@ -1,7 +1,10 @@
 <ui version="1">
  <region name="main">
-  <column id="wheel-region">
-   <column id="wheel-layout" class="wheel-layout">
+  <overlay id="wheel-root">
+   <image id="replica-backdrop" bind="ReplicaBackdrop" class="replica-backdrop" />
+   <column id="scene-dim" class="scene-dim" />
+   <column id="wheel-region">
+    <column id="wheel-layout" class="wheel-layout">
     <column class="target-row" id="target-row-1">
      <text id="target-state" bind="TargetState" class="target-state" />
      <column class="target-bars" id="target-bars-1">
@@ -49,7 +52,12 @@
          <column class="grow" id="grow-2" />
          <replica-art id="target-reticle" piece="me-reticle" class="reticle" />
          <text id="power-name" bind="PowerName" class="power-name" />
-         <text class="center-hint" id="center-hint-1">CLICK / ENTER TO QUEUE</text>
+         <row id="center-hint-1" class="center-hint">
+          <key-hint id="center-click-key" label="CLICK" font-family="me-ui" class="center-key center-click-key" />
+          <text id="center-hint-separator" class="center-hint-copy">/</text>
+          <key-hint id="center-enter-key" label="ENTER" font-family="me-ui" class="center-key center-enter-key" />
+          <text id="center-hint-action" class="center-hint-copy">TO QUEUE</text>
+         </row>
          <column class="grow" id="grow-3" />
         </column>
        </slot>
@@ -57,11 +65,11 @@
      </column>
      <column class="instruction-column" id="instruction-column-1">
       <column class="grow" id="grow-4" />
-      <text class="input-label" id="input-label-1">RELEASE SHIFT</text>
-      <text class="input-help" id="input-help-1">Deploy queued powers</text>
-      <text class="input-label" id="input-label-2">ESC</text>
+      <key-hint id="input-label-1" label="SHIFT" font-family="me-ui" class="input-label input-shift" />
+      <text class="input-help" id="input-help-1">Release to deploy queued powers</text>
+      <key-hint id="input-label-2" label="ESC" font-family="me-ui" class="input-label input-escape" />
       <text class="input-help" id="input-help-2">Cancel selection</text>
-      <text class="input-label" id="input-label-3">2</text>
+      <key-hint id="input-label-3" label="2" font-family="me-ui" class="input-label input-number" />
       <text class="input-help" id="input-help-3">Toggle target protection</text>
       <column class="instruction-bottom" id="instruction-bottom-1" />
      </column>
@@ -73,7 +81,8 @@
      <text id="queue-shepard" bind="QueueShepard" class="queue-shepard" />
     </column>
     <text id="status-text" bind="StatusText" class="status-text" />
+    </column>
    </column>
-  </column>
+  </overlay>
  </region>
 </ui>

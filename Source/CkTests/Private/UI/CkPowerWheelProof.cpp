@@ -1,6 +1,8 @@
 #include "CkTests/UI/CkPowerWheelProof.h"
 #include "UI/CkPowerWheelProofModel.h"
 #include "UI/CkCombatHudReplicaArt.h"
+#include "UI/CkUiReplicaPresentation.h"
+#include "CkSlateLayout/CkUiKeyHint.h"
 
 #include "CkSlateLayout/CkUiRadialSelector.h"
 #include "CkSlateLayout/CkUiCollection.h"
@@ -244,6 +246,8 @@ auto UCk_PowerWheelProof_UE::DoPrepare() -> bool
     if (NOT Radial.Succeeded) { _SourceError = FString::Join(Radial.Errors, TEXT("\n")); return false; }
     const auto Art = FCkCombatHudReplicaArt::Register(Registry);
     if (NOT Art.Succeeded) { _SourceError = FString::Join(Art.Errors, TEXT("\n")); return false; }
+    const auto Hints = RegisterKeyHintUiControl(Registry);
+    if (!Hints.Succeeded) { _SourceError = FString::Join(Hints.Errors, TEXT("\n")); return false; }
     _Registry = Registry.CreateSnapshot();
     const auto Created = FCkUiCollection::TryCreate({
         {TEXT("actor"), ECkUiFieldKind::Text}, {TEXT("glyph"), ECkUiFieldKind::Text},
@@ -295,7 +299,10 @@ auto UCk_PowerWheelProof_UE::DoPrepare() -> bool
             TAttribute<const FSlateBrush*>::CreateLambda([Weak, Index]()
             { return Weak.IsValid() && Weak->_Portraits.IsValidIndex(Index) ? Weak->_Portraits[Index].Get() : nullptr; }));
     }
-    _View = FCkUiView::Create({}, {}, {}, FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 20), MoveTemp(Data), _Registry);
+    TSharedPtr<const FCkUiFontRegistrySnapshot> Fonts;
+    if (!ck_ui_replica_presentation::TryLoad(TEXT("MassEffect"), Data, Fonts, _SourceError))
+    { return false; }
+    _View = FCkUiView::Create({}, {}, {}, FCoreStyle::GetDefaultFontStyle(TEXT("Regular"), 20), MoveTemp(Data), _Registry, Fonts);
     _View->GetRegion(TEXT("main"));
     _LastMarkup.Reset();
     _LastStyle.Reset();

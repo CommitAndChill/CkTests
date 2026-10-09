@@ -1,38 +1,47 @@
+.replica-backdrop { width: 1920px; height: 1080px; }
+.scene-dim { width: 1920px; height: 1080px; background-color: #00000055; }
 .wheel-layout { width: 1920px; height: 1080px; }
 .grow { flex-grow: 1; }
 .target-row { width: 1920px; height: 106px; padding: 24px 600px 0px; }
-.target-state { height: 36px; font-size: 20; color: #BCEFFF; horizontal-align: center; text-wrap: nowrap; }
+.target-state { font-family: me-ui; height: 36px; font-size: 24; color: #E4F8FF; horizontal-align: center; text-wrap: nowrap; }
 .target-bars { width: 500px; height: 13px; horizontal-align: center; gap: 3px; }
 .target-shield { width: 500px; height: 5px; background-color: #65C8EC; }
 .target-armor { width: 500px; height: 5px; background-color: #C68F64; }
 .wheel-row { width: 1920px; height: 808px; }
 .description-column { width: 560px; height: 808px; padding: 0px 32px 0px 112px; }
-.actor-name { height: 34px; font-size: 18; color: #D5F6FF; text-wrap: nowrap; }
-.power-description { width: 416px; height: 124px; font-size: 23; color: #80E9FF; text-wrap: wrap; }
-.power-state { width: 416px; height: 68px; font-size: 17; color: #DAF5FF; text-wrap: wrap; }
+.actor-name { font-family: me-ui; height: 34px; font-size: 20; color: #E5F8FF; text-wrap: nowrap; }
+.power-description { font-family: me-ui; width: 416px; height: 124px; font-size: 25; color: #9FEAFF; text-wrap: wrap; }
+.power-state { font-family: me-ui; width: 416px; height: 68px; font-size: 18; color: #E0F3FA; text-wrap: wrap; }
 .description-bottom { height: 112px; }
 .wheel-column { width: 800px; height: 808px; }
 .squad-row { width: 800px; height: 88px; padding: 0px 6px; }
 .squad-member { width: 350px; height: 86px; }
 .squad-gap { flex-grow: 1; }
 .portrait-row { width: 350px; height: 76px; gap: 12px; }
-.portrait-frame { width: 70px; height: 70px; padding: 2px; background-color: #09232B; border-color: #64D4F1; border-width: 1px; border-radius: 9px; }
+.portrait-frame { width: 70px; height: 70px; padding: 2px; background-color: #09232BCF; border-color: #8CDDF5; border-width: 1px; border-radius: 5px; }
 .portrait { width: 66px; height: 66px; }
 .portrait-label { width: 264px; height: 76px; padding: 6px 0px; }
-.squad-name { height: 30px; font-size: 18; color: #BAEDFA; text-wrap: nowrap; }
-.queue-label { height: 40px; font-size: 15; color: #F1D385; text-wrap: wrap; }
-.power-wheel { width: 800px; height: 720px; -ck-radial-tile-size: 56px; -ck-radial-ring: #48BEDB; -ck-radial-selected: #C5F9FF; -ck-radial-queued: #FFCC66; -ck-radial-disabled: #E65B58; }
+.squad-name { font-family: me-ui; height: 30px; font-size: 18; color: #BAEDFA; text-wrap: nowrap; }
+.queue-label { font-family: me-ui; height: 40px; font-size: 15; color: #F1D385; text-wrap: wrap; }
+.power-wheel { width: 800px; height: 720px; -ck-radial-tile-size: 64px; -ck-radial-tile-background: #073851BB; -ck-radial-ring: #59CEE9; -ck-radial-selected: #E3FCFF; -ck-radial-queued: #FFD17A; -ck-radial-disabled: #F06B6B; }
 .wheel-center { width: 360px; height: 640px; horizontal-align: center; }
 .reticle { width: 84px; height: 48px; horizontal-align: center; }
-.power-name { max-width: 360px; height: 96px; font-size: 24; color: #90EDFF; horizontal-align: center; vertical-align: center; text-wrap: wrap; }
-.center-hint { max-width: 360px; height: 28px; font-size: 14; color: #A5DCE8; horizontal-align: center; text-wrap: nowrap; }
+.power-name { font-family: me-display; max-width: 360px; height: 96px; font-size: 30; color: #D8F9FF; horizontal-align: center; vertical-align: center; text-wrap: wrap; }
+.center-hint { width: 360px; height: 30px; gap: 5px; padding: 0px 35px; horizontal-align: center; }
+.center-key { height: 26px; -ck-key-hint-font-size: 15px; -ck-key-hint-foreground: #DDF7FF; -ck-key-hint-background: #092D3DB8; -ck-key-hint-border-color: #7ED1E8; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 3px; -ck-key-hint-padding-x: 7px; -ck-key-hint-padding-y: 2px; }
+.center-click-key { width: 68px; }
+.center-enter-key { width: 74px; }
+.center-hint-copy { font-family: me-ui; height: 26px; font-size: 15; color: #A8DAE8; text-wrap: nowrap; }
 .instruction-column { width: 560px; height: 808px; padding: 0px 112px 0px 96px; }
-.input-label { height: 32px; font-size: 18; color: #CFEEF8; text-wrap: nowrap; }
-.input-help { height: 46px; font-size: 17; color: #73CBE0; text-wrap: wrap; }
+.input-label { height: 32px; -ck-key-hint-font-size: 18px; -ck-key-hint-foreground: #E6F8FF; -ck-key-hint-background: #092D3DB8; -ck-key-hint-border-color: #80CFE8; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 3px; -ck-key-hint-padding-x: 8px; -ck-key-hint-padding-y: 3px; }
+.input-shift { width: 88px; }
+.input-escape { width: 66px; }
+.input-number { width: 38px; }
+.input-help { font-family: me-ui; height: 46px; font-size: 18; color: #9EDDEA; text-wrap: wrap; }
 .instruction-bottom { height: 92px; }
 .shepard-status { width: 1920px; height: 112px; }
 .shield-meter { width: 360px; height: 28px; horizontal-align: center; }
 .health-meter { width: 314px; height: 20px; horizontal-align: center; }
-.shepard-name { height: 30px; font-size: 16; color: #9AEAFF; horizontal-align: center; text-wrap: nowrap; }
-.queue-shepard { height: 34px; font-size: 17; color: #F1D385; horizontal-align: center; text-wrap: nowrap; }
-.status-text { height: 54px; font-size: 16; color: #B6D4DC; horizontal-align: center; text-wrap: nowrap; }
+.shepard-name { font-family: me-ui; height: 30px; font-size: 18; color: #CBF1FC; horizontal-align: center; text-wrap: nowrap; }
+.queue-shepard { font-family: me-ui; height: 34px; font-size: 17; color: #F1D385; horizontal-align: center; text-wrap: nowrap; }
+.status-text { font-family: me-ui; height: 54px; font-size: 18; color: #C9E8EF; horizontal-align: center; text-wrap: nowrap; }
