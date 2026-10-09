@@ -8,6 +8,20 @@
 
 namespace ck
 {
+#if WITH_DEV_AUTOMATION_TESTS
+    struct FCompassGym_SourceProfileCounter
+    {
+        uint64 Calls = 0;
+        double Seconds = 0.0;
+    };
+
+    struct FCompassGym_SourceProfile
+    {
+        FCompassGym_SourceProfileCounter ProcessFrozenStress;
+        FCompassGym_SourceProfileCounter ProveFrozenUnion;
+    };
+#endif
+
     enum class ECompassGym_SourceRequest : uint8 { None, BaseAdmit, Admit, Withdraw };
     enum class ECompassGym_PingRetirement : uint8
     { Marker, WaitMarkerGone, Timer, WaitTimerGone, Host, WaitHostGone };
@@ -45,6 +59,9 @@ namespace ck
         int32 FrozenStressCursor = 0;
         double FrozenStressDeadlineSeconds = 0.0;
         bool FrozenStressRetirementComplete = false;
+#if WITH_DEV_AUTOMATION_TESTS
+        mutable FCompassGym_SourceProfile Profile;
+#endif
     };
 
     class FProcessor_CompassGym_SourceMembership : public ck_exp::TProcessor<

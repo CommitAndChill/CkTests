@@ -20,6 +20,25 @@ CK_REGISTER_PROCESSOR(ck::FProcessor_CompassGym_SourceMembership);
 namespace ck_compass_membership
 {
     constexpr double PendingTimeoutSeconds = 10.0;
+    constexpr double StressRetirementTimeoutSeconds = 60.0;
+
+#if WITH_DEV_AUTOMATION_TESTS
+    struct FScopedSourceProfile
+    {
+        ck::FCompassGym_SourceProfileCounter& Counter;
+        const double Started = FPlatformTime::Seconds();
+
+        explicit FScopedSourceProfile(
+            ck::FCompassGym_SourceProfileCounter& InCounter)
+            : Counter(InCounter) {}
+
+        ~FScopedSourceProfile()
+        {
+            ++Counter.Calls;
+            Counter.Seconds += FPlatformTime::Seconds() - Started;
+        }
+    };
+#endif
 
     bool Live(const FCk_Handle& H)
     {
@@ -473,7 +492,8 @@ namespace ck_compass_membership
         if (State.JournalEnabled)
         {
             State.FrozenStressCursor = 0;
-            State.FrozenStressDeadlineSeconds = FPlatformTime::Seconds() + 30.0;
+            State.FrozenStressDeadlineSeconds = FPlatformTime::Seconds() +
+                ck_compass_membership::StressRetirementTimeoutSeconds;
             State.FrozenStressRetirementComplete = false;
         }
         State.CommittedRows = WithoutPings(Proven9);
@@ -578,6 +598,9 @@ namespace ck_compass_membership
         const ck::FFragment_CompassGym_SourceMembership& State,
         FString& OutFailure)
     {
+#if WITH_DEV_AUTOMATION_TESTS
+        FScopedSourceProfile Profile(State.Profile.ProveFrozenUnion);
+#endif
         OutFailure.Reset();
         if (State.ClosedUnproven ||
             !Preflight(World, GameState, SourceRoot) || !Open(World) ||
@@ -609,6 +632,9 @@ namespace ck_compass_membership
         const FCk_Handle& SourceRoot,
         ck::FFragment_CompassGym_SourceMembership& State)
     {
+#if WITH_DEV_AUTOMATION_TESTS
+        FScopedSourceProfile Profile(State.Profile.ProcessFrozenStress);
+#endif
         constexpr int32 MaxStressLeafMutationsPerBarrier = 8;
         if (State.FrozenRetiring.IsEmpty()) { return; }
         if (State.FrozenRetiring.Num() != 500 ||
@@ -861,7 +887,8 @@ bool UCkCompassGym_SourceMembership::TryInitialize_BaseCohort(
         if (!State.FrozenRetiring.IsEmpty())
         {
             State.FrozenStressCursor = State.FrozenRetiring.Num();
-            State.FrozenStressDeadlineSeconds = FPlatformTime::Seconds() + 30.0;
+            State.FrozenStressDeadlineSeconds = FPlatformTime::Seconds() +
+                ck_compass_membership::StressRetirementTimeoutSeconds;
             State.FrozenStressRetirementComplete = true;
         }
         State.JournalEnabled = true;
