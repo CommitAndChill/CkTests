@@ -61,6 +61,8 @@ class UCk_AutoTest_Camera_OrthoProjection : UCk_AutoTest_Base
     UFUNCTION()
     private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
     {
+        // The helper's WithActor target belongs to the world transient, not this runner.
+        Track_ForCleanup(FCk_Handle(InEntityScriptHandle));
         if (IsFinished()) { return; }
 
         auto Sensor = FCk_CameraProfile_Sensor();

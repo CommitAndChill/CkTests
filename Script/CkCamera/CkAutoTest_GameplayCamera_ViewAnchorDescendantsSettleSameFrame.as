@@ -156,6 +156,8 @@ class UCk_AutoTest_GameplayCamera_ViewAnchorDescendantsSettleSameFrame : UCk_Aut
     UFUNCTION()
     private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
     {
+        // The helper's WithActor target belongs to the world transient, not this runner.
+        Track_ForCleanup(FCk_Handle(InEntityScriptHandle));
         if (IsFinished()) { return; }
 
         auto OwnedEntity = FCk_Handle(InEntityScriptHandle);
