@@ -8,7 +8,7 @@
 
 namespace ck
 {
-    enum class ECompassGym_SourceRequest : uint8 { None, Admit, Withdraw };
+    enum class ECompassGym_SourceRequest : uint8 { None, BaseAdmit, Admit, Withdraw };
     enum class ECompassGym_PingRetirement : uint8
     { Marker, WaitMarkerGone, Timer, WaitTimerGone, Host, WaitHostGone };
 

@@ -20,6 +20,18 @@ class CKTESTS_API UCkCompassGym_SourceMembership : public UBlueprintFunctionLibr
 {
     GENERATED_BODY()
 public:
+    // One-shot authority queue for a complete authored but unexposed Base9.
+    // The ordered barrier proves all nine before exposing any POI tag.
+    // Poll TryGet_CurrentRows for the first complete publication. A retained
+    // CatalogId names immutable canonical row values; a later change to a
+    // surviving row closes source admission instead of silently updating it.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static bool TryRequest_BaseAdmission(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        const TArray<FCkCompassGym_SourceReceipt>& BaseReceipts9,
+        int64 RequestSerial,
+        FString& OutFailureReason);
+
     // Bind the immutable nine-receipt source base after its whole physical
     // proof. Repeating the exact same base is idempotent.
     UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")

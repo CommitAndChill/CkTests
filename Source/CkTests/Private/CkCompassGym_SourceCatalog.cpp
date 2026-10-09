@@ -366,7 +366,7 @@ namespace ck_compass_catalog
 
 static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
-    bool CompositionComplete, bool PhaseAware,
+    bool CompositionComplete, bool PhaseAware, bool UnexposedBase,
     const TArray<FCkCompassGym_SourceReceipt>& Receipts,
     const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
     const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
@@ -386,6 +386,12 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
         OutFailureReason = Why;
         return ECkCompassGym_CatalogOutcome::Invalid;
     };
+    if (UnexposedBase && (PhaseAware || Receipts.Num() != 9 ||
+        !StagedStressReceipts.IsEmpty() ||
+        !FrozenRetiringStressReceipts.IsEmpty() ||
+        !StagedPingReceipts.IsEmpty() ||
+        !FrozenRetiringPingReceipts.IsEmpty()))
+    { return Invalid(TEXT("Unexposed base query requires exactly nine isolated receipts")); }
     if (PhaseAware && (&OutRows == &OutStagedRows ||
         &OutRows == &OutStagedPingRows ||
         &OutStagedRows == &OutStagedPingRows))
@@ -729,7 +735,15 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
         { return Invalid(TEXT("POI receipt, ownership, or feature invalid")); }
         const bool HasPoi = R.Host.Has<ck::FTag_Poi>();
         const bool HasTransform = R.Host.Has<ck::FFragment_Transform>();
-        if (IsStagedPing)
+        if (UnexposedBase)
+        {
+            if (HasPoi || R.Admitted)
+            { return Invalid(TEXT("Unexposed base receipt already published")); }
+            if (!HasTransform && CompositionComplete)
+            { return Invalid(TEXT("Composed unexposed base transform absent")); }
+            if (!HasTransform) { AnyPending = true; }
+        }
+        else if (IsStagedPing)
         {
             if (HasPoi)
             { return Invalid(TEXT("Staged Ping became POI-visible")); }
@@ -876,6 +890,19 @@ static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     return ECkCompassGym_CatalogOutcome::Complete;
 }
 
+ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_UnexposedBase9(
+    UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+    const TArray<FCkCompassGym_SourceReceipt>& BaseReceipts9,
+    TArray<FCkCompassGym_SourceRow>& OutRows, FString& OutFailureReason)
+{
+    const TArray<FCkCompassGym_SourceReceipt> EmptyReceipts;
+    TArray<FCkCompassGym_SourceRow> UnusedStress, UnusedPing;
+    return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
+        true, false, true, BaseReceipts9, EmptyReceipts, EmptyReceipts,
+        EmptyReceipts, EmptyReceipts, OutRows, UnusedStress, UnusedPing,
+        OutFailureReason);
+}
+
 ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
     UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
     bool CompositionComplete, const TArray<FCkCompassGym_SourceReceipt>& Receipts,
@@ -885,7 +912,7 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
     TArray<FCkCompassGym_SourceRow> UnusedStagedRows;
     TArray<FCkCompassGym_SourceRow> UnusedStagedPingRows;
     return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
-        CompositionComplete, false, Receipts, EmptyReceipts, EmptyReceipts,
+        CompositionComplete, false, false, Receipts, EmptyReceipts, EmptyReceipts,
         EmptyReceipts, EmptyReceipts,
         OutRows, UnusedStagedRows, UnusedStagedPingRows,
         OutFailureReason);
@@ -946,7 +973,7 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::
         FString& OutFailureReason)
 {
     return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
-        CompositionComplete, true, ActiveReceipts, StagedStressReceipts,
+        CompositionComplete, true, false, ActiveReceipts, StagedStressReceipts,
         FrozenRetiringStressReceipts, StagedPingReceipts,
         FrozenRetiringPingReceipts, OutActiveRows,
         OutStagedStressRows, OutStagedPingRows, OutFailureReason);
