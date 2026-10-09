@@ -100,4 +100,22 @@ public:
         bool CompositionComplete,
         const TArray<FCkCompassGym_SourceReceipt>& Receipts,
         TArray<FCkCompassGym_SourceRow>& OutRows, FString& OutFailureReason);
+
+    // Read-only transaction observation. StagedStress is empty or exactly
+    // 500 live, unexposed hosts. Complete returns separately proven active
+    // and staged value rows for a later atomic membership commit;
+    // FrozenRetiringStress is empty or the immutable original 500 receipts,
+    // including handles already physically deallocated. The caller bounds
+    // Pending, performs membership mutations elsewhere, and checks its epoch
+    // and closed-world state around this query.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Compass")
+    static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogTransaction(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        bool CompositionComplete,
+        const TArray<FCkCompassGym_SourceReceipt>& ActiveReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+        TArray<FCkCompassGym_SourceRow>& OutActiveRows,
+        TArray<FCkCompassGym_SourceRow>& OutStagedRows,
+        FString& OutFailureReason);
 };

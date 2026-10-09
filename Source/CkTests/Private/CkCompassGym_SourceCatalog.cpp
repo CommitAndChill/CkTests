@@ -58,6 +58,43 @@ namespace ck_compass_catalog
             TryGet_AllocatedDirectLifetimeDependents(Parent, WorldRoot, Out);
     }
 
+    // Reverse lifetime-dependents alone can miss an allocated child whose
+    // current owner points at Parent but whose reverse entry was lost.
+    auto ProveOwnerCensus(const FCk_Handle& SourceRoot,
+        const FCk_Handle& WorldRoot, const TArray<FCk_Handle>& ReverseHosts,
+        const TArray<FCkCompassGym_SourceReceipt>& ActiveReceipts,
+        const TArray<FCk_Handle>& InactiveParents) -> bool
+    {
+        TArray<FCk_Handle> ActualRootChildren;
+        bool InactiveHasChild = false;
+        bool ActiveLineageInvalid = false;
+        const auto Registry = WorldRoot.Get_RegistryView();
+        const auto RegistryHandle = Registry.Get_RegistryHandle();
+        Registry.View<ck::FFragment_LifetimeOwner>().ForEach(
+            [&](FCk_Entity Entity, const ck::FFragment_LifetimeOwner& Owner)
+            {
+                const FCk_Handle Child{Entity, RegistryHandle};
+                if (!Allocated(Child)) { return; }
+                const auto Parent = Owner.Get_Entity();
+                if (Parent == SourceRoot) { ActualRootChildren.AddUnique(Child); }
+                if (InactiveParents.Contains(Parent)) { InactiveHasChild = true; }
+                for (const auto& R : ActiveReceipts)
+                {
+                    if (Parent == R.Host && Child != R.Marker && Child != R.Timer)
+                    { ActiveLineageInvalid = true; }
+                    if ((R.Marker != FCk_Handle{} && Parent == R.Marker) ||
+                        (R.Timer != FCk_Handle{} && Parent == R.Timer))
+                    { ActiveLineageInvalid = true; }
+                }
+            });
+        if (InactiveHasChild || ActiveLineageInvalid ||
+            ActualRootChildren.Num() != ReverseHosts.Num())
+        { return false; }
+        for (const auto& Child : ActualRootChildren)
+        { if (!ReverseHosts.Contains(Child)) { return false; } }
+        return true;
+    }
+
     auto Finite(const FLinearColor& C) -> bool
     {
         return FMath::IsFinite(C.R) && FMath::IsFinite(C.G) &&
@@ -317,18 +354,26 @@ namespace ck_compass_catalog
     }
 }
 
-ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
+static ECkCompassGym_CatalogOutcome TryGet_SourceCatalogInternal(
     UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
-    bool CompositionComplete, const TArray<FCkCompassGym_SourceReceipt>& Receipts,
-    TArray<FCkCompassGym_SourceRow>& OutRows, FString& OutFailureReason)
+    bool CompositionComplete, bool PhaseAware,
+    const TArray<FCkCompassGym_SourceReceipt>& Receipts,
+    const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
+    const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+    TArray<FCkCompassGym_SourceRow>& OutRows,
+    TArray<FCkCompassGym_SourceRow>& OutStagedRows,
+    FString& OutFailureReason)
 {
     using namespace ck_compass_catalog;
     OutRows.Reset();
+    OutStagedRows.Reset();
     OutFailureReason.Reset();
     auto Invalid = [&OutFailureReason](const TCHAR* Why) {
         OutFailureReason = Why;
         return ECkCompassGym_CatalogOutcome::Invalid;
     };
+    if (PhaseAware && &OutRows == &OutStagedRows)
+    { return Invalid(TEXT("Active and staged outputs alias")); }
     if (!IsInGameThread() || !IsValid(World) || !World->IsGameWorld() ||
         World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
         World->IsNetMode(NM_Client) || !IsValid(ExactGameState) ||
@@ -344,8 +389,134 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
     TArray<FCk_Handle> Hosts;
     if (!Children(SourceRoot, WorldRoot, Hosts))
     { return Invalid(TEXT("Source root lifetime census failed")); }
-    if (Hosts.Num() != Receipts.Num())
-    { return Invalid(TEXT("Unclaimed or missing source host")); }
+    bool InactivePending = false;
+    TArray<FCkCompassGym_SourceRow> StagedRows;
+    TArray<FCk_Handle> InactiveParentHandles;
+    if (!PhaseAware)
+    {
+        if (Hosts.Num() != Receipts.Num())
+        { return Invalid(TEXT("Unclaimed or missing source host")); }
+    }
+    else
+    {
+        if ((!StagedStressReceipts.IsEmpty() && StagedStressReceipts.Num() != 500) ||
+            (!FrozenRetiringStressReceipts.IsEmpty() &&
+             FrozenRetiringStressReceipts.Num() != 500) ||
+            (!StagedStressReceipts.IsEmpty() &&
+             !FrozenRetiringStressReceipts.IsEmpty()))
+        { return Invalid(TEXT("Inactive stress ledger must be empty or 500")); }
+        if (!StagedStressReceipts.IsEmpty() || !FrozenRetiringStressReceipts.IsEmpty())
+        {
+            for (const auto& R : Receipts)
+            {
+                if (R.Kind == ECkCompassGym_SourceKind::Stress)
+                { return Invalid(TEXT("Active stress overlaps inactive stress phase")); }
+            }
+        }
+        TArray<int64> AllIds;
+        TArray<FCk_Handle> AllHandles;
+        for (const auto& R : Receipts)
+        {
+            if (R.CatalogId <= 0 || R.Host == FCk_Handle{} ||
+                AllIds.Contains(R.CatalogId) || AllHandles.Contains(R.Host))
+            { return Invalid(TEXT("Active receipt identity invalid")); }
+            AllIds.Add(R.CatalogId);
+            AllHandles.Add(R.Host);
+        }
+        StagedRows.Reserve(StagedStressReceipts.Num());
+        TArray<FCk_Handle> AllocatedRetiring;
+        const auto StressTag = FGameplayTag::RequestGameplayTag(
+            FName(TEXT("Poi.Category.Stress")), false);
+        const auto CategoryRootForStage = FGameplayTag::RequestGameplayTag(
+            FName(TEXT("Poi.Category")), false);
+        const auto DisabledForStage = FGameplayTag::RequestGameplayTag(
+            FName(TEXT("Poi.Disabled")), false);
+        if ((!StagedStressReceipts.IsEmpty() ||
+             !FrozenRetiringStressReceipts.IsEmpty()) &&
+            (!StressTag.IsValid() || !CategoryRootForStage.IsValid() ||
+             !DisabledForStage.IsValid()))
+        { return Invalid(TEXT("Inactive POI tags not registered")); }
+        for (const auto& R : StagedStressReceipts)
+        {
+            if (R.CatalogId <= 0 || R.Kind != ECkCompassGym_SourceKind::Stress ||
+                R.Host == FCk_Handle{} || R.ExpectedCategory != StressTag ||
+                R.Marker != FCk_Handle{} || R.Timer != FCk_Handle{} ||
+                AllIds.Contains(R.CatalogId) || AllHandles.Contains(R.Host) ||
+                !Live(R.Host) || !Direct(R.Host, SourceRoot, WorldRoot) ||
+                !Hosts.Contains(R.Host) || R.Host.Has<ck::FTag_Poi>() ||
+                R.Host.Has<ck::FFragment_Transform_RootComponent>() ||
+                R.Host.Has_Any<ck::FFragment_VisibleRange_Params,
+                    ck::FFragment_VisibleRange, ck::FTag_VisibleRange_Hidden>() ||
+                R.Host.Has_Any<ck::FFragment_PoiDisplayDefinition_Params,
+                    ck::FFragment_PoiDisplayDefinition>())
+            { return Invalid(TEXT("Staged stress receipt or exposure invalid")); }
+            AllIds.Add(R.CatalogId);
+            AllHandles.Add(R.Host);
+            InactiveParentHandles.Add(R.Host);
+            TArray<FCk_Handle> ChildSet;
+            if (!Children(R.Host, WorldRoot, ChildSet) || !ChildSet.IsEmpty())
+            { return Invalid(TEXT("Staged stress host has dependent")); }
+            const bool HasTransform = R.Host.Has<ck::FFragment_Transform>();
+            if (!HasTransform)
+            { return Invalid(TEXT("Composed staged stress transform absent")); }
+            const auto Pose = R.Host.Get<ck::FFragment_Transform>().Get_Transform();
+            if (!Pose.IsValid() || Pose.ContainsNaN() ||
+                !Pose.GetRotation().Equals(FQuat::Identity, 0.0001f) ||
+                !Pose.GetScale3D().Equals(FVector::OneVector, 0.0001f))
+            { return Invalid(TEXT("Staged stress transform invalid")); }
+            const auto Tags = UCk_Utils_EntityTag_UE::Get_AllTagsAsContainer(R.Host);
+            const auto Categories = Tags.Filter(
+                FGameplayTagContainer(CategoryRootForStage));
+            if (Tags.HasTagExact(DisabledForStage) || Categories.Num() > 1 ||
+                (Categories.Num() == 1 && !Categories.HasTagExact(StressTag)) ||
+                (Categories.IsEmpty() && R.Admitted))
+            { return Invalid(TEXT("Staged stress category invalid")); }
+            if (Categories.IsEmpty()) { InactivePending = true; }
+            FCkCompassGym_SourceRow Row;
+            Row.CatalogId = R.CatalogId;
+            Row.Kind = ECkCompassGym_SourceKind::Stress;
+            Row.Category = StressTag;
+            Row.Location = Pose.GetLocation();
+            StagedRows.Add(MoveTemp(Row));
+        }
+        TArray<FCk_Handle> FrozenHosts;
+        FrozenHosts.Reserve(FrozenRetiringStressReceipts.Num());
+        for (const auto& R : FrozenRetiringStressReceipts)
+        {
+            if (R.CatalogId <= 0 || R.Kind != ECkCompassGym_SourceKind::Stress ||
+                R.Host == FCk_Handle{} || R.ExpectedCategory != StressTag ||
+                R.Marker != FCk_Handle{} || R.Timer != FCk_Handle{} ||
+                AllIds.Contains(R.CatalogId) || AllHandles.Contains(R.Host) ||
+                !R.Host.IsRegistryValid() ||
+                R.Host.Get_RegistryView().Get_RegistryHandle() !=
+                    WorldRoot.Get_RegistryView().Get_RegistryHandle())
+            { return Invalid(TEXT("Frozen retiring stress identity invalid")); }
+            AllIds.Add(R.CatalogId);
+            AllHandles.Add(R.Host);
+            InactiveParentHandles.Add(R.Host);
+            FrozenHosts.Add(R.Host);
+            if (!Allocated(R.Host)) { continue; }
+            if (!Direct(R.Host, SourceRoot, WorldRoot) ||
+                !Hosts.Contains(R.Host) || R.Host.Has<ck::FTag_Poi>())
+            { return Invalid(TEXT("Allocated retiring stress host exposed or foreign")); }
+            TArray<FCk_Handle> ChildSet;
+            if (!Children(R.Host, WorldRoot, ChildSet) || !ChildSet.IsEmpty())
+            { return Invalid(TEXT("Retiring stress host has dependent")); }
+            AllocatedRetiring.Add(R.Host);
+        }
+        if (!FrozenHosts.IsEmpty() &&
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::TryProve_FrozenRetirementLedger(
+                FrozenHosts, FrozenHosts, WorldRoot))
+        { return Invalid(TEXT("Frozen retiring stress membership changed")); }
+        if (Hosts.Num() != Receipts.Num() + StagedStressReceipts.Num() +
+                AllocatedRetiring.Num())
+        { return Invalid(TEXT("Source root allocated cohort count mismatch")); }
+        for (const auto& Host : Hosts)
+        {
+            if (!AllHandles.Contains(Host))
+            { return Invalid(TEXT("Unclaimed source root child")); }
+        }
+    }
     TArray<int64> PreflightIds;
     TArray<FCk_Handle> PreflightHosts;
     for (const auto& R : Receipts)
@@ -412,7 +583,10 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
         (PreflightRings != 8 || PreflightWaypoints != 1 ||
          (PreflightStress != 0 && PreflightStress != 500)))
     { return Invalid(TEXT("Complete source kind counts invalid")); }
-    bool AnyPending = !CompositionComplete;
+    if (!ProveOwnerCensus(SourceRoot, WorldRoot, Hosts, Receipts,
+            InactiveParentHandles))
+    { return Invalid(TEXT("Source owner census differs from reverse membership")); }
+    bool AnyPending = !CompositionComplete || InactivePending;
     TArray<FCkCompassGym_SourceRow> Stage;
     Stage.Reserve(Receipts.Num());
     const auto CategoryRoot = FGameplayTag::RequestGameplayTag(
@@ -555,5 +729,39 @@ ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
         return A.CatalogId < B.CatalogId;
     });
     OutRows = MoveTemp(Stage);
+    StagedRows.Sort([](const auto& A, const auto& B) {
+        return A.CatalogId < B.CatalogId;
+    });
+    OutStagedRows = MoveTemp(StagedRows);
     return ECkCompassGym_CatalogOutcome::Complete;
+}
+
+ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::TryGet_SourceCatalog(
+    UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+    bool CompositionComplete, const TArray<FCkCompassGym_SourceReceipt>& Receipts,
+    TArray<FCkCompassGym_SourceRow>& OutRows, FString& OutFailureReason)
+{
+    const TArray<FCkCompassGym_SourceReceipt> EmptyReceipts;
+    TArray<FCkCompassGym_SourceRow> UnusedStagedRows;
+    return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
+        CompositionComplete, false, Receipts, EmptyReceipts, EmptyReceipts,
+        OutRows, UnusedStagedRows,
+        OutFailureReason);
+}
+
+ECkCompassGym_CatalogOutcome UCkCompassGym_SourceCatalog::
+    TryGet_SourceCatalogTransaction(
+        UWorld* World, AActor* ExactGameState, const FCk_Handle& SourceRoot,
+        bool CompositionComplete,
+        const TArray<FCkCompassGym_SourceReceipt>& ActiveReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& StagedStressReceipts,
+        const TArray<FCkCompassGym_SourceReceipt>& FrozenRetiringStressReceipts,
+        TArray<FCkCompassGym_SourceRow>& OutActiveRows,
+        TArray<FCkCompassGym_SourceRow>& OutStagedRows,
+        FString& OutFailureReason)
+{
+    return TryGet_SourceCatalogInternal(World, ExactGameState, SourceRoot,
+        CompositionComplete, true, ActiveReceipts, StagedStressReceipts,
+        FrozenRetiringStressReceipts, OutActiveRows, OutStagedRows,
+        OutFailureReason);
 }
