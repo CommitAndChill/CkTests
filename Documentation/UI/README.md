@@ -2,6 +2,8 @@
 
 Open **CkTests → CkUI → UI Authoring** in the gym selector. Its info panel offers **[1] Pause**, **[2] Settings**, and **[3] Inventory**. Close an active menu before selecting another shortcut. The project retains the previously approved 30 FPS Editor startup cap.
 
+**UI: Character & Equipment** is the next dark-fantasy proof: ten equipment slots, a six-column inventory, generated item/character art, native keyed drag/drop, rich comparison tooltips and owned custom-control focus. Its [breakdown and verification status](CharacterEquipmentProof/README.md) distinguish fixture behavior from shared pipeline additions.
+
 Combat HUDs have separate selector entries: **UI HUD: Mass Effect 3**, **UI HUD: Battlefield 4**, and **UI HUD: Skyrim**. Each starts a passive code-created UMG HUD with its own art and authored layout. Its info panel exposes keys **1–8** for damage, sprint, fire, reload/replenishment, power/capture/spell, recovery, reset and low health; **9** cycles game-specific context. See the [combat HUD overview](CombatHudProof/README.md) for the current verification status.
 
 **UI: Mass Effect 3 Power Wheel** is a separate squad-command gym. Hold Shift to open, hover or use arrows to select, click or Enter to queue, and release Shift to deploy. Its info panel also offers a latched preview on **1**, target protection on **2**, and fixture reset on **3**. The [power-wheel proof](PowerWheelProof/README.md) records the widget breakdown and verification status.
@@ -12,6 +14,7 @@ The workbench proves code-authored in-game UI through **CkSlateLayout and CkYoga
 
 | Proof | What it exercises | Full breakdown |
 | --- | --- | --- |
+| Tactical spatial inventory | Multi-cell footprints, rotation, cross-container routed drag, occupancy rejection, container case and inspection | [Tactical inventory](TacticalInventoryProof/README.md) |
 | Scripted Mission Board | AngelScript-owned five-kind flat records, keyed repeat actions, pure reorder, removal/reinsertion, completion, atomic failure/reload and teardown | [Mission Board](ScriptedCollectionProof/README.md) |
 | Scripted Pause | Script-created UMG shell, shared source contracts, native buttons, input/pause ownership, retained Settings child and exact terminal admission cleanup | [Scripted Pause](ScriptedPauseProof/README.md); [original native breakdown](PauseMenuProof/README.md) |
 | Settings | Typed editable fixture state, slider, checkbox, select popup, Apply/Cancel, retained reload and close/reopen behavior | [Settings menu](SettingsMenuProof/README.md) |
@@ -37,17 +40,49 @@ The later [scripted Pause gate](ScriptedPauseProof/README.md) passed 15 selected
 
 The later [scripted-font gate](ScriptedFontProof/README.md) passed 15 selected checks in one fresh real-renderer boot, with 27 inspected compatible captures. The same card declares named Regular/Bold/fallback files in AngelScript and selects them in CSS. Failed admission is retryable and failed font-source reload preserves the accepted tree/model; retained text owns its inline faces after session release and GC. Packaged lookup and richer reflected models remain open.
 
-**UI: Scripted Mission Board** is a separate CkUI gym. Its info panel exposes keys 1–6 for reverse, remove, reinsert, reset, reload and invalid-input exercises. The [collection proof](ScriptedCollectionProof/README.md) passed 32 selected checks in the final fresh Editor boot with 33 inspected captures. A reusable reflected flat collection bridge and native pure-order publication fix replace the missing scripting path. Ordinary row buttons still recreate during repeat refresh; image fields, nested reflected models, repeated-item focus and packaged lookup remain open.
+**UI: Scripted Mission Board** is a separate CkUI gym. Its info panel exposes keys 1–6 for reverse, remove, reinsert, reset, reload and invalid-input exercises. The [collection proof](ScriptedCollectionProof/README.md) passed 32 selected checks in the final fresh Editor boot with 33 inspected captures. A reusable reflected flat collection bridge and native pure-order publication fix replace the missing scripting path. Ordinary row buttons still recreate during repeat refresh; nested reflected models, repeated-item focus and packaged lookup remain open. The later Dark Fantasy proof adds retained Image fields to the reflected collection bridge.
+
+## Standing UI authoring rules
+
+The canonical [in-game UI authoring rules](../../../CkFoundation/Source/CkSlateLayout/UI_AUTHORING_RULES.md)
+live with CkFoundation so consuming projects can discover and apply them without CkTests.
+Read them before every UI task. Update reusable lessons there; this README owns gym
+entry points, examples and verification evidence. This heading remains for existing links.
 
 ## Authoring sequence
 
-1. Generate a visual reference and identify reusable art separately. Save the prompts. Derive an explicit layout specification; treat generated text, counts and geometry as illustrative.
-2. Write the widget breakdown: every authored ID, parent, repeat/slot scope, native role, dimensions, bindings, actions and interaction states. Inventory's [design contract](InventoryMenuProof/design-contract.json) is the first complete machine-readable example.
-3. Define typed model state and collection fields independently of the artwork. Reject malformed seeds and invalid actions before publishing; update the model and its collection coherently.
-4. Author hierarchy and bindings in `.ui.html`, then dimensions, typography and supported native visual states in `.ui.css`. Consult [CkSlateLayout authoring](../../../CkFoundation/Source/CkSlateLayout/AUTHORING.md) for the actual grammar.
-5. Compose existing controls first. Add a reusable native registered control when its interaction or measurement needs a new capability; keep game fixture behavior in CkTests. Inventory adds `action-card`, whose required content slot is authored separately.
-6. Run [the source preflight](validate_authoring_contract.py) to catch undefined classes, duplicate scoped IDs and contract identity mismatches. It accepts a single `main` region; it does not replace the framework parser or runtime validation.
-7. Verify the production path with UnrealToolbox: real gym shortcut, native focus/input, state mutation, invalid requests, reload, owner release and teardown. Respect native control timing: search debounces typed changes, and screen focus may settle on a subsequent frame.
-8. Inspect native captures at 1280×720, 1920×1080 and 2560×1440. Use empty, disabled, selected, scrolled and edited states as appropriate. Check text and important values for truncation, then record exact build/gate evidence and remaining limits in the proof README.
+Follow the [framework authoring sequence](../../../CkFoundation/Source/CkSlateLayout/UI_AUTHORING_RULES.md#authoring-sequence).
+For a CkTests proof:
+
+1. Keep fixture behavior, gym registration, shortcuts and info-panel text in CkTests. Store the widget/state breakdown, reference and exact verification receipts with the proof; the [inventory contract](InventoryMenuProof/design-contract.json) is one complete example.
+2. Run [source preflight](validate_authoring_contract.py) against the authored markup, stylesheet and design contract. It checks XML structure, scoped IDs, template signatures/uses, top-level single-class CSS rules and contract identity; it does not validate widget property values or runtime behavior.
+3. Use UnrealToolbox to exercise the real gym entry point and native interactions. Inspect captures at the proof's declared viewport sizes, including state variants. Record exact gates, failures and remaining platform/input/resource limits in the proof README.
 
 The current proofs use in-memory fixtures. They do not yet establish packaged-game execution, physical gamepad behavior, real gameplay persistence, arbitrary large/virtualized inventories, or a complete production visual skin for every native control. Those require focused additions and evidence rather than extrapolating from these screens.
+
+## Mass Effect and Skyrim remake evidence
+
+The revised presentation and current scoped native evidence are collected in the [remake gallery](ReplicaRemakes/README.md). Earlier screenshots and receipts on this page describe their original verification revision.
+
+## Older gym revamp queue
+
+Apply the current framework rules to the existing gyms rather than adding duplicate stations.
+The October 9 reference/native audit identified these remaining slices:
+
+- **Battlefield HUD:** named body/display fonts, detailed minimap art, distinct squad role glyphs,
+  ownership color, translucent contrast layers, and native text-fit checks for combat and context labels.
+  This slice is now verified: [current captures and focused receipt](CombatHudProof/Tactical/README.md).
+- **Inventory menu:** contain all intended card rows, leave fractional-scale wrapping slack, improve
+  item-art proportions, use structured label/value stats and a framed detail view, and replace copied
+  keycaps with `key-hint`. Preserve stable item identity, filtering and rejected-action behavior.
+  This slice is now verified: [current captures and focused receipt](InventoryMenuProof/README.md).
+- **Settings menu:** named typography and shared hints, then reference-led slider fill and dropdown
+  styling with visible keyboard focus. Preserve Apply/Cancel and source-reload behavior.
+  Typography, shared hint, anchored card, amber slider fill and native states are now verified in the
+  [final focused Menu Gate03 and Slider Gate03 receipts](SettingsMenuProof/README.md).
+- **Pause menu:** shared named typography and key hints while preserving the newer scripted pause
+  host's ownership and retained Settings-child behavior. This slice is now verified in the
+  [final focused Menu Gate03 receipt and captures](PauseMenuProof/README.md).
+
+These are separate visual acceptance slices. Historical behavioral receipts do not establish
+that the revamped pixels pass; record a fresh scoped receipt and native captures for each slice.

@@ -1,5 +1,7 @@
 # Battlefield 4 PC Normal Conquest HUD replica contract
 
+**Historical October 4 layout inventory.** The current October 9 source, 71-node anatomy, font roles and verification are in [design-contract.json](design-contract.json), [README](README.md) and [revamp-verification.json](revamp-verification.json). The table and dimensions below describe the earlier revision; keep them as the comparison baseline.
+
 The [Tactical markup](../../../../Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.html) and [stylesheet](../../../../Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.css) replace the old framed, ability-led dashboard with a sparse 1920 × 1080 multiplayer infantry HUD. This is a deterministic CkTests fixture, not a live Battlefield client or a claim of pixel-identical proprietary assets. The [official Battlefield 4 PC manual](https://akamai.cdn.ea.com/eadownloads/u/f/manuals/GAME-BF4/b4-pc-en.pdf#page=14) identifies map, bases, health, fire mode, magazine/total ammunition and grenades as game-screen elements. The [Conquest screenshot reference](https://cdn.mos.cms.futurecdn.net/0e1513788dde3977e866c21723ada121.jpg) informs Normal-mode topology and relative placement. Coordinates below are authored approximations, not extracted source-game measurements.
 
 ## Placement and hierarchy

@@ -6,7 +6,7 @@
     "visual": "https://cdn.shazoo.ru/31253_M1WMOW2NSS_pgw_omega_205_1.jpg",
     "publication": "https://shazoo.ru/2012/11/07/11047/mass-effect-3-omega-dlc-pervye-skrinshoty",
     "controls": "https://eaassets-a.akamaihd.net/eahelp/manuals/mass-effect-3-manuals_Microsoft%20XBOX360.pdf",
-    "scope": "Original ME3 console radial power layout, adapted to Windows mouse/keyboard. Recreated geometry/glyphs and substituted typeface; deterministic mixed-class Shepard powers for authoring coverage."
+    "scope": "Original ME3 console radial power layout, adapted to Windows mouse/keyboard. Bound cinematic backdrop, native radial geometry/glyphs and registered typefaces; deterministic mixed-class Shepard powers for authoring coverage."
   },
   "referenceViewport": [
     1920,
@@ -105,7 +105,10 @@
     "selectionBinding": "Selection",
     "selectionEvent": "SelectPower",
     "queueEvent": "QueuePower",
-    "deployment": "Release revalidates the entire queue before returning any commands; no gameplay callbacks in this deterministic fixture"
+    "deployment": "Release revalidates the entire queue before returning any commands; no gameplay callbacks in this deterministic fixture",
+    "imageBindings": [
+      "ReplicaBackdrop"
+    ]
   },
   "ownership": {
     "pause": "Acquire only if world unpaused; release only owned pause",
@@ -113,12 +116,76 @@
     "reload": "Typed parse and source topology validation before retained reload; rejection keeps accepted view and queue",
     "resources": "Loose HTML/CSS staged NonUFS; shared portraits are already staged; no Widget Blueprint"
   },
-  "nodeCount": 53,
+  "nodeCount": 60,
   "nodes": [
+    {
+      "id": "wheel-root",
+      "tag": "overlay",
+      "parentId": null,
+      "scope": "main-region",
+      "classes": [],
+      "computedStyle": {},
+      "attributes": {
+        "id": "wheel-root"
+      },
+      "text": "",
+      "bindings": {},
+      "sizingPolicy": "no explicit width/height; parent flow and content determine bounds",
+      "role": "Backdrop and retained wheel composition",
+      "nativeWidget": "Yoga-backed Slate overlay"
+    },
+    {
+      "id": "replica-backdrop",
+      "tag": "image",
+      "parentId": "wheel-root",
+      "scope": "main-region",
+      "classes": [
+        "replica-backdrop"
+      ],
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      },
+      "attributes": {
+        "id": "replica-backdrop",
+        "bind": "ReplicaBackdrop",
+        "class": "replica-backdrop"
+      },
+      "text": "",
+      "bindings": {
+        "bind": "ReplicaBackdrop"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Bound cinematic scene image",
+      "nativeWidget": "Slate image"
+    },
+    {
+      "id": "scene-dim",
+      "tag": "column",
+      "parentId": "wheel-root",
+      "scope": "main-region",
+      "attributes": {
+        "id": "scene-dim",
+        "class": "scene-dim"
+      },
+      "text": "",
+      "classes": [
+        "scene-dim"
+      ],
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px",
+        "background-color": "#00000055"
+      },
+      "sizingPolicy": "authored width and height",
+      "nativeWidget": "Yoga-backed Slate column",
+      "bindings": {},
+      "role": "Passive full-frame tint behind wheel controls"
+    },
     {
       "id": "wheel-region",
       "tag": "column",
-      "parentId": null,
+      "parentId": "wheel-root",
       "scope": "main-region",
       "attributes": {
         "id": "wheel-region"
@@ -191,9 +258,10 @@
         "target-state"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "36px",
-        "font-size": "20",
-        "color": "#BCEFFF",
+        "font-size": "24",
+        "color": "#E4F8FF",
         "horizontal-align": "center",
         "text-wrap": "nowrap"
       },
@@ -338,7 +406,7 @@
       "computedStyle": {
         "flex-grow": "1"
       },
-      "sizingPolicy": "flex-grow without explicit width/height",
+      "sizingPolicy": "no explicit width/height; parent flow and content determine bounds",
       "role": "Flexible spacer",
       "nativeWidget": "Yoga-backed Slate column",
       "bindings": {}
@@ -358,9 +426,10 @@
         "actor-name"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "34px",
-        "font-size": "18",
-        "color": "#D5F6FF",
+        "font-size": "20",
+        "color": "#E5F8FF",
         "text-wrap": "nowrap"
       },
       "sizingPolicy": "authored height",
@@ -385,10 +454,11 @@
         "power-description"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "width": "416px",
         "height": "124px",
-        "font-size": "23",
-        "color": "#80E9FF",
+        "font-size": "25",
+        "color": "#9FEAFF",
         "text-wrap": "wrap"
       },
       "sizingPolicy": "authored width and height",
@@ -413,10 +483,11 @@
         "power-state"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "width": "416px",
         "height": "68px",
-        "font-size": "17",
-        "color": "#DAF5FF",
+        "font-size": "18",
+        "color": "#E0F3FA",
         "text-wrap": "wrap"
       },
       "sizingPolicy": "authored width and height",
@@ -554,10 +625,10 @@
         "width": "70px",
         "height": "70px",
         "padding": "2px",
-        "background-color": "#09232B",
-        "border-color": "#64D4F1",
+        "background-color": "#09232BCF",
+        "border-color": "#8CDDF5",
         "border-width": "1px",
-        "border-radius": "9px"
+        "border-radius": "5px"
       },
       "sizingPolicy": "authored width and height",
       "nativeWidget": "Yoga-backed Slate column",
@@ -626,6 +697,7 @@
         "squad-name"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "30px",
         "font-size": "18",
         "color": "#BAEDFA",
@@ -651,6 +723,7 @@
         "queue-label"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "40px",
         "font-size": "15",
         "color": "#F1D385",
@@ -679,7 +752,7 @@
       "computedStyle": {
         "flex-grow": "1"
       },
-      "sizingPolicy": "flex-grow without explicit width/height",
+      "sizingPolicy": "no explicit width/height; parent flow and content determine bounds",
       "role": "Flexible squad separation",
       "nativeWidget": "Yoga-backed Slate column",
       "bindings": {}
@@ -766,6 +839,7 @@
         "squad-name"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "30px",
         "font-size": "18",
         "color": "#BAEDFA",
@@ -791,6 +865,7 @@
         "queue-label"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "40px",
         "font-size": "15",
         "color": "#F1D385",
@@ -820,10 +895,10 @@
         "width": "70px",
         "height": "70px",
         "padding": "2px",
-        "background-color": "#09232B",
-        "border-color": "#64D4F1",
+        "background-color": "#09232BCF",
+        "border-color": "#8CDDF5",
         "border-width": "1px",
-        "border-radius": "9px"
+        "border-radius": "5px"
       },
       "sizingPolicy": "authored width and height",
       "nativeWidget": "Yoga-backed Slate column",
@@ -875,11 +950,12 @@
       "computedStyle": {
         "width": "800px",
         "height": "720px",
-        "-ck-radial-tile-size": "56px",
-        "-ck-radial-ring": "#48BEDB",
-        "-ck-radial-selected": "#C5F9FF",
-        "-ck-radial-queued": "#FFCC66",
-        "-ck-radial-disabled": "#E65B58"
+        "-ck-radial-tile-size": "64px",
+        "-ck-radial-tile-background": "#073851BB",
+        "-ck-radial-ring": "#59CEE9",
+        "-ck-radial-selected": "#E3FCFF",
+        "-ck-radial-queued": "#FFD17A",
+        "-ck-radial-disabled": "#F06B6B"
       },
       "sizingPolicy": "authored width and height",
       "role": "Native radial selection and activation",
@@ -930,7 +1006,7 @@
       "computedStyle": {
         "flex-grow": "1"
       },
-      "sizingPolicy": "flex-grow without explicit width/height",
+      "sizingPolicy": "no explicit width/height; parent flow and content determine bounds",
       "role": "Flexible spacer",
       "nativeWidget": "Yoga-backed Slate column",
       "bindings": {}
@@ -974,15 +1050,16 @@
         "power-name"
       ],
       "computedStyle": {
+        "font-family": "me-display",
         "max-width": "360px",
         "height": "96px",
-        "font-size": "24",
-        "color": "#90EDFF",
+        "font-size": "30",
+        "color": "#D8F9FF",
         "horizontal-align": "center",
         "vertical-align": "center",
         "text-wrap": "wrap"
       },
-      "sizingPolicy": "authored height and max-width; natural text width capped at 360px",
+      "sizingPolicy": "authored height",
       "role": "Bound selected power label",
       "nativeWidget": "Slate text",
       "bindings": {
@@ -991,29 +1068,144 @@
     },
     {
       "id": "center-hint-1",
-      "tag": "text",
+      "tag": "row",
       "parentId": "wheel-center-1",
       "scope": "main-region",
       "attributes": {
-        "class": "center-hint",
-        "id": "center-hint-1"
+        "id": "center-hint-1",
+        "class": "center-hint"
       },
-      "text": "CLICK / ENTER TO QUEUE",
+      "text": "",
       "classes": [
         "center-hint"
       ],
       "computedStyle": {
-        "max-width": "360px",
-        "height": "28px",
-        "font-size": "14",
-        "color": "#A5DCE8",
-        "horizontal-align": "center",
+        "width": "360px",
+        "height": "30px",
+        "gap": "5px",
+        "padding": "0px 35px",
+        "horizontal-align": "center"
+      },
+      "sizingPolicy": "authored width and height",
+      "role": "Composed queue hint with shared key caps",
+      "nativeWidget": "Yoga-backed Slate row",
+      "bindings": {}
+    },
+    {
+      "id": "center-click-key",
+      "tag": "key-hint",
+      "parentId": "center-hint-1",
+      "scope": "main-region",
+      "classes": [
+        "center-key",
+        "center-click-key"
+      ],
+      "computedStyle": {
+        "height": "26px",
+        "-ck-key-hint-font-size": "15px",
+        "-ck-key-hint-foreground": "#DDF7FF",
+        "-ck-key-hint-background": "#092D3DB8",
+        "-ck-key-hint-border-color": "#7ED1E8",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "7px",
+        "-ck-key-hint-padding-y": "2px",
+        "width": "68px"
+      },
+      "attributes": {
+        "id": "center-click-key",
+        "label": "CLICK",
+        "font-family": "me-ui",
+        "class": "center-key center-click-key"
+      },
+      "text": "",
+      "bindings": {},
+      "sizingPolicy": "authored width and height",
+      "role": "Pointer activation hint",
+      "nativeWidget": "retained native key-hint control"
+    },
+    {
+      "id": "center-hint-separator",
+      "tag": "text",
+      "parentId": "center-hint-1",
+      "scope": "main-region",
+      "classes": [
+        "center-hint-copy"
+      ],
+      "computedStyle": {
+        "font-family": "me-ui",
+        "height": "26px",
+        "font-size": "15",
+        "color": "#A8DAE8",
         "text-wrap": "nowrap"
       },
-      "sizingPolicy": "authored height and max-width; natural text width capped at 360px",
-      "role": "Literal queue hint",
-      "nativeWidget": "Slate text",
-      "bindings": {}
+      "attributes": {
+        "id": "center-hint-separator",
+        "class": "center-hint-copy"
+      },
+      "text": "/",
+      "bindings": {},
+      "sizingPolicy": "authored height",
+      "role": "Queue hint separator",
+      "nativeWidget": "Slate text"
+    },
+    {
+      "id": "center-enter-key",
+      "tag": "key-hint",
+      "parentId": "center-hint-1",
+      "scope": "main-region",
+      "classes": [
+        "center-key",
+        "center-enter-key"
+      ],
+      "computedStyle": {
+        "height": "26px",
+        "-ck-key-hint-font-size": "15px",
+        "-ck-key-hint-foreground": "#DDF7FF",
+        "-ck-key-hint-background": "#092D3DB8",
+        "-ck-key-hint-border-color": "#7ED1E8",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "7px",
+        "-ck-key-hint-padding-y": "2px",
+        "width": "74px"
+      },
+      "attributes": {
+        "id": "center-enter-key",
+        "label": "ENTER",
+        "font-family": "me-ui",
+        "class": "center-key center-enter-key"
+      },
+      "text": "",
+      "bindings": {},
+      "sizingPolicy": "authored width and height",
+      "role": "Keyboard activation hint",
+      "nativeWidget": "retained native key-hint control"
+    },
+    {
+      "id": "center-hint-action",
+      "tag": "text",
+      "parentId": "center-hint-1",
+      "scope": "main-region",
+      "classes": [
+        "center-hint-copy"
+      ],
+      "computedStyle": {
+        "font-family": "me-ui",
+        "height": "26px",
+        "font-size": "15",
+        "color": "#A8DAE8",
+        "text-wrap": "nowrap"
+      },
+      "attributes": {
+        "id": "center-hint-action",
+        "class": "center-hint-copy"
+      },
+      "text": "TO QUEUE",
+      "bindings": {},
+      "sizingPolicy": "authored height",
+      "role": "Queue hint explanation",
+      "nativeWidget": "Slate text"
     },
     {
       "id": "grow-3",
@@ -1031,7 +1223,7 @@
       "computedStyle": {
         "flex-grow": "1"
       },
-      "sizingPolicy": "flex-grow without explicit width/height",
+      "sizingPolicy": "no explicit width/height; parent flow and content determine bounds",
       "role": "Flexible spacer",
       "nativeWidget": "Yoga-backed Slate column",
       "bindings": {}
@@ -1075,33 +1267,42 @@
       "computedStyle": {
         "flex-grow": "1"
       },
-      "sizingPolicy": "flex-grow without explicit width/height",
+      "sizingPolicy": "no explicit width/height; parent flow and content determine bounds",
       "role": "Flexible spacer",
       "nativeWidget": "Yoga-backed Slate column",
       "bindings": {}
     },
     {
       "id": "input-label-1",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "instruction-column-1",
       "scope": "main-region",
       "attributes": {
-        "class": "input-label",
-        "id": "input-label-1"
+        "id": "input-label-1",
+        "label": "SHIFT",
+        "font-family": "me-ui",
+        "class": "input-label input-shift"
       },
-      "text": "RELEASE SHIFT",
+      "text": "",
       "classes": [
-        "input-label"
+        "input-label",
+        "input-shift"
       ],
       "computedStyle": {
         "height": "32px",
-        "font-size": "18",
-        "color": "#CFEEF8",
-        "text-wrap": "nowrap"
+        "-ck-key-hint-font-size": "18px",
+        "-ck-key-hint-foreground": "#E6F8FF",
+        "-ck-key-hint-background": "#092D3DB8",
+        "-ck-key-hint-border-color": "#80CFE8",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "8px",
+        "-ck-key-hint-padding-y": "3px",
+        "width": "88px"
       },
-      "sizingPolicy": "authored height",
-      "role": "Literal input key",
-      "nativeWidget": "Slate text",
+      "sizingPolicy": "authored width and height",
+      "role": "Passive input key hint",
+      "nativeWidget": "retained native key-hint control",
       "bindings": {}
     },
     {
@@ -1113,14 +1314,15 @@
         "class": "input-help",
         "id": "input-help-1"
       },
-      "text": "Deploy queued powers",
+      "text": "Release to deploy queued powers",
       "classes": [
         "input-help"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "46px",
-        "font-size": "17",
-        "color": "#73CBE0",
+        "font-size": "18",
+        "color": "#9EDDEA",
         "text-wrap": "wrap"
       },
       "sizingPolicy": "authored height",
@@ -1130,26 +1332,35 @@
     },
     {
       "id": "input-label-2",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "instruction-column-1",
       "scope": "main-region",
       "attributes": {
-        "class": "input-label",
-        "id": "input-label-2"
+        "id": "input-label-2",
+        "label": "ESC",
+        "font-family": "me-ui",
+        "class": "input-label input-escape"
       },
-      "text": "ESC",
+      "text": "",
       "classes": [
-        "input-label"
+        "input-label",
+        "input-escape"
       ],
       "computedStyle": {
         "height": "32px",
-        "font-size": "18",
-        "color": "#CFEEF8",
-        "text-wrap": "nowrap"
+        "-ck-key-hint-font-size": "18px",
+        "-ck-key-hint-foreground": "#E6F8FF",
+        "-ck-key-hint-background": "#092D3DB8",
+        "-ck-key-hint-border-color": "#80CFE8",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "8px",
+        "-ck-key-hint-padding-y": "3px",
+        "width": "66px"
       },
-      "sizingPolicy": "authored height",
-      "role": "Literal input key",
-      "nativeWidget": "Slate text",
+      "sizingPolicy": "authored width and height",
+      "role": "Passive input key hint",
+      "nativeWidget": "retained native key-hint control",
       "bindings": {}
     },
     {
@@ -1166,9 +1377,10 @@
         "input-help"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "46px",
-        "font-size": "17",
-        "color": "#73CBE0",
+        "font-size": "18",
+        "color": "#9EDDEA",
         "text-wrap": "wrap"
       },
       "sizingPolicy": "authored height",
@@ -1178,26 +1390,35 @@
     },
     {
       "id": "input-label-3",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "instruction-column-1",
       "scope": "main-region",
       "attributes": {
-        "class": "input-label",
-        "id": "input-label-3"
+        "id": "input-label-3",
+        "label": "2",
+        "font-family": "me-ui",
+        "class": "input-label input-number"
       },
-      "text": "2",
+      "text": "",
       "classes": [
-        "input-label"
+        "input-label",
+        "input-number"
       ],
       "computedStyle": {
         "height": "32px",
-        "font-size": "18",
-        "color": "#CFEEF8",
-        "text-wrap": "nowrap"
+        "-ck-key-hint-font-size": "18px",
+        "-ck-key-hint-foreground": "#E6F8FF",
+        "-ck-key-hint-background": "#092D3DB8",
+        "-ck-key-hint-border-color": "#80CFE8",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "8px",
+        "-ck-key-hint-padding-y": "3px",
+        "width": "38px"
       },
-      "sizingPolicy": "authored height",
-      "role": "Literal input key",
-      "nativeWidget": "Slate text",
+      "sizingPolicy": "authored width and height",
+      "role": "Passive input key hint",
+      "nativeWidget": "retained native key-hint control",
       "bindings": {}
     },
     {
@@ -1214,9 +1435,10 @@
         "input-help"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "46px",
-        "font-size": "17",
-        "color": "#73CBE0",
+        "font-size": "18",
+        "color": "#9EDDEA",
         "text-wrap": "wrap"
       },
       "sizingPolicy": "authored height",
@@ -1329,9 +1551,10 @@
         "shepard-name"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "30px",
-        "font-size": "16",
-        "color": "#9AEAFF",
+        "font-size": "18",
+        "color": "#CBF1FC",
         "horizontal-align": "center",
         "text-wrap": "nowrap"
       },
@@ -1355,6 +1578,7 @@
         "queue-shepard"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "34px",
         "font-size": "17",
         "color": "#F1D385",
@@ -1383,9 +1607,10 @@
         "status-text"
       ],
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "54px",
-        "font-size": "16",
-        "color": "#B6D4DC",
+        "font-size": "18",
+        "color": "#C9E8EF",
         "horizontal-align": "center",
         "text-wrap": "nowrap"
       },
@@ -1609,7 +1834,8 @@
     "target": "Shield toggle changes target copy, shield-strip visibility and shield-sensitive usability.",
     "sourceReload": "Rejected authored source retains last committed view and queue."
   },
-  "verificationBoundary": "Windows Editor/PIE D3D12 SM6: final focused gate passed 10/10, with eight unedited native captures and visual review at 720p, 1080p and ultrawide. Authored logical geometry/CSS remains source-derived. Real gameplay dispatch, physical gamepad and packaged-game behavior are outside this proof.",
+  "verificationBoundary": "Final remake scoped gate passed 34/34 with 35 fresh native captures across all four remakes; see ../ReplicaRemakes/verification-receipt.json. Original proof receipts remain historical.",
   "styleSemantics": "Each node computedStyle is the merged explicit declaration of its authored CSS class tokens, in source order. It excludes defaults and inherited properties; sizingPolicy identifies absent explicit dimensions.",
-  "verificationReceipt": "verification-receipt.json"
+  "verificationReceipt": "verification-receipt.json",
+  "currentRemakeEvidence": "../ReplicaRemakes/verification-receipt.json"
 }

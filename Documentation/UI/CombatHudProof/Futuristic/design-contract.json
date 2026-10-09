@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "scoped-native-verified",
+  "status": "focused-native-verified",
   "date": "2026-10-04",
   "theme": "Futuristic",
   "gameReference": "Mass Effect 3",
@@ -42,7 +42,7 @@
   "presentation": {
     "topology": "Original PC combat HUD topology: upper-left power quickslots, lower-left ammunition and weapon readout, lower-center curved shield/health and two squad portraits, centered reticle and contextual objective or empty-ammo copy.",
     "visual": "Cyan holographic readouts, red weapon-ammunition accent, compact squad portrait strip and curved native vital arcs.",
-    "runtimeArt": "The only runtime bitmap is squad-portraits.png (1774 × 887, two 887 × 887 UV halves). Other art is native replica-art vector drawing. The generated hud-atlas.png and old reference/capture files are historical, not runtime authorities.",
+    "runtimeArt": "Cinematic scene backdrop and squad-portraits.png are bound images; native replica-art draws HUD glyphs and arcs. Old hud-atlas.png and prior native captures are historical.",
     "fidelityLimit": "Fonts substituted, icons and engraving recreated; no pixel-perfect source-game claim."
   },
   "bindings": {
@@ -64,14 +64,15 @@
       "ShowReload"
     ],
     "image": [
+      "ReplicaBackdrop",
       "SquadOnePortrait",
       "SquadTwoPortrait"
     ]
   },
   "verification": {
     "staticContract": "passed: XML structure, unique IDs, CSS class declarations and schemaVersion 1 node identity",
-    "runtime": "passed: focused CombatHudReplica-Gate-02, 41/41 selected tests, 0 failed/skipped/contaminated, D3D12/SM6",
-    "historicalCaptureNote": "prior native-*.png and native-captures.json belong to retired shared layouts; only replica-native gallery/manifest are current replica evidence",
+    "runtime": "Final remake gate passed 34/34 on Windows D3D11/SM5; see ReplicaRemakes verification receipt and current native gallery.",
+    "historicalCaptureNote": "The replica-native gallery/manifest document the prior revision, not the current backdrop and typography.",
     "notCovered": [
       "physical gamepad input",
       "real gameplay state integration",
@@ -79,13 +80,13 @@
     ],
     "buildLog": "Saved/Logs/CombatHudReplica-Build-03.log",
     "gateLog": "Saved/Logs/CombatHudReplica-Gate-02.log",
-    "scope": "real RHI native replica/compatible UI focused gate and final pixel review at three viewport sizes; not a full repository suite",
+    "scope": "Earlier real RHI replica and compatible UI focused gate; current source requires new native captures and fit review.",
     "replicaGallery": "replica-native-gallery.md",
     "replicaCaptureManifest": "replica-native-captures.json",
     "verificationReceipt": "../replica-verification.md",
     "captureSettings": "capture-only debug/logging settings transient and restored; no persistent project or engine change"
   },
-  "nodeCount": 65,
+  "nodeCount": 66,
   "nodes": [
     {
       "id": "hud-root",
@@ -100,6 +101,23 @@
       "computedStyle": {
         "padding": "0px"
       }
+    },
+    {
+      "id": "replica-backdrop",
+      "tag": "image",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "replica-backdrop"
+      ],
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      },
+      "properties": {
+        "bind": "ReplicaBackdrop"
+      },
+      "nativeWidget": "native Slate image"
     },
     {
       "id": "damage-overlay",
@@ -162,11 +180,11 @@
       "properties": {},
       "computedStyle": {
         "width": "470px",
-        "height": "84px",
+        "height": "78px",
         "gap": "4px",
-        "padding": "0px 0px 12px",
-        "background-color": "#0B294366",
-        "border-radius": "20px"
+        "padding": "0px 0px 9px",
+        "background-color": "#071D2B8A",
+        "border-radius": "12px"
       }
     },
     {
@@ -182,30 +200,38 @@
       "computedStyle": {
         "width": "54px",
         "height": "64px",
-        "background-color": "#35566C66",
-        "border-color": "#6DB9D899",
+        "background-color": "#244A6666",
+        "border-color": "#82C7E9A6",
         "border-width": "1px",
-        "border-radius": "14px"
+        "border-radius": "8px"
       }
     },
     {
       "id": "quickslot-0-key",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "quickslot-0",
       "scope": "main-region",
       "classes": [
         "quickslot-key"
       ],
-      "nativeWidget": "native Slate text",
-      "properties": {},
+      "nativeWidget": "native Slate key-hint",
+      "properties": {
+        "label": "1",
+        "font-family": "me-ui"
+      },
       "computedStyle": {
+        "width": "26px",
         "height": "20px",
         "horizontal-align": "center",
-        "font-size": "18",
-        "color": "#C3EDFF",
-        "text-wrap": "nowrap"
-      },
-      "literalText": "1"
+        "-ck-key-hint-font-size": "16px",
+        "-ck-key-hint-foreground": "#D9F4FF",
+        "-ck-key-hint-background": "#081E2B99",
+        "-ck-key-hint-border-color": "#8BD9E3A6",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "5px",
+        "-ck-key-hint-padding-y": "0px"
+      }
     },
     {
       "id": "quickslot-0-glyph",
@@ -239,30 +265,38 @@
       "computedStyle": {
         "width": "54px",
         "height": "64px",
-        "background-color": "#35566C66",
-        "border-color": "#6DB9D899",
+        "background-color": "#244A6666",
+        "border-color": "#82C7E9A6",
         "border-width": "1px",
-        "border-radius": "14px"
+        "border-radius": "8px"
       }
     },
     {
       "id": "quickslot-1-key",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "quickslot-1",
       "scope": "main-region",
       "classes": [
         "quickslot-key"
       ],
-      "nativeWidget": "native Slate text",
-      "properties": {},
+      "nativeWidget": "native Slate key-hint",
+      "properties": {
+        "label": "2",
+        "font-family": "me-ui"
+      },
       "computedStyle": {
+        "width": "26px",
         "height": "20px",
         "horizontal-align": "center",
-        "font-size": "18",
-        "color": "#C3EDFF",
-        "text-wrap": "nowrap"
-      },
-      "literalText": "2"
+        "-ck-key-hint-font-size": "16px",
+        "-ck-key-hint-foreground": "#D9F4FF",
+        "-ck-key-hint-background": "#081E2B99",
+        "-ck-key-hint-border-color": "#8BD9E3A6",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "5px",
+        "-ck-key-hint-padding-y": "0px"
+      }
     },
     {
       "id": "quickslot-1-glyph",
@@ -296,30 +330,38 @@
       "computedStyle": {
         "width": "54px",
         "height": "64px",
-        "background-color": "#35566C66",
-        "border-color": "#6DB9D899",
+        "background-color": "#244A6666",
+        "border-color": "#82C7E9A6",
         "border-width": "1px",
-        "border-radius": "14px"
+        "border-radius": "8px"
       }
     },
     {
       "id": "quickslot-2-key",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "quickslot-2",
       "scope": "main-region",
       "classes": [
         "quickslot-key"
       ],
-      "nativeWidget": "native Slate text",
-      "properties": {},
+      "nativeWidget": "native Slate key-hint",
+      "properties": {
+        "label": "3",
+        "font-family": "me-ui"
+      },
       "computedStyle": {
+        "width": "26px",
         "height": "20px",
         "horizontal-align": "center",
-        "font-size": "18",
-        "color": "#C3EDFF",
-        "text-wrap": "nowrap"
-      },
-      "literalText": "3"
+        "-ck-key-hint-font-size": "16px",
+        "-ck-key-hint-foreground": "#D9F4FF",
+        "-ck-key-hint-background": "#081E2B99",
+        "-ck-key-hint-border-color": "#8BD9E3A6",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "5px",
+        "-ck-key-hint-padding-y": "0px"
+      }
     },
     {
       "id": "quickslot-2-glyph",
@@ -353,30 +395,38 @@
       "computedStyle": {
         "width": "54px",
         "height": "64px",
-        "background-color": "#35566C66",
-        "border-color": "#6DB9D899",
+        "background-color": "#244A6666",
+        "border-color": "#82C7E9A6",
         "border-width": "1px",
-        "border-radius": "14px"
+        "border-radius": "8px"
       }
     },
     {
       "id": "quickslot-3-key",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "quickslot-3",
       "scope": "main-region",
       "classes": [
         "quickslot-key"
       ],
-      "nativeWidget": "native Slate text",
-      "properties": {},
+      "nativeWidget": "native Slate key-hint",
+      "properties": {
+        "label": "4",
+        "font-family": "me-ui"
+      },
       "computedStyle": {
+        "width": "26px",
         "height": "20px",
         "horizontal-align": "center",
-        "font-size": "18",
-        "color": "#C3EDFF",
-        "text-wrap": "nowrap"
-      },
-      "literalText": "4"
+        "-ck-key-hint-font-size": "16px",
+        "-ck-key-hint-foreground": "#D9F4FF",
+        "-ck-key-hint-background": "#081E2B99",
+        "-ck-key-hint-border-color": "#8BD9E3A6",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "5px",
+        "-ck-key-hint-padding-y": "0px"
+      }
     },
     {
       "id": "quickslot-3-glyph",
@@ -410,30 +460,38 @@
       "computedStyle": {
         "width": "54px",
         "height": "64px",
-        "background-color": "#35566C66",
-        "border-color": "#6DB9D899",
+        "background-color": "#244A6666",
+        "border-color": "#82C7E9A6",
         "border-width": "1px",
-        "border-radius": "14px"
+        "border-radius": "8px"
       }
     },
     {
       "id": "quickslot-4-key",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "quickslot-4",
       "scope": "main-region",
       "classes": [
         "quickslot-key"
       ],
-      "nativeWidget": "native Slate text",
-      "properties": {},
+      "nativeWidget": "native Slate key-hint",
+      "properties": {
+        "label": "5",
+        "font-family": "me-ui"
+      },
       "computedStyle": {
+        "width": "26px",
         "height": "20px",
         "horizontal-align": "center",
-        "font-size": "18",
-        "color": "#C3EDFF",
-        "text-wrap": "nowrap"
-      },
-      "literalText": "5"
+        "-ck-key-hint-font-size": "16px",
+        "-ck-key-hint-foreground": "#D9F4FF",
+        "-ck-key-hint-background": "#081E2B99",
+        "-ck-key-hint-border-color": "#8BD9E3A6",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "5px",
+        "-ck-key-hint-padding-y": "0px"
+      }
     },
     {
       "id": "quickslot-4-glyph",
@@ -467,30 +525,38 @@
       "computedStyle": {
         "width": "54px",
         "height": "64px",
-        "background-color": "#35566C66",
-        "border-color": "#6DB9D899",
+        "background-color": "#244A6666",
+        "border-color": "#82C7E9A6",
         "border-width": "1px",
-        "border-radius": "14px"
+        "border-radius": "8px"
       }
     },
     {
       "id": "quickslot-5-key",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "quickslot-5",
       "scope": "main-region",
       "classes": [
         "quickslot-key"
       ],
-      "nativeWidget": "native Slate text",
-      "properties": {},
+      "nativeWidget": "native Slate key-hint",
+      "properties": {
+        "label": "6",
+        "font-family": "me-ui"
+      },
       "computedStyle": {
+        "width": "26px",
         "height": "20px",
         "horizontal-align": "center",
-        "font-size": "18",
-        "color": "#C3EDFF",
-        "text-wrap": "nowrap"
-      },
-      "literalText": "6"
+        "-ck-key-hint-font-size": "16px",
+        "-ck-key-hint-foreground": "#D9F4FF",
+        "-ck-key-hint-background": "#081E2B99",
+        "-ck-key-hint-border-color": "#8BD9E3A6",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "5px",
+        "-ck-key-hint-padding-y": "0px"
+      }
     },
     {
       "id": "quickslot-5-glyph",
@@ -524,30 +590,38 @@
       "computedStyle": {
         "width": "54px",
         "height": "64px",
-        "background-color": "#35566C66",
-        "border-color": "#6DB9D899",
+        "background-color": "#244A6666",
+        "border-color": "#82C7E9A6",
         "border-width": "1px",
-        "border-radius": "14px"
+        "border-radius": "8px"
       }
     },
     {
       "id": "quickslot-6-key",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "quickslot-6",
       "scope": "main-region",
       "classes": [
         "quickslot-key"
       ],
-      "nativeWidget": "native Slate text",
-      "properties": {},
+      "nativeWidget": "native Slate key-hint",
+      "properties": {
+        "label": "7",
+        "font-family": "me-ui"
+      },
       "computedStyle": {
+        "width": "26px",
         "height": "20px",
         "horizontal-align": "center",
-        "font-size": "18",
-        "color": "#C3EDFF",
-        "text-wrap": "nowrap"
-      },
-      "literalText": "7"
+        "-ck-key-hint-font-size": "16px",
+        "-ck-key-hint-foreground": "#D9F4FF",
+        "-ck-key-hint-background": "#081E2B99",
+        "-ck-key-hint-border-color": "#8BD9E3A6",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "5px",
+        "-ck-key-hint-padding-y": "0px"
+      }
     },
     {
       "id": "quickslot-6-glyph",
@@ -581,30 +655,38 @@
       "computedStyle": {
         "width": "54px",
         "height": "64px",
-        "background-color": "#35566C66",
-        "border-color": "#6DB9D899",
+        "background-color": "#244A6666",
+        "border-color": "#82C7E9A6",
         "border-width": "1px",
-        "border-radius": "14px"
+        "border-radius": "8px"
       }
     },
     {
       "id": "quickslot-7-key",
-      "tag": "text",
+      "tag": "key-hint",
       "parentId": "quickslot-7",
       "scope": "main-region",
       "classes": [
         "quickslot-key"
       ],
-      "nativeWidget": "native Slate text",
-      "properties": {},
+      "nativeWidget": "native Slate key-hint",
+      "properties": {
+        "label": "8",
+        "font-family": "me-ui"
+      },
       "computedStyle": {
+        "width": "26px",
         "height": "20px",
         "horizontal-align": "center",
-        "font-size": "18",
-        "color": "#C3EDFF",
-        "text-wrap": "nowrap"
-      },
-      "literalText": "8"
+        "-ck-key-hint-font-size": "16px",
+        "-ck-key-hint-foreground": "#D9F4FF",
+        "-ck-key-hint-background": "#081E2B99",
+        "-ck-key-hint-border-color": "#8BD9E3A6",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "3px",
+        "-ck-key-hint-padding-x": "5px",
+        "-ck-key-hint-padding-y": "0px"
+      }
     },
     {
       "id": "quickslot-7-glyph",
@@ -653,13 +735,13 @@
       },
       "computedStyle": {
         "width": "440px",
-        "height": "54px",
+        "height": "48px",
         "horizontal-align": "center",
-        "padding": "10px 18px",
+        "padding": "8px 18px",
         "background-color": "#07141ED0",
         "border-color": "#61CEE8",
         "border-width": "1px",
-        "border-radius": "16px"
+        "border-radius": "9px"
       }
     },
     {
@@ -673,10 +755,11 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
+        "font-family": "me-ui",
         "horizontal-align": "center",
         "vertical-align": "center",
         "font-size": "22",
-        "color": "#AADEEE",
+        "color": "#D0F1FC",
         "text-wrap": "nowrap"
       },
       "literalText": "Press (V) to display objectives"
@@ -784,10 +867,11 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
+        "font-family": "me-display",
         "width": "40px",
-        "font-size": "18",
+        "font-size": "20",
         "font-weight": "bold",
-        "color": "#ADE6FC",
+        "color": "#D1F1FF",
         "text-wrap": "nowrap"
       },
       "literalText": "2"
@@ -835,9 +919,10 @@
         "bind": "ReserveText"
       },
       "computedStyle": {
+        "font-family": "me-display",
         "height": "28px",
-        "font-size": "18",
-        "color": "#95C4D8",
+        "font-size": "20",
+        "color": "#B0D8E8",
         "text-wrap": "nowrap"
       }
     },
@@ -854,9 +939,10 @@
         "bind": "AmmoText"
       },
       "computedStyle": {
+        "font-family": "me-display",
         "height": "68px",
-        "font-size": "40",
-        "color": "#A9D7EF",
+        "font-size": "36",
+        "color": "#D5F3FF",
         "text-wrap": "nowrap"
       }
     },
@@ -933,9 +1019,10 @@
         "visible": "ShowReload"
       },
       "computedStyle": {
+        "font-family": "me-ui",
         "height": "28px",
-        "font-size": "18",
-        "color": "#9BDBEF",
+        "font-size": "19",
+        "color": "#F3959A",
         "text-wrap": "nowrap"
       }
     },
@@ -1061,8 +1148,8 @@
         "height": "58px",
         "padding": "2px",
         "border-width": "1px",
-        "border-color": "#71C4EA",
-        "background-color": "#12355ACC"
+        "border-color": "#94DCFA",
+        "background-color": "#0D2C45E8"
       }
     },
     {
@@ -1097,8 +1184,8 @@
         "height": "58px",
         "padding": "2px",
         "border-width": "1px",
-        "border-color": "#71C4EA",
-        "background-color": "#12355ACC"
+        "border-color": "#94DCFA",
+        "background-color": "#0D2C45E8"
       }
     },
     {
@@ -1250,6 +1337,7 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
+        "font-family": "me-ui",
         "horizontal-align": "center",
         "font-size": "18",
         "color": "#D14949",
@@ -1257,5 +1345,6 @@
       },
       "literalText": "NO AMMO"
     }
-  ]
+  ],
+  "currentRemakeEvidence": "../../ReplicaRemakes/verification-receipt.json"
 }

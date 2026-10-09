@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "scoped-native-verified",
+  "status": "focused-native-verified",
   "date": "2026-10-04",
   "theme": "Fantasy",
   "gameReference": "Skyrim",
@@ -41,8 +41,8 @@
   "presentation": {
     "topology": "Vanilla PC topology: top-center compass and conditional target name/health, centered reticle/stealth eye and interaction prompt, and independent magicka-left, health-center, stamina-right bars at the bottom.",
     "visual": "Narrow desaturated compass, pale text, tapered grey-edged blue/red/green vital bars and a small central crosshair.",
-    "runtimeArt": "The compass, engraved bars, stealth eye and damage effect are native replica-art vectors. Arrow count is contextual; there is no persistent weapon or ability panel. Old atlas/reference/capture files remain historical.",
-    "fidelityLimit": "Fonts substituted, icons and engraving recreated; no pixel-perfect source-game claim."
+    "runtimeArt": "A host-bound scenic image paints first; compass, engraved bars, stealth eye and damage effect remain native replica-art vectors. The interaction cue uses a passive shared key-hint.",
+    "fidelityLimit": "Barlow Condensed substitutes for Skyrim type; icons and engraving recreated. New scene and key-hint composition require native comparison."
   },
   "bindings": {
     "number": [
@@ -68,11 +68,13 @@
       "ShowSneak",
       "ShowTarget"
     ],
-    "image": []
+    "image": [
+      "ReplicaBackdrop"
+    ]
   },
   "verification": {
     "staticContract": "passed: XML structure, unique IDs, CSS class declarations and schemaVersion 1 node identity",
-    "runtime": "passed: focused CombatHudReplica-Gate-02, 41/41 selected tests, 0 failed/skipped/contaminated, D3D12/SM6",
+    "runtime": "Final remake gate passed 34/34 on Windows D3D11/SM5; see ReplicaRemakes verification receipt and current native gallery.",
     "historicalCaptureNote": "prior native-*.png and native-captures.json belong to retired shared layouts; only replica-native gallery/manifest are current replica evidence",
     "notCovered": [
       "physical gamepad input",
@@ -81,13 +83,13 @@
     ],
     "buildLog": "Saved/Logs/CombatHudReplica-Build-03.log",
     "gateLog": "Saved/Logs/CombatHudReplica-Gate-02.log",
-    "scope": "real RHI native replica/compatible UI focused gate and final pixel review at three viewport sizes; not a full repository suite",
-    "replicaGallery": "replica-native-gallery.md",
-    "replicaCaptureManifest": "replica-native-captures.json",
+    "scope": "Earlier focused native gate and pixel review predate the backdrop, font and key-hint changes; current source requires fresh native verification.",
+    "replicaGallery": "replica-native-gallery.md (earlier source)",
+    "replicaCaptureManifest": "replica-native-captures.json (earlier source)",
     "verificationReceipt": "../replica-verification.md",
     "captureSettings": "capture-only debug/logging settings transient and restored; no persistent project or engine change"
   },
-  "nodeCount": 38,
+  "nodeCount": 40,
   "nodes": [
     {
       "id": "hud-root",
@@ -101,6 +103,23 @@
       "properties": {},
       "computedStyle": {
         "padding": "0px"
+      }
+    },
+    {
+      "id": "replica-backdrop",
+      "tag": "image",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "replica-backdrop"
+      ],
+      "nativeWidget": "native Slate image",
+      "properties": {
+        "bind": "ReplicaBackdrop"
+      },
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
       }
     },
     {
@@ -213,8 +232,8 @@
       "computedStyle": {
         "height": "28px",
         "vertical-align": "center",
-        "font-family": "sans-serif",
-        "font-size": "18",
+        "font-family": "skyrim-ui",
+        "font-size": "17px",
         "color": "#E7E5DB",
         "text-wrap": "nowrap",
         "horizontal-align": "left"
@@ -235,8 +254,8 @@
       "computedStyle": {
         "height": "28px",
         "vertical-align": "center",
-        "font-family": "sans-serif",
-        "font-size": "18",
+        "font-family": "skyrim-ui",
+        "font-size": "17px",
         "color": "#E7E5DB",
         "text-wrap": "nowrap",
         "horizontal-align": "center"
@@ -257,8 +276,8 @@
       "computedStyle": {
         "height": "28px",
         "vertical-align": "center",
-        "font-family": "sans-serif",
-        "font-size": "18",
+        "font-family": "skyrim-ui",
+        "font-size": "17px",
         "color": "#E7E5DB",
         "text-wrap": "nowrap",
         "horizontal-align": "right"
@@ -332,9 +351,8 @@
       "computedStyle": {
         "height": "24px",
         "horizontal-align": "center",
-        "font-family": "sans-serif",
-        "font-size": "18",
-        "font-weight": "bold",
+        "font-family": "skyrim-display",
+        "font-size": "17px",
         "color": "#F0ECE4",
         "text-wrap": "nowrap"
       }
@@ -577,9 +595,8 @@
       "computedStyle": {
         "height": "28px",
         "horizontal-align": "center",
-        "font-family": "sans-serif",
-        "font-size": "18",
-        "font-weight": "bold",
+        "font-family": "skyrim-ui",
+        "font-size": "17px",
         "color": "#F0ECE4",
         "text-wrap": "nowrap"
       }
@@ -629,9 +646,36 @@
       },
       "computedStyle": {
         "width": "420px",
-        "height": "42px",
+        "height": "36px",
         "gap": "8px",
         "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "interaction-keycap",
+      "tag": "key-hint",
+      "parentId": "interaction-row",
+      "scope": "main-region",
+      "classes": [
+        "interaction-keycap"
+      ],
+      "nativeWidget": "native retained key-hint",
+      "properties": {
+        "label": "E",
+        "font-family": "skyrim-ui"
+      },
+      "computedStyle": {
+        "width": "28px",
+        "height": "28px",
+        "vertical-align": "center",
+        "-ck-key-hint-font-size": "14px",
+        "-ck-key-hint-foreground": "#EEECE6",
+        "-ck-key-hint-background": "#08090980",
+        "-ck-key-hint-border-color": "#B9B8AF",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "0px",
+        "-ck-key-hint-padding-x": "2px",
+        "-ck-key-hint-padding-y": "1px"
       }
     },
     {
@@ -645,15 +689,15 @@
       "nativeWidget": "native Slate text",
       "properties": {},
       "computedStyle": {
-        "width": "116px",
-        "height": "42px",
-        "horizontal-align": "right",
-        "font-family": "sans-serif",
-        "font-size": "20",
+        "width": "42px",
+        "height": "36px",
+        "vertical-align": "center",
+        "font-family": "skyrim-ui",
+        "font-size": "18px",
         "color": "#F0ECE4",
         "text-wrap": "nowrap"
       },
-      "literalText": "[E] Talk"
+      "literalText": "Talk"
     },
     {
       "id": "interaction-target",
@@ -667,9 +711,10 @@
       "properties": {},
       "computedStyle": {
         "width": "250px",
-        "height": "42px",
-        "font-family": "sans-serif",
-        "font-size": "20",
+        "height": "36px",
+        "vertical-align": "center",
+        "font-family": "skyrim-display",
+        "font-size": "18px",
         "color": "#F0ECE4",
         "text-wrap": "nowrap"
       },
@@ -738,8 +783,8 @@
       "computedStyle": {
         "height": "26px",
         "horizontal-align": "right",
-        "font-family": "sans-serif",
-        "font-size": "20",
+        "font-family": "skyrim-display",
+        "font-size": "20px",
         "color": "#F0ECE4",
         "text-wrap": "nowrap"
       }
@@ -757,12 +802,13 @@
       "computedStyle": {
         "height": "24px",
         "horizontal-align": "right",
-        "font-family": "sans-serif",
-        "font-size": "16",
+        "font-family": "skyrim-ui",
+        "font-size": "15px",
         "color": "#F0ECE4",
         "text-wrap": "nowrap"
       },
       "literalText": "Steel Arrow"
     }
-  ]
+  ],
+  "currentRemakeEvidence": "../../ReplicaRemakes/verification-receipt.json"
 }
