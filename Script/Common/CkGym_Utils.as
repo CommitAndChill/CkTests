@@ -341,6 +341,18 @@ namespace CkGym_Common
     Request_SpawnNewStation(
         FCkGym_Station_SpawnParams_Payload InPayload)
     {
+        return Request_SpawnNewStationForOwner(InPayload, ck::TransientEntity(),
+            FCk_Delegate_Request_OnCompleted());
+    }
+
+    FCk_Handle_PendingEntityScript
+    Request_SpawnNewStationForOwner(
+        FCkGym_Station_SpawnParams_Payload InPayload, FCk_Handle InLifetimeOwner,
+        FCk_Delegate_Request_OnCompleted InCompletion)
+    {
+        if (ck::Is_NOT_Valid(InLifetimeOwner))
+        { return FCk_Handle_PendingEntityScript(); }
+
         auto Params = FCk_GymStation_SpawnParams();
         Params.InitialTransform     = InPayload.Transform;
         Params.Width                = double(InPayload.Width);
@@ -356,10 +368,11 @@ namespace CkGym_Common
         Params.ShowDebugOverlays    = InPayload.ShowDebugOverlays;
         Params.StationTags          = InPayload.Tags;
 
-        return utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
+        auto LifetimeOwner = InLifetimeOwner;
+        return UCk_Utils_EntityScript_UE::Request_SpawnEntity(
+            LifetimeOwner,
             UCk_EntityScript_GymStation,
-            FInstancedStruct::Make(Params));
+            FInstancedStruct::Make(Params), InCompletion);
     }
 
 
