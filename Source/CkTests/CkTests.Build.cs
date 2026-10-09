@@ -75,6 +75,16 @@ public class CkTests : CkModuleRules
             RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "DarkFantasyHudProof", "Fonts", Font), StagedFileType.NonUFS);
         }
 
+        foreach (var Resource in new[] { "me-backdrop.png", "skyrim-backdrop.png" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ReplicaPresentation", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Font in new[] { "Rajdhani-Regular.ttf", "Rajdhani-SemiBold.ttf", "Rajdhani-Bold.ttf",
+            "BarlowCondensed-Regular.ttf", "BarlowCondensed-Medium.ttf", "BarlowCondensed-SemiBold.ttf", "OFL_Rajdhani.txt", "OFL_BarlowCondensed.txt" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ReplicaPresentation", "Fonts", Font), StagedFileType.NonUFS);
+        }
+
         PublicDependencyModuleNames.AddRange(new string[]
         {
             "Core",
