@@ -9970,32 +9970,6 @@ class ACk_AutoTest_StateMachine_Create_MakesDistinctChild_Actor : ACk_AutoTestRu
     }
 }
 
-class ACk_AutoTest_StateMachine_DivergenceFirstBranch_Actor : ACk_AutoTestRunner
-{
-    default _TimeoutSeconds = 7.0f;
-    UFUNCTION(BlueprintOverride)
-    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
-    {
-        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_StateMachine_DivergenceFirstBranch");
-        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
-        ResolvedClass = Path.TryLoadClass();
-        return ResolvedClass;
-    }
-}
-
-class ACk_AutoTest_StateMachine_DivergenceFirstBranchTimed_Actor : ACk_AutoTestRunner
-{
-    default _TimeoutSeconds = 7.0f;
-    UFUNCTION(BlueprintOverride)
-    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
-    {
-        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_StateMachine_DivergenceFirstBranchTimed");
-        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
-        ResolvedClass = Path.TryLoadClass();
-        return ResolvedClass;
-    }
-}
-
 class ACk_AutoTest_StateMachine_EventDrivenMultiCondition_Actor : ACk_AutoTestRunner
 {
     default _TimeoutSeconds = 2.0f;
