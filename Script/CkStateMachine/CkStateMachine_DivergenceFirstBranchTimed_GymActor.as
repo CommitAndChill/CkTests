@@ -39,7 +39,7 @@
 // and Pass B contaminating the assertion.
 
 UCLASS(Blueprintable)
-class ACk_SmTest_DivergenceTimed_GymActor : AActor
+class ACk_SmTest_DivergenceTimed_GymActor : ACk_SmTest_GymSourceActor
 {
     default bReplicates = true;
     default bAlwaysRelevant = true;
@@ -156,6 +156,55 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
     UPROPERTY() FCk_Handle PassBEntity;
     UPROPERTY() FCk_Handle_StateMachine PassBSmHandle;
 
+    // 0 is inactive; 1 and 2 bind callbacks to immutable A and B source
+    // configurations. The previous A root remains owned until whole close.
+    private int32 _ActivePass = 0;
+
+    UFUNCTION(BlueprintPure)
+    bool Get_SourceRunFinished() const { return _ActivePass == 3 && !Get_SourceClosed(); }
+
+    int32 Get_ActivePassKindForRoot(FCk_Handle InRoot)
+    {
+        if (Get_SourceClosed() || _ActivePass < 1 || _ActivePass > 2 ||
+            InRoot == FCk_Handle())
+        { return 0; }
+        const bool IsA = _ActivePass == 1 && InRoot == PassAEntity;
+        const bool IsB = _ActivePass == 2 && InRoot == PassBEntity;
+        if (!IsA && !IsB) { return 0; } // old A callbacks are inert in B
+        if (!Get_HasCurrentSourceContext()) { return 0; }
+        auto Roots = Get_SourceRoots();
+        const int32 ExpectedCount = IsA ? 1 : 2;
+        if (Roots.Num() != ExpectedCount ||
+            Get_SourceConstructedCount() != ExpectedCount ||
+            Roots[ExpectedCount - 1] != InRoot)
+        { Request_CloseSource(); return 0; }
+        auto Sm = IsA ? PassASmHandle : PassBSmHandle;
+        // Add may synchronously invoke task callbacks before its typed
+        // return is assigned. A non-default stored receipt must match.
+        auto SmEntity = FCk_Handle(Sm);
+        if (SmEntity != FCk_Handle() &&
+            (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                SmEntity) || ck::Is_NOT_Valid(Sm) || SmEntity != InRoot ||
+                !utils_state_machine::Has(SmEntity)))
+        { Request_CloseSource(); return 0; }
+        return _ActivePass;
+    }
+
+    private bool Get_HasExactPassSource(int32 InPass)
+    {
+        if (_ActivePass != InPass || Get_SourceClosed())
+        { return false; }
+        auto Root = InPass == 1 ? PassAEntity : PassBEntity;
+        if (Get_ActivePassKindForRoot(Root) != InPass) { return false; }
+        auto Sm = InPass == 1 ? PassASmHandle : PassBSmHandle;
+        if (FCk_Handle(Sm) != Root ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Root) ||
+            ck::Is_NOT_Valid(Sm) ||
+            !utils_state_machine::Has(Root))
+        { Request_CloseSource(); return false; }
+        return true;
+    }
+
     // ========================================================================
     // LIFECYCLE
     // ========================================================================
@@ -171,45 +220,47 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
         if (HasAuthority() == false)
         { return; }
 
+        if (!Math::IsFinite(PerPassSettleSeconds) ||
+            PerPassSettleSeconds <= 0.0f)
+        { Request_CloseSource(); return; }
         StartPassA();
     }
 
     UFUNCTION()
     private void StartPassA()
     {
+        if (Get_SourceClosed() || _ActivePass != 0) { return; }
+        _ActivePass = 1;
         AddOrderLeftFirst = true;
         PaymentChoice = ECk_SmTest_DivergenceTimed_PaymentChoice::Left;
         Reset_Counters();
-
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
-        auto Pending = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            SpawnParams);
-        utils_pending_entity_script::Promise_OnConstructed(
-            Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnPassAConstructed"));
-
-        System::SetTimer(this, n"VerifyPassA", PerPassSettleSeconds, false);
+        Request_SourceEntity(n"OnPassAConstructed");
     }
 
     UFUNCTION()
     private void OnPassAConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (System::IsServer() == false)
+        if (Get_SourceClosed() || _ActivePass != 1 ||
+            !TryAccept_SourceEntity(InEntityScriptHandle))
         { return; }
-
         PassAEntity = FCk_Handle(InEntityScriptHandle);
+        if (Get_ActivePassKindForRoot(PassAEntity) != 1) { return; }
         PassAEntity.Set_DebugName(n"PassA");
+        if (Get_ActivePassKindForRoot(PassAEntity) != 1) { return; }
         PassASmHandle = UCk_Utils_StateMachine_UE::Add(
             PassAEntity,
             FCk_StateMachine_Spec(UCk_SmTest_DivergenceTimed_ParentState));
+        if (!Get_HasExactPassSource(1)) { return; }
+        if (!Math::IsFinite(PerPassSettleSeconds) ||
+            PerPassSettleSeconds <= 0.0f)
+        { Request_CloseSource(); return; }
+        System::SetTimer(this, n"VerifyPassA", PerPassSettleSeconds, false);
     }
 
     UFUNCTION()
     private void VerifyPassA()
     {
+        if (!Get_HasExactPassSource(1)) { return; }
         Snap_A_Enter  = Counter_Enter;
         Snap_A_Idle   = Counter_Idle;
         Snap_A_Branch = Counter_Branch;
@@ -223,39 +274,40 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
     UFUNCTION()
     private void StartPassB()
     {
+        if (Get_SourceClosed() || _ActivePass != 1 ||
+            !Get_HasExactPassSource(1))
+        { return; }
+        _ActivePass = 2; // old A callbacks become inert before reset or B creation
         AddOrderLeftFirst = false;
         PaymentChoice = ECk_SmTest_DivergenceTimed_PaymentChoice::Right;
         Reset_Counters();
-
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
-        auto Pending = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            SpawnParams);
-        utils_pending_entity_script::Promise_OnConstructed(
-            Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnPassBConstructed"));
-
-        System::SetTimer(this, n"VerifyPassB", PerPassSettleSeconds, false);
+        Request_SourceEntity(n"OnPassBConstructed");
     }
 
     UFUNCTION()
     private void OnPassBConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (System::IsServer() == false)
+        if (Get_SourceClosed() || _ActivePass != 2 ||
+            !TryAccept_SourceEntity(InEntityScriptHandle))
         { return; }
-
         PassBEntity = FCk_Handle(InEntityScriptHandle);
+        if (Get_ActivePassKindForRoot(PassBEntity) != 2) { return; }
         PassBEntity.Set_DebugName(n"PassB");
+        if (Get_ActivePassKindForRoot(PassBEntity) != 2) { return; }
         PassBSmHandle = UCk_Utils_StateMachine_UE::Add(
             PassBEntity,
             FCk_StateMachine_Spec(UCk_SmTest_DivergenceTimed_ParentState));
+        if (!Get_HasExactPassSource(2)) { return; }
+        if (!Math::IsFinite(PerPassSettleSeconds) ||
+            PerPassSettleSeconds <= 0.0f)
+        { Request_CloseSource(); return; }
+        System::SetTimer(this, n"VerifyPassB", PerPassSettleSeconds, false);
     }
 
     UFUNCTION()
     private void VerifyPassB()
     {
+        if (!Get_HasExactPassSource(2)) { return; }
         Snap_B_Enter  = Counter_Enter;
         Snap_B_Idle   = Counter_Idle;
         Snap_B_Branch = Counter_Branch;
@@ -264,6 +316,7 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
         Snap_B_Finish = Counter_Finish;
 
         UpdateDisplay();
+        if (!Get_SourceClosed()) { _ActivePass = 3; }
     }
 
     // ========================================================================
@@ -294,6 +347,7 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
 
     private void UpdateDisplay()
     {
+        if (!Get_HasExactPassSource(2)) { return; }
         auto OkA = PassA_OK();
         auto OkB = PassB_OK();
         auto AllOk = OkA && OkB;
@@ -314,7 +368,16 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
         ck::Trace(f"[SmDivergenceTimed] {StatusLabel}: {ReportLine}",
             n"SmDivergenceTimed", TraceDuration, TraceColor);
 
-        if (ck::IsValid(StationHandle))
+        FCk_Handle StationContext;
+        if (UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
+                StationHandle, StationContext) &&
+            UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                StationHandle) && ck::IsValid(StationHandle) &&
+            !utils_entity_lifetime::Get_IsPendingDestroy(
+                StationHandle, ECk_EntityLifetime_DestructionPhase::BeginDestroy) &&
+            utils_entity_lifetime::Has_LifetimeOwner(StationHandle) &&
+            utils_entity_lifetime::Get_WorldForEntity(StationHandle) == GetWorld() &&
+            StationHandle.Has_Fragment(FCkGym_Station_TitleAndDescription))
         {
             auto LabelA = OkA ? "OK" : "FAIL";
             auto LabelB = OkB ? "OK" : "FAIL";
@@ -377,7 +440,7 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
                 Description = Description + Why;
             }
 
-            auto& Fragment = StationHandle.AddOrGet_Fragment(FCkGym_Station_TitleAndDescription);
+            auto& Fragment = StationHandle.Get_Fragment(FCkGym_Station_TitleAndDescription);
             Fragment.Title = FText::FromString(Title);
             Fragment.Description = FText::FromString(Description);
             Fragment.Instructions = FText::FromString("panel [7] Divergence: timed");

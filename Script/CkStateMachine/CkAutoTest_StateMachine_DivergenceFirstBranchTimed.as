@@ -21,11 +21,14 @@
 // exactly 1 across both passes; the bug doubles whichever branch was
 // first-added-and-chosen.
 //
-// Settle window: 1.5s per pass x 2 = 3s minimum. Timeout 5s gives buffer.
+// Wait for the actor's actual B-snapshot completion marker; the wall-clock
+// timeout bounds failure, rather than guessing when deferred construction ends.
 //============================================================================
 
 class UCk_AutoTest_StateMachine_DivergenceFirstBranchTimed : UCk_AutoTest_Base
 {
+    default _TimeoutSeconds = 7.0f;
+
     private ACk_SmTest_DivergenceTimed_GymActor _GymActor;
 
     UFUNCTION(BlueprintOverride)
@@ -49,24 +52,43 @@ class UCk_AutoTest_StateMachine_DivergenceFirstBranchTimed : UCk_AutoTest_Base
 
         _GymActor.StationHandle = FCk_Handle();
         FinishSpawningActor(_GymActor);
-
-        // Settle: PerPassSettleSeconds=1.5 x 2 passes + buffer.
-        auto LocalHandle = InHandle;
-        auto SettleParams = FCk_Timer_Spec(FCk_Time(3.5f));
-        SettleParams.Set_StartingState(ECk_Timer_State::Running)
-                    .Set_Behavior(ECk_Timer_Behavior::StopOnDone);
-        auto Timer = utils_timer::Add(LocalHandle, SettleParams);
-        Timer.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnSettled"));
+        if (ck::Is_NOT_Valid(_GymActor) || _GymActor.IsActorBeingDestroyed())
+        { FinishFailure("Gym actor was lost during FinishSpawningActor"); return; }
+        Add_Step_WaitUntil("both timed source passes committed snapshots",
+            n"Check_SourceFinished", 900);
+        Add_Step("assert exact timed A and B task counts", n"Step_AssertSnapshots");
+        Run_Steps(InHandle);
     }
 
     UFUNCTION()
-    private void OnSettled(FCk_Handle_Timer InTimer, FCk_Chrono InChrono, FCk_Time InDeltaT)
+    private void Check_SourceFinished(FCk_Handle InHandle,
+        FCk_SharedBool OutResult, FInstancedStruct InPayload)
     {
-        if (IsFinished()) { return; }
-
-        if (!ck::IsValid(_GymActor))
+        auto Result = OutResult;
+        if (ck::Is_NOT_Valid(_GymActor) || _GymActor.IsActorBeingDestroyed())
         {
-            FinishFailure("Gym actor was destroyed before settle");
+            CloseOwnActor();
+            FinishFailure("Gym actor was destroyed before timed source completion");
+            return;
+        }
+        if (_GymActor.Get_SourceClosed())
+        {
+            CloseOwnActor();
+            FinishFailure("Timed gym source closed before both snapshots committed");
+            return;
+        }
+        Result.Set(_GymActor.Get_SourceRunFinished());
+    }
+
+    UFUNCTION()
+    private void Step_AssertSnapshots(FCk_Handle InHandle,
+        FInstancedStruct InPayload)
+    {
+        if (ck::Is_NOT_Valid(_GymActor) || _GymActor.IsActorBeingDestroyed() ||
+            _GymActor.Get_SourceClosed() || !_GymActor.Get_SourceRunFinished())
+        {
+            CloseOwnActor();
+            FinishFailure("completed timed source was lost before assertions");
             return;
         }
 
@@ -86,6 +108,23 @@ class UCk_AutoTest_StateMachine_DivergenceFirstBranchTimed : UCk_AutoTest_Base
         Assert_Equals_Int(_GymActor.Snap_B_Right,  1, "Pass B (timed): Right task fires exactly once (bug doubles to 2)");
         Assert_Equals_Int(_GymActor.Snap_B_Finish, 1, "Pass B (timed): Finish task fires exactly once");
 
-        FinishSuccess();
+        CloseOwnActor();
+    }
+
+    private void CloseOwnActor()
+    {
+        auto Actor = _GymActor;
+        _GymActor = nullptr;
+        if (ck::Is_NOT_Valid(Actor) || Actor.IsActorBeingDestroyed())
+        { return; }
+        Actor.Request_CloseSource();
+        if (ck::IsValid(Actor) && !Actor.IsActorBeingDestroyed())
+        { Actor.DestroyActor(); }
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void DoEndPlay(FCk_Handle InHandle)
+    {
+        CloseOwnActor();
     }
 }
