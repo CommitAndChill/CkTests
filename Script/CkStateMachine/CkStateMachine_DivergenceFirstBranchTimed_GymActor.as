@@ -223,6 +223,16 @@ class ACk_SmTest_DivergenceTimed_GymActor : ACk_SmTest_GymSourceActor
         if (!Math::IsFinite(PerPassSettleSeconds) ||
             PerPassSettleSeconds <= 0.0f)
         { Request_CloseSource(); return; }
+        Request_PrimarySource(n"OnPrimaryConstructed");
+    }
+
+    UFUNCTION()
+    private void OnPrimaryConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    {
+        if (Get_SourceClosed() || !TryAccept_PrimarySource(InEntityScriptHandle))
+        { return; }
+        if (Get_SourcePrimary() != FCk_Handle(InEntityScriptHandle))
+        { Request_CloseSource(); return; }
         StartPassA();
     }
 
@@ -234,14 +244,14 @@ class ACk_SmTest_DivergenceTimed_GymActor : ACk_SmTest_GymSourceActor
         AddOrderLeftFirst = true;
         PaymentChoice = ECk_SmTest_DivergenceTimed_PaymentChoice::Left;
         Reset_Counters();
-        Request_SourceEntity(n"OnPassAConstructed");
+        Request_PassSource(n"OnPassAConstructed");
     }
 
     UFUNCTION()
     private void OnPassAConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
         if (Get_SourceClosed() || _ActivePass != 1 ||
-            !TryAccept_SourceEntity(InEntityScriptHandle))
+            !TryAccept_PassSource(InEntityScriptHandle))
         { return; }
         PassAEntity = FCk_Handle(InEntityScriptHandle);
         if (Get_ActivePassKindForRoot(PassAEntity) != 1) { return; }
@@ -281,14 +291,14 @@ class ACk_SmTest_DivergenceTimed_GymActor : ACk_SmTest_GymSourceActor
         AddOrderLeftFirst = false;
         PaymentChoice = ECk_SmTest_DivergenceTimed_PaymentChoice::Right;
         Reset_Counters();
-        Request_SourceEntity(n"OnPassBConstructed");
+        Request_PassSource(n"OnPassBConstructed");
     }
 
     UFUNCTION()
     private void OnPassBConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
         if (Get_SourceClosed() || _ActivePass != 2 ||
-            !TryAccept_SourceEntity(InEntityScriptHandle))
+            !TryAccept_PassSource(InEntityScriptHandle))
         { return; }
         PassBEntity = FCk_Handle(InEntityScriptHandle);
         if (Get_ActivePassKindForRoot(PassBEntity) != 2) { return; }

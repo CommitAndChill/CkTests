@@ -68,15 +68,19 @@ namespace SmDivergenceFirstBranch_Regression
         FCk_Handle InCallback, FCk_Handle& OutContext)
     {
         OutContext = FCk_Handle();
+        FCk_Handle Primary;
         if (!UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
-                InCallback, OutContext) ||
-            !utils_owning_actor::Has(OutContext))
+                InCallback, Primary) ||
+            !utils_owning_actor::Has(Primary))
         { return nullptr; }
         auto Actor = Cast<ACk_SmTest_DivergenceFirstBranch_GymActor>(
-            utils_owning_actor::TryGet_EntityOwningActor(OutContext));
+            utils_owning_actor::TryGet_EntityOwningActor(Primary));
         if (ck::Is_NOT_Valid(Actor) || Actor.IsActorBeingDestroyed() ||
-            Actor.Get_SourceClosed() || !Actor.Get_HasCurrentSourceContext())
-        { return nullptr; }
+            Actor.Get_SourceClosed() || !Actor.Get_HasCurrentSourceContext() ||
+            Actor.Get_SourcePrimary() != Primary ||
+            !UCk_StateMachineGym_Runtime_UE::TryGet_DirectPassChild(
+                InCallback, Primary, OutContext))
+        { OutContext = FCk_Handle(); return nullptr; }
         return Actor;
     }
 
@@ -120,8 +124,9 @@ namespace SmDivergenceFirstBranch_Regression
             !utils_state_machine::Has(Sm))
         { return false; }
         FCk_Handle SmContext;
-        return UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
-                   Sm, SmContext) && SmContext == Context &&
+        return UCk_StateMachineGym_Runtime_UE::TryGet_DirectPassChild(
+                   Sm, Actor.Get_SourcePrimary(), SmContext) &&
+            SmContext == Context &&
             ck::IsValid(TryGet_Source(FCk_Handle(InTask), Context));
     }
 }
