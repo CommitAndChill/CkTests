@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "verifiedUtc": "2026-10-09T19:55:37Z",
+  "project": "CkPlugins_2",
+  "platform": "Windows PC",
+  "renderer": "D3D12 / SM6",
+  "worldMap": {
+    "duration": "46s",
+    "skipped": 0,
+    "contaminated": 0,
+    "passed": 2,
+    "build": "succeeded",
+    "failed": 0,
+    "pattern": "Ck.UiAuthoring.WorldMap",
+    "log": "Saved/Logs/WorldMap-Gate-05.log"
+  },
+  "menuCompatibility": {
+    "failed": 0,
+    "pattern": "Ck.UiAuthoring.MenuProof",
+    "passed": 4,
+    "skipped": 0,
+    "duration": "1m 11s",
+    "log": "Saved/Logs/WorldMap-MenuCompatibility.log",
+    "contaminated": 0
+  },
+  "sourcePreflight": {
+    "authoredIds": 92,
+    "contractNodes": 92,
+    "referencedClasses": 68,
+    "declaredSelectors": 69
+  },
+  "limitations": [
+    "gym host retains debug overlays",
+    "illustrative straight route, not pathfinding",
+    "packaged execution unverified",
+    "physical gamepad behavior unverified",
+    "large map streaming/clustering/fog-of-war unverified"
+  ],
+  "sources": [
+    {
+      "path": "Plugins/CkFoundation/Source/CkSlateLayout/Public/CkSlateLayout/CkUiWorldMap.h",
+      "sha256": "1B751970D703CB5E61859F1C1BDC0B26B48F718E8C8004CB3689FCFE8C3E6376"
+    },
+    {
+      "path": "Plugins/CkFoundation/Source/CkSlateLayout/Private/CkUiWorldMap.cpp",
+      "sha256": "1C0D1E7858FC425A958933C656F376E4FB9B695D258070CA7723642E4EDEA392"
+    },
+    {
+      "path": "Plugins/CkFoundation/Source/CkWidgets/Public/CkWidgets/Authoring/CkAuthoredSession.h",
+      "sha256": "4AF8F25FFA9DE7DFC530E6D840423FE0551CA3EDF5460CC0369EB5F3C0698726"
+    },
+    {
+      "path": "Plugins/CkFoundation/Source/CkWidgets/Private/Authoring/CkAuthoredSession.cpp",
+      "sha256": "D7F88167C52FFB02E0559DF4C43D3D012A93FC86F5EC423D9B547FD70CAC38B5"
+    },
+    {
+      "path": "Plugins/CkTests/Script/CkUiAuthoring/CkWorldMap_Gym.as",
+      "sha256": "23614B25DDF1A549C2E991D0DDCDDFBDA1C9913CED61B5E4A9DE029AF008CE7E"
+    },
+    {
+      "path": "Plugins/CkTests/Script/Common/CkTests_GymRegistry.as",
+      "sha256": "661B7B91C2D0A4B84CE193EB2559910607ED3D471DDF375AD94C74F5B23882DA"
+    },
+    {
+      "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_UiWorldMap.cpp",
+      "sha256": "1AA5D2C8156993AF2EB951D16307952E062CC8C1B69621E920BA6E3C76D40FE9"
+    },
+    {
+      "path": "Plugins/CkTests/Source/CkTests/Private/UnitTests/CkYoga/Test_WorldMapProof.cpp",
+      "sha256": "EEE796000D8E9E5FA1FDDC94F00CA366CEF77B64412C8D3A92FA9DF09B18F755"
+    },
+    {
+      "path": "Plugins/CkTests/Source/CkTests/CkTests.Build.cs",
+      "sha256": "F3592C9224B415904486BAE8895E81B74325CB6B1CFDA52A87A4251069C0B72B"
+    },
+    {
+      "path": "Plugins/CkTests/Resources/UiAuthoring/WorldMapProof/WorldMapProof.ui.css",
+      "sha256": "07A851F5E469344C6537B759CBEEEB7BF11B46FAF9E1FD6FBF489D46520913FE"
+    },
+    {
+      "path": "Plugins/CkTests/Resources/UiAuthoring/WorldMapProof/WorldMapProof.ui.html",
+      "sha256": "7358835A13F1DCEB95CB963751BDBA023851EF04FD73CE32481264224B0960E4"
+    }
+  ],
+  "captures": [
+    {
+      "file": "native-world-map-capture-teardown.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "0CEBCF9B9DCF029BCE7AD8331809455067D2DA3E1B059B8D7C375DCF512CAA74"
+    },
+    {
+      "file": "native-world-map-clean-1280x720.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "B5177862B78124C9D53B4F2871EA715DEC549DD635FDEE819449CA90B28BF127"
+    },
+    {
+      "file": "native-world-map-clean-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "B7FE66B3DDC3B0570499718825E5185B9490B0C6317A5F1FFE783D3E75E7B299"
+    },
+    {
+      "file": "native-world-map-clean-2560x1080.png",
+      "width": 2560,
+      "height": 1080,
+      "sha256": "3B76B5B97194D6326F3498CA91229CE609F8A9C447FC671B8E2C3F2D3B10C595"
+    },
+    {
+      "file": "native-world-map-empty.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "580BDAC11327457FA495661C79894BD3622F55DE23F642B0D324E9B528E06444"
+    },
+    {
+      "file": "native-world-map-filter-services.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5C8F0AA96A903A5E99BAEEA45513980E774CF227AD25026FCF811D3D1BFAB7F6"
+    },
+    {
+      "file": "native-world-map-long-label.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "20413AC3161D79DD986DDFE87FFD8ECBB5A87D8242F3D4DF3B98E3C12E894DDD"
+    },
+    {
+      "file": "native-world-map-route.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "470021E6892BAD20DAE6A50B0D21594FD793EFDDBC3B5CCFFBCF734F6729A4C0"
+    },
+    {
+      "file": "native-world-map-zoomed-panned.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "94A763F54A9E81B910C4E409FAF6E9839E8A803824D0ECCCDD45AFA1642056CD"
+    }
+  ]
+}

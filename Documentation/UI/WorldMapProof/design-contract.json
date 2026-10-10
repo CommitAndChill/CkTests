@@ -1,0 +1,2069 @@
+{
+  "screen": "Vesper World Map",
+  "reference": {
+    "image": "world-map-reference.png",
+    "imageDimensions": [
+      1672,
+      941
+    ],
+    "logicalViewport": [
+      1920,
+      1080
+    ],
+    "runtimeBackgroundSourceDimensions": [
+      1774,
+      887
+    ],
+    "geometryIs": "authored-design-target-not-rendered-measurement",
+    "runtimeTexture": false
+  },
+  "logicalCanvas": {
+    "width": 1920,
+    "height": 1080,
+    "scale": "uniform fit, centered by UMG ScaleBox"
+  },
+  "type": {
+    "ui": "Rajdhani Regular / SemiBold",
+    "display": "Rajdhani SemiBold / Bold",
+    "fallback": "Engine DroidSansFallback",
+    "licensedSource": "Resources/UiAuthoring/ReplicaPresentation/Fonts/OFL_Rajdhani.txt"
+  },
+  "palette": {
+    "canvas": "#080E15",
+    "panel": "#17252C",
+    "primaryInk": "#E9EFF0",
+    "secondaryInk": "#93A7B0",
+    "objective": "#F2BA68",
+    "service": "#7AD4D7",
+    "hazard": "#DC8D77"
+  },
+  "geometry": {
+    "shell": [
+      20,
+      20,
+      1880,
+      1040
+    ],
+    "headerHeight": 76,
+    "bodyHeight": 878,
+    "footerHeight": 46,
+    "railWidth": 360,
+    "bodyGap": 20,
+    "mapColumnWidth": 1460,
+    "mapViewport": [
+      1458,
+      720
+    ]
+  },
+  "sourceOfTruth": {
+    "model": "stable keyed marker collection, selected key, filter, and route visibility",
+    "view": "authored markup and CSS mounted by scripted UMG",
+    "camera": "native world-map local pan and zoom"
+  },
+  "statesToInspect": [
+    "all markers",
+    "quest filter",
+    "service filter",
+    "selected route",
+    "disabled marker",
+    "empty collection",
+    "long title",
+    "edge marker",
+    "rejected invalid collection",
+    "accepted and rejected reload",
+    "closed and reopened input"
+  ],
+  "artPrompt": "Top-down near-future city map of Vesper at night, original fictional geography, large distinct districts separated by a branching dark river and elevated transit arcs, precise street blocks and piers, muted slate and blue-gray land, subtle amber road glow and cyan waterways, sparse luminous texture, no labels, no marker icons, no interface text, no frame, no legend, no UI panels, 16:9 composition with visual detail to the edges. Live labels, markers, selection, route and controls are rendered by the native widget.",
+  "schemaVersion": 1,
+  "status": "source-contract-preflight-only",
+  "date": "2026-10-09",
+  "resources": {
+    "plugin": "CkTests",
+    "html": "Resources/UiAuthoring/WorldMapProof/WorldMapProof.ui.html",
+    "css": "Resources/UiAuthoring/WorldMapProof/WorldMapProof.ui.css",
+    "background": "Resources/UiAuthoring/WorldMapProof/vesper-map.png",
+    "region": "main",
+    "rootId": "screen-root"
+  },
+  "nodeCount": 92,
+  "nodes": [
+    {
+      "id": "screen-root",
+      "tag": "column",
+      "parentId": null,
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [],
+      "attributes": {},
+      "resolvedStyle": {}
+    },
+    {
+      "id": "screen-shell",
+      "tag": "column",
+      "parentId": "screen-root",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "shell"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "1880px",
+        "height": "1040px",
+        "horizontal-align": "center",
+        "vertical-align": "center",
+        "padding": "20px",
+        "background-color": "#080E15F2",
+        "border-color": "#77929E56",
+        "border-width": "1px",
+        "border-radius": "0px"
+      }
+    },
+    {
+      "id": "topbar",
+      "tag": "row",
+      "parentId": "screen-shell",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "topbar"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "76px",
+        "padding": "0px 12px",
+        "border-color": "#55717E56",
+        "border-width": "0px",
+        "gap": "20px"
+      }
+    },
+    {
+      "id": "title-group",
+      "tag": "column",
+      "parentId": "topbar",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "title-group"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "610px",
+        "gap": "1px"
+      }
+    },
+    {
+      "id": "eyebrow",
+      "tag": "text",
+      "parentId": "title-group",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "eyebrow"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "font-weight": "bold",
+        "color": "#91A8AF",
+        "letter-spacing": "0.16em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "TACTICAL ATLAS  /  CITY NETWORK 07"
+    },
+    {
+      "id": "title-line",
+      "tag": "row",
+      "parentId": "title-group",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "title-line"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "54px",
+        "gap": "14px"
+      }
+    },
+    {
+      "id": "map-title",
+      "tag": "text",
+      "parentId": "title-line",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "display-title"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-display",
+        "font-size": "30px",
+        "font-weight": "bold",
+        "color": "#EAF1F2",
+        "letter-spacing": "0.08em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "MAP"
+    },
+    {
+      "id": "title-divider",
+      "tag": "text",
+      "parentId": "title-line",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "title-divider"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-display",
+        "font-size": "30px",
+        "color": "#6B7E87",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "/"
+    },
+    {
+      "id": "city-title",
+      "tag": "text",
+      "parentId": "title-line",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "city-title"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-display",
+        "font-size": "30px",
+        "font-weight": "bold",
+        "color": "#F2BA68",
+        "letter-spacing": "0.08em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "VESPER"
+    },
+    {
+      "id": "header-right",
+      "tag": "column",
+      "parentId": "topbar",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "header-right"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "horizontal-align": "right",
+        "gap": "5px"
+      }
+    },
+    {
+      "id": "clock-label",
+      "tag": "text",
+      "parentId": "header-right",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "header-kicker"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "color": "#8FA6AE",
+        "letter-spacing": "0.13em",
+        "text-align": "right"
+      },
+      "literalText": "NIGHT CYCLE 03  /  SIGNAL STABLE"
+    },
+    {
+      "id": "location-line",
+      "tag": "row",
+      "parentId": "header-right",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "location-line"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "35px",
+        "gap": "13px",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "location-dot",
+      "tag": "text",
+      "parentId": "location-line",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "live-dot"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "16px",
+        "color": "#70D4D6"
+      },
+      "literalText": "●"
+    },
+    {
+      "id": "location-text",
+      "tag": "text",
+      "parentId": "location-line",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "header-location"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-display",
+        "font-size": "20px",
+        "font-weight": "bold",
+        "color": "#E4EDED",
+        "letter-spacing": "0.08em"
+      },
+      "literalText": "LOWER CONCOURSE"
+    },
+    {
+      "id": "sector-text",
+      "tag": "text",
+      "parentId": "location-line",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "header-sector"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "color": "#91A9AF",
+        "vertical-align": "center"
+      },
+      "literalText": "SECTOR 04 — WEST"
+    },
+    {
+      "id": "main-body",
+      "tag": "row",
+      "parentId": "screen-shell",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "main-body"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "878px",
+        "gap": "20px"
+      }
+    },
+    {
+      "id": "mission-rail",
+      "tag": "column",
+      "parentId": "main-body",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "mission-rail"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "360px",
+        "gap": "12px"
+      }
+    },
+    {
+      "id": "rail-section",
+      "tag": "row",
+      "parentId": "mission-rail",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "rail-section"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "42px",
+        "padding": "8px 12px",
+        "gap": "10px",
+        "background-color": "#17252DAA",
+        "border-color": "#73909A55",
+        "border-width": "1px"
+      }
+    },
+    {
+      "id": "rail-section-label",
+      "tag": "text",
+      "parentId": "rail-section",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "eyebrow"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "font-weight": "bold",
+        "color": "#91A8AF",
+        "letter-spacing": "0.16em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "FIELD INTELLIGENCE"
+    },
+    {
+      "id": "rail-index",
+      "tag": "text",
+      "parentId": "rail-section",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "rail-index"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "text-align": "right",
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "color": "#E6B769"
+      },
+      "literalText": "01 / 04"
+    },
+    {
+      "id": "mission-card",
+      "tag": "column",
+      "parentId": "mission-rail",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "mission-card"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "656px",
+        "padding": "24px",
+        "gap": "8px",
+        "background-color": "#17252CD6",
+        "border-color": "#78939B66",
+        "border-width": "1px"
+      }
+    },
+    {
+      "id": "mission-chip-row",
+      "tag": "row",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "mission-chip-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "31px",
+        "gap": "10px"
+      }
+    },
+    {
+      "id": "signal-glyph",
+      "tag": "text",
+      "parentId": "mission-chip-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "signal-glyph"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-display",
+        "font-size": "16px",
+        "color": "#F2BA68"
+      },
+      "literalText": "◇"
+    },
+    {
+      "id": "selected-kind",
+      "tag": "text",
+      "parentId": "mission-chip-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "kind-label"
+      ],
+      "attributes": {
+        "bind": "SelectedKind"
+      },
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "color": "#F2BA68",
+        "letter-spacing": "0.12em",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "selected-title",
+      "tag": "text",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "mission-title"
+      ],
+      "attributes": {
+        "bind": "SelectedTitle"
+      },
+      "resolvedStyle": {
+        "font-family": "map-display",
+        "font-size": "23px",
+        "font-weight": "bold",
+        "color": "#EDF3F1",
+        "text-wrap": "wrap",
+        "overflow-wrap": "anywhere"
+      }
+    },
+    {
+      "id": "selected-description",
+      "tag": "text",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "mission-description"
+      ],
+      "attributes": {
+        "bind": "SelectedDescription"
+      },
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "color": "#AFC1C5",
+        "text-wrap": "wrap"
+      }
+    },
+    {
+      "id": "detail-rule",
+      "tag": "column",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "fine-rule"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "1px",
+        "background-color": "#9AB2B652"
+      }
+    },
+    {
+      "id": "district-row",
+      "tag": "row",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "detail-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "35px",
+        "gap": "12px"
+      }
+    },
+    {
+      "id": "district-label",
+      "tag": "text",
+      "parentId": "district-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "detail-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "94px",
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
+        "color": "#829AA2",
+        "letter-spacing": "0.08em",
+        "vertical-align": "center"
+      },
+      "literalText": "DISTRICT"
+    },
+    {
+      "id": "district-value",
+      "tag": "text",
+      "parentId": "district-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "detail-value"
+      ],
+      "attributes": {
+        "bind": "SelectedDistrict"
+      },
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "map-ui",
+        "font-size": "17px",
+        "font-weight": "bold",
+        "color": "#DDE9E8",
+        "text-align": "right",
+        "vertical-align": "center",
+        "text-wrap": "nowrap",
+        "text-overflow": "ellipsis"
+      }
+    },
+    {
+      "id": "distance-row",
+      "tag": "row",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "detail-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "35px",
+        "gap": "12px"
+      }
+    },
+    {
+      "id": "distance-label",
+      "tag": "text",
+      "parentId": "distance-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "detail-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "94px",
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
+        "color": "#829AA2",
+        "letter-spacing": "0.08em",
+        "vertical-align": "center"
+      },
+      "literalText": "DISTANCE"
+    },
+    {
+      "id": "distance-value",
+      "tag": "text",
+      "parentId": "distance-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "detail-value"
+      ],
+      "attributes": {
+        "bind": "SelectedDistance"
+      },
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "map-ui",
+        "font-size": "17px",
+        "font-weight": "bold",
+        "color": "#DDE9E8",
+        "text-align": "right",
+        "vertical-align": "center",
+        "text-wrap": "nowrap",
+        "text-overflow": "ellipsis"
+      }
+    },
+    {
+      "id": "status-row",
+      "tag": "row",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "detail-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "35px",
+        "gap": "12px"
+      }
+    },
+    {
+      "id": "status-label",
+      "tag": "text",
+      "parentId": "status-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "detail-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "94px",
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
+        "color": "#829AA2",
+        "letter-spacing": "0.08em",
+        "vertical-align": "center"
+      },
+      "literalText": "STATUS"
+    },
+    {
+      "id": "status-value",
+      "tag": "text",
+      "parentId": "status-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "detail-value",
+        "status-value"
+      ],
+      "attributes": {
+        "bind": "SelectedStatus"
+      },
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "map-ui",
+        "font-size": "17px",
+        "font-weight": "bold",
+        "color": "#F0BA70",
+        "text-align": "right",
+        "vertical-align": "center",
+        "text-wrap": "nowrap",
+        "text-overflow": "ellipsis"
+      }
+    },
+    {
+      "id": "mission-spacer",
+      "tag": "column",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "mission-spacer"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "route-button",
+      "tag": "button",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "route-button"
+      ],
+      "attributes": {
+        "action": "ToggleRoute",
+        "visible": "RouteHidden",
+        "enabled-bind": "CanRoute"
+      },
+      "resolvedStyle": {
+        "width": "310px",
+        "height": "54px",
+        "font-family": "map-display",
+        "font-size": "19px",
+        "font-weight": "bold",
+        "letter-spacing": "0.12em",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#D5A65B",
+        "-ck-button-hover-background": "#F3C47A",
+        "-ck-button-pressed-background": "#AC7F3D",
+        "-ck-button-disabled-background": "#3A4142",
+        "-ck-button-border-color": "#EBC27B",
+        "-ck-button-disabled-border-color": "#687477",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#101920",
+        "-ck-button-disabled-color": "#9AA8A9",
+        "-ck-button-focus-outline-color": "#83E0E2",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center"
+      },
+      "literalText": "PLOT ROUTE  →"
+    },
+    {
+      "id": "clear-route-button",
+      "tag": "button",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "route-button",
+        "route-clear"
+      ],
+      "attributes": {
+        "action": "ToggleRoute",
+        "visible": "RouteVisible",
+        "enabled-bind": "CanRoute"
+      },
+      "resolvedStyle": {
+        "width": "310px",
+        "height": "54px",
+        "font-family": "map-display",
+        "font-size": "19px",
+        "font-weight": "bold",
+        "letter-spacing": "0.12em",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#283E43",
+        "-ck-button-hover-background": "#38585C",
+        "-ck-button-pressed-background": "#AC7F3D",
+        "-ck-button-disabled-background": "#3A4142",
+        "-ck-button-border-color": "#81D8D7",
+        "-ck-button-disabled-border-color": "#687477",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#A7E7E3",
+        "-ck-button-disabled-color": "#9AA8A9",
+        "-ck-button-focus-outline-color": "#83E0E2",
+        "-ck-button-focus-outline-width": "2px",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center"
+      },
+      "literalText": "CLEAR ROUTE  ×"
+    },
+    {
+      "id": "route-note",
+      "tag": "text",
+      "parentId": "mission-card",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "rail-footnote"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "color": "#78929B",
+        "letter-spacing": "0.08em",
+        "text-align": "center"
+      },
+      "literalText": "NAVIGATION LINK / LIVE TRACKING"
+    },
+    {
+      "id": "rail-bottom",
+      "tag": "column",
+      "parentId": "mission-rail",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "rail-bottom"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "156px",
+        "padding": "12px 20px",
+        "gap": "7px",
+        "background-color": "#0E1B24D9",
+        "border-color": "#59727D55",
+        "border-width": "1px"
+      }
+    },
+    {
+      "id": "rail-bottom-head",
+      "tag": "row",
+      "parentId": "rail-bottom",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "rail-bottom-head"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "25px"
+      }
+    },
+    {
+      "id": "rail-bottom-title",
+      "tag": "text",
+      "parentId": "rail-bottom-head",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "eyebrow"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "font-weight": "bold",
+        "color": "#91A8AF",
+        "letter-spacing": "0.16em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "OPERATIONAL CHANNELS"
+    },
+    {
+      "id": "rail-bottom-live",
+      "tag": "text",
+      "parentId": "rail-bottom-head",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "rail-live"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "text-align": "right",
+        "font-family": "map-ui",
+        "font-size": "13px",
+        "color": "#77D0D1"
+      },
+      "literalText": "●  LIVE"
+    },
+    {
+      "id": "rail-bottom-copy",
+      "tag": "text",
+      "parentId": "rail-bottom",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "rail-copy"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "70px",
+        "font-family": "map-ui",
+        "font-size": "13px",
+        "color": "#9EB4B9",
+        "text-wrap": "wrap"
+      },
+      "literalText": "The city shifts. Your map keeps its memory. Select any signal to inspect its current field report."
+    },
+    {
+      "id": "rail-pulse-row",
+      "tag": "row",
+      "parentId": "rail-bottom",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "rail-pulse-row"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "22px"
+      }
+    },
+    {
+      "id": "pulse-a",
+      "tag": "text",
+      "parentId": "rail-pulse-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "pulse-a"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "13px",
+        "color": "#70D4D6"
+      },
+      "literalText": "| | | | | |"
+    },
+    {
+      "id": "pulse-b",
+      "tag": "text",
+      "parentId": "rail-pulse-row",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "pulse-b"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "text-align": "right",
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "color": "#74939C"
+      },
+      "literalText": "GRID SYNC 98%"
+    },
+    {
+      "id": "map-column",
+      "tag": "column",
+      "parentId": "main-body",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "map-column"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "1460px"
+      }
+    },
+    {
+      "id": "map-toolbar",
+      "tag": "row",
+      "parentId": "map-column",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "map-toolbar"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "54px",
+        "gap": "10px",
+        "padding": "4px 0px 8px"
+      }
+    },
+    {
+      "id": "filter-group",
+      "tag": "row",
+      "parentId": "map-toolbar",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "filter-group"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "670px",
+        "gap": "6px"
+      }
+    },
+    {
+      "id": "filter-caption",
+      "tag": "text",
+      "parentId": "filter-group",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "toolbar-caption"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "width": "61px",
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "color": "#8CA5AD",
+        "letter-spacing": "0.12em",
+        "vertical-align": "center"
+      },
+      "literalText": "SHOW"
+    },
+    {
+      "id": "filter-all-active",
+      "tag": "button",
+      "parentId": "filter-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "filter-active"
+      ],
+      "attributes": {
+        "action": "FilterAllAction",
+        "visible": "FilterAll"
+      },
+      "resolvedStyle": {
+        "width": "139px",
+        "height": "39px",
+        "font-family": "map-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#57472D",
+        "-ck-button-hover-background": "#6D5632",
+        "-ck-button-pressed-background": "#816439",
+        "-ck-button-border-color": "#EDBA69",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#F8D39A",
+        "-ck-button-focus-outline-color": "#82DEE0",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center"
+      },
+      "literalText": "ALL"
+    },
+    {
+      "id": "filter-all",
+      "tag": "button",
+      "parentId": "filter-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "filter-button"
+      ],
+      "attributes": {
+        "action": "FilterAllAction",
+        "visible": "FilterAllInactive"
+      },
+      "resolvedStyle": {
+        "width": "139px",
+        "height": "39px",
+        "font-family": "map-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#16252D",
+        "-ck-button-hover-background": "#28434C",
+        "-ck-button-pressed-background": "#365865",
+        "-ck-button-border-color": "#6A899167",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#A3BABF",
+        "-ck-button-focus-outline-color": "#F2BA68",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center"
+      },
+      "literalText": "ALL"
+    },
+    {
+      "id": "filter-quests-active",
+      "tag": "button",
+      "parentId": "filter-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "filter-active"
+      ],
+      "attributes": {
+        "action": "FilterQuestsAction",
+        "visible": "FilterQuests"
+      },
+      "resolvedStyle": {
+        "width": "139px",
+        "height": "39px",
+        "font-family": "map-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#57472D",
+        "-ck-button-hover-background": "#6D5632",
+        "-ck-button-pressed-background": "#816439",
+        "-ck-button-border-color": "#EDBA69",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#F8D39A",
+        "-ck-button-focus-outline-color": "#82DEE0",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center"
+      },
+      "literalText": "QUESTS"
+    },
+    {
+      "id": "filter-quests",
+      "tag": "button",
+      "parentId": "filter-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "filter-button"
+      ],
+      "attributes": {
+        "action": "FilterQuestsAction",
+        "visible": "FilterQuestsInactive"
+      },
+      "resolvedStyle": {
+        "width": "139px",
+        "height": "39px",
+        "font-family": "map-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#16252D",
+        "-ck-button-hover-background": "#28434C",
+        "-ck-button-pressed-background": "#365865",
+        "-ck-button-border-color": "#6A899167",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#A3BABF",
+        "-ck-button-focus-outline-color": "#F2BA68",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center"
+      },
+      "literalText": "QUESTS"
+    },
+    {
+      "id": "filter-services-active",
+      "tag": "button",
+      "parentId": "filter-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "filter-active"
+      ],
+      "attributes": {
+        "action": "FilterServicesAction",
+        "visible": "FilterServices"
+      },
+      "resolvedStyle": {
+        "width": "139px",
+        "height": "39px",
+        "font-family": "map-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#57472D",
+        "-ck-button-hover-background": "#6D5632",
+        "-ck-button-pressed-background": "#816439",
+        "-ck-button-border-color": "#EDBA69",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#F8D39A",
+        "-ck-button-focus-outline-color": "#82DEE0",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center"
+      },
+      "literalText": "SERVICES"
+    },
+    {
+      "id": "filter-services",
+      "tag": "button",
+      "parentId": "filter-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "filter-button"
+      ],
+      "attributes": {
+        "action": "FilterServicesAction",
+        "visible": "FilterServicesInactive"
+      },
+      "resolvedStyle": {
+        "width": "139px",
+        "height": "39px",
+        "font-family": "map-ui",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#16252D",
+        "-ck-button-hover-background": "#28434C",
+        "-ck-button-pressed-background": "#365865",
+        "-ck-button-border-color": "#6A899167",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#A3BABF",
+        "-ck-button-focus-outline-color": "#F2BA68",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center"
+      },
+      "literalText": "SERVICES"
+    },
+    {
+      "id": "camera-group",
+      "tag": "row",
+      "parentId": "map-toolbar",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "camera-group"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "gap": "6px",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "camera-spacer",
+      "tag": "column",
+      "parentId": "camera-group",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "mission-spacer"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "zoom-out",
+      "tag": "button",
+      "parentId": "camera-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "tool-square"
+      ],
+      "attributes": {
+        "action": "ZoomOut"
+      },
+      "resolvedStyle": {
+        "width": "43px",
+        "height": "39px",
+        "font-family": "map-display",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "-ck-button-background": "#1B2B33",
+        "-ck-button-hover-background": "#30515A",
+        "-ck-button-border-color": "#76939C80",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#E2EFF0",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-focus-outline-color": "#F2BA68"
+      },
+      "literalText": "−"
+    },
+    {
+      "id": "zoom-in",
+      "tag": "button",
+      "parentId": "camera-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "tool-square"
+      ],
+      "attributes": {
+        "action": "ZoomIn"
+      },
+      "resolvedStyle": {
+        "width": "43px",
+        "height": "39px",
+        "font-family": "map-display",
+        "font-size": "16px",
+        "font-weight": "bold",
+        "-ck-button-background": "#1B2B33",
+        "-ck-button-hover-background": "#30515A",
+        "-ck-button-border-color": "#76939C80",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#E2EFF0",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-focus-outline-color": "#F2BA68"
+      },
+      "literalText": "+"
+    },
+    {
+      "id": "reset-view",
+      "tag": "button",
+      "parentId": "camera-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "tool-wide"
+      ],
+      "attributes": {
+        "action": "ResetCamera"
+      },
+      "resolvedStyle": {
+        "width": "180px",
+        "height": "39px",
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "font-weight": "bold",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#1B2B33",
+        "-ck-button-hover-background": "#30515A",
+        "-ck-button-disabled-background": "#172027",
+        "-ck-button-border-color": "#76939C80",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#D7E8E9",
+        "-ck-button-disabled-color": "#697E84",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-focus-outline-color": "#F2BA68"
+      },
+      "literalText": "RESET"
+    },
+    {
+      "id": "center-target",
+      "tag": "button",
+      "parentId": "camera-group",
+      "scope": "main-region",
+      "nativeWidget": "ordinary native button",
+      "role": "button",
+      "classes": [
+        "tool-wide"
+      ],
+      "attributes": {
+        "action": "CenterTarget",
+        "enabled-bind": "HasSelection"
+      },
+      "resolvedStyle": {
+        "width": "180px",
+        "height": "39px",
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "font-weight": "bold",
+        "text-wrap": "nowrap",
+        "-ck-button-background": "#1B2B33",
+        "-ck-button-hover-background": "#30515A",
+        "-ck-button-disabled-background": "#172027",
+        "-ck-button-border-color": "#76939C80",
+        "-ck-button-outline-width": "1px",
+        "-ck-button-color": "#D7E8E9",
+        "-ck-button-disabled-color": "#697E84",
+        "-ck-button-text-align": "center",
+        "-ck-button-content-vertical-align": "center",
+        "-ck-button-focus-outline-color": "#F2BA68"
+      },
+      "literalText": "CENTER TARGET"
+    },
+    {
+      "id": "map-frame",
+      "tag": "column",
+      "parentId": "map-column",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "map-frame"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "768px",
+        "background-color": "#10212A",
+        "border-color": "#7B959A84",
+        "border-width": "1px"
+      }
+    },
+    {
+      "id": "map-frame-top",
+      "tag": "row",
+      "parentId": "map-frame",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "map-frame-top"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "24px",
+        "padding": "2px 12px",
+        "background-color": "#10222BE8"
+      }
+    },
+    {
+      "id": "map-grid-label",
+      "tag": "text",
+      "parentId": "map-frame-top",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "map-frame-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "color": "#A0B6BA",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "VESPER / CITY GRID"
+    },
+    {
+      "id": "map-scale-label",
+      "tag": "text",
+      "parentId": "map-frame-top",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "map-frame-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "color": "#A0B6BA",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "N ↑  ·  CITY ATLAS"
+    },
+    {
+      "id": "map-view",
+      "tag": "world-map",
+      "parentId": "map-frame",
+      "scope": "main-region",
+      "nativeWidget": "native SCkUiWorldMap",
+      "role": "world-map",
+      "classes": [
+        "map"
+      ],
+      "attributes": {
+        "markers-bind": "Markers",
+        "image-bind": "MapImage",
+        "select": "SelectMarker",
+        "selected-key-bind": "SelectedKey",
+        "route-bind": "RouteVisible",
+        "origin-x": "0.3",
+        "origin-y": "0.55",
+        "font-family": "map-ui"
+      },
+      "resolvedStyle": {
+        "width": "1458px",
+        "height": "720px",
+        "-ck-map-background": "#10212A",
+        "-ck-map-border": "#597F89",
+        "-ck-map-marker": "#BDD2D5",
+        "-ck-map-selected": "#F8BE6E",
+        "-ck-map-route": "#F1AF54",
+        "-ck-map-label-font-size": "14px"
+      }
+    },
+    {
+      "id": "map-frame-bottom",
+      "tag": "row",
+      "parentId": "map-frame",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "map-frame-bottom"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "24px",
+        "padding": "2px 12px",
+        "background-color": "#10222BE8"
+      }
+    },
+    {
+      "id": "map-coordinate",
+      "tag": "text",
+      "parentId": "map-frame-bottom",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "map-frame-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "color": "#A0B6BA",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "47° 18'  /  122° 10'"
+    },
+    {
+      "id": "map-zoom-label",
+      "tag": "text",
+      "parentId": "map-frame-bottom",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "map-frame-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "color": "#A0B6BA",
+        "letter-spacing": "0.10em",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "LIVE TOPOGRAPHY  ·  VSP-04"
+    },
+    {
+      "id": "map-legend",
+      "tag": "row",
+      "parentId": "map-column",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "map-legend"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "56px",
+        "padding": "12px 16px",
+        "gap": "22px",
+        "background-color": "#14242BC9",
+        "border-color": "#6179846E",
+        "border-width": "1px"
+      }
+    },
+    {
+      "id": "legend-caption",
+      "tag": "text",
+      "parentId": "map-legend",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "legend-caption"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
+        "color": "#708B94",
+        "letter-spacing": "0.12em"
+      },
+      "literalText": "KEY"
+    },
+    {
+      "id": "legend-quest",
+      "tag": "text",
+      "parentId": "map-legend",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "legend-quest"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "font-weight": "bold",
+        "color": "#F3BB69"
+      },
+      "literalText": "◆  OBJECTIVE"
+    },
+    {
+      "id": "legend-service",
+      "tag": "text",
+      "parentId": "map-legend",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "legend-service"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "font-weight": "bold",
+        "color": "#7BD6D5"
+      },
+      "literalText": "●  SERVICE"
+    },
+    {
+      "id": "legend-risk",
+      "tag": "text",
+      "parentId": "map-legend",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "legend-risk"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "font-weight": "bold",
+        "color": "#DC8D77"
+      },
+      "literalText": "▲  HAZARD"
+    },
+    {
+      "id": "legend-player",
+      "tag": "text",
+      "parentId": "map-legend",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "legend-player"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "15px",
+        "font-weight": "bold",
+        "color": "#E9F2EF"
+      },
+      "literalText": "◎  YOU"
+    },
+    {
+      "id": "legend-status",
+      "tag": "text",
+      "parentId": "map-legend",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "legend-status"
+      ],
+      "attributes": {
+        "bind": "Status"
+      },
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "text-align": "right",
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "color": "#A8BBC0",
+        "letter-spacing": "0.05em",
+        "text-wrap": "nowrap",
+        "text-overflow": "ellipsis"
+      }
+    },
+    {
+      "id": "footer",
+      "tag": "row",
+      "parentId": "screen-shell",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "footer"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "height": "46px",
+        "gap": "12px",
+        "padding": "8px 12px 0px 12px"
+      }
+    },
+    {
+      "id": "footer-left",
+      "tag": "row",
+      "parentId": "footer",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "footer-left"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "gap": "9px"
+      }
+    },
+    {
+      "id": "pan-keys",
+      "tag": "key-hint",
+      "parentId": "footer-left",
+      "scope": "main-region",
+      "nativeWidget": "native key hint",
+      "role": "key-hint",
+      "classes": [
+        "key-wide"
+      ],
+      "attributes": {
+        "label": "WASD",
+        "font-family": "map-ui"
+      },
+      "resolvedStyle": {
+        "width": "62px",
+        "height": "28px",
+        "-ck-key-hint-font-size": "12px",
+        "-ck-key-hint-foreground": "#E0E9E7",
+        "-ck-key-hint-background": "#263942",
+        "-ck-key-hint-border-color": "#8BA4A8",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "2px",
+        "-ck-key-hint-padding-x": "2px",
+        "-ck-key-hint-padding-y": "1px"
+      }
+    },
+    {
+      "id": "pan-label",
+      "tag": "text",
+      "parentId": "footer-left",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "footer-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
+        "color": "#B8C9C9",
+        "letter-spacing": "0.09em",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "PAN MAP"
+    },
+    {
+      "id": "select-keys",
+      "tag": "key-hint",
+      "parentId": "footer-left",
+      "scope": "main-region",
+      "nativeWidget": "native key hint",
+      "role": "key-hint",
+      "classes": [
+        "key-wide"
+      ],
+      "attributes": {
+        "label": "←↑→↓",
+        "font-family": "map-ui"
+      },
+      "resolvedStyle": {
+        "width": "62px",
+        "height": "28px",
+        "-ck-key-hint-font-size": "12px",
+        "-ck-key-hint-foreground": "#E0E9E7",
+        "-ck-key-hint-background": "#263942",
+        "-ck-key-hint-border-color": "#8BA4A8",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "2px",
+        "-ck-key-hint-padding-x": "2px",
+        "-ck-key-hint-padding-y": "1px"
+      }
+    },
+    {
+      "id": "select-label",
+      "tag": "text",
+      "parentId": "footer-left",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "footer-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
+        "color": "#B8C9C9",
+        "letter-spacing": "0.09em",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "SELECT SIGNAL"
+    },
+    {
+      "id": "zoom-key",
+      "tag": "key-hint",
+      "parentId": "footer-left",
+      "scope": "main-region",
+      "nativeWidget": "native key hint",
+      "role": "key-hint",
+      "classes": [
+        "key-wide"
+      ],
+      "attributes": {
+        "label": "WHEEL",
+        "font-family": "map-ui"
+      },
+      "resolvedStyle": {
+        "width": "62px",
+        "height": "28px",
+        "-ck-key-hint-font-size": "12px",
+        "-ck-key-hint-foreground": "#E0E9E7",
+        "-ck-key-hint-background": "#263942",
+        "-ck-key-hint-border-color": "#8BA4A8",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "2px",
+        "-ck-key-hint-padding-x": "2px",
+        "-ck-key-hint-padding-y": "1px"
+      }
+    },
+    {
+      "id": "zoom-label",
+      "tag": "text",
+      "parentId": "footer-left",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "footer-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
+        "color": "#B8C9C9",
+        "letter-spacing": "0.09em",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "ZOOM"
+    },
+    {
+      "id": "footer-right",
+      "tag": "row",
+      "parentId": "footer",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate row",
+      "role": "row",
+      "classes": [
+        "footer-right"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1",
+        "gap": "9px",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "footer-spacer",
+      "tag": "column",
+      "parentId": "footer-right",
+      "scope": "main-region",
+      "nativeWidget": "Yoga-backed Slate column",
+      "role": "column",
+      "classes": [
+        "mission-spacer"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "footer-build",
+      "tag": "text",
+      "parentId": "footer-right",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "footer-build"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "12px",
+        "color": "#6B868E",
+        "letter-spacing": "0.12em",
+        "vertical-align": "center"
+      },
+      "literalText": "VESPER ATLAS / FIELD ISSUE 04"
+    },
+    {
+      "id": "close-key",
+      "tag": "key-hint",
+      "parentId": "footer-right",
+      "scope": "main-region",
+      "nativeWidget": "native key hint",
+      "role": "key-hint",
+      "classes": [
+        "key-close"
+      ],
+      "attributes": {
+        "label": "ESC",
+        "action": "Close",
+        "font-family": "map-ui"
+      },
+      "resolvedStyle": {
+        "width": "49px",
+        "height": "28px",
+        "-ck-key-hint-font-size": "12px",
+        "-ck-key-hint-foreground": "#F8D8A5",
+        "-ck-key-hint-background": "#443627",
+        "-ck-key-hint-border-color": "#DCB36C",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "2px",
+        "-ck-key-hint-padding-x": "2px",
+        "-ck-key-hint-padding-y": "1px"
+      }
+    },
+    {
+      "id": "close-label",
+      "tag": "text",
+      "parentId": "footer-right",
+      "scope": "main-region",
+      "nativeWidget": "native Slate text",
+      "role": "text",
+      "classes": [
+        "footer-label"
+      ],
+      "attributes": {},
+      "resolvedStyle": {
+        "font-family": "map-ui",
+        "font-size": "14px",
+        "font-weight": "bold",
+        "color": "#B8C9C9",
+        "letter-spacing": "0.09em",
+        "vertical-align": "center",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "CLOSE MAP"
+    }
+  ]
+}

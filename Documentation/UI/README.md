@@ -4,6 +4,8 @@ Open **CkTests → CkUI → UI Authoring** in the gym selector. Its info panel o
 
 **UI: Character & Equipment** is the next dark-fantasy proof: ten equipment slots, a six-column inventory, generated item/character art, native keyed drag/drop, rich comparison tooltips and owned custom-control focus. Its [breakdown and verification status](CharacterEquipmentProof/README.md) distinguish fixture behavior from shared pipeline additions.
 
+**UI: World Map** is a scripted Vesper city-map fixture with keyed objectives, services, hazards and a player marker. Its info panel exposes open/close, filters, reset, source reload, invalid-record rejection and a long-label exercise on **1–7**. The [proof, source contract and widget breakdown](WorldMapProof/README.md) define its original reference and authored state. The native map aspect-fits and clips its image, retains a local camera, and proposes marker selection to the script model. Route display is a straight illustrative vector, not pathfinding; normalized marker coordinates and a 1024-record cap bound this control. Source preflight and design dimensions do not establish native pixels, input behavior or packaged lookup; those require the proof's focused runtime receipt.
+
 Combat HUDs have separate selector entries: **UI HUD: Mass Effect 3**, **UI HUD: Battlefield 4**, and **UI HUD: Skyrim**. Each starts a passive code-created UMG HUD with its own art and authored layout. Its info panel exposes keys **1–8** for damage, sprint, fire, reload/replenishment, power/capture/spell, recovery, reset and low health; **9** cycles game-specific context. See the [combat HUD overview](CombatHudProof/README.md) for the current verification status.
 
 **UI: Mass Effect 3 Power Wheel** is a separate squad-command gym. Hold Shift to open, hover or use arrows to select, click or Enter to queue, and release Shift to deploy. Its info panel also offers a latched preview on **1**, target protection on **2**, and fixture reset on **3**. The [power-wheel proof](PowerWheelProof/README.md) records the widget breakdown and verification status.
@@ -15,6 +17,7 @@ The workbench proves code-authored in-game UI through **CkSlateLayout and CkYoga
 | Proof | What it exercises | Full breakdown |
 | --- | --- | --- |
 | Tactical spatial inventory | Multi-cell footprints, rotation, cross-container routed drag, occupancy rejection, container case and inspection | [Tactical inventory](TacticalInventoryProof/README.md) |
+| Scripted world map | Keyed native map markers, visible-record filters, model-owned selection/route, local pan and zoom, source/invalid-state exercises | [Vesper world map](WorldMapProof/README.md) |
 | Scripted Mission Board | AngelScript-owned five-kind flat records, keyed repeat actions, pure reorder, removal/reinsertion, completion, atomic failure/reload and teardown | [Mission Board](ScriptedCollectionProof/README.md) |
 | Scripted Pause | Script-created UMG shell, shared source contracts, native buttons, input/pause ownership, retained Settings child and exact terminal admission cleanup | [Scripted Pause](ScriptedPauseProof/README.md); [original native breakdown](PauseMenuProof/README.md) |
 | Settings | Typed editable fixture state, slider, checkbox, select popup, Apply/Cancel, retained reload and close/reopen behavior | [Settings menu](SettingsMenuProof/README.md) |
