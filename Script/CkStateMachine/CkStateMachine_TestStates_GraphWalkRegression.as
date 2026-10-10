@@ -5,20 +5,21 @@
 // Guards CkFoundation PR #643. The debug graph-walk processor
 // (FProcessor_Sm_Debug_GraphWalk, guarded by CK_BUILD_SM_GRAPH_WALK
 // defined for editor/development builds) constructs temp state / condition /
-// task entities at SM-add time to cache the reachable graph for the HFSM
-// viewer. Those temp entities are stamped with FTag_Sm_Debug_GraphWalkEntity;
+// task entities during deferred debugger capture to cache the reachable
+// graph for the HFSM viewer. Those temp entities are stamped with
+// FTag_Sm_Debug_GraphWalkEntity;
 // UCk_Sm*_EntityScript::BeginPlay short-circuits on that tag so their
 // Enter* bodies never run.
 //
 // Without the short-circuit, every reachable state's task DoEnterTask fires
-// at construction. Side-effecting tasks (signal broadcasts, Request_Stop on
+// during capture. Side-effecting tasks (counter writes, Request_Stop on
 // the owning SM - see UBb_Hfsm_Task_TerminateOwningSm) then corrupt real
 // state before the SM has started.
 //
 // This file defines a 5-state linear chain A -> B -> C -> D -> E gated by a
 // polled-false condition (the real SM never advances past A). Each state's
 // task increments a label-keyed counter on DoEnterTask. If the short-circuit
-// regresses, counters B..E become nonzero at construction and the gym's
+// regresses, counters B..E become nonzero during capture and the gym's
 // station reports FAIL. A terminal-state Request_Stop variant is used on E
 // in the sub-SM build so a regression additionally stops the real sub-SM
 // immediately - matching the original CheckoutCounter failure mode.
@@ -33,19 +34,68 @@
 //
 // AngelScript disallows mutable namespace globals, so counter state lives as
 // a TMap<FName,int32> UPROPERTY on ACk_SmTest_GraphWalkRegression_GymActor.
-// Tasks call SmGraphWalk_Regression::Increment(Label) - this resolves the
-// (single) live gym actor via GetAllActorsOfClass and forwards to its
-// Increment_Counter method. One-gym-actor-at-a-time is enforced by the SM
-// gym's GameMode spawning exactly one instance.
+// Task callbacks resolve their exact accepted top or sub source root.
 
 namespace SmGraphWalk_Regression
 {
-    void Increment(FName InLabel)
+    ACk_SmTest_GraphWalkRegression_GymActor TryGet_Source(
+        FCk_Handle InCallback, bool InTop)
     {
-        auto OutActors = TArray<ACk_SmTest_GraphWalkRegression_GymActor>();
-        GetAllActorsOfClass(ACk_SmTest_GraphWalkRegression_GymActor, OutActors);
-        for (auto Actor : OutActors)
-        { Actor.Increment_Counter(InLabel); }
+        FCk_Handle Context;
+        if (!UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
+                InCallback, Context) || !utils_owning_actor::Has(Context))
+        { return nullptr; }
+        auto Actor = Cast<ACk_SmTest_GraphWalkRegression_GymActor>(
+            utils_owning_actor::TryGet_EntityOwningActor(Context));
+        if (ck::Is_NOT_Valid(Actor) || Actor.IsActorBeingDestroyed() ||
+            Actor.Get_SourceClosed())
+        { return nullptr; }
+        auto Roots = Actor.Get_SourceRoots();
+        if (Roots.Num() < 1 || Roots.Num() > 2 ||
+            (Roots.Num() == 2 && Roots[0] == Roots[1]) ||
+            Actor.Get_SourceConstructedCount() < 1 ||
+            Actor.Get_SourceConstructedCount() > Roots.Num() ||
+            (InTop && (Context != Roots[0] || Actor.TopEntity != Context)) ||
+            (!InTop && (Roots.Num() != 2 || Context != Roots[1] ||
+                Actor.SubEntity != Context)) ||
+            !Actor.Get_HasCurrentSourceContext())
+        { return nullptr; }
+        // A state/task callback may run before Add's returned SM handle is
+        // assigned. An assigned handle must still identify this source root.
+        auto Assigned = InTop ? Actor.TopSmHandle : Actor.SubSmParentHandle;
+        if (ck::IsValid(Assigned) && FCk_Handle(Assigned) != Context)
+        { Actor.Request_CloseSource(); return nullptr; }
+        return Actor;
+    }
+
+    bool Increment(FCk_Handle_SmTask InHandle, FName InLabel, bool InTop)
+    {
+        auto Actor = TryGet_Source(FCk_Handle(InHandle), InTop);
+        if (ck::Is_NOT_Valid(Actor)) { return false; }
+        Actor.Increment_Counter(InLabel);
+        return true;
+    }
+
+    bool HasExactStopTarget(FCk_Handle_SmTask InTask,
+        FCk_Handle_StateMachine InOwningSm, bool InTop)
+    {
+        auto Actor = TryGet_Source(FCk_Handle(InTask), InTop);
+        if (ck::Is_NOT_Valid(Actor)) { return false; }
+        auto Sm = FCk_Handle(InOwningSm);
+        if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Sm) ||
+            ck::Is_NOT_Valid(InOwningSm) ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                Sm, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+            !utils_state_machine::Has(Sm))
+        { return false; }
+        FCk_Handle SmContext;
+        if (!UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
+                Sm, SmContext) ||
+            SmContext != (InTop ? Actor.TopEntity : Actor.SubEntity))
+        { return false; }
+        // Do not require this to be the outer SM: Sub E belongs to the
+        // nested SM whose context is still the accepted SubEntity root.
+        return ck::IsValid(TryGet_Source(FCk_Handle(InTask), InTop));
     }
 }
 
@@ -84,7 +134,7 @@ class UCk_SmTest_Task_EnterCount_Top_A : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmGraphWalk_Regression::Increment(n"TopA"); }
+    { SmGraphWalk_Regression::Increment(InHandle, n"TopA", true); }
 
     UFUNCTION(BlueprintOverride)
     void DoExitTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext) {}
@@ -97,7 +147,7 @@ class UCk_SmTest_Task_EnterCount_Top_B : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmGraphWalk_Regression::Increment(n"TopB"); }
+    { SmGraphWalk_Regression::Increment(InHandle, n"TopB", true); }
 
     UFUNCTION(BlueprintOverride)
     void DoExitTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext) {}
@@ -110,7 +160,7 @@ class UCk_SmTest_Task_EnterCount_Top_C : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmGraphWalk_Regression::Increment(n"TopC"); }
+    { SmGraphWalk_Regression::Increment(InHandle, n"TopC", true); }
 
     UFUNCTION(BlueprintOverride)
     void DoExitTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext) {}
@@ -123,16 +173,15 @@ class UCk_SmTest_Task_EnterCount_Top_D : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmGraphWalk_Regression::Increment(n"TopD"); }
+    { SmGraphWalk_Regression::Increment(InHandle, n"TopD", true); }
 
     UFUNCTION(BlueprintOverride)
     void DoExitTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext) {}
 };
 
 // Terminal state task for the top-level SM - Request_Stop on the owning SM.
-// This is the sharpest regression signal: if a ghost runs, the real SM dies
-// at construction and the station's OnSmStopped handler fires before the
-// first Verify() tick.
+// This is the sharpest regression signal: a ghost entry during debugger
+// capture requests a stop, which the later verification must detect.
 UCLASS()
 class UCk_SmTest_Task_RequestStopOwning_Top : UCk_SmTask_EntityScript
 {
@@ -142,11 +191,13 @@ class UCk_SmTest_Task_RequestStopOwning_Top : UCk_SmTask_EntityScript
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
     {
         auto _CkPerfScope = ck::ScopedStat();
-        SmGraphWalk_Regression::Increment(n"TopStopE");
+        if (!SmGraphWalk_Regression::Increment(InHandle, n"TopStopE", true))
+        { return; }
 
         auto OwningSm = Get_OwningStateMachine();
-        if (ck::IsValid(OwningSm))
-        { utils_state_machine::Request_Stop(OwningSm); }
+        if (!SmGraphWalk_Regression::HasExactStopTarget(
+                InHandle, OwningSm, true)) { return; }
+        utils_state_machine::Request_Stop(OwningSm);
 
         Mark_Result(ECk_SmTaskResult::Succeeded);
     }
@@ -166,7 +217,7 @@ class UCk_SmTest_Task_EnterCount_Sub_A : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmGraphWalk_Regression::Increment(n"SubA"); }
+    { SmGraphWalk_Regression::Increment(InHandle, n"SubA", false); }
 
     UFUNCTION(BlueprintOverride)
     void DoExitTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext) {}
@@ -179,7 +230,7 @@ class UCk_SmTest_Task_EnterCount_Sub_B : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmGraphWalk_Regression::Increment(n"SubB"); }
+    { SmGraphWalk_Regression::Increment(InHandle, n"SubB", false); }
 
     UFUNCTION(BlueprintOverride)
     void DoExitTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext) {}
@@ -192,7 +243,7 @@ class UCk_SmTest_Task_EnterCount_Sub_C : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmGraphWalk_Regression::Increment(n"SubC"); }
+    { SmGraphWalk_Regression::Increment(InHandle, n"SubC", false); }
 
     UFUNCTION(BlueprintOverride)
     void DoExitTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext) {}
@@ -205,7 +256,7 @@ class UCk_SmTest_Task_EnterCount_Sub_D : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmGraphWalk_Regression::Increment(n"SubD"); }
+    { SmGraphWalk_Regression::Increment(InHandle, n"SubD", false); }
 
     UFUNCTION(BlueprintOverride)
     void DoExitTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext) {}
@@ -220,11 +271,13 @@ class UCk_SmTest_Task_RequestStopOwning_Sub : UCk_SmTask_EntityScript
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
     {
         auto _CkPerfScope = ck::ScopedStat();
-        SmGraphWalk_Regression::Increment(n"SubStopE");
+        if (!SmGraphWalk_Regression::Increment(InHandle, n"SubStopE", false))
+        { return; }
 
         auto OwningSm = Get_OwningStateMachine();
-        if (ck::IsValid(OwningSm))
-        { utils_state_machine::Request_Stop(OwningSm); }
+        if (!SmGraphWalk_Regression::HasExactStopTarget(
+                InHandle, OwningSm, false)) { return; }
+        utils_state_machine::Request_Stop(OwningSm);
 
         Mark_Result(ECk_SmTaskResult::Succeeded);
     }
@@ -323,7 +376,7 @@ class UCk_SmTest_GraphWalk_Top_State_D : UCk_SmState_EntityScript
 };
 
 // Terminal state: no outgoing transitions, RequestStopOwning task. If
-// ghost-run regresses, this stops the real SM at construction.
+// ghost-run regresses, this stops the real SM during capture or setup.
 UCLASS()
 class UCk_SmTest_GraphWalk_Top_State_E : UCk_SmState_EntityScript
 {
@@ -484,6 +537,29 @@ class UCk_SmTest_GraphWalk_SubSmWrapper_State : UCk_SmState_EntityScript
                 ECk_AutoTest_Sm_EventKind::DoExitState, InNetContext);
         }
     }
+};
+
+// A valid authored task class with an intentionally absent required nested
+// state. The disabled machine in the native GraphWalk test never enters it.
+UCLASS()
+class UCk_SmTest_GraphWalk_InvalidSubSmTask : UCk_SmTask_SubStateMachine
+{
+};
+
+UCLASS()
+class UCk_SmTest_GraphWalk_InvalidWrapper_State : UCk_SmState_EntityScript
+{
+    UFUNCTION(BlueprintOverride)
+    void DoDefineState(FCk_Handle_SmState_UnderConstruction& InHandle)
+    {
+        AddTask(InHandle, UCk_SmTest_GraphWalk_InvalidSubSmTask);
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void DoEnterState(FCk_Handle_SmState InHandle, ECk_Sm_NetContext InNetContext) {}
+
+    UFUNCTION(BlueprintOverride)
+    void DoExitState(FCk_Handle_SmState InHandle, ECk_Sm_NetContext InNetContext) {}
 };
 
 // ============================================================================
