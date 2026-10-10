@@ -99,6 +99,7 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("UI: Dark Fantasy HUD", ACk_DarkFantasyHud_GameMode,            "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("UI: Character & Equipment", ACk_CharacterEquipment_GameMode,   "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("UI: Tactical Inventory", ACk_TacticalInventory_GameMode,       "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: World Map", ACk_WorldMap_GameMode,                        "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("UI: Scripted UMG Card", ACk_ScriptingCard_GameMode,            "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("UI HUD: Battlefield 4",   ACk_CombatHud_Tactical_GameMode,         "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("USF Materials",      ACk_UsfGym_GameMode,                     "", "CkUsf");

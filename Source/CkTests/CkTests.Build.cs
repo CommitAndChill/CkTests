@@ -79,6 +79,10 @@ public class CkTests : CkModuleRules
         {
             RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ReplicaPresentation", Resource), StagedFileType.NonUFS);
         }
+        foreach (var Resource in new[] { "WorldMapProof.ui.html", "WorldMapProof.ui.css", "vesper-map.png" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "WorldMapProof", Resource), StagedFileType.NonUFS);
+        }
         foreach (var Font in new[] { "Rajdhani-Regular.ttf", "Rajdhani-SemiBold.ttf", "Rajdhani-Bold.ttf",
             "BarlowCondensed-Regular.ttf", "BarlowCondensed-Medium.ttf", "BarlowCondensed-SemiBold.ttf", "OFL_Rajdhani.txt", "OFL_BarlowCondensed.txt" })
         {

@@ -1,0 +1,69 @@
+.shell { width: 1880px; height: 1040px; horizontal-align: center; vertical-align: center; padding: 20px; background-color: #080E15F2; border-color: #77929E56; border-width: 1px; border-radius: 0px; }
+.topbar { height: 76px; padding: 0px 12px; border-color: #55717E56; border-width: 0px; gap: 20px; }
+.title-group { width: 610px; gap: 1px; }
+.eyebrow { font-family: map-ui; font-size: 12px; font-weight: bold; color: #91A8AF; letter-spacing: 0.16em; text-wrap: nowrap; }
+.title-line { height: 54px; gap: 14px; }
+.display-title { font-family: map-display; font-size: 30px; font-weight: bold; color: #EAF1F2; letter-spacing: 0.08em; text-wrap: nowrap; }
+.title-divider { font-family: map-display; font-size: 30px; color: #6B7E87; text-wrap: nowrap; }
+.city-title { font-family: map-display; font-size: 30px; font-weight: bold; color: #F2BA68; letter-spacing: 0.08em; text-wrap: nowrap; }
+.header-right { flex-grow: 1; horizontal-align: right; gap: 5px; }
+.header-kicker { font-family: map-ui; font-size: 14px; color: #8FA6AE; letter-spacing: 0.13em; text-align: right; }
+.location-line { height: 35px; gap: 13px; horizontal-align: right; }
+.live-dot { font-family: map-ui; font-size: 16px; color: #70D4D6; }
+.header-location { font-family: map-display; font-size: 20px; font-weight: bold; color: #E4EDED; letter-spacing: 0.08em; }
+.header-sector { font-family: map-ui; font-size: 15px; color: #91A9AF; vertical-align: center; }
+.main-body { height: 878px; gap: 20px; }
+.mission-rail { width: 360px; gap: 12px; }
+.rail-section { height: 42px; padding: 8px 12px; gap: 10px; background-color: #17252DAA; border-color: #73909A55; border-width: 1px; }
+.rail-index { flex-grow: 1; text-align: right; font-family: map-ui; font-size: 15px; color: #E6B769; }
+.mission-card { height: 656px; padding: 24px; gap: 8px; background-color: #17252CD6; border-color: #78939B66; border-width: 1px; }
+.mission-chip-row { height: 31px; gap: 10px; }
+.signal-glyph { font-family: map-display; font-size: 16px; color: #F2BA68; }
+.kind-label { font-family: map-ui; font-size: 16px; font-weight: bold; color: #F2BA68; letter-spacing: 0.12em; vertical-align: center; }
+.mission-title { font-family: map-display; font-size: 23px; font-weight: bold; color: #EDF3F1; text-wrap: wrap; overflow-wrap: anywhere; }
+.mission-description { font-family: map-ui; font-size: 15px; color: #AFC1C5; text-wrap: wrap; }
+.fine-rule { height: 1px; background-color: #9AB2B652; }
+.detail-row { height: 35px; gap: 12px; }
+.detail-label { width: 94px; font-family: map-ui; font-size: 14px; font-weight: bold; color: #829AA2; letter-spacing: 0.08em; vertical-align: center; }
+.detail-value { flex-grow: 1; font-family: map-ui; font-size: 17px; font-weight: bold; color: #DDE9E8; text-align: right; vertical-align: center; text-wrap: nowrap; text-overflow: ellipsis; }
+.status-value { color: #F0BA70; }
+.mission-spacer { flex-grow: 1; }
+.route-button { width: 310px; height: 54px; font-family: map-display; font-size: 19px; font-weight: bold; letter-spacing: 0.12em; text-wrap: nowrap; -ck-button-background: #D5A65B; -ck-button-hover-background: #F3C47A; -ck-button-pressed-background: #AC7F3D; -ck-button-disabled-background: #3A4142; -ck-button-border-color: #EBC27B; -ck-button-disabled-border-color: #687477; -ck-button-outline-width: 1px; -ck-button-color: #101920; -ck-button-disabled-color: #9AA8A9; -ck-button-focus-outline-color: #83E0E2; -ck-button-focus-outline-width: 2px; -ck-button-text-align: center; -ck-button-content-vertical-align: center; }
+.route-clear { -ck-button-background: #283E43; -ck-button-hover-background: #38585C; -ck-button-border-color: #81D8D7; -ck-button-color: #A7E7E3; }
+.rail-footnote { font-family: map-ui; font-size: 12px; color: #78929B; letter-spacing: 0.08em; text-align: center; }
+.rail-bottom { height: 156px; padding: 12px 20px; gap: 7px; background-color: #0E1B24D9; border-color: #59727D55; border-width: 1px; }
+.rail-bottom-head { height: 25px; }
+.rail-bottom-title { font-size: 13px; }
+.rail-live { flex-grow: 1; text-align: right; font-family: map-ui; font-size: 13px; color: #77D0D1; }
+.rail-copy { height: 70px; font-family: map-ui; font-size: 13px; color: #9EB4B9; text-wrap: wrap; }
+.rail-pulse-row { height: 22px; }
+.pulse-a { font-family: map-ui; font-size: 13px; color: #70D4D6; }
+.pulse-b { flex-grow: 1; text-align: right; font-family: map-ui; font-size: 12px; color: #74939C; }
+.map-column { width: 1460px; }
+.map-toolbar { height: 54px; gap: 10px; padding: 4px 0px 8px; }
+.filter-group { width: 670px; gap: 6px; }
+.toolbar-caption { width: 61px; font-family: map-ui; font-size: 14px; color: #8CA5AD; letter-spacing: 0.12em; vertical-align: center; }
+.filter-button { width: 139px; height: 39px; font-family: map-ui; font-size: 16px; font-weight: bold; letter-spacing: 0.10em; text-wrap: nowrap; -ck-button-background: #16252D; -ck-button-hover-background: #28434C; -ck-button-pressed-background: #365865; -ck-button-border-color: #6A899167; -ck-button-outline-width: 1px; -ck-button-color: #A3BABF; -ck-button-focus-outline-color: #F2BA68; -ck-button-text-align: center; -ck-button-content-vertical-align: center; }
+.filter-active { width: 139px; height: 39px; font-family: map-ui; font-size: 16px; font-weight: bold; letter-spacing: 0.10em; text-wrap: nowrap; -ck-button-background: #57472D; -ck-button-hover-background: #6D5632; -ck-button-pressed-background: #816439; -ck-button-border-color: #EDBA69; -ck-button-outline-width: 1px; -ck-button-color: #F8D39A; -ck-button-focus-outline-color: #82DEE0; -ck-button-text-align: center; -ck-button-content-vertical-align: center; }
+.camera-group { flex-grow: 1; gap: 6px; horizontal-align: right; }
+.tool-square { width: 43px; height: 39px; font-family: map-display; font-size: 16px; font-weight: bold; -ck-button-background: #1B2B33; -ck-button-hover-background: #30515A; -ck-button-border-color: #76939C80; -ck-button-outline-width: 1px; -ck-button-color: #E2EFF0; -ck-button-text-align: center; -ck-button-content-vertical-align: center; -ck-button-focus-outline-color: #F2BA68; }
+.tool-wide { width: 180px; height: 39px; font-family: map-ui; font-size: 15px; font-weight: bold; text-wrap: nowrap; -ck-button-background: #1B2B33; -ck-button-hover-background: #30515A; -ck-button-disabled-background: #172027; -ck-button-border-color: #76939C80; -ck-button-outline-width: 1px; -ck-button-color: #D7E8E9; -ck-button-disabled-color: #697E84; -ck-button-text-align: center; -ck-button-content-vertical-align: center; -ck-button-focus-outline-color: #F2BA68; }
+.map-frame { height: 768px; background-color: #10212A; border-color: #7B959A84; border-width: 1px; }
+.map-frame-top { height: 24px; padding: 2px 12px; background-color: #10222BE8; }
+.map-frame-bottom { height: 24px; padding: 2px 12px; background-color: #10222BE8; }
+.map-frame-label { flex-grow: 1; font-family: map-ui; font-size: 12px; color: #A0B6BA; letter-spacing: 0.10em; text-wrap: nowrap; }
+.map { width: 1458px; height: 720px; -ck-map-background: #10212A; -ck-map-border: #597F89; -ck-map-marker: #BDD2D5; -ck-map-selected: #F8BE6E; -ck-map-route: #F1AF54; -ck-map-label-font-size: 14px; }
+.map-legend { height: 56px; padding: 12px 16px; gap: 22px; background-color: #14242BC9; border-color: #6179846E; border-width: 1px; }
+.legend-caption { font-family: map-ui; font-size: 14px; font-weight: bold; color: #708B94; letter-spacing: 0.12em; }
+.legend-quest { font-family: map-ui; font-size: 15px; font-weight: bold; color: #F3BB69; }
+.legend-service { font-family: map-ui; font-size: 15px; font-weight: bold; color: #7BD6D5; }
+.legend-risk { font-family: map-ui; font-size: 15px; font-weight: bold; color: #DC8D77; }
+.legend-player { font-family: map-ui; font-size: 15px; font-weight: bold; color: #E9F2EF; }
+.legend-status { flex-grow: 1; text-align: right; font-family: map-ui; font-size: 14px; color: #A8BBC0; letter-spacing: 0.05em; text-wrap: nowrap; text-overflow: ellipsis; }
+.footer { height: 46px; gap: 12px; padding: 8px 12px 0px 12px; }
+.footer-left { gap: 9px; }
+.footer-right { flex-grow: 1; gap: 9px; horizontal-align: right; }
+.footer-label { font-family: map-ui; font-size: 14px; font-weight: bold; color: #B8C9C9; letter-spacing: 0.09em; vertical-align: center; text-wrap: nowrap; }
+.footer-build { font-family: map-ui; font-size: 12px; color: #6B868E; letter-spacing: 0.12em; vertical-align: center; }
+.key-wide { width: 62px; height: 28px; -ck-key-hint-font-size: 12px; -ck-key-hint-foreground: #E0E9E7; -ck-key-hint-background: #263942; -ck-key-hint-border-color: #8BA4A8; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 2px; -ck-key-hint-padding-x: 2px; -ck-key-hint-padding-y: 1px; }
+.key-close { width: 49px; height: 28px; -ck-key-hint-font-size: 12px; -ck-key-hint-foreground: #F8D8A5; -ck-key-hint-background: #443627; -ck-key-hint-border-color: #DCB36C; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 2px; -ck-key-hint-padding-x: 2px; -ck-key-hint-padding-y: 1px; }
