@@ -11,7 +11,7 @@
 // transitions and resumes after PauseDuration seconds.
 
 UCLASS(Blueprintable)
-class ACk_SmTest_GymActor : AActor
+class ACk_SmTest_GymActor : ACk_SmTest_GymSourceActor
 {
     default bReplicates = true;
     default bReplicateUsingRegisteredSubObjectList = true;
@@ -85,15 +85,7 @@ class ACk_SmTest_GymActor : AActor
         auto ModeLabel = EnablePauseResume ? "Pause/Resume + State Graph" : "State Graph Auto";
         InfoText.SetText(ck::Text(f"SM: {ModeLabel}"));
 
-        if (HasAuthority())
-        {
-            auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-            SpawnParams._OwningActor = this;
-            auto PendingEntity = utils_entity_script::Request_SpawnEntity(
-                ck::TransientEntity(), UCk_EntityScript_WithActor_UE, SpawnParams);
-            utils_pending_entity_script::Promise_OnConstructed(
-                PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-        }
+        if (HasAuthority()) { Request_SourceEntity(n"OnEntityConstructed"); }
     }
 
     // ========================================================================
@@ -103,8 +95,7 @@ class ACk_SmTest_GymActor : AActor
     UFUNCTION()
     private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (System::IsServer() == false)
-        { return; }
+        if (!TryAccept_SourceEntity(InEntityScriptHandle)) { return; }
 
         auto OwnerHandle = FCk_Handle(InEntityScriptHandle);
         OwnerHandle.Set_DebugName(n"StateMachine");
@@ -114,7 +105,7 @@ class ACk_SmTest_GymActor : AActor
         SmHandle = UCk_Utils_StateMachine_UE::Add(
             OwnerHandle,
             FCk_StateMachine_Spec(StateClass));
-
+        if (ck::Is_NOT_Valid(SmHandle)) { Request_CloseSource(); return; }
         BindSignals();
     }
 
@@ -146,6 +137,13 @@ class ACk_SmTest_GymActor : AActor
         FCk_Handle_StateMachine InHandle,
         FCk_Sm_Payload_OnStateChanged InPayload)
     {
+        if (Get_SourceClosed()) { return; }
+        if (!Get_HasCurrentSourceContext() ||
+            ck::Is_NOT_Valid(SmHandle) || ck::Is_NOT_Valid(InHandle) ||
+            InHandle != SmHandle ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(FCk_Handle(SmHandle)) ||
+            !utils_state_machine::Has(FCk_Handle(SmHandle)))
+        { Request_CloseSource(); return; }
         TransitionCount++;
 
         auto NewStateClass = InPayload.Get_NewStateClass();
@@ -166,6 +164,13 @@ class ACk_SmTest_GymActor : AActor
         FCk_Handle_StateMachine InHandle,
         FCk_Sm_Payload_OnStarted InPayload)
     {
+        if (Get_SourceClosed()) { return; }
+        if (!Get_HasCurrentSourceContext() ||
+            ck::Is_NOT_Valid(SmHandle) || ck::Is_NOT_Valid(InHandle) ||
+            InHandle != SmHandle ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(FCk_Handle(SmHandle)) ||
+            !utils_state_machine::Has(FCk_Handle(SmHandle)))
+        { Request_CloseSource(); return; }
         StateText.SetText(ck::Text("Idle"));
         StateText.SetTextRenderColor(FColor::Blue);
     }
@@ -175,6 +180,13 @@ class ACk_SmTest_GymActor : AActor
         FCk_Handle_StateMachine InHandle,
         FCk_Sm_Payload_OnStopped InPayload)
     {
+        if (Get_SourceClosed()) { return; }
+        if (!Get_HasCurrentSourceContext() ||
+            ck::Is_NOT_Valid(SmHandle) || ck::Is_NOT_Valid(InHandle) ||
+            InHandle != SmHandle ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(FCk_Handle(SmHandle)) ||
+            !utils_state_machine::Has(FCk_Handle(SmHandle)))
+        { Request_CloseSource(); return; }
         StateText.SetText(ck::Text("STOPPED"));
         StateText.SetTextRenderColor(FColor(128, 128, 128));
     }
@@ -185,7 +197,13 @@ class ACk_SmTest_GymActor : AActor
 
     private void DoPause()
     {
+        if (Get_SourceClosed()) { return; }
+        if (!Get_HasCurrentSourceContext() || ck::Is_NOT_Valid(SmHandle) ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(FCk_Handle(SmHandle)) ||
+            !utils_state_machine::Has(FCk_Handle(SmHandle)))
+        { Request_CloseSource(); return; }
         SmHandle.Request_Pause();
+        if (!Get_HasCurrentSourceContext()) { return; }
         IsPaused = true;
 
         StateText.SetText(ck::Text("PAUSED"));
@@ -198,7 +216,13 @@ class ACk_SmTest_GymActor : AActor
     UFUNCTION()
     private void DoResume()
     {
+        if (Get_SourceClosed()) { return; }
+        if (!Get_HasCurrentSourceContext() || ck::Is_NOT_Valid(SmHandle) ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(FCk_Handle(SmHandle)) ||
+            !utils_state_machine::Has(FCk_Handle(SmHandle)))
+        { Request_CloseSource(); return; }
         SmHandle.Request_Resume();
+        if (!Get_HasCurrentSourceContext()) { return; }
         IsPaused = false;
         TransitionCount = 0;
 
