@@ -19,9 +19,8 @@
 // 1. A divergence state with two outgoing transitions, gated by polled
 //    conditions whose results are pinned by the gym actor (deterministic
 //    branch selection - no RNG, no flake).
-// 2. The transition order is read from the gym actor at DefineState time,
-//    so a single PIE session can run the SM twice with swapped add-orders
-//    by toggling AddOrderLeftFirst between Pass A and Pass B.
+// 2. Each callback resolves its actual accepted source root. The actor's
+//    private active pass pins the transition order and choice for A or B.
 // 3. Per-state task entities increment a label-keyed counter when their
 //    DoEnterTask fires. The bug manifests as a counter reading 2 (instead
 //    of 1) for the first-added-and-chosen branch.
@@ -59,38 +58,71 @@ enum ECk_SmTest_DivergenceFirstBranch_PaymentChoice
 // COUNTER REGISTRY (stateless helpers)
 // ============================================================================
 //
-// Same approach as the graph-walk regression: AS disallows mutable
-// namespace globals, so we resolve the (single) live gym actor via
-// GetAllActorsOfClass and forward the increment / setting reads. One-actor-
-// at-a-time is enforced by the SM gym's PlayerController spawning exactly
-// one instance.
+// Resolve callbacks through their exact live source context and owning
+// actor. Two actors can run concurrently without sharing counters or
+// mutable branch configuration. Finished runs reject late callbacks.
 
 namespace SmDivergenceFirstBranch_Regression
 {
-    void Increment(FName InLabel)
+    ACk_SmTest_DivergenceFirstBranch_GymActor TryGet_Source(
+        FCk_Handle InCallback, FCk_Handle& OutContext)
     {
-        auto OutActors = TArray<ACk_SmTest_DivergenceFirstBranch_GymActor>();
-        GetAllActorsOfClass(ACk_SmTest_DivergenceFirstBranch_GymActor, OutActors);
-        for (auto Actor : OutActors)
-        { Actor.Increment_Counter(InLabel); }
+        OutContext = FCk_Handle();
+        if (!UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
+                InCallback, OutContext) ||
+            !utils_owning_actor::Has(OutContext))
+        { return nullptr; }
+        auto Actor = Cast<ACk_SmTest_DivergenceFirstBranch_GymActor>(
+            utils_owning_actor::TryGet_EntityOwningActor(OutContext));
+        if (ck::Is_NOT_Valid(Actor) || Actor.IsActorBeingDestroyed() ||
+            Actor.Get_SourceClosed() || !Actor.Get_HasCurrentSourceContext())
+        { return nullptr; }
+        return Actor;
     }
 
-    bool Get_AddOrderLeftFirst()
+    bool TryGet_Config(FCk_Handle InCallback, bool& OutLeftFirst,
+        ECk_SmTest_DivergenceFirstBranch_PaymentChoice& OutChoice)
     {
-        auto OutActors = TArray<ACk_SmTest_DivergenceFirstBranch_GymActor>();
-        GetAllActorsOfClass(ACk_SmTest_DivergenceFirstBranch_GymActor, OutActors);
-        for (auto Actor : OutActors)
-        { return Actor.AddOrderLeftFirst; }
+        FCk_Handle Context;
+        auto Actor = TryGet_Source(InCallback, Context);
+        if (ck::Is_NOT_Valid(Actor)) { return false; }
+        return Actor.TryGet_ActiveConfig(Context, OutLeftFirst, OutChoice);
+    }
+
+    bool Increment(FCk_Handle_SmTask InHandle, FName InLabel)
+    {
+        FCk_Handle Context;
+        auto Actor = TryGet_Source(FCk_Handle(InHandle), Context);
+        if (ck::Is_NOT_Valid(Actor)) { return false; }
+        bool LeftFirst = false;
+        auto Choice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+        if (!Actor.TryGet_ActiveConfig(Context, LeftFirst, Choice))
+        { return false; }
+        Actor.Increment_Counter(InLabel);
         return true;
     }
 
-    ECk_SmTest_DivergenceFirstBranch_PaymentChoice Get_PaymentChoice()
+    bool HasExactStopTarget(FCk_Handle_SmTask InTask,
+        FCk_Handle_StateMachine InOwningSm)
     {
-        auto OutActors = TArray<ACk_SmTest_DivergenceFirstBranch_GymActor>();
-        GetAllActorsOfClass(ACk_SmTest_DivergenceFirstBranch_GymActor, OutActors);
-        for (auto Actor : OutActors)
-        { return Actor.PaymentChoice; }
-        return ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+        FCk_Handle Context;
+        auto Actor = TryGet_Source(FCk_Handle(InTask), Context);
+        if (ck::Is_NOT_Valid(Actor)) { return false; }
+        bool LeftFirst = false;
+        auto Choice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+        if (!Actor.TryGet_ActiveConfig(Context, LeftFirst, Choice))
+        { return false; }
+        auto Sm = FCk_Handle(InOwningSm);
+        if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Sm) ||
+            ck::Is_NOT_Valid(InOwningSm) ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                Sm, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+            !utils_state_machine::Has(Sm))
+        { return false; }
+        FCk_Handle SmContext;
+        return UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
+                   Sm, SmContext) && SmContext == Context &&
+            ck::IsValid(TryGet_Source(FCk_Handle(InTask), Context));
     }
 }
 
@@ -106,8 +138,11 @@ class UCk_SmTest_Divergence_Condition_PaymentIsLeft : UCk_SmCondition_Polled
     bool DoEvaluate(FCk_Handle_SmCondition InHandle, FCk_Time InDeltaT) const
     {
         auto _CkPerfScope = ck::ScopedStat();
-        return SmDivergenceFirstBranch_Regression::Get_PaymentChoice()
-            == ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+        bool LeftFirst = false;
+        auto Choice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+        return SmDivergenceFirstBranch_Regression::TryGet_Config(
+                FCk_Handle(InHandle), LeftFirst, Choice) &&
+            Choice == ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
     }
 };
 
@@ -119,8 +154,11 @@ class UCk_SmTest_Divergence_Condition_PaymentIsRight : UCk_SmCondition_Polled
     bool DoEvaluate(FCk_Handle_SmCondition InHandle, FCk_Time InDeltaT) const
     {
         auto _CkPerfScope = ck::ScopedStat();
-        return SmDivergenceFirstBranch_Regression::Get_PaymentChoice()
-            == ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Right;
+        bool LeftFirst = false;
+        auto Choice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+        return SmDivergenceFirstBranch_Regression::TryGet_Config(
+                FCk_Handle(InHandle), LeftFirst, Choice) &&
+            Choice == ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Right;
     }
 };
 
@@ -142,7 +180,7 @@ class UCk_SmTest_Divergence_Task_Enter : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmDivergenceFirstBranch_Regression::Increment(n"Enter"); }
+    { SmDivergenceFirstBranch_Regression::Increment(InHandle, n"Enter"); }
 };
 
 UCLASS()
@@ -152,7 +190,7 @@ class UCk_SmTest_Divergence_Task_Idle : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmDivergenceFirstBranch_Regression::Increment(n"Idle"); }
+    { SmDivergenceFirstBranch_Regression::Increment(InHandle, n"Idle"); }
 };
 
 UCLASS()
@@ -162,7 +200,7 @@ class UCk_SmTest_Divergence_Task_Branch : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmDivergenceFirstBranch_Regression::Increment(n"Branch"); }
+    { SmDivergenceFirstBranch_Regression::Increment(InHandle, n"Branch"); }
 };
 
 UCLASS()
@@ -172,7 +210,7 @@ class UCk_SmTest_Divergence_Task_Left : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmDivergenceFirstBranch_Regression::Increment(n"Left"); }
+    { SmDivergenceFirstBranch_Regression::Increment(InHandle, n"Left"); }
 };
 
 UCLASS()
@@ -182,7 +220,7 @@ class UCk_SmTest_Divergence_Task_Right : UCk_SmTask_EntityScript
 
     UFUNCTION(BlueprintOverride)
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
-    { SmDivergenceFirstBranch_Regression::Increment(n"Right"); }
+    { SmDivergenceFirstBranch_Regression::Increment(InHandle, n"Right"); }
 };
 
 UCLASS()
@@ -194,15 +232,17 @@ class UCk_SmTest_Divergence_Task_Finish : UCk_SmTask_EntityScript
     void DoEnterTask(FCk_Handle_SmTask InHandle, ECk_Sm_NetContext InNetContext)
     {
         auto _CkPerfScope = ck::ScopedStat();
-        SmDivergenceFirstBranch_Regression::Increment(n"Finish");
+        if (!SmDivergenceFirstBranch_Regression::Increment(InHandle, n"Finish"))
+        { return; }
 
         // Stop the owning sub-SM so the gym's verify pass sees a settled
         // state. The sub-SM task wrapping our Enter state has
         // SucceedOnStop completion behaviour - it bubbles the stop up as
         // task success to the parent SM.
         auto OwningSm = Get_OwningStateMachine();
-        if (ck::IsValid(OwningSm))
-        { utils_state_machine::Request_Stop(OwningSm); }
+        if (!SmDivergenceFirstBranch_Regression::HasExactStopTarget(
+                InHandle, OwningSm)) { return; }
+        utils_state_machine::Request_Stop(OwningSm);
     }
 };
 
@@ -255,9 +295,13 @@ class UCk_SmTest_Divergence_State_Branch : UCk_SmState_EntityScript
     void DoDefineState(FCk_Handle_SmState_UnderConstruction& InHandle)
     {
         auto _CkPerfScope = ck::ScopedStat();
+        bool LeftFirst = false;
+        auto Choice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+        if (!SmDivergenceFirstBranch_Regression::TryGet_Config(
+                FCk_Handle(Get_OwnerStateMachine()), LeftFirst, Choice)) { return; }
         AddTask(InHandle, UCk_SmTest_Divergence_Task_Branch);
 
-        if (SmDivergenceFirstBranch_Regression::Get_AddOrderLeftFirst())
+        if (LeftFirst)
         {
             auto ToLeft = AddTransition(InHandle, UCk_SmTest_Divergence_State_Left);
             AddCondition(ToLeft, UCk_SmTest_Divergence_Condition_PaymentIsLeft);

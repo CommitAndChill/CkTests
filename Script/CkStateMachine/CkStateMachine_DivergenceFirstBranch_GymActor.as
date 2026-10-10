@@ -20,7 +20,7 @@
 // transitions are gated by polled checks tied to PaymentChoice.
 
 UCLASS(Blueprintable)
-class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
+class ACk_SmTest_DivergenceFirstBranch_GymActor : ACk_SmTest_GymSourceActor
 {
     default bReplicates = true;
     default bAlwaysRelevant = true;
@@ -76,9 +76,8 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
     // STATE READ BY THE SM
     // ========================================================================
 
-    // Read by UCk_SmTest_Divergence_State_Branch::DoDefineState (via
-    // SmDivergenceFirstBranch_Regression::Get_AddOrderLeftFirst). Mutated
-    // between passes to flip the AddTransition order at the divergence.
+    // Display-compatible authored values; callbacks use the private active
+    // pass and its accepted source root instead of these mutable properties.
     UPROPERTY()
     bool AddOrderLeftFirst = true;
 
@@ -165,6 +164,83 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
     UPROPERTY() FCk_Handle PassBEntity;
     UPROPERTY() FCk_Handle_StateMachine PassBSmHandle;
 
+    private int32 _ActivePass = 0; // 1 = A, 2 = B; set before requesting a pass
+    private bool _PassAAdded = false;
+    private bool _PassBAdded = false;
+    private bool _PassATimerArmed = false;
+    private bool _PassBTimerArmed = false;
+    private bool _SourceRunFinished = false;
+
+    UFUNCTION(BlueprintPure)
+    bool Get_SourceRunFinished() const
+    { return _SourceRunFinished && !Get_SourceClosed(); }
+
+    bool TryGet_ActiveConfig(FCk_Handle InContext, bool& OutLeftFirst,
+        ECk_SmTest_DivergenceFirstBranch_PaymentChoice& OutChoice)
+    {
+        OutLeftFirst = false;
+        OutChoice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+        if (Get_SourceClosed() || !Get_HasCurrentSourceContext() ||
+            _SourceRunFinished) { return false; }
+        auto Roots = Get_SourceRoots();
+        if (_ActivePass == 1 && Roots.Num() == 1 &&
+            Get_SourceConstructedCount() == 1 &&
+            InContext == PassAEntity && Roots[0] == PassAEntity)
+        {
+            if (_PassAAdded &&
+                (ck::Is_NOT_Valid(PassASmHandle) ||
+                 FCk_Handle(PassASmHandle) != PassAEntity ||
+                 !utils_state_machine::Has(PassAEntity)))
+            { Request_CloseSource(); return false; }
+            if (ck::IsValid(PassASmHandle) && FCk_Handle(PassASmHandle) != PassAEntity)
+            { Request_CloseSource(); return false; }
+            OutLeftFirst = true;
+            OutChoice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
+            return true;
+        }
+        if (_ActivePass == 2 && Roots.Num() == 2 && Roots[0] != Roots[1] &&
+            Get_SourceConstructedCount() == 2 &&
+            Roots[0] == PassAEntity && InContext == PassBEntity &&
+            Roots[1] == PassBEntity)
+        {
+            if (_PassBAdded &&
+                (ck::Is_NOT_Valid(PassBSmHandle) ||
+                 FCk_Handle(PassBSmHandle) != PassBEntity ||
+                 !utils_state_machine::Has(PassBEntity)))
+            { Request_CloseSource(); return false; }
+            if (ck::IsValid(PassBSmHandle) && FCk_Handle(PassBSmHandle) != PassBEntity)
+            { Request_CloseSource(); return false; }
+            OutLeftFirst = false;
+            OutChoice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Right;
+            return true;
+        }
+        // Late callbacks from the retained A forest are deliberately inert in B.
+        if (_ActivePass == 2 && InContext == PassAEntity) { return false; }
+        Request_CloseSource();
+        return false;
+    }
+
+    private bool HasExactPass(int32 Pass)
+    {
+        if (Get_SourceClosed() || _ActivePass != Pass ||
+            !Get_HasCurrentSourceContext()) { return false; }
+        auto Roots = Get_SourceRoots();
+        if (Roots.Num() != Pass || Get_SourceConstructedCount() != Pass ||
+            Roots[0] != PassAEntity ||
+            (Pass == 2 && (Roots[0] == Roots[1] || Roots[1] != PassBEntity)))
+        { Request_CloseSource(); return false; }
+        auto Root = Pass == 1 ? PassAEntity : PassBEntity;
+        auto Sm = Pass == 1 ? PassASmHandle : PassBSmHandle;
+        if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Root) ||
+            ck::Is_NOT_Valid(Root) ||
+            utils_entity_lifetime::Get_IsPendingDestroy(
+                Root, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+            ck::Is_NOT_Valid(Sm) || FCk_Handle(Sm) != Root ||
+            !utils_state_machine::Has(Root))
+        { Request_CloseSource(); return false; }
+        return true;
+    }
+
     // ========================================================================
     // LIFECYCLE
     // ========================================================================
@@ -186,19 +262,14 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
     UFUNCTION()
     private void StartPassA()
     {
+        if (Get_SourceClosed() || !Math::IsFinite(PerPassSettleSeconds) ||
+            PerPassSettleSeconds <= 0.0f)
+        { Request_CloseSource(); return; }
+        _ActivePass = 1;
         AddOrderLeftFirst = true;
         PaymentChoice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
         Reset_Counters();
-
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
-        auto Pending = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            SpawnParams);
-        utils_pending_entity_script::Promise_OnConstructed(
-            Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnPassAConstructed"));
+        if (!Request_SourceEntity(n"OnPassAConstructed")) { return; }
 
         // Settle timer is started in OnPassAConstructed - after the SM is actually
         // added - so PerPassSettleSeconds measures the SM-chain duration only, not
@@ -208,21 +279,31 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
     UFUNCTION()
     private void OnPassAConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (System::IsServer() == false)
+        if (Get_SourceClosed() || !TryAccept_SourceEntity(InEntityScriptHandle))
         { return; }
-
         PassAEntity = FCk_Handle(InEntityScriptHandle);
+        auto Roots = Get_SourceRoots();
+        if (_ActivePass != 1 || !Get_HasCurrentSourceContext() ||
+            Roots.Num() != 1 || Roots[0] != PassAEntity)
+        { Request_CloseSource(); return; }
         PassAEntity.Set_DebugName(n"PassA");
+        if (Get_SourceClosed() || !Get_HasCurrentSourceContext()) { return; }
         PassASmHandle = UCk_Utils_StateMachine_UE::Add(
             PassAEntity,
             FCk_StateMachine_Spec(UCk_SmTest_Divergence_ParentState));
-
+        _PassAAdded = true;
+        if (!HasExactPass(1) || !Math::IsFinite(PerPassSettleSeconds) ||
+            PerPassSettleSeconds <= 0.0f)
+        { Request_CloseSource(); return; }
+        _PassATimerArmed = true;
         System::SetTimer(this, n"VerifyPassA", PerPassSettleSeconds, false);
     }
 
     UFUNCTION()
     private void VerifyPassA()
     {
+        if (!_PassATimerArmed || !HasExactPass(1)) { return; }
+        _PassATimerArmed = false;
         Snap_A_Enter  = Counter_Enter;
         Snap_A_Idle   = Counter_Idle;
         Snap_A_Branch = Counter_Branch;
@@ -236,19 +317,15 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
     UFUNCTION()
     private void StartPassB()
     {
+        if (Get_SourceClosed() || !HasExactPass(1) ||
+            !Math::IsFinite(PerPassSettleSeconds) ||
+            PerPassSettleSeconds <= 0.0f)
+        { Request_CloseSource(); return; }
+        _ActivePass = 2;
         AddOrderLeftFirst = false;
         PaymentChoice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Right;
         Reset_Counters();
-
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
-        auto Pending = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            SpawnParams);
-        utils_pending_entity_script::Promise_OnConstructed(
-            Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnPassBConstructed"));
+        if (!Request_SourceEntity(n"OnPassBConstructed")) { return; }
 
         // Settle timer started in OnPassBConstructed - see StartPassA comment.
     }
@@ -256,21 +333,32 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
     UFUNCTION()
     private void OnPassBConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (System::IsServer() == false)
+        if (Get_SourceClosed() || !TryAccept_SourceEntity(InEntityScriptHandle))
         { return; }
-
         PassBEntity = FCk_Handle(InEntityScriptHandle);
+        auto Roots = Get_SourceRoots();
+        if (_ActivePass != 2 || !Get_HasCurrentSourceContext() ||
+            Roots.Num() != 2 || Roots[0] != PassAEntity ||
+            Roots[1] != PassBEntity || Roots[0] == Roots[1])
+        { Request_CloseSource(); return; }
         PassBEntity.Set_DebugName(n"PassB");
+        if (Get_SourceClosed() || !Get_HasCurrentSourceContext()) { return; }
         PassBSmHandle = UCk_Utils_StateMachine_UE::Add(
             PassBEntity,
             FCk_StateMachine_Spec(UCk_SmTest_Divergence_ParentState));
-
+        _PassBAdded = true;
+        if (!HasExactPass(2) || !Math::IsFinite(PerPassSettleSeconds) ||
+            PerPassSettleSeconds <= 0.0f)
+        { Request_CloseSource(); return; }
+        _PassBTimerArmed = true;
         System::SetTimer(this, n"VerifyPassB", PerPassSettleSeconds, false);
     }
 
     UFUNCTION()
     private void VerifyPassB()
     {
+        if (!_PassBTimerArmed || !HasExactPass(2)) { return; }
+        _PassBTimerArmed = false;
         Snap_B_Enter  = Counter_Enter;
         Snap_B_Idle   = Counter_Idle;
         Snap_B_Branch = Counter_Branch;
@@ -279,6 +367,7 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
         Snap_B_Finish = Counter_Finish;
 
         UpdateDisplay();
+        if (HasExactPass(2)) { _SourceRunFinished = true; }
     }
 
     // ========================================================================
@@ -315,6 +404,7 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
 
     private void UpdateDisplay()
     {
+        if (!HasExactPass(2)) { return; }
         auto OkA = PassA_OK();
         auto OkB = PassB_OK();
         auto AllOk = OkA && OkB;
@@ -335,7 +425,16 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
         ck::Trace(f"[SmDivergenceFirstBranch] {StatusLabel}: {ReportLine}",
             n"SmDivergenceFirstBranch", TraceDuration, TraceColor);
 
-        if (ck::IsValid(StationHandle))
+        FCk_Handle StationContext;
+        if (UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
+                StationHandle, StationContext) &&
+            UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                StationHandle) && ck::IsValid(StationHandle) &&
+            !utils_entity_lifetime::Get_IsPendingDestroy(
+                StationHandle, ECk_EntityLifetime_DestructionPhase::BeginDestroy) &&
+            utils_entity_lifetime::Has_LifetimeOwner(StationHandle) &&
+            utils_entity_lifetime::Get_WorldForEntity(StationHandle) == GetWorld() &&
+            StationHandle.Has_Fragment(FCkGym_Station_TitleAndDescription))
         {
             auto Title = f"DIVERGENCE FIRST-BRANCH - {StatusLabel}";
 
@@ -385,7 +484,8 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
                 Description = Description + Why;
             }
 
-            auto& Fragment = StationHandle.AddOrGet_Fragment(FCkGym_Station_TitleAndDescription);
+            if (!HasExactPass(2)) { return; }
+            auto& Fragment = StationHandle.Get_Fragment(FCkGym_Station_TitleAndDescription);
             Fragment.Title = FText::FromString(Title);
             Fragment.Description = FText::FromString(Description);
             Fragment.Instructions = FText::FromString("panel [6] Divergence: first branch");
