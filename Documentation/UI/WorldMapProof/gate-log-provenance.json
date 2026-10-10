@@ -1,0 +1,32 @@
+[
+  {
+    "log": "WorldMap-Gate-01.log",
+    "engineInitializations": 0,
+    "sha256": "5BB5641465F3E923EE97D3752DE7865A37F731245151AEE977ECA286C94F16C8"
+  },
+  {
+    "log": "WorldMap-Gate-02.log",
+    "engineInitializations": 4,
+    "sha256": "9D155317B059A312280E1472403B7334AAB2CB6C1AD6FA1AEBF6CC17908A12AD"
+  },
+  {
+    "log": "WorldMap-Gate-03.log",
+    "engineInitializations": 3,
+    "sha256": "921F4E6E395C0E1CE000EE0B50EBFEC91481B06321FAC331887FD300975970BC"
+  },
+  {
+    "log": "WorldMap-Gate-04.log",
+    "engineInitializations": 2,
+    "sha256": "66AD3F78A79C49CFCDB1FCE167161D0B0718CCDAA6C06F25E8D5C67B60BDE635"
+  },
+  {
+    "log": "WorldMap-Gate-05.log",
+    "engineInitializations": 2,
+    "sha256": "76097CE487711087E973ADA42E285189F47CF4DB8B4957540371118D20A65990"
+  },
+  {
+    "log": "WorldMap-MenuCompatibility.log",
+    "engineInitializations": 1,
+    "sha256": "C331A59FCBDD4F92C70219B23DFE70EAFB3EB5FAE33786616D2F41852C67A884"
+  }
+]
