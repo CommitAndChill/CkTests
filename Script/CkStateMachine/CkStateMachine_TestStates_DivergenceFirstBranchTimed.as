@@ -58,20 +58,30 @@ enum ECk_SmTest_DivergenceTimed_PaymentChoice
 
 namespace SmDivergenceTimed_Regression
 {
-    ACk_SmTest_DivergenceTimed_GymActor TryGet_Source(FCk_Handle InCallback)
+    ACk_SmTest_DivergenceTimed_GymActor TryGet_Source(
+        FCk_Handle InCallback, FCk_Handle& OutPass)
     {
-        FCk_Handle Context;
+        OutPass = FCk_Handle();
+        FCk_Handle Primary;
         if (!UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
-                InCallback, Context) ||
-            !utils_owning_actor::Has(Context))
+                InCallback, Primary) ||
+            !utils_owning_actor::Has(Primary))
         { return nullptr; }
         auto Actor = Cast<ACk_SmTest_DivergenceTimed_GymActor>(
-            utils_owning_actor::TryGet_EntityOwningActor(Context));
+            utils_owning_actor::TryGet_EntityOwningActor(Primary));
         if (ck::Is_NOT_Valid(Actor) || Actor.IsActorBeingDestroyed() ||
-            Actor.Get_SourceClosed() ||
-            Actor.Get_ActivePassKindForRoot(Context) == 0)
-        { return nullptr; }
+            Actor.Get_SourceClosed() || Actor.Get_SourcePrimary() != Primary ||
+            !UCk_StateMachineGym_Runtime_UE::TryGet_DirectPassChild(
+                InCallback, Primary, OutPass) ||
+            Actor.Get_ActivePassKindForRoot(OutPass) == 0)
+        { OutPass = FCk_Handle(); return nullptr; }
         return Actor;
+    }
+
+    ACk_SmTest_DivergenceTimed_GymActor TryGet_Source(FCk_Handle InCallback)
+    {
+        FCk_Handle Pass;
+        return TryGet_Source(InCallback, Pass);
     }
 
     bool Increment(FCk_Handle InCallback, FName InLabel)
@@ -84,19 +94,22 @@ namespace SmDivergenceTimed_Regression
 
     int32 Get_PassKind(FCk_Handle InCallback)
     {
-        FCk_Handle Context;
-        auto Actor = TryGet_Source(InCallback);
-        if (ck::Is_NOT_Valid(Actor) ||
-            !UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
-                InCallback, Context))
-        { return 0; }
-        return Actor.Get_ActivePassKindForRoot(Context);
+        FCk_Handle Pass;
+        auto Actor = TryGet_Source(InCallback, Pass);
+        if (ck::Is_NOT_Valid(Actor)) { return 0; }
+        return Actor.Get_ActivePassKindForRoot(Pass);
     }
 
     bool HasExactTimer(FCk_Handle_Timer InTimer, FCk_Handle InCondition)
     {
         auto Timer = FCk_Handle(InTimer);
-        return Timer != FCk_Handle() && InCondition != FCk_Handle() &&
+        FCk_Handle TimerPass;
+        FCk_Handle ConditionPass;
+        auto TimerActor = TryGet_Source(Timer, TimerPass);
+        auto ConditionActor = TryGet_Source(InCondition, ConditionPass);
+        return ck::IsValid(TimerActor) && TimerActor == ConditionActor &&
+            TimerPass != FCk_Handle() && TimerPass == ConditionPass &&
+            Timer != FCk_Handle() && InCondition != FCk_Handle() &&
             UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Timer) &&
             UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
                 InCondition) &&
@@ -283,11 +296,8 @@ class UCk_SmTest_DivergenceTimed_Task_Finish : UCk_SmTask_EntityScript
         FCk_Handle TaskContext;
         FCk_Handle SmContext;
         auto Actor = SmDivergenceTimed_Regression::TryGet_Source(
-            FCk_Handle(InHandle));
-        if (ck::Is_NOT_Valid(Actor) ||
-            !UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
-                FCk_Handle(InHandle), TaskContext))
-        { return; }
+            FCk_Handle(InHandle), TaskContext);
+        if (ck::Is_NOT_Valid(Actor)) { return; }
         if (SmEntity == FCk_Handle() ||
             !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
                 SmEntity) ||
@@ -295,8 +305,8 @@ class UCk_SmTest_DivergenceTimed_Task_Finish : UCk_SmTask_EntityScript
             utils_entity_lifetime::Get_IsPendingDestroy(
                 SmEntity, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
             !utils_state_machine::Has(SmEntity) ||
-            !UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
-                SmEntity, SmContext) ||
+            !UCk_StateMachineGym_Runtime_UE::TryGet_DirectPassChild(
+                SmEntity, Actor.Get_SourcePrimary(), SmContext) ||
             SmContext != TaskContext ||
             Actor.Get_ActivePassKindForRoot(TaskContext) == 0)
         { Actor.Request_CloseSource(); return; }

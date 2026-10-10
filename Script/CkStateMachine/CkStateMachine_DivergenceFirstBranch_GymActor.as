@@ -256,6 +256,16 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : ACk_SmTest_GymSourceActor
         if (HasAuthority() == false)
         { return; }
 
+        Request_PrimarySource(n"OnPrimaryConstructed");
+    }
+
+    UFUNCTION()
+    private void OnPrimaryConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    {
+        if (Get_SourceClosed() || !TryAccept_PrimarySource(InEntityScriptHandle))
+        { return; }
+        if (Get_SourcePrimary() != FCk_Handle(InEntityScriptHandle))
+        { Request_CloseSource(); return; }
         StartPassA();
     }
 
@@ -269,7 +279,7 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : ACk_SmTest_GymSourceActor
         AddOrderLeftFirst = true;
         PaymentChoice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
         Reset_Counters();
-        if (!Request_SourceEntity(n"OnPassAConstructed")) { return; }
+        if (!Request_PassSource(n"OnPassAConstructed")) { return; }
 
         // Settle timer is started in OnPassAConstructed - after the SM is actually
         // added - so PerPassSettleSeconds measures the SM-chain duration only, not
@@ -279,7 +289,7 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : ACk_SmTest_GymSourceActor
     UFUNCTION()
     private void OnPassAConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (Get_SourceClosed() || !TryAccept_SourceEntity(InEntityScriptHandle))
+        if (Get_SourceClosed() || !TryAccept_PassSource(InEntityScriptHandle))
         { return; }
         PassAEntity = FCk_Handle(InEntityScriptHandle);
         auto Roots = Get_SourceRoots();
@@ -325,7 +335,7 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : ACk_SmTest_GymSourceActor
         AddOrderLeftFirst = false;
         PaymentChoice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Right;
         Reset_Counters();
-        if (!Request_SourceEntity(n"OnPassBConstructed")) { return; }
+        if (!Request_PassSource(n"OnPassBConstructed")) { return; }
 
         // Settle timer started in OnPassBConstructed - see StartPassA comment.
     }
@@ -333,7 +343,7 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : ACk_SmTest_GymSourceActor
     UFUNCTION()
     private void OnPassBConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (Get_SourceClosed() || !TryAccept_SourceEntity(InEntityScriptHandle))
+        if (Get_SourceClosed() || !TryAccept_PassSource(InEntityScriptHandle))
         { return; }
         PassBEntity = FCk_Handle(InEntityScriptHandle);
         auto Roots = Get_SourceRoots();

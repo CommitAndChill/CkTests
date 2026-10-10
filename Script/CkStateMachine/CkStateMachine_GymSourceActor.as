@@ -1,3 +1,18 @@
+// One actor bridge; the pass scripts are actorless and local to authority.
+class UCk_SmTest_DivergencePrimaryScript : UCk_EntityScript_WithActor_UE
+{
+    default _Replication = ECk_Replication::DoesNotReplicate;
+}
+
+class UCk_SmTest_DivergencePassScript : UCk_GenericEntityScript_UE
+{
+    default _Replication = ECk_Replication::DoesNotReplicate;
+
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    { return ECk_EntityScript_ConstructionFlow::Finished; }
+}
+
 // Retained source receipts for StateMachine gym actors. This is a local
 // lifecycle prerequisite; the GameState owns whole-bank publication.
 UCLASS(Blueprintable)
@@ -8,6 +23,11 @@ class ACk_SmTest_GymSourceActor : AActor
     private TArray<FCk_Handle_PendingEntityScript> _SourcePending;
     private TArray<FCk_Handle> _SourceRoots;
     private TArray<FCk_Handle> _SourceAccepted;
+    // Opt-in mode keeps the primary separate: legacy roots remain A/B only.
+    private bool _PrimaryMode = false;
+    private FCk_Handle_PendingEntityScript _PrimaryPending;
+    private FCk_Handle _PrimaryTarget;
+    private bool _PrimaryAccepted = false;
     private bool _SourceCaptured = false;
     private bool _SourceClosed = false;
 
@@ -17,6 +37,17 @@ class ACk_SmTest_GymSourceActor : AActor
     TArray<FCk_Handle> Get_SourceRoots() const { return _SourceRoots; }
     UFUNCTION(BlueprintPure)
     int32 Get_SourceConstructedCount() const { return _SourceAccepted.Num(); }
+    UFUNCTION(BlueprintPure)
+    FCk_Handle Get_SourcePrimaryTarget() const { return _PrimaryTarget; }
+    UFUNCTION(BlueprintPure)
+    FCk_Handle Get_SourcePrimary()
+    {
+        if (!_PrimaryAccepted || _SourceClosed ||
+            !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(
+                _PrimaryTarget, this))
+        { return FCk_Handle(); }
+        return _PrimaryTarget;
+    }
 
     private bool HasLiveSourceContext()
     {
@@ -36,8 +67,100 @@ class ACk_SmTest_GymSourceActor : AActor
         return true;
     }
 
+    // Primary admission retains the first-return receipt before callbacks.
+    bool Request_PrimarySource(FName Callback)
+    {
+        if (_PrimaryMode || _SourceCaptured || !_SourceRoots.IsEmpty() ||
+            !_SourcePending.IsEmpty() || !_SourceAccepted.IsEmpty() ||
+            !HasLiveSourceContext() || Callback == NAME_None ||
+            !UCk_StateMachineGym_Runtime_UE::Get_IsDivergenceSourceClassNonReplicating(
+                UCk_SmTest_DivergencePrimaryScript, true))
+        { Request_CloseSource(); return false; }
+        _PrimaryMode = true;
+        _SourceWorld = GetWorld();
+        _SourceWorldRoot = ck::TransientEntity();
+        _SourceCaptured = true;
+        auto Params = FCk_EntityScript_WithActor_SpawnParams();
+        Params._OwningActor = this;
+        auto Pending = utils_entity_script::Request_SpawnEntity(
+            _SourceWorldRoot, UCk_SmTest_DivergencePrimaryScript, Params);
+        auto Target = Pending.Get_EntityUnderConstruction();
+        _PrimaryPending = Pending;
+        _PrimaryTarget = Target; // first-return receipt before any validation
+        if (!utils_pending_entity_script::Get_IsValid(Pending) ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Target) ||
+            ck::Is_NOT_Valid(Target) ||
+            !utils_entity_lifetime::Has_LifetimeOwner(Target) ||
+            utils_entity_lifetime::Get_LifetimeOwner(Target) != _SourceWorldRoot ||
+            utils_entity_lifetime::Get_WorldForEntity(Target) != _SourceWorld)
+        { Request_CloseSource(); return false; }
+        utils_pending_entity_script::Promise_OnConstructed(
+            Pending, FCk_Delegate_EntityScript_Constructed(this, Callback));
+        return !_SourceClosed;
+    }
+
+    bool TryAccept_PrimarySource(FCk_Handle_EntityScript InHandle)
+    {
+        if (_SourceClosed) { return false; }
+        auto Target = FCk_Handle(InHandle);
+        if (!_PrimaryMode || _PrimaryAccepted || !HasLiveSourceContext() ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Target) ||
+            ck::Is_NOT_Valid(Target) || Target != _PrimaryTarget ||
+            _PrimaryPending.Get_EntityUnderConstruction() != Target ||
+            !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(Target, this))
+        { Request_CloseSource(); return false; }
+        _PrimaryAccepted = true;
+        return true;
+    }
+
+    bool Request_PassSource(FName Callback)
+    {
+        if (!_PrimaryMode || !_PrimaryAccepted || _SourceRoots.Num() >= 2 ||
+            _SourceRoots.Num() != _SourceAccepted.Num() ||
+            !Get_HasCurrentSourceContext() || Callback == NAME_None ||
+            !UCk_StateMachineGym_Runtime_UE::Get_IsDivergenceSourceClassNonReplicating(
+                UCk_SmTest_DivergencePassScript, false))
+        { Request_CloseSource(); return false; }
+        auto Pending = utils_entity_script::Request_SpawnEntity(
+            _PrimaryTarget, UCk_SmTest_DivergencePassScript, FInstancedStruct());
+        auto Target = Pending.Get_EntityUnderConstruction();
+        const bool Duplicate = Target == _PrimaryTarget || _SourceRoots.Contains(Target);
+        _SourcePending.Add(Pending);
+        _SourceRoots.Add(Target); // A/B first-return receipts only
+        if (!utils_pending_entity_script::Get_IsValid(Pending) ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Target) ||
+            ck::Is_NOT_Valid(Target) ||
+            !utils_entity_lifetime::Has_LifetimeOwner(Target) ||
+            utils_entity_lifetime::Get_LifetimeOwner(Target) != _PrimaryTarget ||
+            utils_entity_lifetime::Get_WorldForEntity(Target) != _SourceWorld ||
+            Duplicate)
+        { Request_CloseSource(); return false; }
+        utils_pending_entity_script::Promise_OnConstructed(
+            Pending, FCk_Delegate_EntityScript_Constructed(this, Callback));
+        return !_SourceClosed;
+    }
+
+    bool TryAccept_PassSource(FCk_Handle_EntityScript InHandle)
+    {
+        if (_SourceClosed) { return false; }
+        auto Target = FCk_Handle(InHandle);
+        const int32 Next = _SourceAccepted.Num();
+        if (!_PrimaryMode || !_PrimaryAccepted || !HasLiveSourceContext() ||
+            Next >= _SourceRoots.Num() || Next >= _SourcePending.Num() || Next >= 2 ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Target) ||
+            ck::Is_NOT_Valid(Target) || _SourceRoots[Next] != Target ||
+            _SourcePending[Next].Get_EntityUnderConstruction() != Target ||
+            _SourceAccepted.Contains(Target) ||
+            !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePass(
+                Target, _PrimaryTarget))
+        { Request_CloseSource(); return false; }
+        _SourceAccepted.Add(Target);
+        return true;
+    }
+
     bool Request_SourceEntity(FName Callback)
     {
+        if (_PrimaryMode) { Request_CloseSource(); return false; }
         if (!HasLiveSourceContext() || Callback == NAME_None)
         { Request_CloseSource(); return false; }
         auto World = GetWorld();
@@ -66,6 +189,7 @@ class ACk_SmTest_GymSourceActor : AActor
 
     bool TryAccept_SourceEntity(FCk_Handle_EntityScript InHandle)
     {
+        if (_PrimaryMode) { Request_CloseSource(); return false; }
         if (_SourceClosed) { return false; }
         auto Target = FCk_Handle(InHandle);
         int32 Matches = 0;
@@ -98,6 +222,39 @@ class ACk_SmTest_GymSourceActor : AActor
         if (_SourceClosed) { return false; }
         if (!_SourceCaptured || !HasLiveSourceContext())
         { Request_CloseSource(); return false; }
+        if (_PrimaryMode)
+        {
+            if (!_PrimaryAccepted ||
+                !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(
+                    _PrimaryTarget, this) ||
+                _SourceRoots.Num() > 2 ||
+                _SourceAccepted.Num() > _SourceRoots.Num() ||
+                _SourcePending.Num() != _SourceRoots.Num())
+            { Request_CloseSource(); return false; }
+            for (int32 I = 0; I < _SourceRoots.Num(); ++I)
+            {
+                auto Pass = _SourceRoots[I];
+                if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Pass) ||
+                    ck::Is_NOT_Valid(Pass))
+                { Request_CloseSource(); return false; }
+                if (I < _SourceAccepted.Num())
+                {
+                    if (_SourceAccepted[I] != Pass ||
+                        !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePass(
+                            Pass, _PrimaryTarget))
+                    { Request_CloseSource(); return false; }
+                }
+                else if (I != _SourceAccepted.Num() ||
+                    _SourcePending[I].Get_EntityUnderConstruction() != Pass ||
+                    utils_entity_lifetime::Get_IsPendingDestroy(
+                        Pass, ECk_EntityLifetime_DestructionPhase::BeginDestroy) ||
+                    !utils_entity_lifetime::Has_LifetimeOwner(Pass) ||
+                    utils_entity_lifetime::Get_LifetimeOwner(Pass) != _PrimaryTarget ||
+                    utils_entity_lifetime::Get_WorldForEntity(Pass) != _SourceWorld)
+                { Request_CloseSource(); return false; }
+            }
+            return true;
+        }
         for (auto Source : _SourceAccepted)
         {
             if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Source) ||
@@ -124,6 +281,29 @@ class ACk_SmTest_GymSourceActor : AActor
     {
         if (_SourceClosed) { return; }
         _SourceClosed = true; // a destruction callback must not resume source mutation
+
+        if (_PrimaryMode)
+        {
+            // Closure is terminal. Only a completely proved healthy tree or
+            // the exact unconstructed primary request may be retired here.
+            // Partial or unproved setup stays closed until the session ends.
+            if (_PrimaryAccepted && !_SourceRoots.IsEmpty() &&
+                _SourceRoots.Num() == _SourceAccepted.Num())
+            {
+                for (int32 I = 0; I < _SourceRoots.Num(); ++I)
+                { if (_SourceRoots[I] != _SourceAccepted[I]) { return; } }
+                UCk_StateMachineGym_Runtime_UE::TryRetire_DivergenceHealthySource(
+                    _PrimaryTarget, this, _SourceRoots);
+            }
+            else if (!_PrimaryAccepted && _SourceRoots.IsEmpty() &&
+                _SourcePending.IsEmpty() && _SourceAccepted.IsEmpty() &&
+                _PrimaryPending.Get_EntityUnderConstruction() == _PrimaryTarget)
+            {
+                UCk_StateMachineGym_Runtime_UE::TryCancel_DivergencePendingPrimary(
+                    _PrimaryPending, this);
+            }
+            return;
+        }
         // Never inspect child ownership against a stale transient root.
         if (!_SourceCaptured || ck::Is_NOT_Valid(_SourceWorld) ||
             !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(_SourceWorldRoot) ||

@@ -3,6 +3,7 @@
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
 #include "CkEntityScriptGym_Runtime.h"
+#include "CkStateMachineGym_Runtime.h"
 #include "CkSelectionGym_BankCensus.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkEcs/ContextOwner/CkContextOwner_Utils.h"
@@ -41,7 +42,8 @@ namespace ck_sm_divergence_isolation_test
     struct FActorReceipt
     {
         TWeakObjectPtr<AActor> Actor;
-        TArray<FCk_Handle> Roots;
+        FCk_Handle Primary;
+        TArray<FCk_Handle> Roots; // A/B only
         TArray<FCk_Handle> Forest;
         TArray<int32> FinalSnapshots;
     };
@@ -115,6 +117,26 @@ namespace ck_sm_divergence_isolation_test
             P->ContainerPtrToValuePtr<void>(C.Args->GetStructMemory()));
         for (int32 I = 0; I < Array.Num(); ++I)
         { Out.Add(*reinterpret_cast<FCk_Handle*>(Array.GetRawPtr(I))); }
+        return true;
+    }
+
+    bool PrimaryGetter(AActor* Actor, const TCHAR* Name, FCk_Handle& Out)
+    {
+        Out = {};
+        FCall C(Actor, Name);
+        auto* P = Field<FStructProperty>(C.Function, TEXT("ReturnValue"));
+        if (!P || P->Struct != FCk_Handle::StaticStruct() ||
+            C.Function->NumParms != 1 ||
+            !P->HasAnyPropertyFlags(CPF_ReturnParm) ||
+            P->GetSize() != sizeof(FCk_Handle) ||
+            P->GetOffset_ForUFunction() < 0 ||
+            P->GetOffset_ForUFunction() > C.Function->ParmsSize ||
+            P->GetSize() > C.Function->ParmsSize - P->GetOffset_ForUFunction() ||
+            !C.Send()) { return false; }
+        const auto* Value = P->ContainerPtrToValuePtr<FCk_Handle>(
+            C.Args->GetStructMemory());
+        if (!Value) { return false; }
+        Out = *Value;
         return true;
     }
 
@@ -227,27 +249,32 @@ namespace ck_sm_divergence_isolation_test
     }
 
     bool LiveRoots(AActor* Actor, UWorld* World,
-        int32 Count, TArray<FCk_Handle>& Out)
+        int32 Count, const FCk_Handle& ExpectedPrimary,
+        TArray<FCk_Handle>& Out)
     {
         Out.Reset();
+        FCk_Handle Primary, Target;
         if (!IsValid(Actor) || !IsValid(World) ||
             Actor->GetWorld() != World || !Roots(Actor, Out) ||
-            Out.Num() != Count) { Out.Reset(); return false; }
+            Out.Num() != Count ||
+            !PrimaryGetter(Actor, TEXT("Get_SourcePrimaryTarget"), Target) ||
+            !PrimaryGetter(Actor, TEXT("Get_SourcePrimary"), Primary) ||
+            Primary != Target || Primary != ExpectedPrimary ||
+            !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(
+                Primary, Actor))
+        { Out.Reset(); return false; }
         int32 Constructed = INDEX_NONE;
         if (!Int(Actor, TEXT("Get_SourceConstructedCount"), Constructed) ||
             Constructed != Count) { Out.Reset(); return false; }
-        const auto WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
-            TryGet_TransientEntityForWorld(*World);
-        if (!Allocated(WorldRoot) || !ck::IsValid(WorldRoot))
-        { Out.Reset(); return false; }
         for (int32 I = 0; I < Count; ++I)
         {
             const auto H = Out[I];
-            if (!Allocated(H) || !ck::IsValid(H) ||
-                (I > 0 && H == Out[0]) ||
-                !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(H) ||
-                UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(H) != WorldRoot ||
-                UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(H) != World ||
+            FCk_Handle Routed;
+            if (H == Primary || (I > 0 && H == Out[0]) ||
+                !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePass(
+                    H, Primary) ||
+                !UCk_StateMachineGym_Runtime_UE::TryGet_DirectPassChild(
+                    H, Primary, Routed) || Routed != H ||
                 !UCk_Utils_StateMachine_UE::Has(H))
             { Out.Reset(); return false; }
         }
@@ -270,12 +297,16 @@ namespace ck_sm_divergence_isolation_test
     {
         auto* Actor = R.Pending.Actor.Get();
         TArray<FCk_Handle> Current;
-        FCk_Handle A, B;
+        FCk_Handle A, B, Target, Accepted;
         FCk_Handle_StateMachine ASm, BSm;
         int32 Constructed = INDEX_NONE;
         bool Closed = false, Finished = true;
         if (!IsValid(Actor) || !Roots(Actor, Current) ||
-            Current != R.Pending.Roots || Current.Num() != 1 ||
+            !Current.IsEmpty() || R.Pending.Roots.Num() != 0 ||
+            !PrimaryGetter(Actor, TEXT("Get_SourcePrimaryTarget"), Target) ||
+            Target != R.Pending.Primary ||
+            !PrimaryGetter(Actor, TEXT("Get_SourcePrimary"), Accepted) ||
+            Accepted != FCk_Handle{} ||
             !Int(Actor, TEXT("Get_SourceConstructedCount"), Constructed) ||
             Constructed != 0 ||
             !Bool(Actor, TEXT("Get_SourceClosed"), Closed) || !Closed ||
@@ -284,30 +315,54 @@ namespace ck_sm_divergence_isolation_test
             !ReadHandle(Actor, TEXT("PassBEntity"), B) || B != FCk_Handle{} ||
             !ReadSm(Actor, TEXT("PassASmHandle"), ASm) || ck::IsValid(ASm) ||
             !ReadSm(Actor, TEXT("PassBSmHandle"), BSm) || ck::IsValid(BSm) ||
-            !CountersZero(Actor) || Allocated(Current[0]))
+            !CountersZero(Actor) || Allocated(Target))
         { return false; }
         return true;
     }
 
     bool CaptureForest(UWorld* World, FActorReceipt& Pair)
     {
-        Pair.Forest.Reset();
-        if (Pair.Roots.Num() != 2) { return false; }
+        if (!IsValid(World) || Pair.Roots.Num() != 2 ||
+            !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(
+                Pair.Primary, Pair.Actor.Get()))
+        { return false; }
+        const FCk_Handle WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
+            TryGet_TransientEntityForWorld(*World);
+        if (!ck::IsValid(WorldRoot) || !Allocated(WorldRoot))
+        { return false; }
+        TArray<FCk_Handle> Candidate, Parents, Census;
         FString Why;
-        for (const auto& Root : Pair.Roots)
+        if (!UCk_StateMachineGym_Runtime_UE::TryCollect_DivergenceHealthyForest(
+                Pair.Primary, Pair.Actor.Get(), Pair.Roots,
+                Candidate, Parents) ||
+            Candidate.Num() < 3 || Candidate.Last() != Pair.Primary ||
+            Parents.Num() != Candidate.Num() ||
+            !ck_selection_gym_census::TryCensusAllocatedBank(
+                World, Pair.Primary, {}, Census, Why) ||
+            Census.Num() != Candidate.Num())
+        { return false; }
+        TSet<FCk_Handle> Seen;
+        for (int32 I = 0; I < Candidate.Num(); ++I)
         {
-            TArray<FCk_Handle> One;
-            if (!ck_selection_gym_census::TryCensusAllocatedBank(
-                    World, Root, {}, One, Why) || !One.Contains(Root))
-            { Pair.Forest.Reset(); return false; }
-            for (const auto& H : One)
+            const auto& H = Candidate[I];
+            if (!ck::IsValid(H) || !Allocated(H) ||
+                !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(H) ||
+                UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(H) != Parents[I] ||
+                Seen.Contains(H) || !Census.Contains(H))
+            { return false; }
+            if (H == Pair.Primary)
             {
-                if (Pair.Forest.Contains(H))
-                { Pair.Forest.Reset(); return false; }
-                Pair.Forest.Add(H);
+                if (I != Candidate.Num() - 1 || Parents[I] != WorldRoot)
+                { return false; }
             }
+            else if (Candidate.Find(Parents[I]) <= I)
+            { return false; }
+            Seen.Add(H);
         }
-        return !Pair.Forest.IsEmpty();
+        if (!Seen.Contains(Pair.Roots[0]) || !Seen.Contains(Pair.Roots[1]))
+        { return false; }
+        Pair.Forest = MoveTemp(Candidate);
+        return true;
     }
 
     bool ForestGone(const FActorReceipt& Pair)
@@ -351,10 +406,14 @@ namespace ck_sm_divergence_isolation_test
                 { continue; }
                 const uint64 Id = IrisId(World, Actor);
                 TArray<FCk_Handle> Local;
+                FCk_Handle LocalPrimary, LocalTarget;
                 int32 Constructed = INDEX_NONE;
                 bool Finished = true;
                 if (!Id || Seen.Contains(Id) || Actor->HasAuthority() ||
                     !Roots(Actor, Local) || !Local.IsEmpty() ||
+                    !PrimaryGetter(Actor, TEXT("Get_SourcePrimary"), LocalPrimary) ||
+                    !PrimaryGetter(Actor, TEXT("Get_SourcePrimaryTarget"), LocalTarget) ||
+                    LocalPrimary != FCk_Handle{} || LocalTarget != FCk_Handle{} ||
                     !Int(Actor, TEXT("Get_SourceConstructedCount"),
                         Constructed) || Constructed != 0 ||
                     !Bool(Actor, TEXT("Get_SourceRunFinished"), Finished) ||
@@ -417,6 +476,8 @@ namespace ck_sm_divergence_isolation_test
         if (!Test.TestTrue(TEXT("real Divergence source class and API resolve"),
             R->Class && R->StationType &&
             R->Class->FindFunctionByName(TEXT("Get_SourceRoots")) &&
+            R->Class->FindFunctionByName(TEXT("Get_SourcePrimary")) &&
+            R->Class->FindFunctionByName(TEXT("Get_SourcePrimaryTarget")) &&
             R->Class->FindFunctionByName(TEXT("Get_SourceRunFinished")) &&
             R->Class->FindFunctionByName(TEXT("Request_CloseSource"))))
         { return false; }
@@ -451,9 +512,14 @@ namespace ck_sm_divergence_isolation_test
                     IsValid(Pending))) { return; }
                 R->Pending.Actor = Pending;
                 Pending->FinishSpawning(FTransform(FVector(-300, 0, 0)));
+                FCk_Handle Accepted;
                 const bool PendingReceipt = Roots(Pending, R->Pending.Roots) &&
-                    R->Pending.Roots.Num() == 1 &&
-                    Allocated(R->Pending.Roots[0]) &&
+                    R->Pending.Roots.IsEmpty() &&
+                    PrimaryGetter(Pending, TEXT("Get_SourcePrimaryTarget"),
+                        R->Pending.Primary) &&
+                    Allocated(R->Pending.Primary) &&
+                    PrimaryGetter(Pending, TEXT("Get_SourcePrimary"), Accepted) &&
+                    Accepted == FCk_Handle{} &&
                     Close(Pending);
                 Test.TestTrue(TEXT("third source closes its retained pending root before construction"),
                     PendingReceipt);
@@ -474,23 +540,28 @@ namespace ck_sm_divergence_isolation_test
                     { if (IsValid(Actor)) { Actor->Destroy(); } return false; }
                     Out.Actor = Actor;
                     Actor->FinishSpawning(FTransform(At));
-                    return Roots(Actor, Out.Roots) && Out.Roots.Num() == 1 &&
-                        Allocated(Out.Roots[0]);
+                    FCk_Handle Accepted;
+                    return Roots(Actor, Out.Roots) && Out.Roots.IsEmpty() &&
+                        PrimaryGetter(Actor, TEXT("Get_SourcePrimaryTarget"),
+                            Out.Primary) &&
+                        Allocated(Out.Primary) &&
+                        PrimaryGetter(Actor, TEXT("Get_SourcePrimary"), Accepted) &&
+                        (Accepted == FCk_Handle{} || Accepted == Out.Primary);
                 };
                 const bool Fast = Spawn(FVector(0, 0, 0), 1.5f,
                     false, R->Fast);
                 const bool Slow = Spawn(FVector(300, 0, 0), 4.0f,
                     true, R->Slow);
                 R->Spawned = Fast && Slow &&
-                    R->Fast.Roots[0] != R->Slow.Roots[0] &&
-                    R->Fast.Roots[0] != R->Pending.Roots[0] &&
-                    R->Slow.Roots[0] != R->Pending.Roots[0];
+                    R->Fast.Primary != R->Slow.Primary &&
+                    R->Fast.Primary != R->Pending.Primary &&
+                    R->Slow.Primary != R->Pending.Primary;
                 Test.TestTrue(TEXT("two real staggered runs have distinct first-return roots"),
                     R->Spawned);
             })));
 
-        // Fast has entered B while Slow is still executing A. This wait uses
-        // root receipts and construction count, not an expected verdict.
+        // Fast B and Slow A pass windows overlap; this does not claim both
+        // opposing conditions execute simultaneously. Use source receipts.
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(&Test,
             FCk_NetAutoTest_Condition::CreateLambda([R]() {
                 if (!R->Spawned) { return true; }
@@ -498,10 +569,12 @@ namespace ck_sm_divergence_isolation_test
                 TArray<FCk_Handle> Fast, Slow;
                 bool FastDone = true, SlowDone = true;
                 const bool Overlap = LiveRoots(R->Fast.Actor.Get(), World,
-                        2, Fast) &&
-                    LiveRoots(R->Slow.Actor.Get(), World, 1, Slow) &&
-                    Fast[0] == R->Fast.Roots[0] &&
-                    Slow[0] == R->Slow.Roots[0] &&
+                        2, R->Fast.Primary, Fast) &&
+                    LiveRoots(R->Slow.Actor.Get(), World, 1,
+                        R->Slow.Primary, Slow) &&
+                    Fast[0] != R->Fast.Primary &&
+                    Slow[0] != R->Slow.Primary &&
+                    R->Fast.Primary != R->Slow.Primary &&
                     Fast[1] != Slow[0] &&
                     HasConfig(R->Fast.Actor.Get(), false, 1) &&
                     HasConfig(R->Slow.Actor.Get(), true, 0) &&
@@ -511,19 +584,22 @@ namespace ck_sm_divergence_isolation_test
                     Bool(R->Slow.Actor.Get(), TEXT("Get_SourceRunFinished"),
                         SlowDone) && !SlowDone;
                 if (Overlap)
-                { R->Fast.Roots = Fast; R->OverlapSeen = true; }
+                { R->Fast.Roots = Fast; R->Slow.Roots = Slow;
+                  R->OverlapSeen = true; }
                 return Overlap;
-            }), 15.0, TEXT("real Fast B/Right overlaps Slow A/Left")));
+            }), 15.0, TEXT("real Fast B and Slow A pass windows overlap")));
 
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
             FCk_NetAutoTest_ServerAction::CreateLambda([&Test, R](UWorld* World) {
                 TArray<FCk_Handle> Fast, Slow;
                 const bool Actual = R->OverlapSeen &&
-                    LiveRoots(R->Fast.Actor.Get(), World, 2, Fast) &&
-                    LiveRoots(R->Slow.Actor.Get(), World, 1, Slow) &&
+                    LiveRoots(R->Fast.Actor.Get(), World, 2,
+                        R->Fast.Primary, Fast) &&
+                    LiveRoots(R->Slow.Actor.Get(), World, 1,
+                        R->Slow.Primary, Slow) &&
                     Fast == R->Fast.Roots && Slow == R->Slow.Roots &&
                     BareUntouched(*R) && PendingInert(*R);
-                Test.TestTrue(TEXT("opposed B/Right and A/Left have separate retained source roots"),
+                Test.TestTrue(TEXT("opposed configurations retain separate sources during overlapping pass windows"),
                     Actual);
             })));
 
@@ -541,16 +617,44 @@ namespace ck_sm_divergence_isolation_test
                 return !R->Spawned || PassiveClients(*R);
             }), 15.0, TEXT("two exact Iris source replicas reach each client")));
 
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(&Test,
+            FCk_NetAutoTest_Condition::CreateLambda([R]() {
+                if (!R->Spawned) { return true; }
+                auto* World = ck::auto_test::net::Get_ServerWorld();
+                TArray<FCk_Handle> Fast, Slow;
+                if (!LiveRoots(R->Fast.Actor.Get(), World, 2,
+                        R->Fast.Primary, Fast) ||
+                    !LiveRoots(R->Slow.Actor.Get(), World, 2,
+                        R->Slow.Primary, Slow) ||
+                    Fast != R->Fast.Roots || R->Slow.Roots.Num() != 1 ||
+                    Slow[0] != R->Slow.Roots[0] ||
+                    Slow[1] == R->Fast.Primary ||
+                    Slow[1] == R->Pending.Primary ||
+                    Fast.Contains(Slow[1]))
+                { return false; }
+                FActorReceipt FastCandidate = R->Fast;
+                FActorReceipt SlowCandidate = R->Slow;
+                SlowCandidate.Roots = Slow;
+                if (!CaptureForest(World, FastCandidate) ||
+                    !CaptureForest(World, SlowCandidate))
+                { return false; }
+                R->Fast.Forest = MoveTemp(FastCandidate.Forest);
+                R->Slow.Roots = MoveTemp(SlowCandidate.Roots);
+                R->Slow.Forest = MoveTemp(SlowCandidate.Forest);
+                return true;
+            }), 15.0, TEXT("both completed SM forests physically settle")));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
             FCk_NetAutoTest_ServerAction::CreateLambda([&Test, R](UWorld* World) {
                 TArray<FCk_Handle> Fast, Slow;
                 const bool Live = R->OverlapSeen &&
-                    LiveRoots(R->Fast.Actor.Get(), World, 2, Fast) &&
-                    LiveRoots(R->Slow.Actor.Get(), World, 2, Slow) &&
+                    LiveRoots(R->Fast.Actor.Get(), World, 2,
+                        R->Fast.Primary, Fast) &&
+                    LiveRoots(R->Slow.Actor.Get(), World, 2,
+                        R->Slow.Primary, Slow) &&
                     Fast == R->Fast.Roots &&
                     Slow[0] == R->Slow.Roots[0] &&
                     Slow[1] != Fast[0] && Slow[1] != Fast[1] &&
-                    Slow[1] != R->Pending.Roots[0] &&
+                    Slow[1] != R->Pending.Primary &&
                     PendingInert(*R) && BareUntouched(*R) &&
                     PassiveClients(*R);
                 Test.TestTrue(TEXT("both actors retain their own A/B roots and passive replicas"),
@@ -574,10 +678,42 @@ namespace ck_sm_divergence_isolation_test
                             R->Slow.FinalSnapshots[I], Expected[I]);
                     }
                 }
-                const bool Forests = CaptureForest(World, R->Fast) &&
-                    CaptureForest(World, R->Slow);
-                Test.TestTrue(TEXT("four actual source forests captured before closure"),
+                const auto PriorFastForest = R->Fast.Forest;
+                const auto PriorSlowForest = R->Slow.Forest;
+                TArray<FCk_Handle> Rejected{R->Fast.Primary};
+                TArray<FCk_Handle> RejectedParents{R->Fast.Primary};
+                const bool DefaultRejected =
+                    !UCk_StateMachineGym_Runtime_UE::TryCollect_DivergenceHealthyForest(
+                        {}, R->Fast.Actor.Get(), R->Fast.Roots,
+                        Rejected, RejectedParents) &&
+                    Rejected.IsEmpty() && RejectedParents.IsEmpty();
+                Rejected.Add(R->Fast.Primary);
+                RejectedParents.Add(R->Fast.Primary);
+                const bool ForeignRejected =
+                    !UCk_StateMachineGym_Runtime_UE::TryCollect_DivergenceHealthyForest(
+                        R->Slow.Primary, R->Fast.Actor.Get(), R->Fast.Roots,
+                        Rejected, RejectedParents) &&
+                    Rejected.IsEmpty() && RejectedParents.IsEmpty();
+                Rejected.Add(R->Fast.Primary);
+                const bool AliasRejected =
+                    !UCk_StateMachineGym_Runtime_UE::TryCollect_DivergenceHealthyForest(
+                        R->Fast.Primary, R->Fast.Actor.Get(), R->Fast.Roots,
+                        Rejected, Rejected) && Rejected.IsEmpty();
+                Test.TestTrue(TEXT("invalid and aliased healthy-forest queries reject without publication"),
+                    DefaultRejected && ForeignRejected && AliasRejected &&
+                    R->Fast.Forest == PriorFastForest &&
+                    R->Slow.Forest == PriorSlowForest);
+                FActorReceipt FastCandidate = R->Fast;
+                FActorReceipt SlowCandidate = R->Slow;
+                const bool Forests = CaptureForest(World, FastCandidate) &&
+                    CaptureForest(World, SlowCandidate);
+                Test.TestTrue(TEXT("two complete primary-owned source forests captured before closure"),
                     Forests);
+                if (Forests)
+                {
+                    R->Fast.Forest = MoveTemp(FastCandidate.Forest);
+                    R->Slow.Forest = MoveTemp(SlowCandidate.Forest);
+                }
                 R->FastClosed = Forests && Close(R->Fast.Actor.Get());
                 Test.TestTrue(TEXT("Fast source closes with A and B retained together"),
                     R->FastClosed);
@@ -594,7 +730,8 @@ namespace ck_sm_divergence_isolation_test
                 TArray<int32> Values;
                 bool Finished = false;
                 const bool Unchanged = R->FastClosed &&
-                    LiveRoots(R->Slow.Actor.Get(), World, 2, Slow) &&
+                    LiveRoots(R->Slow.Actor.Get(), World, 2,
+                        R->Slow.Primary, Slow) &&
                     Slow == R->Slow.Roots &&
                     Bool(R->Slow.Actor.Get(),
                         TEXT("Get_SourceRunFinished"), Finished) && Finished &&
@@ -603,8 +740,10 @@ namespace ck_sm_divergence_isolation_test
                     PendingInert(*R) && BareUntouched(*R);
                 Test.TestTrue(TEXT("Slow B identity and all twelve counts survive Fast retirement"),
                     Unchanged);
-                R->SlowClosed = Unchanged && Close(R->Slow.Actor.Get());
-                Test.TestTrue(TEXT("Slow source closes after peer retirement"),
+                auto* const SlowActor = R->Slow.Actor.Get();
+                R->SlowClosed = Unchanged && IsValid(SlowActor) &&
+                    SlowActor->Destroy();
+                Test.TestTrue(TEXT("Slow actor EndPlay retires its healthy source after peer retirement"),
                     R->SlowClosed);
             })));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(&Test,
@@ -625,8 +764,8 @@ namespace ck_sm_divergence_isolation_test
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(&Test,
             FCk_NetAutoTest_Condition::CreateLambda([R]() {
                 if (!ForestGone(R->Fast) || !ForestGone(R->Slow) ||
-                    R->Pending.Roots.Num() != 1 ||
-                    Allocated(R->Pending.Roots[0])) { return false; }
+                    !R->Pending.Roots.IsEmpty() ||
+                    Allocated(R->Pending.Primary)) { return false; }
                 for (UWorld* World : {ck::auto_test::net::Get_ServerWorld(),
                     ck::auto_test::net::Get_ClientWorld(0),
                     ck::auto_test::net::Get_ClientWorld(1)})
