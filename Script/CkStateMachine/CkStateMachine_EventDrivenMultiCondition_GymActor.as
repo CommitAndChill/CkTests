@@ -13,7 +13,7 @@
 //        Fail and never resolved).
 
 UCLASS(Blueprintable)
-class ACk_SmTest_EventDrivenMultiCondition_GymActor : AActor
+class ACk_SmTest_EventDrivenMultiCondition_GymActor : ACk_SmTest_GymSourceActor
 {
     default bReplicates = true;
     default bAlwaysRelevant = true;
@@ -92,33 +92,36 @@ class ACk_SmTest_EventDrivenMultiCondition_GymActor : AActor
         if (HasAuthority() == false)
         { return; }
 
-        auto Pending = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            FCk_EntityScript_WithActor_SpawnParams(this));
-
-        utils_pending_entity_script::Promise_OnConstructed(
-            Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-
-        System::SetTimer(this, n"OnSettled", SettleSeconds, false);
+        Request_SourceEntity(n"OnEntityConstructed");
     }
 
     UFUNCTION()
     private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (System::IsServer() == false)
-        { return; }
+        if (!TryAccept_SourceEntity(InEntityScriptHandle)) { return; }
 
         SmEntity = FCk_Handle(InEntityScriptHandle);
+        if (!Math::IsFinite(FastDelaySeconds) || FastDelaySeconds <= 0.0f ||
+            !Math::IsFinite(SlowDelaySeconds) || SlowDelaySeconds <= FastDelaySeconds ||
+            !Math::IsFinite(SettleSeconds) || SettleSeconds <= SlowDelaySeconds)
+        { Request_CloseSource(); return; }
         SmEntity.Set_DebugName(n"StateMachine");
         SmHandle = UCk_Utils_StateMachine_UE::Add(
             SmEntity, FCk_StateMachine_Spec(UCk_SmTest_EventDrivenMultiCondition_State_Idle));
+        if (ck::Is_NOT_Valid(SmHandle) ||
+            !Get_HasCurrentSourceContext() ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(FCk_Handle(SmHandle)) ||
+            !utils_state_machine::Has(FCk_Handle(SmHandle)))
+        { Request_CloseSource(); return; }
+        // Async WithActor construction may begin after BeginPlay. Settle only
+        // after the actual SM and both authored timer delays are admitted.
+        System::SetTimer(this, n"OnSettled", SettleSeconds, false);
     }
 
     UFUNCTION()
     private void OnSettled()
     {
+        if (!Get_HasCurrentSourceContext()) { return; }
         UpdateDisplay();
     }
 
@@ -133,6 +136,13 @@ class ACk_SmTest_EventDrivenMultiCondition_GymActor : AActor
 
     private void UpdateDisplay()
     {
+        if (Get_SourceClosed()) { return; }
+        if (!Get_HasCurrentSourceContext() || ck::Is_NOT_Valid(SmEntity) ||
+            ck::Is_NOT_Valid(SmHandle) ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(SmEntity) ||
+            !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(FCk_Handle(SmHandle)) ||
+            !utils_state_machine::Has(FCk_Handle(SmHandle)))
+        { Request_CloseSource(); return; }
         auto OK = Run_OK();
         auto StatusLabel = OK ? "PASS" : "FAIL";
         auto StatusColor = OK ? FColor::Green : FColor::Red;
