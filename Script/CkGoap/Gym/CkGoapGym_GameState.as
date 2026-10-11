@@ -1,11 +1,10 @@
 // Language=angelscript
 
-// Seven world-owned GOAP stations; owned controls change its shared world state.
+// Seven standalone GOAP stations with local controls and planner presentation.
 class ACk_GoapGym_GameState : ACkGym_GameState_UE
 {
-    default NetUpdateFrequency = 15.0;
-    UPROPERTY(Replicated) FCkGoapGym_WireSnapshot Snapshot;
-    UPROPERTY(Replicated) bool SourceFailed = false;
+    UPROPERTY() FCkGoapGym_WireSnapshot Snapshot;
+    UPROPERTY() bool SourceFailed = false;
     private TArray<UCk_EntityScript_GoapGym_SharedStation> _Sources;
     private TArray<FCk_Handle> _Roots;
     private TArray<FCk_Handle_PendingEntityScript> _Pending;
@@ -21,8 +20,6 @@ class ACk_GoapGym_GameState : ACkGym_GameState_UE
     private int32 _Phase = 0;
     private double _PendingSince = 0.0;
     private double _PublishElapsed = 0.0;
-    private bool _HasConsumed = false;
-    private FCkGoapGym_WireSnapshot _Consumed;
     private ACk_GoapGym_PlayerController _Requester;
     private APawn _RequesterPawn;
     private int32 _RequestSerial = 0;
@@ -49,17 +46,17 @@ class ACk_GoapGym_GameState : ACkGym_GameState_UE
 
     private bool TryCapture()
     {
-        auto World = GetWorld();
-        if (_Ending || IsActorBeingDestroyed() || ck::Is_NOT_Valid(World) ||
-            World.GetGameState() != this || !Get_HasPublishedCatalog() ||
-            (_Captured && World != _World)) { return false; }
+        auto CurrentWorld = GetWorld();
+        if (_Ending || IsActorBeingDestroyed() || ck::Is_NOT_Valid(CurrentWorld) ||
+            CurrentWorld.GetNetMode() != ENetMode::NM_Standalone ||
+            CurrentWorld.GetGameState() != this || !Get_HasPublishedCatalog() ||
+            (_Captured && CurrentWorld != _World)) { return false; }
         if (HasAuthority())
         {
             auto Mode = Gameplay::GetGameMode();
-            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != World ||
+            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != CurrentWorld ||
                 Mode.GetClass() != ACk_GoapGym_GameMode) { return false; }
         }
-        else if (World.GetNetMode() != ENetMode::NM_Client) { return false; }
         auto Entries = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
         auto Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
         if (Index < 0 || Index >= Entries.Num()) { return false; }
@@ -72,13 +69,13 @@ class ACk_GoapGym_GameState : ACkGym_GameState_UE
         auto Ecs = Subsystem::GetWorldSubsystem(UCk_EcsWorld_Subsystem_UE);
         if (ck::Is_NOT_Valid(Ecs)) { return false; }
         auto Root = Ecs.Get_TransientEntity();
-        if (!UCk_GoapGym_Runtime_UE::Get_IsLiveInWorld(Root, World) ||
+        if (!UCk_GoapGym_Runtime_UE::Get_IsLiveInWorld(Root, CurrentWorld) ||
             (_Captured && Root != _WorldRoot)) { return false; }
         bool Closed = true;
         if (!UCkGym_AdmissionRuntime_UE::TryGet_IsClosedUnproven(Root, Closed) || Closed)
         { return false; }
         if (!_Captured)
-        { _World = World; _WorldRoot = Root; _Entry = Entry; _Index = Index; _Captured = true; }
+        { _World = CurrentWorld; _WorldRoot = Root; _Entry = Entry; _Index = Index; _Captured = true; }
         return true;
     }
 
@@ -91,18 +88,10 @@ class ACk_GoapGym_GameState : ACkGym_GameState_UE
             utils_entity_lifetime::Get_LifetimeOwner(Root) == _WorldRoot;
     }
 
-    void Request_CloseClient(FString Reason)
-    {
-        if (HasAuthority() || _Failed || _Ending) { return; }
-        _Failed = true; _FailureReason = Reason;
-        if (_Captured) { UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(_WorldRoot); }
-        ck::Trace(f"Goap client presentation closed: {Reason}");
-    }
-
     UFUNCTION()
     void Request_Fail(FString Reason)
     {
-        if (!HasAuthority()) { Request_CloseClient(Reason); return; }
+        if (!HasAuthority()) { return; }
         if (_Failed || _Ending) { return; }
         _Failed = true; SourceFailed = true; _FailureReason = Reason; _Phase = 0;
         for (auto Source : _Sources)
@@ -119,11 +108,11 @@ class ACk_GoapGym_GameState : ACkGym_GameState_UE
         if (_Captured) { UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(_WorldRoot); }
         Snapshot.Phase = 4; Snapshot.Replacing = -1;
         if (Snapshot.Sequence < 9223372036854775806) { Snapshot.Sequence++; }
-        ForceNetUpdate(); CompleteRequest(false);
-        ck::Trace(f"Goap authority bank closed: {Reason}");
+        CompleteRequest(false);
+        ck::Trace(f"Goap local bank closed: {Reason}");
     }
 
-    void Request_EnsureSharedDemo()
+    void Request_EnsureLocalDemo()
     {
         if (!HasAuthority() || _Ending || _Failed || _Phase != 0 || !TryCapture()) { return; }
         if (CkGym_Admission::Get_IsBusy(_WorldRoot)) { return; }
@@ -295,68 +284,25 @@ class ACk_GoapGym_GameState : ACkGym_GameState_UE
             Station.Index = I; Station.Generation = 1; Frame.Stations.Add(Station);
         }
         if (!CkGoapGym::IsValidFrame(Frame)) { Request_Fail("Malformed Goap source values"); return false; }
-        Snapshot = Frame; _PublishElapsed = 0.0; ForceNetUpdate(); return true;
-    }
-
-    private bool ConsumeSnapshot()
-    {
-        if (_Failed || _Ending || !TryCapture() || Snapshot.Sequence == 0) { return false; }
-        if (!CkGoapGym::IsValidFrame(Snapshot)) { Request_CloseClient("Malformed Goap frame"); return false; }
-        if (_HasConsumed)
-        {
-            if (Snapshot.Sequence < _Consumed.Sequence || Snapshot.ControlGeneration < _Consumed.ControlGeneration)
-            { Request_CloseClient("Goap frame moved backward"); return false; }
-            if (Snapshot.Sequence == _Consumed.Sequence)
-            {
-                if (!UCk_GoapGym_Runtime_UE::Get_IsSameFrame(Snapshot, _Consumed))
-                { Request_CloseClient("Goap values changed without a new sequence"); return false; }
-                return Snapshot.Phase == 2;
-            }
-            if (Snapshot.Phase != 4 && _Consumed.Stations.Num() == 7)
-            {
-                for (int32 I = 0; I < 7; ++I)
-                {
-                    auto Current = Snapshot.Stations[I];
-                    auto Previous = _Consumed.Stations[I];
-                    if (Current.Generation != Previous.Generation ||
-                        Current.ControlCount < Previous.ControlCount ||
-                        Current.Planners.Num() != Previous.Planners.Num())
-                    { Request_CloseClient("Goap station generation moved backward"); return false; }
-                    for (int32 P = 0; P < Current.Planners.Num(); ++P)
-                    {
-                        if (Current.Planners[P].PlanCount < Previous.Planners[P].PlanCount ||
-                            Current.Planners[P].FailureCount < Previous.Planners[P].FailureCount)
-                        { Request_CloseClient("Goap planner completion count moved backward"); return false; }
-                    }
-                }
-            }
-        }
-        _Consumed = Snapshot; _HasConsumed = true;
-        if (Snapshot.Phase == 4 || SourceFailed)
-        { Request_CloseClient("Authority closed the Goap bank"); return false; }
-        return Snapshot.Phase == 2;
+        Snapshot = Frame; _PublishElapsed = 0.0; return true;
     }
 
     bool TryGetPresentation(FCkGoapGym_WireSnapshot&out Frame)
     {
         Frame = FCkGoapGym_WireSnapshot();
-        if (_Failed || SourceFailed || _Ending || !TryCapture()) { return false; }
-        if (HasAuthority())
-        {
-            if (_Phase != 3 || !CkGoapGym::IsValidFrame(Snapshot) || Snapshot.Phase != 2) { return false; }
-            Frame = Snapshot; return true;
-        }
-        if (!ConsumeSnapshot()) { return false; }
-        Frame = _Consumed; return true;
+        if (_Failed || SourceFailed || _Ending || !TryCapture() ||
+            _Phase != 3 || !CkGoapGym::IsValidFrame(Snapshot) || Snapshot.Phase != 2)
+        { return false; }
+        Frame = Snapshot;
+        return true;
     }
 
     UFUNCTION(BlueprintOverride)
     void Tick(float DeltaSeconds)
     {
         if (_Failed || _Ending) { return; }
-        if (!_Captured) { if (!HasAuthority()) { ConsumeSnapshot(); } return; }
+        if (!_Captured) { return; }
         if (!TryCapture()) { Request_Fail("Captured Goap world or catalog changed"); return; }
-        if (!HasAuthority()) { ConsumeSnapshot(); return; }
         if (!HasRequestOwner()) { Request_Fail("Goap requester changed"); return; }
         if (_Phase == 0) { return; }
         if (!Math::IsFinite(DeltaSeconds) || DeltaSeconds < 0.0)

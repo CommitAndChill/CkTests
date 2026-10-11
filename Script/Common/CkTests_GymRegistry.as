@@ -97,7 +97,7 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Voice Chat",         ACk_VoiceChatGym_GameMode,               "", "CkVoiceChat", true);
         CkGym_Cycler::RegisterProjectGym("VoxelNav Flying Vs Grounded", ACk_VoxelNavGym_FlyingVsGrounded_GameMode, "", "CkVoxelNav", true);
         CkGym_Cycler::RegisterProjectGym("VoxelNav Stress (Flying 400)", ACk_VoxelNavGym_Stress_GameMode, "", "CkVoxelNav");
-        CkGym_Cycler::RegisterProjectGym("Goap",               ACk_GoapGym_GameMode,                    "", "CkGoap", true);
+        CkGym_Cycler::RegisterProjectGym("Goap",               ACk_GoapGym_GameMode,                    "", "CkGoap");
         CkGym_Cycler::RegisterProjectGym("Goap AutoReplan",    ACk_GoapAutoReplanGym_GameMode,          "", "CkGoap", true);
         CkGym_Cycler::RegisterProjectGym("Goap Empire",        ACk_GoapEmpireGym_GameMode,              "", "CkGoap", true);
         CkGym_Cycler::RegisterProjectGym("Goap F.E.A.R.",      ACk_GoapFEARGym_GameMode,                "", "CkGoap", true);

@@ -1,5 +1,6 @@
 #pragma once
 
+// Local planner presentation values. These structs are not a network transport.
 #include "CoreMinimal.h"
 #include "CkGoapGym_Wire.generated.h"
 
@@ -10,6 +11,8 @@ struct CKTESTS_API FCkGoapGym_PlannerFrame
     UPROPERTY(BlueprintReadWrite) int32 Index = -1;
     // -1 for an independent top planner, otherwise the retained Action code.
     UPROPERTY(BlueprintReadWrite) int32 ParentAction = -1;
+    // Attempts include planning cancelled when a promoted planner leaves the chain.
+    UPROPERTY(BlueprintReadWrite) int32 AttemptCount = 0;
     UPROPERTY(BlueprintReadWrite) int64 PlanCount = 0;
     UPROPERTY(BlueprintReadWrite) int64 FailureCount = 0;
     UPROPERTY(BlueprintReadWrite) int32 PlanStatus = 0;

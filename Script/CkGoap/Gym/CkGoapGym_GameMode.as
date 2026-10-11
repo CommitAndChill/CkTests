@@ -36,7 +36,7 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
         return Station;
     }
 
-    UPROPERTY(Replicated) FCkGoapGym_ControlAck LastControlAck;
+    UPROPERTY() FCkGoapGym_ControlAck LastControlAck;
 
     private bool _Admitted = false;
     private bool _Ending = false;
@@ -46,7 +46,7 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
     private bool _CatalogCaptured = false;
     private bool _PawnCaptured = false;
     private bool _StationsBound = false;
-    private bool _ServerPending = false;
+    private bool _ControlPending = false;
     private double _BootstrapStartedSeconds = 0.0;
     private int32 _CatalogIndex = -1;
     private FCkGym_Entry _CatalogEntry;
@@ -81,18 +81,19 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
 
     private ACk_GoapGym_GameState Get_ExactState()
     {
-        auto World = GetWorld();
+        auto CurrentWorld = GetWorld();
         if (!_Admitted || _Ending || IsActorBeingDestroyed() ||
-            ck::Is_NOT_Valid(World) || World != _BoundWorld) { return nullptr; }
-        auto State = Cast<ACk_GoapGym_GameState>(World.GetGameState());
-        if (ck::Is_NOT_Valid(State) || State.GetWorld() != World ||
+            ck::Is_NOT_Valid(CurrentWorld) || CurrentWorld.GetNetMode() != ENetMode::NM_Standalone ||
+            CurrentWorld != _BoundWorld) { return nullptr; }
+        auto State = Cast<ACk_GoapGym_GameState>(CurrentWorld.GetGameState());
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != CurrentWorld ||
             State.GetClass() != ACk_GoapGym_GameState ||
             State.IsActorBeingDestroyed() ||
             (_StateCaptured && State != _BoundState)) { return nullptr; }
         if (HasAuthority())
         {
             auto Mode = Gameplay::GetGameMode();
-            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != World ||
+            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != CurrentWorld ||
                 Mode.GetClass() != ACk_GoapGym_GameMode) { return nullptr; }
         }
         if (!State.Get_HasPublishedCatalog()) { return nullptr; }
@@ -113,10 +114,10 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
 
     private bool CaptureStateIfReady()
     {
-        auto World = GetWorld();
-        auto Observed = ck::IsValid(World)
-            ? Cast<ACk_GoapGym_GameState>(World.GetGameState()) : nullptr;
-        if (ck::IsValid(Observed) && Observed.GetWorld() == World &&
+        auto CurrentWorld = GetWorld();
+        auto Observed = ck::IsValid(CurrentWorld)
+            ? Cast<ACk_GoapGym_GameState>(CurrentWorld.GetGameState()) : nullptr;
+        if (ck::IsValid(Observed) && Observed.GetWorld() == CurrentWorld &&
             Observed.GetClass() == ACk_GoapGym_GameState &&
             !Observed.IsActorBeingDestroyed() && !_StateCaptured)
         { _BoundState = Observed; _StateCaptured = true; }
@@ -205,16 +206,15 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
         return _StationsBound;
     }
 
-    private void CloseLocal(FString Reason, bool FailShared = true)
+    private void CloseLocal(FString Reason, bool FailDemo = true)
     {
         if (_LocalFailed) { return; }
         _LocalFailed = true;
         _LocalFailureReason = Reason;
-        if (FailShared && _StateCaptured && ck::IsValid(_BoundState) &&
+        if (FailDemo && _StateCaptured && ck::IsValid(_BoundState) &&
             _BoundState.GetWorld() == _BoundWorld)
         {
-            if (HasAuthority()) { _BoundState.Request_Fail(Reason); }
-            else { _BoundState.Request_CloseClient(Reason); }
+            _BoundState.Request_Fail(Reason);
         }
         ck::Trace(f"Goap local presentation closed: {Reason}");
     }
@@ -223,7 +223,8 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
     {
         if (_Ending || _Admitted) { return; }
         _BoundWorld = GetWorld();
-        if (ck::Is_NOT_Valid(_BoundWorld))
+        if (ck::Is_NOT_Valid(_BoundWorld) ||
+            _BoundWorld.GetNetMode() != ENetMode::NM_Standalone || !IsLocalController())
         { _LocalFailed = true; _LocalFailureReason = "Controller world is unavailable"; return; }
         _Admitted = true;
         _BootstrapStartedSeconds =
@@ -254,7 +255,7 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
         if (ck::Is_NOT_Valid(State))
         { CloseLocal("Goap state changed"); return; }
         if (State.Get_HasSessionFailure())
-        { CloseLocal("Shared Goap session failed"); return; }
+        { CloseLocal("Local Goap demo failed"); return; }
         if (!CapturePawnIfReady())
         {
             if (_PawnCaptured)
@@ -264,7 +265,7 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
             { CloseLocal("Goap pawn did not converge"); }
             return;
         }
-        if (HasAuthority()) { State.Request_EnsureSharedDemo(); }
+        if (HasAuthority()) { State.Request_EnsureLocalDemo(); }
         if (!IsLocalController()) { return; }
         if (!CheckStations(!_StationsBound))
         { CloseLocal("Local Goap stations changed"); return; }
@@ -328,14 +329,15 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
             f"projectedSeq={_ProjectedSequence} reason={_LocalFailureReason}";
     }
 
-    UFUNCTION(Server) void Server_RequestGoapControl(
+    UFUNCTION() void Request_LocalGoapControl(
         int32 Serial, int64 SourceGeneration, int64 Generation, int32 Action)
     {
-        if (!HasAuthority() || !_Admitted || _Ending || _ServerPending ||
+        if (!HasAuthority() || !_Admitted || _Ending || _ControlPending ||
             Serial <= 0 || LastControlAck.Serial >= 2147483647 ||
             Serial != LastControlAck.Serial + 1 ||
             (Action < 0 || Action > 22))
         { return; }
+        _RequestedSerial = Serial;
         FCkGoapGym_ControlAck Rejected;
         Rejected.Serial = Serial;
         Rejected.Action = Action;
@@ -350,8 +352,8 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
             SourceGeneration <= 0 || Generation <= 0 ||
             SourceGeneration != Frame.SourceGeneration ||
             Generation != Frame.ControlGeneration)
-        { LastControlAck = Rejected; ForceNetUpdate(); return; }
-        _ServerPending = true;
+        { LastControlAck = Rejected; return; }
+        _ControlPending = true;
         _PendingSerial = Serial;
         _PendingAction = Action;
         _PendingSourceGeneration = SourceGeneration;
@@ -359,13 +361,13 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
         if (!State.TryStartControl(this, Serial, SourceGeneration,
                 Generation, Action))
         {
-            if (_ServerPending && _PendingSerial == Serial)
+            if (_ControlPending && _PendingSerial == Serial)
             {
-                _ServerPending = false;
+                _ControlPending = false;
                 _PendingSerial = 0;
                 _PendingAction = -1;
                 LastControlAck = Rejected;
-                ForceNetUpdate();
+
             }
         }
     }
@@ -375,7 +377,7 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
         int64 CompletedSequence)
     {
         auto State = Get_ExactState();
-        if (!HasAuthority() || !_Admitted || _Ending || !_ServerPending ||
+        if (!HasAuthority() || !_Admitted || _Ending || !_ControlPending ||
             Serial != _PendingSerial || Action != _PendingAction ||
             RequestedGeneration != _PendingGeneration ||
             LastControlAck.Serial + 1 != Serial ||
@@ -392,7 +394,7 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
             State.Request_Fail("Completed Goap control lost its owner or frame");
             return;
         }
-        _ServerPending = false;
+        _ControlPending = false;
         _PendingSerial = 0;
         _PendingAction = -1;
         FCkGoapGym_ControlAck Completed;
@@ -406,16 +408,16 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
             Completed.CompletedSequence = CompletedSequence;
         }
         LastControlAck = Completed;
-        ForceNetUpdate();
+
     }
 
-    private void Request_SharedControl(int32 Action)
+    private void Request_LocalControl(int32 Action)
     {
         FCkGoapGym_WireSnapshot Frame;
         if (Action < 0 || Action > 22 || !TryReadyFrame(Frame) ||
             LastControlAck.Serial >= 2147483647) { return; }
         _RequestedSerial = LastControlAck.Serial + 1;
-        Server_RequestGoapControl(_RequestedSerial,
+        Request_LocalGoapControl(_RequestedSerial,
             Frame.SourceGeneration, Frame.ControlGeneration, Action);
     }
 
@@ -499,17 +501,17 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
 
     UFUNCTION() void Request_ControlActivated(int32 RowIndex) override
     {
-        if (RowIndex == 1) { Request_SharedControl(0); }
+        if (RowIndex == 1) { Request_LocalControl(0); }
         else if (RowIndex >= 3 && RowIndex <= 7)
-        { Request_SharedControl(RowIndex - 2); }
+        { Request_LocalControl(RowIndex - 2); }
         else if (RowIndex >= 9 && RowIndex <= 11)
-        { Request_SharedControl(RowIndex - 3); }
+        { Request_LocalControl(RowIndex - 3); }
         else if (RowIndex >= 13 && RowIndex <= 16)
-        { Request_SharedControl(RowIndex - 4); }
+        { Request_LocalControl(RowIndex - 4); }
         else if (RowIndex >= 18 && RowIndex <= 22)
-        { Request_SharedControl(RowIndex - 5); }
+        { Request_LocalControl(RowIndex - 5); }
         else if (RowIndex >= 24 && RowIndex <= 28)
-        { Request_SharedControl(RowIndex - 6); }
+        { Request_LocalControl(RowIndex - 6); }
     }
 
     UFUNCTION(BlueprintOverride) void EndPlay(EEndPlayReason InReason)

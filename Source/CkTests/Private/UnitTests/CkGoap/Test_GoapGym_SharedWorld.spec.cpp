@@ -13,7 +13,9 @@
 #include "CkEcs/OwningActor/CkOwningActor_Utils.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 #include "CkEntityTag/CkEntityTag_Utils.h"
+#include "CkDynamic/CkDynamic_Utils.h"
 #include "CkGoap/CkGoap_Fragment_Data.h"
+#include "CkGoap/CkGoap_Fragment.h"
 #include "CkGoap/Planner/CkGoap_Planner_Fragment.h"
 #include "CkGoap/WorldState/CkGoap_WorldState_Fragment.h"
 #include "CkGoap/WorldState/CkGoap_WorldState_Utils.h"
@@ -32,11 +34,17 @@
 #include "UObject/SoftObjectPath.h"
 #include "UObject/StructOnScope.h"
 #include "UObject/UnrealType.h"
+#include "Editor.h"
+#include "Editor/UnrealEdEngine.h"
+#include "FileHelpers.h"
+#include "GameFramework/WorldSettings.h"
+#include "PlayInEditorDataTypes.h"
+#include "Settings/LevelEditorPlaySettings.h"
 #include <initializer_list>
 
-namespace ck_goap_main_authored_network
+namespace ck_goap_main_authored_local
 {
-    constexpr int32 Worlds = 3, Clients = 2, Stations = 7;
+    constexpr int32 Stations = 7;
     constexpr auto EntryMap = TEXT("/Engine/Maps/Entry");
     constexpr auto BaseModePath = TEXT("/Script/Angelscript.CkTests_Gym_Base_GameMode");
     constexpr auto ModePath = TEXT("/Script/Angelscript.Ck_GoapGym_GameMode");
@@ -51,6 +59,20 @@ namespace ck_goap_main_authored_network
     constexpr int32 InitialMasks[Stations]{0, 15, 3, 0, 13, 0, 0};
     constexpr int32 KeyCounts[Stations]{1, 8, 3, 3, 5, 6, 2};
     constexpr int32 PlannerCounts[Stations]{1, 1, 1, 3, 2, 4, 1};
+    const TCHAR* PlannerTags[Stations][4]{
+        {TEXT("Gym.Goap.ActionSet.Door")},
+        {TEXT("Gym.Goap.ActionSet.Tea")},
+        {TEXT("Gym.Goap.ActionSet.CrossRiver")},
+        {TEXT("Gym.Goap.ActionSet.Patrol"),
+            TEXT("Gym.Goap.ActionSet.Patrol.GoToWaypoint"),
+            TEXT("Gym.Goap.ActionSet.Patrol.Observe")},
+        {TEXT("Gym.Goap.ActionSet.Survival.Hunger"),
+            TEXT("Gym.Goap.ActionSet.Survival.Defense")},
+        {TEXT("Gym.Goap.ActionSet.CombatBrain"),
+            TEXT("Gym.Goap.ActionSet.CombatBrain.Engage"),
+            TEXT("Gym.Goap.ActionSet.CombatBrain.LightAttacks"),
+            TEXT("Gym.Goap.ActionSet.CombatBrain.HeavyAttacks")},
+        {TEXT("Gym.Goap.ActionSet.OptOutDemo")}};
     constexpr int32 ActionCounts[Stations]{2, 4, 3, 8, 6, 11, 1};
     constexpr int32 ForestSizes[Stations]{5, 7, 6, 11, 10, 14, 4};
     const TCHAR* Keys[Stations][8]{
@@ -202,7 +224,7 @@ namespace ck_goap_main_authored_network
     bool SendControl(APlayerController* PC, int32 Serial,
         int64 SourceGeneration, int64 Generation, int32 Action)
     {
-        FCall C(PC, TEXT("Server_RequestGoapControl"));
+        FCall C(PC, TEXT("Request_LocalGoapControl"));
         auto* S = Field<FIntProperty>(C.Function, TEXT("Serial"));
         auto* SG = Field<FInt64Property>(C.Function, TEXT("SourceGeneration"));
         auto* G = Field<FInt64Property>(C.Function, TEXT("Generation"));
@@ -227,34 +249,69 @@ namespace ck_goap_main_authored_network
         TArray<FCk_Handle> Forest;
     };
 
+    struct FPlaySettings
+    {
+        int32 Clients = 1;
+        EPlayNetMode Mode = EPlayNetMode::PIE_Standalone;
+        bool OneProcess = true;
+        bool SeparateServer = false;
+    };
+    TOptional<FPlaySettings> GPlaySettings;
+    FDelegateHandle GRestorePlaySettings;
+
+    void RestorePlaySettings()
+    {
+        if (GRestorePlaySettings.IsValid())
+        {
+            FEditorDelegates::EndPIE.Remove(GRestorePlaySettings);
+            GRestorePlaySettings.Reset();
+        }
+        if (!GPlaySettings.IsSet()) { return; }
+        if (auto* Settings = GetMutableDefault<ULevelEditorPlaySettings>())
+        {
+            Settings->SetPlayNumberOfClients(GPlaySettings->Clients);
+            Settings->SetPlayNetMode(GPlaySettings->Mode);
+            Settings->SetRunUnderOneProcess(GPlaySettings->OneProcess);
+            Settings->bLaunchSeparateServer = GPlaySettings->SeparateServer;
+        }
+        GPlaySettings.Reset();
+    }
+    void OnEndPIE(bool) { RestorePlaySettings(); }
+
     struct FRun
     {
-        bool Dedicated = false, Captured = false, SettingsCaptured = false, Failed = false;
+        bool Captured = false, SettingsCaptured = false, Failed = false;
+        bool OwnsPIE = false;
         UClass *BaseMode = nullptr, *Mode = nullptr, *StateClass = nullptr;
         UClass *PCClass = nullptr, *PawnClass = nullptr;
+        UScriptStruct* DisplayType = nullptr;
         FStructProperty *SnapshotProperty = nullptr, *AckProperty = nullptr;
-        TWeakObjectPtr<UWorld> World[Worlds];
-        TWeakObjectPtr<AGameStateBase> State[Worlds];
-        TWeakObjectPtr<APlayerController> Local[Clients], Remote[Clients], Host;
-        FCk_Handle WorldRoot[Worlds], LocalStation[Worlds][Stations];
+        TWeakObjectPtr<UWorld> World;
+        TWeakObjectPtr<AGameStateBase> State;
+        TWeakObjectPtr<APlayerController> Player;
+        TWeakObjectPtr<AWorldSettings> EditorWorldSettings;
+        TStrongObjectPtr<UClass> OriginalEditorMode;
+        FCk_Handle WorldRoot, LocalStation[Stations];
         FBank Bank[Stations], Before[Stations];
-        TMap<int64, FCkGoapGym_WireSnapshot> History;
-        int64 Observed[Worlds]{};
-        int32 NextSerial[3]{1, 1, 1};
-        int32 ActionIndex = 0, Owner = -1, Serial = 0, OneWayCount = 0;
         int32 ExpectedMask[Stations]{0, 15, 3, 0, 13, 0, 0};
         int64 CompletedControls[Stations]{};
+        int32 ActionIndex = 0, Serial = 0;
         double Deadline = 0.0, SettleUntil = 0.0;
         FString LastBlock;
+        FString NativeAtSend;
         FCkGoapGym_WireSnapshot BeforeFrame;
-        enum class EStep : uint8 { Baseline, Send, Wait, OneWaySend,
-            OneWayWait, Invalid, Terminal,
-            Failed, PostFailed, Done } Step = EStep::Baseline;
+        enum class EStep : uint8 { Baseline, Send, Wait, Invalid, Loss, Failed, Done }
+            Step = EStep::Baseline;
         ECkGym_StartupMode Startup{};
         FString LastGym;
         TArray<FString> Recents;
         void Restore()
         {
+            RestorePlaySettings();
+            if (EditorWorldSettings.IsValid())
+            { EditorWorldSettings->DefaultGameMode = OriginalEditorMode.Get(); }
+            EditorWorldSettings.Reset();
+            OriginalEditorMode.Reset();
             if (!SettingsCaptured) { return; }
             auto* Settings = GetMutableDefault<UCkGym_StartupSettings>();
             Settings->StartupMode = Startup;
@@ -266,16 +323,20 @@ namespace ck_goap_main_authored_network
         ~FRun() { Restore(); }
     };
 
-    const FCkGoapGym_WireSnapshot* Frame(const FRun& R, int32 W)
-    { return R.SnapshotProperty && R.State[W].IsValid()
+    UWorld* LocalWorld()
+    {
+        const auto Worlds = ck::auto_test::net::Get_AllPIEWorlds();
+        return Worlds.Num() == 1 && IsValid(Worlds[0]) &&
+            Worlds[0]->GetNetMode() == NM_Standalone ? Worlds[0] : nullptr;
+    }
+    const FCkGoapGym_WireSnapshot* Frame(const FRun& R)
+    { return R.SnapshotProperty && R.State.IsValid()
         ? R.SnapshotProperty->ContainerPtrToValuePtr<FCkGoapGym_WireSnapshot>(
-            R.State[W].Get()) : nullptr; }
-
-    const FCkGoapGym_ControlAck* Ack(const FRun& R, APlayerController* PC)
-    { return R.AckProperty && IsValid(PC)
-        ? R.AckProperty->ContainerPtrToValuePtr<FCkGoapGym_ControlAck>(PC)
-        : nullptr; }
-
+            R.State.Get()) : nullptr; }
+    const FCkGoapGym_ControlAck* Ack(const FRun& R)
+    { return R.AckProperty && R.Player.IsValid()
+        ? R.AckProperty->ContainerPtrToValuePtr<FCkGoapGym_ControlAck>(
+            R.Player.Get()) : nullptr; }
     bool Presented(APlayerController* PC, FCkGoapGym_WireSnapshot& Out)
     {
         Out = {};
@@ -287,196 +348,167 @@ namespace ck_goap_main_authored_network
             C.Args->GetStructMemory());
         return true;
     }
-
-    bool PlayerReady(APlayerController* PC, UWorld* World, const FRun& R)
-    {
-        if (!IsValid(PC) || PC->GetClass() != R.PCClass ||
-            PC->GetWorld() != World || !PC->HasActorBegunPlay()) { return false; }
-        auto* Pawn = PC->GetPawn().Get();
-        auto* PS = PC->PlayerState.Get();
-        return IsValid(Pawn) && Pawn->GetClass() == R.PawnClass &&
-            Pawn->GetWorld() == World && Pawn->GetController() == PC &&
-            Pawn->HasActorBegunPlay() && IsValid(PS) &&
-            PS->GetWorld() == World && Pawn->GetPlayerState() == PS;
-    }
-
     bool Context(FRun& R)
     {
-        auto* Server = ck::auto_test::net::Get_ServerWorld();
-        if (!IsValid(Server) || !Server->HasBegunPlay() ||
-            Server->GetNetMode() != (R.Dedicated ? NM_DedicatedServer : NM_ListenServer) ||
-            ck::auto_test::net::Get_AllPIEWorlds().Num() != Worlds ||
-            ck::auto_test::net::Get_NumClientWorlds() != Clients ||
-            !IsValid(Server->GetAuthGameMode()) ||
-            Server->GetAuthGameMode()->GetClass() != R.Mode ||
-            !IsValid(Server->GetGameState()) ||
-            Server->GetGameState()->GetClass() != R.StateClass) { return false; }
-        UWorld* WorldsNow[Worlds]{Server};
-        AGameStateBase* StatesNow[Worlds]{Server->GetGameState()};
-        APlayerController* LocalsNow[Clients]{}, *RemotesNow[Clients]{};
-        FCk_Handle RootsNow[Worlds]{Root(Server)};
-        if (!Allocated(RootsNow[0])) { return false; }
-        for (int32 I = 0; I < Clients; ++I)
-        {
-            WorldsNow[I + 1] = ck::auto_test::net::Get_ClientWorld(I);
-            StatesNow[I + 1] = IsValid(WorldsNow[I + 1])
-                ? WorldsNow[I + 1]->GetGameState() : nullptr;
-            LocalsNow[I] = IsValid(WorldsNow[I + 1])
-                ? WorldsNow[I + 1]->GetFirstPlayerController() : nullptr;
-            RemotesNow[I] = ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, I);
-            RootsNow[I + 1] = Root(WorldsNow[I + 1]);
-            if (!IsValid(WorldsNow[I + 1]) || WorldsNow[I + 1]->GetNetMode() != NM_Client ||
-                !IsValid(StatesNow[I + 1]) || StatesNow[I + 1]->GetClass() != R.StateClass ||
-                !PlayerReady(LocalsNow[I], WorldsNow[I + 1], R) ||
-                !LocalsNow[I]->IsLocalController() ||
-                !PlayerReady(RemotesNow[I], Server, R) ||
-                RemotesNow[I]->IsLocalController() || !Allocated(RootsNow[I + 1]))
-            { return false; }
-        }
-        auto* GI = Server->GetGameInstance();
-        if (!IsValid(GI) || GI->GetLocalPlayers().Num() != (R.Dedicated ? 0 : 1))
+        auto* W = LocalWorld();
+        if (!IsValid(W) || !W->HasBegunPlay() ||
+            !IsValid(W->GetAuthGameMode()) ||
+            W->GetAuthGameMode()->GetClass() != R.Mode ||
+            !IsValid(W->GetGameState()) ||
+            W->GetGameState()->GetClass() != R.StateClass)
         { return false; }
-        APlayerController* HostNow = nullptr;
-        if (!R.Dedicated)
-        {
-            auto* LP = GI->GetLocalPlayers()[0];
-            HostNow = IsValid(LP) ? LP->GetPlayerController(Server) : nullptr;
-            if (!PlayerReady(HostNow, Server, R) || !HostNow->IsLocalController())
-            { return false; }
-        }
+        auto* PC = W->GetFirstPlayerController();
+        auto* Pawn = IsValid(PC) ? PC->GetPawn().Get() : nullptr;
+        auto* PS = IsValid(PC) ? PC->PlayerState.Get() : nullptr;
+        const auto WorldRoot = Root(W);
+        if (!IsValid(PC) || PC->GetClass() != R.PCClass ||
+            !PC->IsLocalController() || !PC->HasAuthority() ||
+            !IsValid(Pawn) || Pawn->GetClass() != R.PawnClass ||
+            Pawn->GetController() != PC || !Pawn->HasActorBegunPlay() ||
+            !IsValid(PS) || Pawn->GetPlayerState() != PS ||
+            !Allocated(WorldRoot)) { return false; }
         if (R.Captured)
-        {
-            if (R.Host.Get() != HostNow) { return false; }
-            for (int32 I = 0; I < Worlds; ++I)
-            { if (R.World[I].Get() != WorldsNow[I] || R.State[I].Get() != StatesNow[I] ||
-                  R.WorldRoot[I] != RootsNow[I]) { return false; } }
-            for (int32 I = 0; I < Clients; ++I)
-            { if (R.Local[I].Get() != LocalsNow[I] || R.Remote[I].Get() != RemotesNow[I])
-              { return false; } }
-            return true;
-        }
-        for (int32 I = 0; I < Worlds; ++I)
-        { R.World[I] = WorldsNow[I]; R.State[I] = StatesNow[I]; R.WorldRoot[I] = RootsNow[I]; }
-        for (int32 I = 0; I < Clients; ++I)
-        { R.Local[I] = LocalsNow[I]; R.Remote[I] = RemotesNow[I]; }
-        R.Host = HostNow;
-        R.Captured = true;
+        { return R.World.Get() == W && R.State.Get() == W->GetGameState() &&
+            R.Player.Get() == PC && R.WorldRoot == WorldRoot; }
+        R.World = W; R.State = W->GetGameState(); R.Player = PC;
+        R.WorldRoot = WorldRoot; R.Captured = true;
         return true;
     }
-
-    bool Observe(FRun& R)
+    bool SourceCensus(const FRun& R, int32 Expected)
     {
-        const auto* A = Frame(R, 0);
-        if (!A || A->SourceGeneration != 1 || A->Sequence < R.Observed[0])
-        { return false; }
-        if (A->Sequence > 0) { R.History.Add(A->Sequence, *A); }
-        R.Observed[0] = A->Sequence;
-        for (int32 W = 1; W < Worlds; ++W)
-        {
-            const auto* B = Frame(R, W);
-            if (!B || B->SourceGeneration != 1 || B->Sequence < R.Observed[W] ||
-                B->Sequence > A->Sequence) { return false; }
-            const auto* Known = R.History.Find(B->Sequence);
-            if (Known && !Same(*Known, *B)) { return false; }
-            R.Observed[W] = B->Sequence;
-        }
-        return true;
-    }
-
-    bool SourceCensus(const FRun& R, int32 W, int32 Expected)
-    {
-        if (!Allocated(R.WorldRoot[W])) { return false; }
-        const auto Registry = R.WorldRoot[W].Get_RegistryView();
+        if (!Allocated(R.WorldRoot)) { return false; }
+        const auto Registry = R.WorldRoot.Get_RegistryView();
         const auto RegistryHandle = Registry.Get_RegistryHandle();
-        int32 PlannerCount = 0, WorldStateCount = 0, SourceActionCount = 0;
-        int32 PerSource[Stations]{}, PerWorldState[Stations]{}, PerAction[Stations]{};
+        int32 Planners = 0, WorldStates = 0, ActionsFound = 0;
+        int32 PerPlanner[Stations]{}, PerWS[Stations]{}, PerAction[Stations]{};
         bool Foreign = false;
-        auto CountOwner = [&](const FCk_Handle& H, int32* Counts)
+        auto Count = [&](const FCk_Handle& H, int32* Per)
         {
-            if (W != 0) { return; }
             int32 Owners = 0;
             for (int32 I = 0; I < Stations; ++I)
-            { if (R.Bank[I].Forest.Contains(H)) { ++Counts[I]; ++Owners; } }
+            { if (R.Bank[I].Forest.Contains(H)) { ++Per[I]; ++Owners; } }
             Foreign |= Owners != 1;
         };
         Registry.View<ck::FFragment_Goap_Planner>().ForEach(
             [&](FCk_Entity Entity, const ck::FFragment_Goap_Planner&)
-            {
-                const FCk_Handle H{Entity, RegistryHandle};
-                if (!Allocated(H)) { return; }
-                ++PlannerCount;
-                CountOwner(H, PerSource);
-            });
+            { const FCk_Handle H{Entity, RegistryHandle};
+              if (Allocated(H)) { ++Planners; Count(H, PerPlanner); } });
         Registry.View<ck::FFragment_Goap_WorldState_Values>().ForEach(
             [&](FCk_Entity Entity, const ck::FFragment_Goap_WorldState_Values&)
-            {
-                const FCk_Handle H{Entity, RegistryHandle};
-                if (Allocated(H)) { ++WorldStateCount; CountOwner(H, PerWorldState); }
-            });
+            { const FCk_Handle H{Entity, RegistryHandle};
+              if (Allocated(H)) { ++WorldStates; Count(H, PerWS); } });
         Registry.View<ck::FFragment_Goap_Action>().ForEach(
             [&](FCk_Entity Entity, const ck::FFragment_Goap_Action&)
-            {
-                const FCk_Handle H{Entity, RegistryHandle};
-                if (Allocated(H)) { ++SourceActionCount; CountOwner(H, PerAction); }
-            });
-        if (W == 0 && Expected == Stations)
+            { const FCk_Handle H{Entity, RegistryHandle};
+              if (Allocated(H)) { ++ActionsFound; Count(H, PerAction); } });
+        if (Expected == Stations)
         {
             for (int32 I = 0; I < Stations; ++I)
-            { if (PerSource[I] != PlannerCounts[I] || PerWorldState[I] != 1 ||
+            { if (PerPlanner[I] != PlannerCounts[I] || PerWS[I] != 1 ||
                   PerAction[I] != ActionCounts[I]) { return false; } }
         }
-        return PlannerCount == (Expected == 0 ? 0 : 13) &&
-            WorldStateCount == Expected &&
-            SourceActionCount == (Expected == 0 ? 0 : 35) && !Foreign;
+        return Planners == (Expected ? 13 : 0) &&
+            WorldStates == Expected &&
+            ActionsFound == (Expected ? 35 : 0) && !Foreign;
     }
-
-    bool Station(FRun& R, int32 W, int32 I)
-    {
-        auto* PC = W == 0 ? R.Host.Get() : R.Local[W - 1].Get();
-        if (!IsValid(PC)) { return false; }
-        const auto Owner = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(PC);
-        const FName Tag(*FString::Printf(TEXT("%s_%s"), Tags[I], *PC->GetName()));
-        const auto Matches = UCk_Utils_EntityTag_UE::ForEach_Entity(R.WorldRoot[W], Tag);
-        if (!Allocated(Owner) || Matches.Num() != 1 || !Allocated(Matches[0]) ||
-            !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Matches[0]))
-        { return false; }
-        const auto Cohort = UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Matches[0]);
-        if (!Direct(Matches[0], Cohort) || !Direct(Cohort, Owner) ||
-            (Allocated(R.LocalStation[W][I]) &&
-                R.LocalStation[W][I] != Matches[0])) { return false; }
-        R.LocalStation[W][I] = Matches[0];
-        return true;
-    }
-
     bool Bank(FRun& R, int32 I, FBank& Out)
     {
         Out = {};
-        if (!Handle(R.State[0].Get(), I, Out.Root) ||
-            !Direct(Out.Root, R.WorldRoot[0])) { return false; }
+        if (!Handle(R.State.Get(), I, Out.Root) ||
+            !Direct(Out.Root, R.WorldRoot)) { return false; }
         return UCk_GoapGym_Runtime_UE::TryGet_SourceForest(
-            R.World[0].Get(), Out.Root, Out.Forest) &&
-            Out.Forest.Contains(Out.Root);
+            R.World.Get(), Out.Root, Out.Forest) && Out.Forest.Contains(Out.Root);
     }
-
-    bool NativeMask(const FRun& R, int32 StationIndex, int32& Out)
+    FString NativePlannerState(const FRun& R)
+    {
+        FString Result;
+        for (int32 I = 0; I < Stations; ++I)
+        {
+            int32 Planner = 0;
+            for (const auto& H : R.Bank[I].Forest)
+            {
+                if (!Allocated(H) || !H.Has<ck::FFragment_Goap_Planner>())
+                { continue; }
+                if (!H.Has<ck::FFragment_Goap_Planner_PlanState>())
+                {
+                    Result += FString::Printf(TEXT(" s%d.p%d{missingPlanState}"),
+                        I, Planner++);
+                    continue;
+                }
+                const auto& State = H.Get<ck::FFragment_Goap_Planner_PlanState>();
+                const auto Queued = H.Has<ck::FFragment_Goap_Planner_Requests>()
+                    ? H.Get<ck::FFragment_Goap_Planner_Requests>().Get_Requests().Num() : 0;
+                Result += FString::Printf(
+                    TEXT(" s%d.p%d{attempt=%d status=%d queue=%d initial=%d requested=%d flight=%d chain=%d activation=%d ws=%d cost=%d}"),
+                    I, Planner++, State.Get_PlanAttemptCount(),
+                    static_cast<int32>(State.Get_PlanStatus()), Queued,
+                    H.Has<ck::FTag_Goap_Planner_RequiresInitialPlan>(),
+                    H.Has<ck::FTag_Goap_Planner_PlanRequested>(),
+                    H.Has<ck::FTag_Goap_Planner_PlanInFlight>(),
+                    H.Has<ck::FTag_Goap_Planner_RequiresChainUpdate>(),
+                    H.Has<ck::FTag_Goap_Planner_ActivationDirty>(),
+                    H.Has<ck::FTag_Goap_Dirty_WorldState>(),
+                    H.Has<ck::FTag_Goap_Dirty_Cost>());
+            }
+        }
+        return Result;
+    }
+    FString Codes(const TArray<int32>& Values)
+    {
+        FString Result(TEXT("["));
+        for (int32 I = 0; I < Values.Num(); ++I)
+        { Result += FString::Printf(TEXT("%s%d"), I ? TEXT(",") : TEXT(""), Values[I]); }
+        return Result + TEXT("]");
+    }
+    FString StationDelta(const FCkGoapGym_StationFrame& Before,
+        const FCkGoapGym_StationFrame& After)
+    {
+        FString Result = FString::Printf(
+            TEXT("index=%d/%d generation=%lld/%lld mask=%d/%d controls=%lld/%lld textDelta=%d/%d/%d planners=%d/%d"),
+            Before.Index, After.Index,
+            static_cast<long long>(Before.Generation),
+            static_cast<long long>(After.Generation),
+            Before.WorldStateMask, After.WorldStateMask,
+            static_cast<long long>(Before.ControlCount),
+            static_cast<long long>(After.ControlCount),
+            Before.Title != After.Title, Before.Detail != After.Detail,
+            Before.Footer != After.Footer,
+            Before.Planners.Num(), After.Planners.Num());
+        for (int32 J = 0; J < FMath::Min(Before.Planners.Num(), After.Planners.Num()); ++J)
+        {
+            const auto& B = Before.Planners[J];
+            const auto& A = After.Planners[J];
+            if (FCkGoapGym_PlannerFrame::StaticStruct()->CompareScriptStruct(
+                    &B, &A, PPF_None)) { continue; }
+            Result += FString::Printf(
+                TEXT(" p%d{index=%d/%d parent=%d/%d attempt=%d/%d success=%lld/%lld failure=%lld/%lld status=%d/%d cost=%.3f/%.3f plan=%s/%s chain=%s/%s}"),
+                J, B.Index, A.Index, B.ParentAction, A.ParentAction,
+                B.AttemptCount, A.AttemptCount,
+                static_cast<long long>(B.PlanCount),
+                static_cast<long long>(A.PlanCount),
+                static_cast<long long>(B.FailureCount),
+                static_cast<long long>(A.FailureCount),
+                B.PlanStatus, A.PlanStatus, B.PlanCost, A.PlanCost,
+                *Codes(B.PlanActions), *Codes(A.PlanActions),
+                *Codes(B.ActiveChain), *Codes(A.ActiveChain));
+        }
+        return Result;
+    }
+    bool NativeMask(const FRun& R, int32 I, int32& Out)
     {
         Out = 0;
-        FCk_Handle WorldState;
+        FCk_Handle WS;
         int32 Found = 0;
-        for (const auto& H : R.Bank[StationIndex].Forest)
-        {
-            if (UCk_GoapGym_Runtime_UE::Get_IsLiveWorldState(
-                    H, R.World[0].Get()))
-            { WorldState = H; ++Found; }
-        }
-        if (Found != 1 || !Direct(WorldState, R.Bank[StationIndex].Root))
-        { return false; }
-        const auto Typed = UCk_Utils_Goap_WorldState_UE::Cast(WorldState);
+        for (const auto& H : R.Bank[I].Forest)
+        { if (UCk_GoapGym_Runtime_UE::Get_IsLiveWorldState(H, R.World.Get()))
+          { WS = H; ++Found; } }
+        if (Found != 1 || !Direct(WS, R.Bank[I].Root)) { return false; }
+        const auto Typed = UCk_Utils_Goap_WorldState_UE::Cast(WS);
         if (!Allocated(Typed)) { return false; }
-        for (int32 Bit = 0; Bit < KeyCounts[StationIndex]; ++Bit)
+        for (int32 Bit = 0; Bit < KeyCounts[I]; ++Bit)
         {
             const auto Tag = FGameplayTag::RequestGameplayTag(
-                FName(Keys[StationIndex][Bit]), false);
+                FName(Keys[I][Bit]), false);
             if (!Tag.IsValid() ||
                 !UCk_Utils_Goap_WorldState_UE::Has_Key(Typed, Tag))
             { return false; }
@@ -485,70 +517,135 @@ namespace ck_goap_main_authored_network
         }
         return true;
     }
-
-    bool Catalog(FRun& R)
+    bool NativePlannerFrameCurrent(const FRun& R, int32 Station,
+        const FCkGoapGym_StationFrame& Shown, FString& Reason)
     {
-        constexpr const TCHAR* Names[]{TEXT("Goap"), TEXT("Goap F.E.A.R."),
-            TEXT("Input Key Binding"), TEXT("Game Settings")};
-        constexpr bool Multiplayer[]{true, true, false, false};
-        int32 ServerIndices[UE_ARRAY_COUNT(Names)]{};
-        for (int32 W = 0; W < Worlds; ++W)
+        Reason.Reset();
+        if (Shown.Planners.Num() != PlannerCounts[Station])
         {
-            const auto Entries = UCk_Utils_GymRegistry_UE::Get_GymRegistry(
-                R.World[W].Get());
-            const auto Groups = UCkGym_Switchboard_Subsystem::Build_Groups(Entries);
-            for (int32 N = 0; N < UE_ARRAY_COUNT(Names); ++N)
+            Reason = FString::Printf(TEXT("s%d planner count frame=%d expected=%d"),
+                Station, Shown.Planners.Num(), PlannerCounts[Station]);
+            return false;
+        }
+        for (int32 J = 0; J < PlannerCounts[Station]; ++J)
+        {
+            const auto ExpectedTag = FGameplayTag::RequestGameplayTag(
+                FName(PlannerTags[Station][J]), false);
+            if (!ExpectedTag.IsValid())
             {
-                int32 Index = INDEX_NONE, Found = 0, Grouped = 0;
-                for (int32 I = 0; I < Entries.Num(); ++I)
-                {
-                    if (Entries[I].DisplayName == Names[N])
-                    { Index = I; ++Found; }
-                }
-                if (Found != 1 || Index == INDEX_NONE ||
-                    Entries[Index].HasMultiplayerComponent != Multiplayer[N] ||
-                    (W > 0 && Index != ServerIndices[N]))
-                { return false; }
-                if (W == 0) { ServerIndices[N] = Index; }
-                for (const auto& Group : Groups)
-                {
-                    for (const auto& Row : Group.Rows)
-                    {
-                        if (Row.DisplayName == Names[N])
-                        {
-                            if (Row.RegistryIndex != Index ||
-                                Row.HasMultiplayerComponent != Multiplayer[N])
-                            { return false; }
-                            ++Grouped;
-                        }
-                    }
-                }
-                if (Grouped != 1) { return false; }
-                if (N == 1 || N == 2)
-                {
-                    const auto Filtered = UCkGym_Switchboard_Subsystem::
-                        Build_FilteredRows(Groups, Names[N]);
-                    int32 Matched = 0;
-                    for (const auto& Row : Filtered)
-                    {
-                        if (Row.DisplayName == Names[N])
-                        {
-                            if (Row.RegistryIndex != Index ||
-                                Row.HasMultiplayerComponent != Multiplayer[N])
-                            { return false; }
-                            ++Matched;
-                        }
-                    }
-                    if (Matched != 1) { return false; }
-                }
+                Reason = FString::Printf(TEXT("s%d.p%d missing tag %s"),
+                    Station, J, PlannerTags[Station][J]);
+                return false;
+            }
+            FCk_Handle Planner;
+            int32 Matches = 0;
+            for (const auto& H : R.Bank[Station].Forest)
+            {
+                if (!Allocated(H) || !H.Has<ck::FFragment_Goap_Planner>() ||
+                    !H.Has<ck::FFragment_Goap_Planner_Params>() ||
+                    H.Get<ck::FFragment_Goap_Planner_Params>().Get_PlannerTag() !=
+                        ExpectedTag)
+                { continue; }
+                Planner = H;
+                ++Matches;
+            }
+            if (Matches != 1 ||
+                !Planner.Has<ck::FFragment_Goap_Planner_PlanState>())
+            {
+                Reason = FString::Printf(
+                    TEXT("s%d.p%d tag=%s native matches=%d planState=%d"),
+                    Station, J, PlannerTags[Station][J], Matches,
+                    Matches == 1 &&
+                        Planner.Has<ck::FFragment_Goap_Planner_PlanState>());
+                return false;
+            }
+            const auto& Native = Planner.Get<ck::FFragment_Goap_Planner_PlanState>();
+            const auto& Presented = Shown.Planners[J];
+            if (Presented.AttemptCount != Native.Get_PlanAttemptCount() ||
+                Presented.PlanStatus != static_cast<int32>(Native.Get_PlanStatus()) ||
+                !FMath::IsNearlyEqual(Presented.PlanCost,
+                    Native.Get_PlanCost(), 0.01f) ||
+                Presented.PlanActions.Num() != Native.Get_Plan().Num())
+            {
+                Reason = FString::Printf(
+                    TEXT("s%d.p%d tag=%s frame attempt=%d success=%lld failure=%lld status=%d cost=%.3f planLen=%d native attempt=%d status=%d cost=%.3f planLen=%d"),
+                    Station, J, PlannerTags[Station][J],
+                    Presented.AttemptCount,
+                    static_cast<long long>(Presented.PlanCount),
+                    static_cast<long long>(Presented.FailureCount),
+                    Presented.PlanStatus, Presented.PlanCost,
+                    Presented.PlanActions.Num(), Native.Get_PlanAttemptCount(),
+                    static_cast<int32>(Native.Get_PlanStatus()),
+                    Native.Get_PlanCost(), Native.Get_Plan().Num());
+                return false;
+            }
+            const bool Active =
+                Planner.Has<ck::FFragment_Goap_Planner_Activation>() &&
+                Planner.Get<ck::FFragment_Goap_Planner_Activation>().Get_IsActive();
+            const int32 Queued = Planner.Has<ck::FFragment_Goap_Planner_Requests>()
+                ? Planner.Get<ck::FFragment_Goap_Planner_Requests>().Get_Requests().Num()
+                : 0;
+            const bool Initial = Planner.Has<ck::FTag_Goap_Planner_RequiresInitialPlan>();
+            const bool Requested = Planner.Has<ck::FTag_Goap_Planner_PlanRequested>();
+            const bool InFlight = Planner.Has<ck::FTag_Goap_Planner_PlanInFlight>();
+            const bool Chain = Planner.Has<ck::FTag_Goap_Planner_RequiresChainUpdate>();
+            const bool Activation = Planner.Has<ck::FTag_Goap_Planner_ActivationDirty>();
+            const bool WSDirty = Planner.Has<ck::FTag_Goap_Dirty_WorldState>();
+            const bool CostDirty = Planner.Has<ck::FTag_Goap_Dirty_Cost>();
+            if (Active && (Queued || Initial || Requested || InFlight || Chain ||
+                    Activation || WSDirty || CostDirty))
+            {
+                Reason = FString::Printf(
+                    TEXT("s%d.p%d tag=%s active=1 queue=%d initial=%d requested=%d flight=%d chain=%d activation=%d ws=%d cost=%d"),
+                    Station, J, PlannerTags[Station][J], Queued, Initial,
+                    Requested, InFlight, Chain, Activation, WSDirty, CostDirty);
+                return false;
             }
         }
         return true;
     }
-
+    bool Station(FRun& R, int32 I, const FCkGoapGym_StationFrame& Shown)
+    {
+        auto* PC = R.Player.Get();
+        const auto Owner = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(PC);
+        const FName Tag(*FString::Printf(TEXT("%s_%s"), Tags[I], *PC->GetName()));
+        const auto Matches = UCk_Utils_EntityTag_UE::ForEach_Entity(R.WorldRoot, Tag);
+        if (!Allocated(Owner) || Matches.Num() != 1 || !Allocated(Matches[0]) ||
+            !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Matches[0]))
+        { return false; }
+        const auto Cohort = UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Matches[0]);
+        if (!Direct(Matches[0], Cohort) || !Direct(Cohort, Owner) ||
+            (Allocated(R.LocalStation[I]) && R.LocalStation[I] != Matches[0]))
+        { return false; }
+        R.LocalStation[I] = Matches[0];
+        if (!UCk_Utils_DynamicFragment_UE::Has_Fragment(Matches[0], R.DisplayType))
+        { return false; }
+        const auto* Value = UCk_Utils_DynamicFragment_UE::TryGet_Fragment_TypeUnsafe(
+            Matches[0], R.DisplayType);
+        if (!Value || Value->GetScriptStruct() != R.DisplayType ||
+            !Value->GetMemory()) { return false; }
+        const auto* Data = Value->GetMemory();
+        const auto Read = [&](const TCHAR* Name) -> FString
+        {
+            const auto* P = Field<FTextProperty>(R.DisplayType, Name);
+            return P ? P->GetPropertyValue_InContainer(Data).ToString() : FString{};
+        };
+        return Read(TEXT("Title")) == Shown.Title &&
+            Read(TEXT("Description")) == Shown.Detail &&
+            Read(TEXT("Instructions")) == Shown.Footer;
+    }
+    bool Catalog(FRun& R)
+    {
+        const auto Entries = UCk_Utils_GymRegistry_UE::Get_GymRegistry(R.World.Get());
+        int32 Found = 0;
+        for (const auto& Entry : Entries)
+        { if (Entry.DisplayName == TEXT("Goap"))
+          { ++Found; if (Entry.HasMultiplayerComponent ||
+                Entry.GameModeClass.Get() != R.Mode) { return false; } } }
+        return Found == 1;
+    }
     bool Block(FRun& R, const TCHAR* Why)
     { R.LastBlock = Why; return false; }
-
     bool PlanIs(const FCkGoapGym_PlannerFrame& P,
         std::initializer_list<int32> ExpectedActions, float Cost)
     {
@@ -594,7 +691,8 @@ namespace ck_goap_main_authored_network
         {
             const auto& P = S.Planners[J];
             if (P.Index != J || P.ParentAction != ParentAction(Index, J) ||
-                P.PlanCount < 0 || P.FailureCount < 0 ||
+                P.AttemptCount < 0 || P.PlanCount < 0 || P.FailureCount < 0 ||
+                P.PlanCount + P.FailureCount > P.AttemptCount ||
                 P.PlanStatus < 0 || P.PlanStatus > 4 ||
                 P.PlanActions.Num() > ActionCounts[Index] ||
                 P.ActiveChain.Num() > 4 ||
@@ -670,176 +768,187 @@ namespace ck_goap_main_authored_network
         return Top.PlanStatus == static_cast<int32>(ECk_GoapPlanStatus::PlanFound);
     }
 
-    bool Converged(FRun& R, int64 Generation,
-        bool ExpectInjectedRequesterNotReady = false)
+    bool Converged(FRun& R, int64 Generation)
     {
-        if (!Context(R)) { return Block(R, TEXT("world/player context")); }
-        const auto* A = Frame(R, 0);
+        if (!Context(R)) { return Block(R, TEXT("standalone world/player context")); }
+        const auto* A = Frame(R);
         if (!A || A->Phase != 2 || A->Replacing != -1 ||
             A->ControlGeneration != Generation || A->SourceGeneration != 1 ||
             A->Sequence <= 0 || A->Stations.Num() != Stations)
-        { return Block(R, TEXT("authority active snapshot")); }
+        { return Block(R, TEXT("local coordinator frame")); }
         for (int32 I = 0; I < Stations; ++I)
         {
             if (!ValidFrame(A->Stations[I], I, R.ExpectedMask[I],
                     R.CompletedControls[I]) ||
                 !Bank(R, I, R.Bank[I]) ||
                 R.Bank[I].Forest.Num() != ForestSizes[I])
-            { return Block(R, TEXT("authority source forest and planner output")); }
+            { return Block(R, TEXT("source forest and planner result")); }
             int32 Native = -1;
             if (!NativeMask(R, I, Native) ||
                 Native != A->Stations[I].WorldStateMask)
-            { return Block(R, TEXT("authority native WS differs from settled frame")); }
-        }
-        if (!SourceCensus(R, 0, Stations))
-        { return Block(R, TEXT("authority planner/WS/action census")); }
-        for (int32 W = 1; W < Worlds; ++W)
-        {
-            const auto* B = Frame(R, W);
-            const auto* Known = B ? R.History.Find(B->Sequence) : nullptr;
-            bool Ready = false;
-            // Synthetic injected RPCs bypass client 0's local UI serial.
-            const bool ExpectedReady = !(ExpectInjectedRequesterNotReady && W == 1);
-            if (!B || B->Phase != 2 || B->ControlGeneration != Generation ||
-                B->Stations.Num() != Stations || !Known || !Same(*Known, *B) ||
-                !Bool(R.Local[W - 1].Get(), TEXT("Get_IsLocalPresentationReady"), Ready) ||
-                Ready != ExpectedReady)
-            { return Block(R, TEXT("client known frame/presentation")); }
-            FCkGoapGym_WireSnapshot Drawn;
-            if (!Presented(R.Local[W - 1].Get(), Drawn) ||
-                Drawn.ControlGeneration != Generation ||
-                Drawn.Stations.Num() != Stations || Drawn.Sequence > B->Sequence ||
-                !R.History.Contains(Drawn.Sequence) ||
-                !Same(*R.History.Find(Drawn.Sequence), Drawn))
-            { return Block(R, TEXT("client presented value frame")); }
-            for (int32 I = 0; I < Stations; ++I)
+            { return Block(R, TEXT("native world state differs from frame")); }
+            FString PlannerReason;
+            if (!NativePlannerFrameCurrent(R, I, A->Stations[I], PlannerReason))
             {
-                FCk_Handle LocalRoot;
-                if (B->Stations[I].Generation != A->Stations[I].Generation ||
-                    !ValidFrame(B->Stations[I], I, R.ExpectedMask[I],
-                        R.CompletedControls[I]) ||
-                    !Handle(R.State[W].Get(), I, LocalRoot) ||
-                    Allocated(LocalRoot) || !Station(R, W, I))
-                { return Block(R, TEXT("client passive source/panel")); }
+                R.LastBlock = FString::Printf(
+                    TEXT("published planner result trails native planner: %s"),
+                    *PlannerReason);
+                return false;
             }
-            if (!SourceCensus(R, W, 0))
-            { return Block(R, TEXT("client source ECS census")); }
         }
-        if (!R.Dedicated)
-        {
-            bool Ready = false;
-            FCkGoapGym_WireSnapshot Drawn;
-            if (!Bool(R.Host.Get(), TEXT("Get_IsLocalPresentationReady"), Ready) ||
-                !Ready || !Presented(R.Host.Get(), Drawn) ||
-                Drawn.ControlGeneration != Generation ||
-                Drawn.Stations.Num() != Stations || Drawn.Sequence > A->Sequence ||
-                !R.History.Contains(Drawn.Sequence) ||
-                !Same(*R.History.Find(Drawn.Sequence), Drawn))
-            { return Block(R, TEXT("host local presented value frame")); }
-            for (int32 I = 0; I < Stations; ++I)
-            { if (!Station(R, 0, I)) { return Block(R, TEXT("host station panel")); } }
-        }
+        if (!SourceCensus(R, Stations))
+        { return Block(R, TEXT("planner/world-state/action census")); }
+        bool Ready = false;
+        FCkGoapGym_WireSnapshot Drawn;
+        if (!Bool(R.Player.Get(), TEXT("Get_IsLocalPresentationReady"), Ready) ||
+            !Ready || !Presented(R.Player.Get(), Drawn) || !Same(*A, Drawn))
+        { return Block(R, TEXT("local presented frame")); }
+        for (int32 I = 0; I < Stations; ++I)
+        { if (!Station(R, I, Drawn.Stations[I]))
+          { return Block(R, TEXT("local station identity/text")); } }
         R.LastBlock.Reset();
         return true;
     }
-    class FDriver final : public IAutomationLatentCommand
+
+    struct FStartStandalone final : IAutomationLatentCommand
     {
-    public:
-        FDriver(FAutomationTestBase* InTest, TSharedRef<FRun> InRun)
+        FAutomationTestBase* Test;
+        TSharedRef<FRun> Run;
+        FStartStandalone(FAutomationTestBase* InTest, TSharedRef<FRun> InRun)
             : Test(InTest), Run(InRun) {}
         bool Update() override
         {
-            if (Run->Step == FRun::EStep::Done) { return true; }
-            if (Run->Deadline == 0.0)
-            { Run->Deadline = FPlatformTime::Seconds() + 90.0; }
-            if (FPlatformTime::Seconds() > Run->Deadline)
-            { return Stop(TEXT("Goap world/control did not settle")); }
-            if (!Context(*Run) || !Observe(*Run))
-            { return Stop(TEXT("Goap context or ordered frame changed")); }
-            const auto* A = Frame(*Run, 0);
-            if (A && A->Phase == 4 && Run->Step != FRun::EStep::Failed &&
-                Run->Step != FRun::EStep::PostFailed)
-            { return Stop(TEXT("Goap unexpected terminal phase")); }
+            auto Fail = [&](const TCHAR* Why)
+            { Test->AddError(Why); Run->Failed = true; Run->Restore(); return true; };
+            if (!IsValid(GUnrealEd) ||
+                GUnrealEd->IsPlaySessionInProgress() ||
+                GUnrealEd->IsPlaySessionRequestQueued() ||
+                !ck::auto_test::net::Get_AllPIEWorlds().IsEmpty())
+            { return Fail(TEXT("standalone Goap PIE requires an idle editor")); }
+            auto* Settings = GetMutableDefault<ULevelEditorPlaySettings>();
+            if (!Settings || !Run->BaseMode)
+            { return Fail(TEXT("standalone Goap play settings/base mode unavailable")); }
+            auto* EditorWorld = GUnrealEd->GetEditorWorldContext().World();
+            if (IsValid(EditorWorld) && EditorWorld->GetOutermost()->IsDirty())
+            { return Fail(TEXT("refusing to replace a dirty editor map for Goap PIE")); }
+            if (!FEditorFileUtils::LoadMap(EntryMap, false, false))
+            { return Fail(TEXT("could not load Goap entry map")); }
+            EditorWorld = GUnrealEd->GetEditorWorldContext().World();
+            auto* WorldSettings = IsValid(EditorWorld)
+                ? EditorWorld->GetWorldSettings() : nullptr;
+            if (!IsValid(WorldSettings))
+            { return Fail(TEXT("Goap entry map has no world settings")); }
+            Run->EditorWorldSettings = WorldSettings;
+            Run->OriginalEditorMode.Reset(WorldSettings->DefaultGameMode.Get());
+            WorldSettings->DefaultGameMode = Run->BaseMode;
+            FPlaySettings Before;
+            Settings->GetPlayNumberOfClients(Before.Clients);
+            Settings->GetPlayNetMode(Before.Mode);
+            Settings->GetRunUnderOneProcess(Before.OneProcess);
+            Before.SeparateServer = Settings->bLaunchSeparateServer;
+            GPlaySettings = Before;
+            GRestorePlaySettings = FEditorDelegates::EndPIE.AddStatic(&OnEndPIE);
+            Settings->SetPlayNumberOfClients(1);
+            Settings->SetPlayNetMode(EPlayNetMode::PIE_Standalone);
+            Settings->SetRunUnderOneProcess(true);
+            Settings->bLaunchSeparateServer = false;
+            FRequestPlaySessionParams Params;
+            Params.WorldType = EPlaySessionWorldType::PlayInEditor;
+            Run->OwnsPIE = true;
+            GUnrealEd->RequestPlaySession(Params);
+            return true;
+        }
+    };
 
+    struct FDriver final : IAutomationLatentCommand
+    {
+        FAutomationTestBase* Test;
+        TSharedRef<FRun> Run;
+        FDriver(FAutomationTestBase* InTest, TSharedRef<FRun> InRun)
+            : Test(InTest), Run(InRun)
+        { Run->Deadline = FPlatformTime::Seconds() + 90.0; }
+        bool Stop(const FString& Why)
+        {
+            Run->Failed = true;
+            const auto* A = Frame(*Run);
+            FString State;
+            String(Run->State.Get(), TEXT("Get_DiagnosticState"), State);
+            Test->AddError(FString::Printf(
+                TEXT("%s [step=%d action=%d block=%s frame=%d/%lld/%lld state=%s]"),
+                *Why, static_cast<int32>(Run->Step), Run->ActionIndex,
+                *Run->LastBlock, A ? A->Phase : -1,
+                static_cast<long long>(A ? A->ControlGeneration : -1),
+                static_cast<long long>(A ? A->Sequence : -1), *State));
+            Run->Step = FRun::EStep::Done;
+            return true;
+        }
+        bool Update() override
+        {
+            if (Run->Failed || Run->Step == FRun::EStep::Done) { return true; }
+            if (FPlatformTime::Seconds() > Run->Deadline)
+            { return Stop(TEXT("local Goap world/control did not settle")); }
+            if (!Context(*Run)) { return false; }
+            const auto* A = Frame(*Run);
+            if (!A) { return Stop(TEXT("local Goap frame missing")); }
+            if (A->Phase == 4 && Run->Step != FRun::EStep::Failed)
+            { return Stop(TEXT("unexpected Goap terminal phase")); }
             if (Run->Step == FRun::EStep::Baseline)
             {
                 if (!Converged(*Run, 1)) { return false; }
                 if (!Catalog(*Run))
-                { return Stop(TEXT("Goap catalog multiplayer metadata lost across worlds")); }
+                { return Stop(TEXT("Goap registry is not standalone")); }
                 for (int32 I = 0; I < Stations; ++I)
                 {
                     const auto& Forest = Run->Bank[I].Forest;
-                    int32 Planners = 0, WorldStates = 0, ActionsFound = 0, Timers = 0;
+                    int32 P = 0, WS = 0, Act = 0, Timers = 0;
                     for (const auto& H : Forest)
                     {
-                        const bool P = UCk_GoapGym_Runtime_UE::
-                            Get_IsLivePlanner(H, Run->World[0].Get());
-                        const bool WS = UCk_GoapGym_Runtime_UE::
-                            Get_IsLiveWorldState(H, Run->World[0].Get());
-                        const bool Act = UCk_GoapGym_Runtime_UE::
-                            Get_IsLiveAction(H, Run->World[0].Get());
-                        Planners += P; WorldStates += WS; ActionsFound += Act;
+                        const bool IsP = UCk_GoapGym_Runtime_UE::Get_IsLivePlanner(
+                            H, Run->World.Get());
+                        const bool IsWS = UCk_GoapGym_Runtime_UE::Get_IsLiveWorldState(
+                            H, Run->World.Get());
+                        const bool IsAct = UCk_GoapGym_Runtime_UE::Get_IsLiveAction(
+                            H, Run->World.Get());
+                        P += IsP; WS += IsWS; Act += IsAct;
                         Timers += UCk_Utils_Timer_UE::Has(H);
-                        if (WS && !Direct(H, Run->Bank[I].Root))
+                        if (IsWS && !Direct(H, Run->Bank[I].Root))
                         { return Stop(TEXT("Goap world state escaped source")); }
-                        if (Act)
-                        {
-                            if (!UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(H) ||
-                                !UCk_GoapGym_Runtime_UE::Get_IsLivePlanner(
-                                    UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(H),
-                                    Run->World[0].Get()))
-                            { return Stop(TEXT("Goap action escaped planner tree")); }
-                        }
+                        if (IsAct && (!UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(H) ||
+                            !UCk_GoapGym_Runtime_UE::Get_IsLivePlanner(
+                                UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(H),
+                                Run->World.Get())))
+                        { return Stop(TEXT("Goap action escaped planner tree")); }
                     }
-                    if (Planners != PlannerCounts[I] || WorldStates != 1 ||
-                        ActionsFound != ActionCounts[I] || Timers != 0)
-                    { return Stop(TEXT("Goap forest role counts")); }
-                    Run->Before[I] = Run->Bank[I];
+                    if (P != PlannerCounts[I] || WS != 1 ||
+                        Act != ActionCounts[I] || Timers != 0)
+                    { return Stop(TEXT("Goap source role counts")); }
                 }
-                TArray<FCk_Handle> Rejected;
-                Rejected.Add(Run->Bank[0].Root);
+                TArray<FCk_Handle> Rejected{Run->Bank[0].Root};
                 if (UCk_GoapGym_Runtime_UE::TryGet_SourceForest(
-                        Run->World[0].Get(), FCk_Handle{}, Rejected) ||
+                        Run->World.Get(), FCk_Handle{}, Rejected) ||
                     !Rejected.IsEmpty() ||
-                    UCk_GoapGym_Runtime_UE::Get_IsLiveInWorld(
-                        FCk_Handle{}, Run->World[0].Get()) ||
                     UCk_GoapGym_Runtime_UE::Get_IsLivePlanner(
-                        FCk_Handle{}, Run->World[0].Get()) ||
-                    UCk_GoapGym_Runtime_UE::Get_IsLiveWorldState(
-                        FCk_Handle{}, Run->World[0].Get()) ||
-                    UCk_GoapGym_Runtime_UE::Get_IsLiveAction(
-                        FCk_Handle{}, Run->World[0].Get()))
-                { return Stop(TEXT("default Goap runtime request was not total")); }
-                Rejected.Add(Run->Bank[0].Root);
-                if (UCk_GoapGym_Runtime_UE::TryGet_SourceForest(
-                        Run->World[0].Get(), Run->WorldRoot[1], Rejected) ||
-                    !Rejected.IsEmpty() ||
-                    UCk_GoapGym_Runtime_UE::Get_IsLiveInWorld(
-                        Run->WorldRoot[1], Run->World[0].Get()))
-                { return Stop(TEXT("foreign Goap world was accepted")); }
+                        FCk_Handle{}, Run->World.Get()))
+                { return Stop(TEXT("default Goap runtime input accepted")); }
                 Run->Step = FRun::EStep::Send;
                 return false;
             }
             if (Run->Step == FRun::EStep::Send)
             {
                 if (Run->ActionIndex >= ActionCount)
-                { Run->Step = FRun::EStep::OneWaySend; return false; }
-                if (!Converged(*Run, A->ControlGeneration))
-                { return false; }
+                { Run->Step = FRun::EStep::Invalid; return false; }
+                if (!Converged(*Run, A->ControlGeneration)) { return false; }
                 Run->BeforeFrame = *A;
                 for (int32 I = 0; I < Stations; ++I)
                 { Run->Before[I] = Run->Bank[I]; }
+                Run->NativeAtSend = NativePlannerState(*Run);
                 const int32 Action = Actions[Run->ActionIndex];
                 const int32 Selected = ActionStations[Action];
                 Run->ExpectedMask[Selected] =
                     ApplyAction(Action, Run->ExpectedMask[Selected]);
                 ++Run->CompletedControls[Selected];
-                Run->Owner = !Run->Dedicated && Run->ActionIndex % 3 == 2
-                    ? 2 : Run->ActionIndex % 2;
-                auto* Sender = Run->Owner == 2 ? Run->Host.Get()
-                    : Run->Local[Run->Owner].Get();
-                Run->Serial = Run->NextSerial[Run->Owner]++;
-                if (!Activate(Sender, ActionRows[Action]))
+                Run->Serial = Run->ActionIndex + 1;
+                if (!Activate(Run->Player.Get(), ActionRows[Action]))
                 { return Stop(TEXT("authored Goap control unavailable")); }
                 Run->Step = FRun::EStep::Wait;
                 Run->Deadline = FPlatformTime::Seconds() + 90.0;
@@ -849,35 +958,27 @@ namespace ck_goap_main_authored_network
             {
                 const int32 Action = Actions[Run->ActionIndex];
                 const int32 Selected = ActionStations[Action];
-                auto* Sender = Run->Owner == 2 ? Run->Host.Get()
-                    : Run->Local[Run->Owner].Get();
-                const auto* Receipt = Ack(*Run, Sender);
+                const auto* Receipt = Ack(*Run);
                 if (!Receipt || Receipt->Serial != Run->Serial ||
                     Receipt->Action != Action || Receipt->Result != 1 ||
                     Receipt->RequestedGeneration !=
                         Run->BeforeFrame.ControlGeneration ||
                     Receipt->CompletedGeneration !=
                         Run->BeforeFrame.ControlGeneration + 1 ||
-                    !Converged(*Run,
-                        Run->BeforeFrame.ControlGeneration + 1))
+                    !Converged(*Run, Run->BeforeFrame.ControlGeneration + 1))
                 { return false; }
-                A = Frame(*Run, 0);
-                const auto* Received = Run->Owner == 2 ? A
-                    : Frame(*Run, Run->Owner + 1);
-                if (!Received ||
-                    Receipt->CompletedSequence > Received->Sequence ||
-                    Receipt->CompletedSequence <= Run->BeforeFrame.Sequence)
-                { return false; }
-                if (A->Stations[Selected].Planners[0].PlanCount +
+                A = Frame(*Run);
+                if (Receipt->CompletedSequence > A->Sequence ||
+                    Receipt->CompletedSequence <= Run->BeforeFrame.Sequence ||
+                    A->Stations[Selected].Planners[0].PlanCount +
                         A->Stations[Selected].Planners[0].FailureCount <=
                         Run->BeforeFrame.Stations[Selected].Planners[0].PlanCount +
                         Run->BeforeFrame.Stations[Selected].Planners[0].FailureCount ||
                     A->Stations[Selected].ControlCount !=
-                        Run->BeforeFrame.Stations[Selected].ControlCount + 1)
-                { return Stop(TEXT("Goap selected source did not complete fresh plan")); }
-                if (!SelectedPromotionsFresh(A->Stations[Selected],
+                        Run->BeforeFrame.Stations[Selected].ControlCount + 1 ||
+                    !SelectedPromotionsFresh(A->Stations[Selected],
                         Run->BeforeFrame.Stations[Selected]))
-                { return Stop(TEXT("selected promoted Goap branch did not complete")); }
+                { return Stop(TEXT("selected Goap plan/receipt did not advance")); }
                 for (int32 I = 0; I < Stations; ++I)
                 {
                     if (Run->Bank[I].Root != Run->Before[I].Root ||
@@ -886,257 +987,243 @@ namespace ck_goap_main_authored_network
                             Run->BeforeFrame.Stations[I].Generation)
                     { return Stop(TEXT("Goap control replaced source")); }
                     for (const auto& H : Run->Before[I].Forest)
+                    { if (!Allocated(H) || !Run->Bank[I].Forest.Contains(H))
+                      { return Stop(TEXT("Goap control retired source descendant")); } }
+                    if (I != Selected &&
+                        !FCkGoapGym_StationFrame::StaticStruct()->CompareScriptStruct(
+                            &A->Stations[I], &Run->BeforeFrame.Stations[I], PPF_None))
                     {
-                        if (!Allocated(H) || !Run->Bank[I].Forest.Contains(H))
-                        { return Stop(TEXT("Goap control retired source descendant")); }
+                        return Stop(FString::Printf(
+                            TEXT("Goap control mutated sibling station %d [%s] nativeAtSend=%s nativeNow=%s"),
+                            I, *StationDelta(Run->BeforeFrame.Stations[I], A->Stations[I]),
+                            *Run->NativeAtSend, *NativePlannerState(*Run)));
                     }
-                    if (I != Selected && !FCkGoapGym_StationFrame::StaticStruct()->
-                            CompareScriptStruct(&A->Stations[I],
-                                &Run->BeforeFrame.Stations[I], PPF_None))
-                    { return Stop(TEXT("Goap control mutated sibling station")); }
                 }
                 ++Run->ActionIndex;
                 Run->Step = FRun::EStep::Send;
                 Run->Deadline = FPlatformTime::Seconds() + 90.0;
                 return false;
             }
-            if (Run->Step == FRun::EStep::OneWaySend)
-            {
-                if (Run->OneWayCount >= 2)
-                { Run->Step = FRun::EStep::Invalid; return false; }
-                if (!Converged(*Run, A->ControlGeneration,
-                        Run->OneWayCount > 0))
-                { return false; }
-                Run->BeforeFrame = *A;
-                for (int32 I = 0; I < Stations; ++I)
-                { Run->Before[I] = Run->Bank[I]; }
-                Run->Owner = 0;
-                Run->Serial = Run->NextSerial[0]++;
-                Run->ExpectedMask[3] |= 1;
-                ++Run->CompletedControls[3];
-                if (!SendControl(Run->Local[0].Get(), Run->Serial, 1,
-                        A->ControlGeneration, 9))
-                { return Stop(TEXT("direct one-way Goap RPC unavailable")); }
-                Run->Step = FRun::EStep::OneWayWait;
-                Run->Deadline = FPlatformTime::Seconds() + 90.0;
-                return false;
-            }
-            if (Run->Step == FRun::EStep::OneWayWait)
-            {
-                const auto* Receipt = Ack(*Run, Run->Local[0].Get());
-                if (!Receipt || Receipt->Serial != Run->Serial ||
-                    Receipt->Action != 9 || Receipt->Result != 1 ||
-                    Receipt->RequestedGeneration !=
-                        Run->BeforeFrame.ControlGeneration ||
-                    Receipt->CompletedGeneration !=
-                        Run->BeforeFrame.ControlGeneration + 1 ||
-                    !Converged(*Run,
-                        Run->BeforeFrame.ControlGeneration + 1, true))
-                { return false; }
-                A = Frame(*Run, 0);
-                if (Receipt->CompletedSequence > Frame(*Run, 1)->Sequence ||
-                    Receipt->CompletedSequence <= Run->BeforeFrame.Sequence ||
-                    !SelectedPromotionsFresh(A->Stations[3],
-                        Run->BeforeFrame.Stations[3]) ||
-                    A->Stations[3].Planners[0].PlanCount +
-                        A->Stations[3].Planners[0].FailureCount <=
-                        Run->BeforeFrame.Stations[3].Planners[0].PlanCount +
-                        Run->BeforeFrame.Stations[3].Planners[0].FailureCount)
-                { return Stop(TEXT("idempotent one-way Goap completion missing")); }
-                for (int32 I = 0; I < Stations; ++I)
-                {
-                    if (Run->Bank[I].Root != Run->Before[I].Root ||
-                        Run->Bank[I].Forest.Num() != Run->Before[I].Forest.Num())
-                    { return Stop(TEXT("one-way Goap control replaced source")); }
-                    for (const auto& H : Run->Before[I].Forest)
-                    { if (!Allocated(H) || !Run->Bank[I].Forest.Contains(H))
-                      { return Stop(TEXT("one-way Goap control retired source")); } }
-                }
-                ++Run->OneWayCount;
-                Run->Step = FRun::EStep::OneWaySend;
-                Run->Deadline = FPlatformTime::Seconds() + 90.0;
-                return false;
-            }
             if (Run->Step == FRun::EStep::Invalid)
             {
-                if (!Converged(*Run, A->ControlGeneration, true))
-                { return false; }
+                if (!Converged(*Run, A->ControlGeneration)) { return false; }
                 Run->BeforeFrame = *A;
                 for (int32 I = 0; I < Stations; ++I)
                 { Run->Before[I] = Run->Bank[I]; }
-                const int32 Serial = Run->NextSerial[0];
-                if (!SendControl(Run->Local[0].Get(), Serial, 1,
-                        A->ControlGeneration, 99) ||
-                    !SendControl(Run->Local[0].Get(), Serial, 0,
-                        A->ControlGeneration, 0) ||
-                    !SendControl(Run->Local[0].Get(), Serial, 1,
+                Run->NativeAtSend = NativePlannerState(*Run);
+                const auto* PreviousAck = Ack(*Run);
+                if (!PreviousAck) { return Stop(TEXT("local Goap ack unavailable")); }
+                const FCkGoapGym_ControlAck BeforeAck = *PreviousAck;
+                if (!SendControl(Run->Player.Get(), Run->Serial + 1, 1,
+                        A->ControlGeneration, 99))
+                { return Stop(TEXT("invalid-action local Goap control unavailable")); }
+                const auto* CurrentAck = Ack(*Run);
+                if (!CurrentAck ||
+                    !FCkGoapGym_ControlAck::StaticStruct()->CompareScriptStruct(
+                        CurrentAck, &BeforeAck, PPF_None))
+                { return Stop(TEXT("invalid action generated local Goap receipt")); }
+                if (!SendControl(Run->Player.Get(), Run->Serial + 1, 0,
+                        A->ControlGeneration, 0))
+                { return Stop(TEXT("invalid-source local Goap control unavailable")); }
+                CurrentAck = Ack(*Run);
+                if (!CurrentAck || CurrentAck->Serial != Run->Serial + 1 ||
+                    CurrentAck->Action != 0 || CurrentAck->Result != 2 ||
+                    CurrentAck->RequestedGeneration != A->ControlGeneration ||
+                    CurrentAck->CompletedGeneration != 0 ||
+                    CurrentAck->CompletedSequence != 0)
+                { return Stop(TEXT("invalid source generation receipt incorrect")); }
+                if (!SendControl(Run->Player.Get(), Run->Serial + 2, 1,
                         A->ControlGeneration - 1, 0))
-                { return Stop(TEXT("malformed/stale Goap RPC unavailable")); }
+                { return Stop(TEXT("stale-generation local Goap control unavailable")); }
+                CurrentAck = Ack(*Run);
+                if (!CurrentAck || CurrentAck->Serial != Run->Serial + 2 ||
+                    CurrentAck->Action != 0 || CurrentAck->Result != 2 ||
+                    CurrentAck->RequestedGeneration != A->ControlGeneration - 1 ||
+                    CurrentAck->CompletedGeneration != 0 ||
+                    CurrentAck->CompletedSequence != 0)
+                { return Stop(TEXT("stale control generation receipt incorrect")); }
                 Run->SettleUntil = FPlatformTime::Seconds() + 0.25;
-                Run->Step = FRun::EStep::Terminal;
+                Run->Step = FRun::EStep::Loss;
                 return false;
             }
-            if (Run->Step == FRun::EStep::Terminal)
+            if (Run->Step == FRun::EStep::Loss)
             {
                 if (FPlatformTime::Seconds() < Run->SettleUntil) { return false; }
-                const auto* Rejection = Ack(*Run, Run->Local[0].Get());
-                if (!Rejection || Rejection->Serial != Run->NextSerial[0] ||
-                    Rejection->Result != 2 || Rejection->Action != 0)
-                { return false; }
-                if (A->Phase != 2 || A->ControlGeneration !=
-                        Run->BeforeFrame.ControlGeneration)
-                { return Stop(TEXT("invalid Goap request advanced bank")); }
+                A = Frame(*Run);
+                if (!A || A->Phase != 2 ||
+                    A->SourceGeneration != Run->BeforeFrame.SourceGeneration ||
+                    A->ControlGeneration != Run->BeforeFrame.ControlGeneration ||
+                    A->Sequence < Run->BeforeFrame.Sequence ||
+                    A->Replacing != Run->BeforeFrame.Replacing ||
+                    A->Stations.Num() != Stations)
+                { return Stop(TEXT("invalid local Goap control advanced bank")); }
                 for (int32 I = 0; I < Stations; ++I)
                 {
                     FCk_Handle Current;
-                    if (!Handle(Run->State[0].Get(), I, Current) ||
+                    if (!Handle(Run->State.Get(), I, Current) ||
                         Current != Run->Before[I].Root ||
-                        A->Stations[I].WorldStateMask != Run->ExpectedMask[I] ||
-                        A->Stations[I].ControlCount != Run->CompletedControls[I])
-                    { return Stop(TEXT("invalid Goap request mutated source")); }
+                        !Bank(*Run, I, Run->Bank[I]) ||
+                        Run->Bank[I].Root != Run->Before[I].Root ||
+                        Run->Bank[I].Forest.Num() != Run->Before[I].Forest.Num())
+                    { return Stop(TEXT("invalid local Goap control replaced source")); }
+                    for (const auto& H : Run->Before[I].Forest)
+                    { if (!Allocated(H) || !Run->Bank[I].Forest.Contains(H))
+                      { return Stop(TEXT("invalid local Goap control retired source descendant")); } }
+                    if (!FCkGoapGym_StationFrame::StaticStruct()->CompareScriptStruct(
+                            &A->Stations[I], &Run->BeforeFrame.Stations[I], PPF_None))
+                    {
+                        return Stop(FString::Printf(
+                            TEXT("invalid local Goap control mutated source %d [%s]"),
+                            I, *StationDelta(Run->BeforeFrame.Stations[I], A->Stations[I])));
+                    }
                 }
-                if (!Converged(*Run, A->ControlGeneration, true))
-                { return false; }
-                for (int32 I = 0; I < Stations; ++I)
-                { Run->Before[I] = Run->Bank[I]; }
-                auto LostRoot = Run->Before[0].Root;
-                if (!Allocated(LostRoot))
-                { return Stop(TEXT("Goap source loss target unavailable")); }
-                UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(LostRoot);
+                if (NativePlannerState(*Run) != Run->NativeAtSend)
+                { return Stop(TEXT("invalid local Goap control changed native planner state")); }
+                const auto* RejectedAck = Ack(*Run);
+                if (!RejectedAck || RejectedAck->Serial != Run->Serial + 2 ||
+                    RejectedAck->Action != 0 || RejectedAck->Result != 2 ||
+                    RejectedAck->RequestedGeneration !=
+                        Run->BeforeFrame.ControlGeneration - 1 ||
+                    RejectedAck->CompletedGeneration != 0 ||
+                    RejectedAck->CompletedSequence != 0)
+                { return Stop(TEXT("malformed local Goap rejection receipt changed")); }
+                if (!Converged(*Run, A->ControlGeneration)) { return false; }
+                UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(
+                    Run->Before[0].Root);
                 Run->Step = FRun::EStep::Failed;
                 return false;
             }
             if (Run->Step == FRun::EStep::Failed)
             {
                 bool Failed = false;
-                if (A->Phase != 4 || !Bool(Run->State[0].Get(),
-                        TEXT("Get_HasSessionFailure"), Failed) || !Failed)
-                { return false; }
-                for (int32 W = 1; W < Worlds; ++W)
-                {
-                    const auto* B = Frame(*Run, W);
-                    bool Closed = false;
-                    if (!B || !Same(*A, *B) ||
-                        !Bool(Run->State[W].Get(),
-                            TEXT("Get_HasSessionFailure"), Closed) || !Closed)
-                    { return false; }
-                }
+                if (A->Phase != 4 ||
+                    !Bool(Run->State.Get(), TEXT("Get_HasSessionFailure"), Failed) ||
+                    !Failed) { return false; }
                 for (int32 I = 0; I < Stations; ++I)
-                {
-                    for (const auto& H : Run->Before[I].Forest)
-                    { if (Allocated(H)) { return false; } }
-                }
-                TArray<FCk_Handle> Rejected;
-                Rejected.Add(Run->Before[0].Root);
+                { for (const auto& H : Run->Before[I].Forest)
+                  { if (Allocated(H)) { return false; } } }
+                if (!SourceCensus(*Run, 0))
+                { return Stop(TEXT("retired Goap source components remain")); }
+                TArray<FCk_Handle> Rejected{Run->Before[0].Root};
                 if (UCk_GoapGym_Runtime_UE::TryGet_SourceForest(
-                        Run->World[0].Get(), Run->Before[0].Root, Rejected) ||
-                    !Rejected.IsEmpty() ||
-                    UCk_GoapGym_Runtime_UE::Get_IsLiveInWorld(
-                        Run->Before[0].Root, Run->World[0].Get()))
-                { return Stop(TEXT("retired Goap handle remained live")); }
-                for (int32 W = 0; W < Worlds; ++W)
-                { if (!SourceCensus(*Run, W, 0)) { return false; } }
-                Run->BeforeFrame = *A;
-                if (!SendControl(Run->Local[0].Get(),
-                        Run->NextSerial[0] + 1, 1,
-                        A->ControlGeneration, 0))
-                { return Stop(TEXT("late Goap RPC unavailable")); }
-                Run->SettleUntil = FPlatformTime::Seconds() + 0.25;
-                Run->Step = FRun::EStep::PostFailed;
-                return false;
-            }
-            if (Run->Step == FRun::EStep::PostFailed)
-            {
-                if (FPlatformTime::Seconds() < Run->SettleUntil) { return false; }
-                const auto* Rejection = Ack(*Run, Run->Local[0].Get());
-                if (!Rejection || Rejection->Serial != Run->NextSerial[0] + 1 ||
-                    Rejection->Result != 2 || Rejection->Action != 0)
-                { return false; }
-                if (A->Phase != 4 || A->ControlGeneration !=
-                        Run->BeforeFrame.ControlGeneration ||
-                    A->Sequence != Run->BeforeFrame.Sequence)
-                { return Stop(TEXT("terminal Goap session changed after late control")); }
+                        Run->World.Get(), Run->Before[0].Root, Rejected) ||
+                    !Rejected.IsEmpty())
+                { return Stop(TEXT("retired Goap source handle remained live")); }
                 Run->Step = FRun::EStep::Done;
-                return false;
+                return true;
             }
-            return Stop(TEXT("unexpected Goap authored phase"));
+            return Stop(TEXT("unexpected local Goap test phase"));
         }
-    private:
-        bool Stop(const TCHAR* Why)
-        {
-            Run->Failed = true;
-            const auto* A = Frame(*Run, 0);
-            FString Diagnostic;
-            String(Run->State[0].Get(), TEXT("Get_DiagnosticState"), Diagnostic);
-            FString ClientsText;
-            for (int32 W = 1; W < Worlds; ++W)
-            {
-                const auto* B = Frame(*Run, W);
-                bool Ready = false;
-                Bool(Run->Local[W - 1].Get(),
-                    TEXT("Get_IsLocalPresentationReady"), Ready);
-                ClientsText += FString::Printf(TEXT(" c%d=%lld/%d"), W,
-                    static_cast<long long>(B ? B->Sequence : -1), Ready ? 1 : 0);
-            }
-            auto* Sender = Run->Owner == 2 ? Run->Host.Get() :
-                (Run->Owner >= 0 && Run->Owner < Clients
-                    ? Run->Local[Run->Owner].Get() : nullptr);
-            const auto* Receipt = Ack(*Run, Sender);
-            const int32 Action = Run->ActionIndex < ActionCount
-                ? Actions[Run->ActionIndex] : -1;
-            const int32 Selected = Action >= 0 ? ActionStations[Action] : -1;
-            Test->AddError(FString::Printf(
-                TEXT("%s [step=%d actionIndex=%d action=%d selected=%d mask=%d blocked=%s authority=%d/%lld/%lld%s ack=%d/%d state=%s]"),
-                Why, static_cast<int32>(Run->Step), Run->ActionIndex,
-                Action, Selected, Selected >= 0 ? Run->ExpectedMask[Selected] : -1,
-                *Run->LastBlock, A ? A->Phase : -1,
-                static_cast<long long>(A ? A->ControlGeneration : -1),
-                static_cast<long long>(A ? A->Sequence : -1), *ClientsText,
-                Receipt ? Receipt->Serial : -1, Receipt ? Receipt->Result : -1,
-                *Diagnostic));
-            ck::auto_test::net::FailSession(Why);
-            Run->Step = FRun::EStep::Done;
-            return true;
-        }
+    };
+
+    struct FTravel final : IAutomationLatentCommand
+    {
         FAutomationTestBase* Test;
         TSharedRef<FRun> Run;
+        double Deadline = FPlatformTime::Seconds() + 60.0;
+        FTravel(FAutomationTestBase* InTest, TSharedRef<FRun> InRun)
+            : Test(InTest), Run(InRun) {}
+        bool Update() override
+        {
+            if (Run->Failed) { return true; }
+            auto* W = LocalWorld();
+            auto* PC = IsValid(W) ? W->GetFirstPlayerController() : nullptr;
+            auto* GI = IsValid(W) ? W->GetGameInstance() : nullptr;
+            auto* Registry = IsValid(GI)
+                ? GI->GetSubsystem<UCkGym_Registry_Subsystem>() : nullptr;
+            if (IsValid(PC) && IsValid(Registry) &&
+                Registry->Find_GymIndexByName(TEXT("Goap")) != INDEX_NONE)
+            {
+                if (!UCk_Utils_GymRegistry_UE::TryRequest_TravelToGymFromPlayer(
+                        PC, TEXT("Goap")))
+                {
+                    Test->AddError(TEXT("local owner could not travel to authored Goap gym"));
+                    Run->Failed = true;
+                }
+                return true;
+            }
+            if (FPlatformTime::Seconds() < Deadline) { return false; }
+            Test->AddError(TEXT("standalone Goap entry world/catalog did not start"));
+            Run->Failed = true;
+            return true;
+        }
     };
-    struct FRestore final : IAutomationLatentCommand
+
+    struct FEndStandalone final : IAutomationLatentCommand
     {
+        FAutomationTestBase* Test;
         TSharedRef<FRun> Run;
-        explicit FRestore(TSharedRef<FRun> In) : Run(In) {}
-        bool Update() override { Run->Restore(); return true; }
+        bool Requested = false;
+        double Deadline = 0.0;
+        FEndStandalone(FAutomationTestBase* InTest, TSharedRef<FRun> InRun)
+            : Test(InTest), Run(InRun) {}
+        bool Update() override
+        {
+            if (!Requested)
+            {
+                Deadline = FPlatformTime::Seconds() + 30.0;
+                if (Run->OwnsPIE && IsValid(GUnrealEd))
+                {
+                    if (GUnrealEd->IsPlaySessionRequestQueued())
+                    { GUnrealEd->CancelRequestPlaySession(); }
+                    if (GUnrealEd->IsPlaySessionInProgress())
+                    { GUnrealEd->RequestEndPlayMap(); }
+                }
+                Requested = true;
+                return false;
+            }
+            if (!Run->OwnsPIE)
+            { Run->Restore(); return true; }
+            if (!ck::auto_test::net::Get_AllPIEWorlds().IsEmpty() &&
+                FPlatformTime::Seconds() < Deadline) { return false; }
+            if (!ck::auto_test::net::Get_AllPIEWorlds().IsEmpty())
+            { Test->AddError(TEXT("standalone Goap PIE did not end")); }
+            Run->Restore();
+            return true;
+        }
     };
 }
 
-CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkGoapGym_SharedWorld,
-    "Ck.Goap.Gym.SharedWorld.Network",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkGoapGym_LocalWorld,
+    "Ck.Goap.Gym.LocalWorld.Standalone",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
-bool FCkGoapGym_SharedWorld::RunTest(const FString& Parameters)
+bool FCkGoapGym_LocalWorld::RunTest(const FString& Parameters)
 {
-    using namespace ck_goap_main_authored_network;
+    using namespace ck_goap_main_authored_local;
     auto Run = MakeShared<FRun>();
-    if (!ck::auto_test::net::TryGet_DedicatedServer(Parameters, Run->Dedicated))
-    { AddError(TEXT("unsupported Goap topology")); return false; }
     Run->BaseMode = FSoftClassPath(BaseModePath).TryLoadClass<AGameModeBase>();
     Run->Mode = FSoftClassPath(ModePath).TryLoadClass<AGameModeBase>();
     Run->StateClass = FSoftClassPath(StatePath).TryLoadClass<AGameStateBase>();
     Run->PCClass = FSoftClassPath(PCPath).TryLoadClass<APlayerController>();
     Run->PawnClass = FSoftClassPath(PawnPath).TryLoadClass<APawn>();
-    Run->SnapshotProperty = Field<FStructProperty>(Run->StateClass, TEXT("Snapshot"));
-    Run->AckProperty = Field<FStructProperty>(Run->PCClass, TEXT("LastControlAck"));
-    if (!TestTrue(TEXT("authored Goap classes and reflected controls"),
-            Run->BaseMode && Run->Mode && Run->StateClass && Run->PCClass &&
-            Run->PawnClass &&
+    Run->SnapshotProperty = Field<FStructProperty>(
+        Run->StateClass, TEXT("Snapshot"));
+    Run->AckProperty = Field<FStructProperty>(
+        Run->PCClass, TEXT("LastControlAck"));
+    Run->DisplayType = FindObject<UScriptStruct>(
+        nullptr, TEXT("/Script/Angelscript.CkGym_Station_TitleAndDescription"));
+    const auto* Control = Run->PCClass
+        ? Run->PCClass->FindFunctionByName(TEXT("Request_LocalGoapControl"))
+        : nullptr;
+    if (!TestTrue(TEXT("authored local Goap classes and control schema"),
+            Run->BaseMode && Run->Mode && Run->StateClass &&
+            Run->PCClass && Run->PawnClass && Run->DisplayType &&
             Run->SnapshotProperty && Run->AckProperty &&
-            Run->SnapshotProperty->Struct == FCkGoapGym_WireSnapshot::StaticStruct() &&
-            Run->AckProperty->Struct == FCkGoapGym_ControlAck::StaticStruct() &&
+            Run->SnapshotProperty->Struct ==
+                FCkGoapGym_WireSnapshot::StaticStruct() &&
+            Run->AckProperty->Struct ==
+                FCkGoapGym_ControlAck::StaticStruct() &&
+            !Run->SnapshotProperty->HasAnyPropertyFlags(CPF_Net) &&
+            !Run->AckProperty->HasAnyPropertyFlags(CPF_Net) &&
+            Control && !Control->HasAnyFunctionFlags(FUNC_Net) &&
             Run->PCClass->FindFunctionByName(TEXT("Request_ControlActivated")) &&
             Run->PCClass->FindFunctionByName(TEXT("Get_IsLocalPresentationReady")) &&
-            Run->PCClass->FindFunctionByName(TEXT("Server_RequestGoapControl")) &&
             Run->StateClass->FindFunctionByName(TEXT("Get_SourceRoot")) &&
-            Run->StateClass->FindFunctionByName(TEXT("Get_HasSessionFailure"))))
+            Run->StateClass->FindFunctionByName(TEXT("Get_HasSessionFailure")) &&
+            Field<FTextProperty>(Run->DisplayType, TEXT("Title")) &&
+            Field<FTextProperty>(Run->DisplayType, TEXT("Description")) &&
+            Field<FTextProperty>(Run->DisplayType, TEXT("Instructions"))))
     { return false; }
     const auto* Settings = GetDefault<UCkGym_StartupSettings>();
     Run->Startup = Settings->StartupMode;
@@ -1145,44 +1232,17 @@ bool FCkGoapGym_SharedWorld::RunTest(const FString& Parameters)
     Run->SettingsCaptured = true;
     GetMutableDefault<UCkGym_StartupSettings>()->StartupMode =
         ECkGym_StartupMode::Cycler;
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
-        Worlds, EntryMap, Parameters, Run->BaseMode));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(Worlds, 60));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([]()
-        {
-            auto* W = ck::auto_test::net::Get_ServerWorld();
-            auto* GI = IsValid(W) ? W->GetGameInstance() : nullptr;
-            auto* Registry = IsValid(GI)
-                ? GI->GetSubsystem<UCkGym_Registry_Subsystem>() : nullptr;
-            return IsValid(Registry) &&
-                Registry->Find_GymIndexByName(TEXT("Goap")) != INDEX_NONE;
-        }), 30, TEXT("real Goap gym registry entry available")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* W)
-        {
-            auto* PC = IsValid(W) ? W->GetFirstPlayerController() : nullptr;
-            TestTrue(TEXT("owner requests real Goap gym travel"),
-                IsValid(PC) && UCk_Utils_GymRegistry_UE::
-                    TryRequest_TravelToGymFromPlayer(PC, TEXT("Goap")));
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([Run]()
-        { return Context(*Run); }), 60,
-        TEXT("exact Goap worlds and owners converge")));
+    ADD_LATENT_AUTOMATION_COMMAND(FStartStandalone(this, Run));
+    ADD_LATENT_AUTOMATION_COMMAND(FTravel(this, Run));
     ADD_LATENT_AUTOMATION_COMMAND(FDriver(this, Run));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
-    ADD_LATENT_AUTOMATION_COMMAND(FRestore(Run));
+    ADD_LATENT_AUTOMATION_COMMAND(FEndStandalone(this, Run));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
         FCk_NetAutoTest_Assertion::CreateLambda([Run]()
         {
-            if (Run->Failed || !Run->Captured ||
-                ck::auto_test::net::Get_ServerWorld() != nullptr ||
-                ck::auto_test::net::Get_NumClientWorlds() != 0) { return false; }
-            for (const auto& H : Run->WorldRoot)
-            { if (Allocated(H)) { return false; } }
-            return true;
-        }), TEXT("Goap authored worlds close after terminal failure"), true));
+            return !Run->Failed && Run->Captured &&
+                ck::auto_test::net::Get_AllPIEWorlds().IsEmpty() &&
+                !Allocated(Run->WorldRoot);
+        }), TEXT("standalone Goap source forest and PIE retired"), true));
     return true;
 }
 
