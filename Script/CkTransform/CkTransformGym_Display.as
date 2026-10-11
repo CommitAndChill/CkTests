@@ -42,6 +42,14 @@ class UCk_EntityScript_TransformGym_Display : UCk_GenericEntityScript_UE
 		if (ck::IsValid(Cube) == false)
 		{ return; }
 
+        auto SourceWorld = Cube.GetWorld();
+        if (!ck::IsValid(SourceWorld)) { return; }
+        auto SourceState = CkTransformShared::Get_State(SourceWorld);
+        if (!ck::IsValid(SourceState) || SourceState.GetWorld() != SourceWorld || SourceWorld.GetGameState() != SourceState || SourceState.Snapshot.Failed) { return; }
+        auto Bridge = Cube.Get_SharedBridge();
+        if (!Cube.HasAuthority() || Cube.GetWorld() != GetWorld() || Cube.GetClass() != ACk_TransformGym_Cube ||
+            !CkTransformShared::IsLive(Bridge) || Cube.EcsEntity != Bridge ||
+            Cube.CurrentRotationStep < 0 || Cube.CurrentRotationStep > 3) { return; }
 		auto SelfEntity = ck::ToEntity(this);
 		auto CubeEntity = Cube.EcsEntity;
 		auto Behavior = Cube.Behavior;
