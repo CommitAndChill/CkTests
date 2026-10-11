@@ -1,51 +1,7 @@
 // Language=angelscript
 
-//============================================================================
-// CkGoapFEAR_Gym - single-station F.E.A.R. combat AI
-//
-// Canonical "this is what GOAP is for" demo. Adapted from Jeff Orkin's
-// F.E.A.R. AI paper. One top-level Planner (FEAR_Combatant) with a
-// sub-Planner promoted at AttackEnemy.
-//
-// PR-B.1b Stage 5: the implicit-root model is gone - every Tier-1 Action is
-// a direct child of FEAR_Combatant.
-//
-// Construction sequence:
-//   1. utils_goap_world_state::Create(InHandle, "Gym.GoapFEAR.WS.Combatant", ...)
-//        -> WS entity. All keys reset by Reset_WS().
-//   2. utils_goap_planner::Add(InHandle, CombatantPlannerParams)
-//        -> top-level FEAR_Combatant Planner (goal: EnemyNeutralized=true)
-//   3. utils_goap_planner::AddAction(_Combatant, AttackEnemyParams)
-//        -> AttackEnemy as a tier-1 Action.
-//   4. utils_goap_planner::AddAction(_Combatant, ...)
-//        -> Flank, TakeCover, Reload, Investigate, Patrol siblings.
-//   5. utils_goap_planner::PromoteActionToPlanner(_AttackEnemy, ...)
-//        -> AttackEnemy gains the Planner role with sub-goal EnemyNeutralized.
-//   6. utils_goap_planner::AddAction(_AttackEnemy_AsPlanner, ...)
-//        -> AttackFromCover, AttackFromFlank, AttackOpen leaves.
-//
-// Scenarios (toggle WS keys from the control panel):
-//
-//   Default reset                                  [WaitForEnemy]                   cost 999  (fallback)
-//   EnemyVisible=true                              [AttackEnemy -> AttackOpen]      cost 2.0
-//   EnemyVisible=true, AtCover=true                [AttackEnemy -> AttackFromCover] cost 1.0
-//   EnemyVisible=true, BehindEnemy=true            [AttackEnemy -> AttackFromFlank] cost 0.5  <- iconic
-//   HeardSound=true, EnemyVisible=false            [Investigate -> AttackEnemy -> AttackOpen]
-//   HasAmmo=false, HasAmmoReserve=true, Visible    [Reload -> AttackEnemy -> AttackOpen]
-//   HasAmmo=false, Reserve=false, Visible          [WaitForEnemy] cost 999  (can't attack, can't reload - fall back)
-//
-// The WaitForEnemy fallback (no preconditions, cost 999, effect EnemyNeutralized)
-// guarantees the top planner always returns a valid plan. "No plan" should
-// always indicate a misconfigured Action catalog - never a normal operational
-// state.
-//
-// The AttackEnemy SUB-Planner has its own fallback (AttackEnemy_Standby, cost
-// 999) for the same reason: AttackFromCover/Flank/Open all carry HasAmmo +
-// EnemyVisible preconditions, so without an unconditional sub-leaf the sub-
-// Planner would hit PlanFailed whenever no concrete attack is viable. Both
-// fallbacks comply with the CkGoap docs Sec. "Design tenets / Every Planner
-// must always produce a valid plan".
-//============================================================================
+// Authority-owned F.E.A.R. source: one WorldState, two planner roles, 11 actions.
+// Preparation composes the entire disabled forest; admission starts both planners.
 
 USTRUCT()
 struct FCk_GoapFEARGym_Combatant_Station_SpawnParams
@@ -61,111 +17,80 @@ class UCk_EntityScript_GoapFEARGym_Combatant_Station : UCk_GenericEntityScript_U
     UPROPERTY(ExposeOnSpawn)
     FTransform InitialTransform = FTransform::Identity;
 
-    // ---- Top-level Planner + Tier-1 ----
-    private FCk_Handle_Goap_Planner _Combatant;
-    private FCk_Handle_Goap_Action  _AttackEnemy_AsAction;
-    private FCk_Handle_Goap_Planner _AttackEnemy_AsPlanner;
-    private FCk_Handle_Goap_Action  _Flank;
-    private FCk_Handle_Goap_Action  _TakeCover;
-    private FCk_Handle_Goap_Action  _Reload;
-    private FCk_Handle_Goap_Action  _Investigate;
-    private FCk_Handle_Goap_Action  _Patrol;
-
-    // ---- WS ----
+    private UWorld _World;
+    private FCk_Handle _WorldRoot;
+    private FCk_Handle _Root;
     private FCk_Handle_Goap_WorldState _WS;
-
-    // ---- Label maps for plan rendering ----
+    private FCk_Handle_Goap_Planner _Combatant;
+    private FCk_Handle_Goap_Action _AttackEnemy_AsAction;
+    private FCk_Handle_Goap_Planner _AttackEnemy_AsPlanner;
+    private TArray<FCk_Handle_Goap_Action> _Tier1;
+    private TArray<FCk_Handle_Goap_Action> _Tier2;
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Combatant;
     private TArray<FString> _KnownLabels_Combatant;
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Attack;
     private TArray<FString> _KnownLabels_Attack;
+    private bool _Prepared = false;
+    private bool _Started = false;
+    private bool _Closed = false;
+    private bool _ControlPending = false;
+    private bool _ChildPlanRequested = false;
+    private int32 _ExpectedMask = -1;
+    private int64 _TopBefore = 0;
+    private int32 _TopAttemptBefore = 0;
+    private int64 _SubBefore = 0;
+    private int32 _SubAttemptBefore = 0;
+    private int64 _PlanCount = 0;
+    private int64 _SubPlanCount = 0;
+    private int64 _ControlCompletionCount = 0;
 
     UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow
-    DoConstruct(FCk_Handle& InHandle)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
     {
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
+        _Root = InHandle;
+        _World = GetWorld();
+        if (ck::Is_NOT_Valid(_World) ||
+            Cast<ACk_GoapFEARGym_GameState>(_World.GetGameState()) == nullptr ||
+            !_World.GetGameState().HasAuthority() ||
+            !InitialTransform.IsValid() || InitialTransform.ContainsNaN())
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        auto Ecs = Subsystem::GetWorldSubsystem(UCk_EcsWorld_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Ecs))
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        _WorldRoot = Ecs.Get_TransientEntity();
+        if (!IsDirectChild(_Root, _WorldRoot))
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        auto RootTransform = utils_transform::Add(
+            InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
+        if (ck::Is_NOT_Valid(RootTransform) || !IsRootLive())
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
 
-        // ------------------------------------------------------------------
-        // WorldState - see Reset_WS() for initial values.
-        // ------------------------------------------------------------------
         _WS = utils_goap_world_state::Create(InHandle,
             utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant"),
             FCk_Goap_WorldState_Spec());
-        Reset_WS();
+        if (!IsWorldStateLive() || !IsDirectChild(FCk_Handle(_WS), _Root))
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        for (int32 I = 0; I < 8; ++I)
+        {
+            if (utils_goap_world_state::Set_Value(_WS, Get_Key(I), I == 3 || I == 4) != _WS)
+            { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        }
 
-        // ------------------------------------------------------------------
-        // FEAR_Combatant top-level Planner.
-        // Goal: EnemyNeutralized=true.
-        // ------------------------------------------------------------------
         auto Goal = TArray<FCk_GoapWS_Condition_Authored>();
-        Goal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.EnemyNeutralized"),
-            true));
-
+        Goal.Add(FCk_GoapWS_Condition_Authored(Get_Key(6), true));
         auto PlannerParams = FCk_Goap_Planner_Spec(
             utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.ActionSet.Combatant"));
         PlannerParams.Set_Goal(Goal);
         PlannerParams.Set_WorldStateSource(_WS);
         PlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _Combatant = utils_goap_planner::Add(InHandle, PlannerParams);
+        PlannerParams.Set_InitialToggle(ECk_EnableDisable::Disable);
+        _Combatant = utils_goap_planner::Create(InHandle,
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.ActionSet.Combatant"),
+            PlannerParams);
+        if (!IsPlannerLive(_Combatant) || !IsDirectChild(FCk_Handle(_Combatant), _Root) ||
+            utils_goap_planner::Get_EnableToggle(_Combatant) != ECk_EnableDisable::Disable)
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
 
-        // ------------------------------------------------------------------
-        // Tier 1 children of FEAR_Combatant.
-        // AttackEnemy comes first because it will be promoted next.
-        // ------------------------------------------------------------------
-        auto AttackEnemyParams = FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackEnemy);
-        _AttackEnemy_AsAction = utils_goap_planner::AddAction(_Combatant, AttackEnemyParams);
-
-        _Flank = utils_goap_planner::AddAction(_Combatant,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_Flank));
-        _TakeCover = utils_goap_planner::AddAction(_Combatant,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_TakeCover));
-        _Reload = utils_goap_planner::AddAction(_Combatant,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_Reload));
-        _Investigate = utils_goap_planner::AddAction(_Combatant,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_Investigate));
-        _Patrol = utils_goap_planner::AddAction(_Combatant,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_Patrol));
-
-        // WaitForEnemy: fallback satisfying EnemyNeutralized at very high cost
-        // so the planner ALWAYS has a valid plan even when no combat operator
-        // is viable. "No plan" is treated as a misconfiguration error in
-        // gameplay, never a normal idle state.
-        utils_goap_planner::AddAction(_Combatant,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_WaitForEnemy));
-
-        // ------------------------------------------------------------------
-        // Promote AttackEnemy: sub-goal EnemyNeutralized=true.
-        // The sub-Planner expands AttackEnemy into one of three concrete
-        // attacks based on which preconditions are satisfied.
-        // ------------------------------------------------------------------
-        auto AttackGoal = TArray<FCk_GoapWS_Condition_Authored>();
-        AttackGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.EnemyNeutralized"),
-            true));
-        auto AttackPlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.ActionSet.Combatant.AttackEnemy"));
-        AttackPlannerParams.Set_Goal(AttackGoal);
-        AttackPlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _AttackEnemy_AsPlanner = utils_goap_planner::PromoteActionToPlanner(
-            _AttackEnemy_AsAction, AttackPlannerParams);
-
-        // ------------------------------------------------------------------
-        // Tier 2 leaves under AttackEnemy's promoted Planner.
-        // ------------------------------------------------------------------
-        utils_goap_planner::AddAction(_AttackEnemy_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackFromCover));
-        utils_goap_planner::AddAction(_AttackEnemy_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackFromFlank));
-        utils_goap_planner::AddAction(_AttackEnemy_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackOpen));
-        // Always-valid-plan tenet fallback for AttackEnemy sub-Planner - see
-        // the CkGoap docs Sec. "Design tenets".
-        utils_goap_planner::AddAction(_AttackEnemy_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackEnemy_Standby));
-
-        // ---- Label maps ----
         _KnownClasses_Combatant.Add(UCk_GoapFEARGym_AttackEnemy);
         _KnownLabels_Combatant.Add("AttackEnemy");
         _KnownClasses_Combatant.Add(UCk_GoapFEARGym_Flank);
@@ -181,6 +106,46 @@ class UCk_EntityScript_GoapFEARGym_Combatant_Station : UCk_GenericEntityScript_U
         _KnownClasses_Combatant.Add(UCk_GoapFEARGym_WaitForEnemy);
         _KnownLabels_Combatant.Add("WaitForEnemy");
 
+        _Tier1.Add(utils_goap_planner::AddAction(_Combatant,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackEnemy)));
+        _Tier1.Add(utils_goap_planner::AddAction(_Combatant,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_Flank)));
+        _Tier1.Add(utils_goap_planner::AddAction(_Combatant,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_TakeCover)));
+        _Tier1.Add(utils_goap_planner::AddAction(_Combatant,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_Reload)));
+        _Tier1.Add(utils_goap_planner::AddAction(_Combatant,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_Investigate)));
+        _Tier1.Add(utils_goap_planner::AddAction(_Combatant,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_Patrol)));
+        _Tier1.Add(utils_goap_planner::AddAction(_Combatant,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_WaitForEnemy)));
+        if (_Tier1.Num() != 7)
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        for (int32 I = 0; I < 7; ++I)
+        {
+            if (!IsActionLive(_Tier1[I]) ||
+                !IsDirectChild(FCk_Handle(_Tier1[I]), FCk_Handle(_Combatant)))
+            { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        }
+        _AttackEnemy_AsAction = _Tier1[0];
+
+        auto AttackGoal = TArray<FCk_GoapWS_Condition_Authored>();
+        AttackGoal.Add(FCk_GoapWS_Condition_Authored(Get_Key(6), true));
+        auto AttackPlannerParams = FCk_Goap_Planner_Spec(
+            utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.GoapFEAR.ActionSet.Combatant.AttackEnemy"));
+        AttackPlannerParams.Set_Goal(AttackGoal);
+        AttackPlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
+        AttackPlannerParams.Set_InitialToggle(ECk_EnableDisable::Disable);
+        _AttackEnemy_AsPlanner = utils_goap_planner::PromoteActionToPlanner(
+            _AttackEnemy_AsAction, AttackPlannerParams);
+        if (!IsPlannerLive(_AttackEnemy_AsPlanner) ||
+            FCk_Handle(_AttackEnemy_AsPlanner) != FCk_Handle(_AttackEnemy_AsAction) ||
+            utils_goap_planner::Get_EnableToggle(_AttackEnemy_AsPlanner) !=
+                ECk_EnableDisable::Disable)
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+
         _KnownClasses_Attack.Add(UCk_GoapFEARGym_AttackFromCover);
         _KnownLabels_Attack.Add("AttackFromCover");
         _KnownClasses_Attack.Add(UCk_GoapFEARGym_AttackFromFlank);
@@ -189,72 +154,367 @@ class UCk_EntityScript_GoapFEARGym_Combatant_Station : UCk_GenericEntityScript_U
         _KnownLabels_Attack.Add("AttackOpen");
         _KnownClasses_Attack.Add(UCk_GoapFEARGym_AttackEnemy_Standby);
         _KnownLabels_Attack.Add("AttackEnemy_Standby");
-
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
+        _Tier2.Add(utils_goap_planner::AddAction(_AttackEnemy_AsPlanner,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackFromCover)));
+        _Tier2.Add(utils_goap_planner::AddAction(_AttackEnemy_AsPlanner,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackFromFlank)));
+        _Tier2.Add(utils_goap_planner::AddAction(_AttackEnemy_AsPlanner,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackOpen)));
+        _Tier2.Add(utils_goap_planner::AddAction(_AttackEnemy_AsPlanner,
+            FCk_Goap_Action_Spec(UCk_GoapFEARGym_AttackEnemy_Standby)));
+        if (_Tier2.Num() != 4)
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        for (int32 I = 0; I < 4; ++I)
+        {
+            if (!IsActionLive(_Tier2[I]) ||
+                !IsDirectChild(FCk_Handle(_Tier2[I]), FCk_Handle(_AttackEnemy_AsPlanner)))
+            { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        }
+        if (utils_goap_planner::BindTo_OnPlanComplete(_Combatant,
+                FCk_Delegate_Goap_OnPlanComplete(this, n"OnTopPlanComplete")) != _Combatant ||
+            utils_goap_planner::BindTo_OnPlanComplete(_AttackEnemy_AsPlanner,
+                FCk_Delegate_Goap_OnPlanComplete(this, n"OnSubPlanComplete")) !=
+                    _AttackEnemy_AsPlanner || !Get_SourceStructureIsHealthy())
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        _Prepared = true;
         return ECk_EntityScript_ConstructionFlow::Finished;
     }
 
-    void Reset_WS()
+    UFUNCTION(BlueprintOverride)
+    void DoEndPlay(FCk_Handle InHandle)
+    { Request_Block(); }
+
+    private bool IsLive(FCk_Handle Handle) const
     {
-        if (ck::Is_NOT_Valid(_WS)) { return; }
-        SetWS(n"Gym.GoapFEAR.WS.Combatant.HasAmmo",          true);
-        SetWS(n"Gym.GoapFEAR.WS.Combatant.HasAmmoReserve",   true);
-        SetWS(n"Gym.GoapFEAR.WS.Combatant.EnemyVisible",     false);
-        SetWS(n"Gym.GoapFEAR.WS.Combatant.EnemyNeutralized", false);
-        SetWS(n"Gym.GoapFEAR.WS.Combatant.AtCover",          false);
-        SetWS(n"Gym.GoapFEAR.WS.Combatant.BehindEnemy",      false);
-        SetWS(n"Gym.GoapFEAR.WS.Combatant.HeardSound",       false);
-        SetWS(n"Gym.GoapFEAR.WS.Combatant.Patrolling",       false);
+        return ck::IsValid(_World) &&
+            UCk_GoapFEARGym_Runtime_UE::Get_IsLiveInWorld(Handle, _World);
     }
-
-    void SetWS(FName InKey, bool InValue)
+    private bool IsDirectChild(FCk_Handle Child, FCk_Handle Parent) const
     {
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey), InValue);
+        return IsLive(Child) && IsLive(Parent) &&
+            utils_entity_lifetime::Has_LifetimeOwner(Child) &&
+            utils_entity_lifetime::Get_LifetimeOwner(Child) == Parent;
     }
-
-    private bool GetWS(FName InKey)
+    private bool IsRootLive() const
+    { return IsLive(_Root) && utils_transform::Has(_Root); }
+    private bool IsWorldStateLive() const
     {
-        return utils_goap_world_state::Get_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey));
+        return ck::IsValid(_World) &&
+            UCk_GoapFEARGym_Runtime_UE::Get_IsLiveWorldState(FCk_Handle(_WS), _World);
     }
-
-    UFUNCTION()
-    private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
+    private bool IsPlannerLive(FCk_Handle_Goap_Planner Planner) const
     {
-        if (ck::Is_NOT_Valid(_Combatant)) { return; }
-
-        auto EnemyVisible     = GetWS(n"Gym.GoapFEAR.WS.Combatant.EnemyVisible");
-        auto EnemyNeutralized = GetWS(n"Gym.GoapFEAR.WS.Combatant.EnemyNeutralized");
-        auto HasAmmo          = GetWS(n"Gym.GoapFEAR.WS.Combatant.HasAmmo");
-        auto HasAmmoReserve   = GetWS(n"Gym.GoapFEAR.WS.Combatant.HasAmmoReserve");
-        auto AtCover          = GetWS(n"Gym.GoapFEAR.WS.Combatant.AtCover");
-        auto BehindEnemy      = GetWS(n"Gym.GoapFEAR.WS.Combatant.BehindEnemy");
-        auto HeardSound       = GetWS(n"Gym.GoapFEAR.WS.Combatant.HeardSound");
-        auto Patrolling       = GetWS(n"Gym.GoapFEAR.WS.Combatant.Patrolling");
-
-        auto Chain = utils_goap_planner::Get_ActiveChain(_Combatant);
-        auto ChainLen = Chain.Num();
-
-        // Tier-1 FEAR_Combatant.
-        auto TopStatus = utils_goap_planner::Get_PlanStatus(_Combatant);
-        auto TopPlan   = utils_goap_planner::Get_PlanClasses(_Combatant);
-        auto TopCost   = utils_goap_planner::Get_PlanCost(_Combatant);
-
-        // Tier-2 AttackEnemy sub-Planner (only meaningful once activation reaches it).
-        auto AttackStatusStr = "(not yet active)";
-        auto AttackPlanStr   = "(waiting)";
-        if (ChainLen >= 1 && ck::IsValid(_AttackEnemy_AsAction))
+        return ck::IsValid(_World) &&
+            UCk_GoapFEARGym_Runtime_UE::Get_IsLivePlanner(FCk_Handle(Planner), _World);
+    }
+    private bool IsActionLive(FCk_Handle_Goap_Action Action) const
+    {
+        return ck::IsValid(_World) &&
+            UCk_GoapFEARGym_Runtime_UE::Get_IsLiveAction(FCk_Handle(Action), _World);
+    }
+    private bool Get_SourceStructureIsHealthy() const
+    {
+        if (!IsRootLive() || !IsDirectChild(_Root, _WorldRoot) ||
+            !IsWorldStateLive() || !IsDirectChild(FCk_Handle(_WS), _Root) ||
+            !IsPlannerLive(_Combatant) ||
+            !IsDirectChild(FCk_Handle(_Combatant), _Root) ||
+            _Tier1.Num() != 7 || _Tier2.Num() != 4 ||
+            _KnownClasses_Combatant.Num() != 7 || _KnownLabels_Combatant.Num() != 7 ||
+            _KnownClasses_Attack.Num() != 4 || _KnownLabels_Attack.Num() != 4 ||
+            !IsPlannerLive(_AttackEnemy_AsPlanner) ||
+            FCk_Handle(_AttackEnemy_AsPlanner) != FCk_Handle(_Tier1[0]))
+        { return false; }
+        for (int32 I = 0; I < 7; ++I)
         {
-            AttackStatusStr = CkGoapGym_Common::Format_PlanStatus(
-                utils_goap_action::Get_PlanStatus(_AttackEnemy_AsAction));
-            AttackPlanStr = CkGoapGym_Common::Format_Plan(
-                utils_goap_action::Get_Plan(_AttackEnemy_AsAction),
-                _KnownClasses_Attack, _KnownLabels_Attack);
+            if (!IsActionLive(_Tier1[I]) ||
+                !IsDirectChild(FCk_Handle(_Tier1[I]), FCk_Handle(_Combatant)))
+            { return false; }
         }
+        for (int32 I = 0; I < 4; ++I)
+        {
+            if (!IsActionLive(_Tier2[I]) ||
+                !IsDirectChild(FCk_Handle(_Tier2[I]), FCk_Handle(_AttackEnemy_AsPlanner)))
+            { return false; }
+        }
+        return true;
+    }
+    bool Get_IsPrepared() const
+    {
+        if (!_Prepared || _Closed || !Get_SourceStructureIsHealthy())
+        { return false; }
+        for (int32 I = 0; I < 8; ++I)
+        {
+            if (!utils_goap_world_state::Has_Key(_WS, Get_Key(I)))
+            { return false; }
+        }
+        for (int32 I = 0; I < 7; ++I)
+        {
+            if (!utils_goap_action::Get_IsSetupComplete(_Tier1[I]))
+            { return false; }
+        }
+        for (int32 I = 0; I < 4; ++I)
+        {
+            if (!utils_goap_action::Get_IsSetupComplete(_Tier2[I]))
+            { return false; }
+        }
+        auto ExpectedToggle = _Started
+            ? ECk_EnableDisable::Enable : ECk_EnableDisable::Disable;
+        return utils_goap_planner::Get_EnableToggle(_Combatant) == ExpectedToggle &&
+            utils_goap_planner::Get_EnableToggle(_AttackEnemy_AsPlanner) == ExpectedToggle;
+    }
+    bool Get_IsStarted() const { return _Started && !_Closed; }
+    bool Get_IsClosed() const { return _Closed; }
+    FCk_Handle Get_SourceRoot() const { return _Root; }
+    int64 Get_PlanCount() const { return _PlanCount; }
+    int64 Get_ControlCompletionCount() const { return _ControlCompletionCount; }
 
-        auto Body = "A canonical GOAP enemy AI - adapted from Jeff Orkin's F.E.A.R.\n"
+    private FGameplayTag Get_Key(int32 Index) const
+    {
+        if (Index == 0) { return utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.EnemyVisible"); }
+        if (Index == 1) { return utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.AtCover"); }
+        if (Index == 2) { return utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.BehindEnemy"); }
+        if (Index == 3) { return utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.HasAmmo"); }
+        if (Index == 4) { return utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.HasAmmoReserve"); }
+        if (Index == 5) { return utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.HeardSound"); }
+        if (Index == 6) { return utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.EnemyNeutralized"); }
+        return utils_gameplay_tag::ResolveGameplayTag(n"Gym.GoapFEAR.WS.Combatant.Patrolling");
+    }
+    int32 Get_WorldStateMask() const
+    {
+        if (!Get_IsPrepared()) { return -1; }
+        int32 Mask = 0;
+        for (int32 I = 0; I < 8; ++I)
+        { if (utils_goap_world_state::Get_Value(_WS, Get_Key(I))) { Mask |= (1 << I); } }
+        return Mask;
+    }
+    bool Request_StartPrepared()
+    {
+        if (_Started) { return Get_IsPrepared(); }
+        if (!Get_IsPrepared())
+        { Request_Block(); return false; }
+        if (utils_goap_planner::Request_SetEnableToggle(
+                _AttackEnemy_AsPlanner, ECk_EnableDisable::Enable) !=
+                    _AttackEnemy_AsPlanner ||
+            utils_goap_planner::Get_EnableToggle(_AttackEnemy_AsPlanner) !=
+                    ECk_EnableDisable::Enable ||
+            utils_goap_planner::Request_SetEnableToggle(
+                _Combatant, ECk_EnableDisable::Enable) != _Combatant ||
+            utils_goap_planner::Get_EnableToggle(_Combatant) != ECk_EnableDisable::Enable)
+        { Request_Block(); return false; }
+        _Started = true;
+        return true;
+    }
+    bool Request_Control(int32 Action)
+    {
+        if (!_Started || _ControlPending ||
+            _PlanCount < 1 || Action < 0 || Action > 7)
+        { return false; }
+        if (!Get_IsPrepared()) { Request_Block(); return false; }
+        auto Before = Get_WorldStateMask();
+        if (Before < 0 || Before > 255)
+        { Request_Block(); return false; }
+        auto Expected = Before;
+        if (Action <= 5) { Expected ^= (1 << Action); }
+        else if (Action == 6) { Expected |= 15; }
+        else { Expected = 24; }
+        _ExpectedMask = Expected;
+        _TopBefore = _PlanCount;
+        _TopAttemptBefore = utils_goap_planner::Get_PlanAttemptCount(_Combatant);
+        _SubBefore = _SubPlanCount;
+        _ChildPlanRequested = false;
+        _ControlPending = true;
+        for (int32 I = 0; I < 8; ++I)
+        {
+            if (((Before ^ Expected) & (1 << I)) == 0) { continue; }
+            if (utils_goap_world_state::Set_Value(
+                    _WS, Get_Key(I), (Expected & (1 << I)) != 0) != _WS)
+            { Request_Block(); return false; }
+        }
+        if (utils_goap_planner::Request_Plan(_Combatant) != _Combatant)
+        { Request_Block(); return false; }
+        return true;
+    }
+    // The request completion delegate only reports dispatch; exact planner callbacks
+    // and committed values are required before this increments the control receipt.
+    bool Request_UpdateControl()
+    {
+        if (!_Started || !Get_IsPrepared())
+        { Request_Block(); return false; }
+        if (!_ControlPending) { return true; }
+        if (Get_WorldStateMask() != _ExpectedMask) { return true; }
+        auto TopStatus = utils_goap_planner::Get_PlanStatus(_Combatant);
+        if (utils_goap_planner::Get_PlanAttemptCount(_Combatant) > _TopAttemptBefore &&
+            (TopStatus == ECk_GoapPlanStatus::PlanFailed ||
+             TopStatus == ECk_GoapPlanStatus::CostThresholdReached))
+        { Request_Block(); return false; }
+        if (_PlanCount <= _TopBefore ||
+            utils_goap_planner::Get_PlanStatus(_Combatant) != ECk_GoapPlanStatus::PlanFound)
+        { return true; }
+        auto TopPlan = utils_goap_planner::Get_Plan(_Combatant);
+        auto Chain = utils_goap_planner::Get_ActiveChain(_Combatant);
+        if (TopPlan.Num() > 7 || Chain.Num() > 2)
+        { Request_Block(); return false; }
+        if (TopPlan.IsEmpty())
+        {
+            if (!Chain.IsEmpty()) { return true; }
+        }
+        else if (TopPlan[0] == _AttackEnemy_AsAction)
+        {
+            if (Chain.IsEmpty() || Chain[0] != _AttackEnemy_AsAction)
+            { return true; }
+            if (!_ChildPlanRequested)
+            {
+                _SubBefore = _SubPlanCount;
+                _SubAttemptBefore = utils_goap_planner::Get_PlanAttemptCount(
+                    _AttackEnemy_AsPlanner);
+                if (utils_goap_planner::Request_Plan(_AttackEnemy_AsPlanner) !=
+                    _AttackEnemy_AsPlanner)
+                { Request_Block(); return false; }
+                _ChildPlanRequested = true;
+                return true;
+            }
+            auto SubStatus = utils_goap_planner::Get_PlanStatus(_AttackEnemy_AsPlanner);
+            if (utils_goap_planner::Get_PlanAttemptCount(
+                    _AttackEnemy_AsPlanner) > _SubAttemptBefore &&
+                (SubStatus == ECk_GoapPlanStatus::PlanFailed ||
+                 SubStatus == ECk_GoapPlanStatus::CostThresholdReached))
+            { Request_Block(); return false; }
+            if (_SubPlanCount <= _SubBefore ||
+                utils_goap_planner::Get_PlanStatus(_AttackEnemy_AsPlanner) !=
+                    ECk_GoapPlanStatus::PlanFound || Chain.Num() != 2)
+            { return true; }
+            auto KnownLeaf = false;
+            for (int32 I = 0; I < 4; ++I)
+            { if (Chain[1] == _Tier2[I]) { KnownLeaf = true; break; } }
+            if (!KnownLeaf) { Request_Block(); return false; }
+        }
+        else
+        {
+            if (Chain.Num() != 1 || Chain[0] != TopPlan[0])
+            { return true; }
+            auto KnownFirst = false;
+            for (int32 I = 1; I < 7; ++I)
+            { if (TopPlan[0] == _Tier1[I]) { KnownFirst = true; break; } }
+            if (!KnownFirst) { Request_Block(); return false; }
+        }
+        if (_ControlCompletionCount == 2147483647)
+        { Request_Block(); return false; }
+        _ControlPending = false;
+        _ChildPlanRequested = false;
+        _ExpectedMask = -1;
+        ++_ControlCompletionCount;
+        return true;
+    }
+    void Request_Block()
+    {
+        if (_Closed) { return; }
+        _Closed = true;
+        _Prepared = false;
+        _Started = false;
+        _ControlPending = false;
+        if (IsPlannerLive(_Combatant))
+        { utils_goap_planner::Request_SetEnableToggle(
+            _Combatant, ECk_EnableDisable::Disable); }
+        if (IsPlannerLive(_AttackEnemy_AsPlanner))
+        { utils_goap_planner::Request_SetEnableToggle(
+            _AttackEnemy_AsPlanner, ECk_EnableDisable::Disable); }
+    }
+    UFUNCTION()
+    private void OnTopPlanComplete(
+        FCk_Handle_Goap_Planner InPlanner, FCk_Goap_Payload_OnPlanComplete InPayload)
+    {
+        if (!_Started || _Closed || InPlanner != _Combatant || !Get_IsPrepared())
+        { return; }
+        if (_PlanCount == 2147483647)
+        { Request_Block(); return; }
+        ++_PlanCount;
+    }
+    UFUNCTION()
+    private void OnSubPlanComplete(
+        FCk_Handle_Goap_Planner InPlanner, FCk_Goap_Payload_OnPlanComplete InPayload)
+    {
+        if (!_Started || _Closed || InPlanner != _AttackEnemy_AsPlanner ||
+            !Get_IsPrepared())
+        { return; }
+        if (_SubPlanCount == 2147483647)
+        { Request_Block(); return; }
+        ++_SubPlanCount;
+    }
+    bool TryGet_Frame(FCkGoapFEARGym_StationFrame&out Frame) const
+    {
+        if (!_Started || !Get_IsPrepared()) { return false; }
+        auto Mask = Get_WorldStateMask();
+        if (Mask < 0 || Mask > 255) { return false; }
+        auto TopStatus = utils_goap_planner::Get_PlanStatus(_Combatant);
+        auto SubStatus = utils_goap_planner::Get_PlanStatus(_AttackEnemy_AsPlanner);
+        auto TopPlan = utils_goap_planner::Get_PlanClasses(_Combatant);
+        auto SubPlan = utils_goap_planner::Get_PlanClasses(_AttackEnemy_AsPlanner);
+        auto TopCost = utils_goap_planner::Get_PlanCost(_Combatant);
+        auto SubCost = utils_goap_planner::Get_PlanCost(_AttackEnemy_AsPlanner);
+        auto Chain = utils_goap_planner::Get_ActiveChain(_Combatant);
+        if (TopPlan.Num() > 7 || SubPlan.Num() > 4 || Chain.Num() > 2 ||
+            !Math::IsFinite(TopCost) || TopCost < 0.0f ||
+            !Math::IsFinite(SubCost) || SubCost < 0.0f)
+        { return false; }
+        Frame = FCkGoapFEARGym_StationFrame();
+        Frame.WorldStateMask = Mask;
+        Frame.PlanCount = _PlanCount;
+        Frame.SubPlanCount = _SubPlanCount;
+        Frame.PlanStatus = int32(TopStatus);
+        Frame.SubPlanStatus = int32(SubStatus);
+        Frame.PlanCost = TopCost;
+        Frame.SubPlanCost = SubCost;
+        Frame.ControlCount = _ControlCompletionCount;
+        for (int32 I = 0; I < TopPlan.Num(); ++I)
+        {
+            auto Code = -1;
+            for (int32 J = 0; J < 7; ++J)
+            { if (TopPlan[I] == _KnownClasses_Combatant[J]) { Code = J; break; } }
+            if (Code < 0) { return false; }
+            Frame.PlanActions.Add(Code);
+        }
+        for (int32 I = 0; I < SubPlan.Num(); ++I)
+        {
+            auto Code = -1;
+            for (int32 J = 0; J < 4; ++J)
+            { if (SubPlan[I] == _KnownClasses_Attack[J]) { Code = J; break; } }
+            if (Code < 0) { return false; }
+            Frame.SubPlanActions.Add(Code);
+        }
+        if (Chain.Num() >= 1)
+        {
+            auto Code = -1;
+            for (int32 J = 0; J < 7; ++J)
+            { if (Chain[0] == _Tier1[J]) { Code = J; break; } }
+            if (Code < 0) { return false; }
+            Frame.ActiveChain.Add(Code);
+        }
+        if (Chain.Num() == 2)
+        {
+            if (Chain[0] != _AttackEnemy_AsAction) { return false; }
+            auto Code = -1;
+            for (int32 J = 0; J < 4; ++J)
+            { if (Chain[1] == _Tier2[J]) { Code = 7 + J; break; } }
+            if (Code < 0) { return false; }
+            Frame.ActiveChain.Add(Code);
+        }
+        auto EnemyVisible = (Mask & 1) != 0;
+        auto AtCover = (Mask & 2) != 0;
+        auto BehindEnemy = (Mask & 4) != 0;
+        auto HasAmmo = (Mask & 8) != 0;
+        auto HasAmmoReserve = (Mask & 16) != 0;
+        auto HeardSound = (Mask & 32) != 0;
+        auto EnemyNeutralized = (Mask & 64) != 0;
+        auto Patrolling = (Mask & 128) != 0;
+        auto AttackStatusStr = "(not yet active)";
+        auto AttackPlanStr = "(waiting)";
+        if (Chain.Num() >= 1 && Chain[0] == _AttackEnemy_AsAction)
+        {
+            AttackStatusStr = CkGoapGym_Common::Format_PlanStatus(SubStatus);
+            AttackPlanStr = CkGoapGym_Common::Format_Plan(
+                SubPlan, _KnownClasses_Attack, _KnownLabels_Attack);
+        }
+        Frame.Detail = "A canonical GOAP enemy AI - adapted from Jeff Orkin's F.E.A.R.\n"
             + "paper. Toggle WS keys via the Console list below to see how\n"
             + "the planner adapts. Or click WS keys directly in the\n"
             + "debugger's WORLDSTATE panel.\n\n"
@@ -283,9 +543,8 @@ class UCk_EntityScript_GoapFEARGym_Combatant_Station : UCk_GenericEntityScript_U
             + "  panel [O]  HeardSound\n"
             + "  panel [B]  Ideal ambush\n"
             + "  panel [R]  Reset";
-
-        CkGym_Common::Update_StationDisplay(ck::ToEntity(this),
-            "STATION 1 / F.E.A.R. COMBATANT", Body,
-            "Canonical GOAP demo - F.E.A.R.-style enemy AI.\nToggle WS keys to see the planner adapt.");
+        Frame.Title = "STATION 1 / F.E.A.R. COMBATANT";
+        Frame.Footer = "Canonical GOAP demo - F.E.A.R.-style enemy AI.\nToggle WS keys to see the planner adapt.";
+        return true;
     }
 }
