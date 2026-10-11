@@ -58,72 +58,39 @@ class UCk_GoapGym_OptOutDemo_CannotReach : UCk_GoapAction_EntityScript
     }
 }
 
-class UCk_EntityScript_GoapGym_OptOutDemo_Station : UCk_GenericEntityScript_UE
+class UCk_EntityScript_GoapGym_OptOutDemo_Station : UCk_EntityScript_GoapGym_SharedStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
     private FCk_Handle_Goap_Planner _Planner;
-    private FCk_Handle_Goap_WorldState _WS;
 
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow
-    DoConstruct(FCk_Handle& InHandle)
+    int32 Get_StationIndex() const override { return 6; }
+
+    protected bool PrepareStation() override
     {
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-
-        _WS = utils_goap_world_state::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.OptOutDemo"),
-            FCk_Goap_WorldState_Spec());
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.OptOutDemo.Unreachable"),
-            false);
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.OptOutDemo.Touch"),
-            false);
-
+        if (!TryCreateWS(utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.OptOutDemo"))) { return false; }
         auto Goal = TArray<FCk_GoapWS_Condition_Authored>();
         Goal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.OptOutDemo.Unreachable"),
-            true));
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.OptOutDemo.Unreachable"), true));
+        if (!TryCreateTopPlanner(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.OptOutDemo"), Goal, true, _Planner))
+        { return false; }
+        FCk_Handle_Goap_Action Action;
+        if (!TryAddAction(0, UCk_GoapGym_OptOutDemo_CannotReach, Action))
+        { return false; }
 
-        auto PlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.OptOutDemo"));
-        PlannerParams.Set_Goal(Goal);
-        PlannerParams.Set_WorldStateSource(_WS);
-        PlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-
-        // -----------------------------------------------------------------
-        // This station intentionally demonstrates the _AllowPlanFailed=true
-        // opt-out path. PlanFailed will fire continuously (the goal is
-        // structurally unreachable from the catalog). The debugger should
-        // clearly show this is opted-in rather than a misconfiguration.
-        // See the CkGoap docs Sec. "Design tenets / Every Planner must always
-        // produce a valid plan" for the tenet itself and the opt-out rules.
-        // -----------------------------------------------------------------
-        PlannerParams.Set_AllowPlanFailed(true);
-
-        _Planner = utils_goap_planner::Add(InHandle, PlannerParams);
-
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_OptOutDemo_CannotReach));
-
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
+        return true;
     }
-
-    UFUNCTION()
-    private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
+    private bool ReadKey(FName Name) const
     {
-        if (ck::Is_NOT_Valid(_Planner)) { return; }
+        return utils_goap_world_state::Get_Value(
+            _WS, utils_gameplay_tag::ResolveGameplayTag(Name));
+    }
+    protected bool FillStationText(FCkGoapGym_StationFrame&out Frame) const override
+    {
 
         auto Status = utils_goap_planner::Get_PlanStatus(_Planner);
         auto Plan = utils_goap_planner::Get_PlanClasses(_Planner);
 
-        auto Body = "This station explicitly opts out of the always-valid-plan\n"
+        Frame.Detail = "This station explicitly opts out of the always-valid-plan\n"
             + "tenet via _AllowPlanFailed=true. The Planner's goal is\n"
             + "unreachable (no Action's effect can satisfy it from any WS\n"
             + "state - the sole Action has a precondition the gym never\n"
@@ -140,8 +107,9 @@ class UCk_EntityScript_GoapGym_OptOutDemo_Station : UCk_GenericEntityScript_UE
             + "always produce a valid plan\" for the tenet itself and the\n"
             + "rules around opt-out.";
 
-        CkGym_Common::Update_StationDisplay(ck::ToEntity(this),
-            "STATION 7 / OPT-OUT DEMO", Body,
-            "Intentional _AllowPlanFailed=true.\nDemonstrates the tenet's opt-out path.");
+
+        Frame.Title = "STATION 7 / OPT-OUT DEMO";
+        Frame.Footer = "Intentional _AllowPlanFailed=true.\nDemonstrates the tenet's opt-out path.";
+        return true;
     }
 }

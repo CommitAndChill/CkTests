@@ -38,134 +38,70 @@ struct FCk_GoapGym_Survival_Station_SpawnParams
     FTransform InitialTransform = FTransform::Identity;
 }
 
-class UCk_EntityScript_GoapGym_Survival_Station : UCk_GenericEntityScript_UE
+class UCk_EntityScript_GoapGym_Survival_Station : UCk_EntityScript_GoapGym_SharedStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
     private FCk_Handle_Goap_Planner _Planner_Hunger;
     private FCk_Handle_Goap_Planner _Planner_Defense;
-    private FCk_Handle_Goap_WorldState _WS;
-
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Hunger;
     private TArray<FString> _KnownLabels_Hunger;
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Defense;
     private TArray<FString> _KnownLabels_Defense;
 
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow
-    DoConstruct(FCk_Handle& InHandle)
+    int32 Get_StationIndex() const override { return 4; }
+
+    protected bool PrepareStation() override
     {
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-
-        _WS = utils_goap_world_state::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Survival"),
-            FCk_Goap_WorldState_Spec());
-        Reset_WS();
-
-        // -------- Hunger Planner -------- (U11.1: goal on PlannerParams)
+        if (!TryCreateWS(utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Survival"))) { return false; }
         auto HungerGoal = TArray<FCk_GoapWS_Condition_Authored>();
         HungerGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Survival.Hungry"),
-            false));
-
-        auto HungerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Survival.Hunger"));
-        HungerParams.Set_Goal(HungerGoal);
-        HungerParams.Set_WorldStateSource(_WS);
-        HungerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        // Two independent Planners on one owner -> Create (named child Planners).
-        // Add stamps the Planner role onto InHandle directly and would reject the
-        // second (Defense) Planner - one Planner role per entity.
-        _Planner_Hunger = utils_goap_planner::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Survival.Hunger"),
-            HungerParams);
-
-        utils_goap_planner::AddAction(_Planner_Hunger,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Survival_EatFood));
-        utils_goap_planner::AddAction(_Planner_Hunger,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Survival_Forage));
-        // Always-valid-plan tenet fallback - see the CkGoap docs Sec. "Design tenets".
-        utils_goap_planner::AddAction(_Planner_Hunger,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Survival_HuddleInPlace));
-
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Survival.Hungry"), false));
+        if (!TryCreateTopPlanner(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.Survival.Hunger"), HungerGoal, false, _Planner_Hunger))
+        { return false; }
+        FCk_Handle_Goap_Action Action;
+        if (!TryAddAction(0, UCk_GoapGym_Survival_EatFood, Action) ||
+            !TryAddAction(0, UCk_GoapGym_Survival_Forage, Action) ||
+            !TryAddAction(0, UCk_GoapGym_Survival_HuddleInPlace, Action))
+        { return false; }
+        auto DefenseGoal = TArray<FCk_GoapWS_Condition_Authored>();
+        DefenseGoal.Add(FCk_GoapWS_Condition_Authored(
+            utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.WS.Survival.SafeFromThreat"), true));
+        if (!TryCreateTopPlanner(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.Survival.Defense"), DefenseGoal, false, _Planner_Defense))
+        { return false; }
+        if (!TryAddAction(1, UCk_GoapGym_Survival_FightEnemy, Action) ||
+            !TryAddAction(1, UCk_GoapGym_Survival_RunAway, Action) ||
+            !TryAddAction(1, UCk_GoapGym_Survival_RemainAlert, Action))
+        { return false; }
         _KnownClasses_Hunger.Add(UCk_GoapGym_Survival_EatFood);       _KnownLabels_Hunger.Add("EatFood");
         _KnownClasses_Hunger.Add(UCk_GoapGym_Survival_Forage);        _KnownLabels_Hunger.Add("Forage");
         _KnownClasses_Hunger.Add(UCk_GoapGym_Survival_HuddleInPlace); _KnownLabels_Hunger.Add("HuddleInPlace");
-
-        // -------- Defense Planner -------- (U11.1: goal on PlannerParams)
-        auto DefenseGoal = TArray<FCk_GoapWS_Condition_Authored>();
-        DefenseGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Survival.SafeFromThreat"),
-            true));
-
-        auto DefenseParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Survival.Defense"));
-        DefenseParams.Set_Goal(DefenseGoal);
-        DefenseParams.Set_WorldStateSource(_WS);
-        DefenseParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _Planner_Defense = utils_goap_planner::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Survival.Defense"),
-            DefenseParams);
-
-        utils_goap_planner::AddAction(_Planner_Defense,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Survival_FightEnemy));
-        utils_goap_planner::AddAction(_Planner_Defense,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Survival_RunAway));
-        // Always-valid-plan tenet fallback - see the CkGoap docs Sec. "Design tenets".
-        utils_goap_planner::AddAction(_Planner_Defense,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Survival_RemainAlert));
-
         _KnownClasses_Defense.Add(UCk_GoapGym_Survival_FightEnemy);  _KnownLabels_Defense.Add("FightEnemy");
         _KnownClasses_Defense.Add(UCk_GoapGym_Survival_RunAway);     _KnownLabels_Defense.Add("RunAway");
         _KnownClasses_Defense.Add(UCk_GoapGym_Survival_RemainAlert); _KnownLabels_Defense.Add("RemainAlert");
-
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
+        return true;
     }
-
-    private void Reset_WS()
+    private bool ReadKey(FName Name) const
     {
-        if (ck::Is_NOT_Valid(_WS)) { return; }
-        Set(n"Gym.Goap.WS.Survival.Hungry", true);
-        Set(n"Gym.Goap.WS.Survival.HasFood", false);
-        Set(n"Gym.Goap.WS.Survival.ThreatActive", true);
-        Set(n"Gym.Goap.WS.Survival.HasWeapon", true);
-        Set(n"Gym.Goap.WS.Survival.SafeFromThreat", false);
+        return utils_goap_world_state::Get_Value(
+            _WS, utils_gameplay_tag::ResolveGameplayTag(Name));
     }
-
-    private void Set(FName InKey, bool InValue)
+    protected bool FillStationText(FCkGoapGym_StationFrame&out Frame) const override
     {
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey), InValue);
-    }
 
-    private bool Get(FName InKey)
-    {
-        return utils_goap_world_state::Get_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey));
-    }
-
-    UFUNCTION()
-    private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        if (ck::Is_NOT_Valid(_Planner_Hunger) || ck::Is_NOT_Valid(_Planner_Defense)) { return; }
-
-        auto Hungry = Get(n"Gym.Goap.WS.Survival.Hungry");
-        auto HasFood = Get(n"Gym.Goap.WS.Survival.HasFood");
-        auto Threat = Get(n"Gym.Goap.WS.Survival.ThreatActive");
-        auto HasWeapon = Get(n"Gym.Goap.WS.Survival.HasWeapon");
-        auto Safe = Get(n"Gym.Goap.WS.Survival.SafeFromThreat");
+        auto Hungry = ReadKey(n"Gym.Goap.WS.Survival.Hungry");
+        auto HasFood = ReadKey(n"Gym.Goap.WS.Survival.HasFood");
+        auto Threat = ReadKey(n"Gym.Goap.WS.Survival.ThreatActive");
+        auto HasWeapon = ReadKey(n"Gym.Goap.WS.Survival.HasWeapon");
+        auto Safe = ReadKey(n"Gym.Goap.WS.Survival.SafeFromThreat");
 
         auto HStatus = utils_goap_planner::Get_PlanStatus(_Planner_Hunger);
         auto HPlan = utils_goap_planner::Get_PlanClasses(_Planner_Hunger);
         auto DStatus = utils_goap_planner::Get_PlanStatus(_Planner_Defense);
         auto DPlan = utils_goap_planner::Get_PlanClasses(_Planner_Defense);
 
-        auto Body = "World State (shared by both Planners)\n"
+        Frame.Detail = "World State (shared by both Planners)\n"
             + f"  Hungry          {CkGoapGym_Common::Render_Bool(Hungry)}\n"
             + f"  HasFood         {CkGoapGym_Common::Render_Bool(HasFood)}\n"
             + f"  ThreatActive    {CkGoapGym_Common::Render_Bool(Threat)}\n"
@@ -182,8 +118,9 @@ class UCk_EntityScript_GoapGym_Survival_Station : UCk_GenericEntityScript_UE
             + "  panel [U] / [V]  ThreatActive / HasWeapon\n"
             + "  panel [4]        Reset the survival WS";
 
-        CkGym_Common::Update_StationDisplay(ck::ToEntity(this),
-            "STATION 5 / SURVIVAL DECISION", Body,
-            "Two Planners on one entity. Independent planning + replan.");
+
+        Frame.Title = "STATION 5 / SURVIVAL DECISION";
+        Frame.Footer = "Two Planners on one entity. Independent planning + replan.";
+        return true;
     }
 }

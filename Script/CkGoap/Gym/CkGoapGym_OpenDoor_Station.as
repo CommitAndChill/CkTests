@@ -27,69 +27,40 @@ struct FCk_GoapGym_OpenDoor_Station_SpawnParams
     FTransform InitialTransform = FTransform::Identity;
 }
 
-class UCk_EntityScript_GoapGym_OpenDoor_Station : UCk_GenericEntityScript_UE
+class UCk_EntityScript_GoapGym_OpenDoor_Station : UCk_EntityScript_GoapGym_SharedStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
     private FCk_Handle_Goap_Planner _Planner;
-    private FCk_Handle_Goap_WorldState _WS;
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses;
     private TArray<FString> _KnownLabels;
 
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow
-    DoConstruct(FCk_Handle& InHandle)
+    int32 Get_StationIndex() const override { return 0; }
+
+    protected bool PrepareStation() override
     {
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-
-        // World-state for this station - Door.IsOpen starts closed.
-        _WS = utils_goap_world_state::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Door"),
-            FCk_Goap_WorldState_Spec());
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Door.IsOpen"),
-            false);
-
-        // U11.1: Planner goal Door.IsOpen=true. OnWorldStateDirty so toggling
-        // the WS automatically retriggers planning.
+        if (!TryCreateWS(utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Door"))) { return false; }
         auto Goal = TArray<FCk_GoapWS_Condition_Authored>();
         Goal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Door.IsOpen"),
-            true));
-
-        auto ActionSetParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Door"));
-        ActionSetParams.Set_Goal(Goal);
-        ActionSetParams.Set_WorldStateSource(_WS);
-        ActionSetParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _Planner = utils_goap_planner::Add(InHandle, ActionSetParams);
-
-        // Single operator - atomic OpenDoor. Registered directly on the Planner.
-        auto OpParams = FCk_Goap_Action_Spec(UCk_GoapGym_OpenDoor_Operator);
-        utils_goap_planner::AddAction(_Planner, OpParams);
-
-        // Always-valid-plan tenet fallback - see the CkGoap docs Sec. "Design tenets".
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_OpenDoor_WaitAtDoor));
-
-        // Label map for plan rendering.
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Door.IsOpen"), true));
+        if (!TryCreateTopPlanner(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.Door"), Goal, false, _Planner))
+        { return false; }
+        FCk_Handle_Goap_Action Action;
+        if (!TryAddAction(0, UCk_GoapGym_OpenDoor_Operator, Action) ||
+            !TryAddAction(0, UCk_GoapGym_OpenDoor_WaitAtDoor, Action))
+        { return false; }
         _KnownClasses.Add(UCk_GoapGym_OpenDoor_Operator);
         _KnownLabels.Add("OpenDoor");
         _KnownClasses.Add(UCk_GoapGym_OpenDoor_WaitAtDoor);
         _KnownLabels.Add("WaitAtDoor");
-
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
+        return true;
     }
-
-    UFUNCTION()
-    private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
+    private bool ReadKey(FName Name) const
     {
-        if (ck::Is_NOT_Valid(_Planner)) { return; }
+        return utils_goap_world_state::Get_Value(
+            _WS, utils_gameplay_tag::ResolveGameplayTag(Name));
+    }
+    protected bool FillStationText(FCkGoapGym_StationFrame&out Frame) const override
+    {
 
         auto IsOpen = utils_goap_world_state::Get_Value(_WS,
             utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Door.IsOpen"));
@@ -101,14 +72,15 @@ class UCk_EntityScript_GoapGym_OpenDoor_Station : UCk_GenericEntityScript_UE
         auto PlanLine = f"  Plan             {CkGoapGym_Common::Format_Plan(Plan, _KnownClasses, _KnownLabels)}";
         auto ChainLine = f"  Chain.Num()      {utils_goap_planner::Get_ActiveChain(_Planner).Num()}";
 
-        auto Body = "World State\n" + WSLine
+        Frame.Detail = "World State\n" + WSLine
             + "\n\nPlanner\n" + StatusLine
             + "\n" + PlanLine
             + "\n" + ChainLine
             + "\n\nControl panel\n  panel [J]  Flip Door.IsOpen";
 
-        CkGym_Common::Update_StationDisplay(ck::ToEntity(this),
-            "STATION 1 / OPEN DOOR", Body,
-            "Single atomic operator. Root goal Door.IsOpen=true.\nOpenDoor is the only operator.");
+
+        Frame.Title = "STATION 1 / OPEN DOOR";
+        Frame.Footer = "Single atomic operator. Root goal Door.IsOpen=true.\nOpenDoor is the only operator.";
+        return true;
     }
 }

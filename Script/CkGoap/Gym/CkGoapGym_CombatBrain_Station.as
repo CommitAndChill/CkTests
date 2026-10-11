@@ -53,31 +53,16 @@ struct FCk_GoapGym_CombatBrain_Station_SpawnParams
     FTransform InitialTransform = FTransform::Identity;
 }
 
-class UCk_EntityScript_GoapGym_CombatBrain_Station : UCk_GenericEntityScript_UE
+class UCk_EntityScript_GoapGym_CombatBrain_Station : UCk_EntityScript_GoapGym_SharedStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
-    // ---- Top-level Planner ----
     private FCk_Handle_Goap_Planner _AlivePlanner;
-
-    // ---- Tier-1 ----
     private FCk_Handle_Goap_Action  _Engage_AsAction;
     private FCk_Handle_Goap_Planner _Engage_AsPlanner;
     private FCk_Handle_Goap_Action  _Win;
-
-    // ---- Tier-2 ----
     private FCk_Handle_Goap_Action  _LightAttacks_AsAction;
     private FCk_Handle_Goap_Planner _LightAttacks_AsPlanner;
     private FCk_Handle_Goap_Action  _HeavyAttacks_AsAction;
     private FCk_Handle_Goap_Planner _HeavyAttacks_AsPlanner;
-
-    // ---- WS ----
-    private FCk_Handle_Goap_WorldState _WS;
-
-    // ---- Label maps per tier (for plan rendering) ----
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Alive;
     private TArray<FString> _KnownLabels_Alive;
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Engage;
@@ -87,186 +72,96 @@ class UCk_EntityScript_GoapGym_CombatBrain_Station : UCk_GenericEntityScript_UE
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Heavy;
     private TArray<FString> _KnownLabels_Heavy;
 
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow
-    DoConstruct(FCk_Handle& InHandle)
+    int32 Get_StationIndex() const override { return 5; }
+
+    protected bool PrepareStation() override
     {
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-
-        // ------------------------------------------------------------------
-        // WorldState - all keys start false.
-        // ------------------------------------------------------------------
-        _WS = utils_goap_world_state::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CombatBrain"),
-            FCk_Goap_WorldState_Spec());
-        Reset_WS();
-
-        // ------------------------------------------------------------------
-        // Top-level Alive Planner, goal: EnemyDead=true.
-        // ------------------------------------------------------------------
+        if (!TryCreateWS(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.WS.CombatBrain"))) { return false; }
         auto AliveGoal = TArray<FCk_GoapWS_Condition_Authored>();
         AliveGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CombatBrain.EnemyDead"),
-            true));
-
-        auto AlivePlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.CombatBrain"));
-        AlivePlannerParams.Set_Goal(AliveGoal);
-        AlivePlannerParams.Set_WorldStateSource(_WS);
-        AlivePlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _AlivePlanner = utils_goap_planner::Add(InHandle, AlivePlannerParams);
-
-        // ------------------------------------------------------------------
-        // Tier 1 - Engage Action under Alive (promoted to Planner below).
-        // ------------------------------------------------------------------
-        auto EngageActionParams = FCk_Goap_Action_Spec(
-            UCk_GoapGym_CombatBrain_Engage);
-        _Engage_AsAction = utils_goap_planner::AddAction(_AlivePlanner, EngageActionParams);
-
-        // Tier 1 - Win atomic finisher under Alive.
-        auto WinParams = FCk_Goap_Action_Spec(UCk_GoapGym_CombatBrain_Win);
-        _Win = utils_goap_planner::AddAction(_AlivePlanner, WinParams);
-
-        // Always-valid-plan tenet fallback for top Alive - see the CkGoap docs
-        // Sec. "Design tenets".
-        utils_goap_planner::AddAction(_AlivePlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CombatBrain_Standby));
-
-        // Promote Engage: sub-goal EnemyAttacked=true.
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CombatBrain.EnemyDead"), true));
+        if (!TryCreateTopPlanner(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.CombatBrain"), AliveGoal, false, _AlivePlanner))
+        { return false; }
+        if (!TryAddAction(0, UCk_GoapGym_CombatBrain_Engage, _Engage_AsAction) ||
+            !TryAddAction(0, UCk_GoapGym_CombatBrain_Win, _Win))
+        { return false; }
+        FCk_Handle_Goap_Action Action;
+        if (!TryAddAction(0, UCk_GoapGym_CombatBrain_Standby, Action))
+        { return false; }
         auto EngageGoal = TArray<FCk_GoapWS_Condition_Authored>();
         EngageGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CombatBrain.EnemyAttacked"),
-            true));
-        auto EngagePlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.CombatBrain.Engage"));
-        EngagePlannerParams.Set_Goal(EngageGoal);
-        EngagePlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _Engage_AsPlanner = utils_goap_planner::PromoteActionToPlanner(
-            _Engage_AsAction, EngagePlannerParams);
-
-        // ------------------------------------------------------------------
-        // Tier 2 - LightAttacks + HeavyAttacks composites under Engage.
-        // ------------------------------------------------------------------
-        auto LightAttacksActionParams = FCk_Goap_Action_Spec(
-            UCk_GoapGym_CombatBrain_LightAttacks);
-        _LightAttacks_AsAction = utils_goap_planner::AddAction(
-            _Engage_AsPlanner, LightAttacksActionParams);
-
-        auto HeavyAttacksActionParams = FCk_Goap_Action_Spec(
-            UCk_GoapGym_CombatBrain_HeavyAttacks);
-        _HeavyAttacks_AsAction = utils_goap_planner::AddAction(
-            _Engage_AsPlanner, HeavyAttacksActionParams);
-
-        // Always-valid-plan tenet fallback for Engage sub-Planner - see
-        // the CkGoap docs Sec. "Design tenets".
-        utils_goap_planner::AddAction(_Engage_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CombatBrain_Engage_HoldFire));
-
-        // Promote LightAttacks: sub-goal EnemyHit=true.
-        auto LightAttacksGoal = TArray<FCk_GoapWS_Condition_Authored>();
-        LightAttacksGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CombatBrain.EnemyHit"),
-            true));
-        auto LightAttacksPlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.CombatBrain.LightAttacks"));
-        LightAttacksPlannerParams.Set_Goal(LightAttacksGoal);
-        LightAttacksPlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _LightAttacks_AsPlanner = utils_goap_planner::PromoteActionToPlanner(
-            _LightAttacks_AsAction, LightAttacksPlannerParams);
-
-        // Promote HeavyAttacks: sub-goal EnemyHit=true (sibling planner).
-        auto HeavyAttacksGoal = TArray<FCk_GoapWS_Condition_Authored>();
-        HeavyAttacksGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CombatBrain.EnemyHit"),
-            true));
-        auto HeavyAttacksPlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.CombatBrain.HeavyAttacks"));
-        HeavyAttacksPlannerParams.Set_Goal(HeavyAttacksGoal);
-        HeavyAttacksPlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _HeavyAttacks_AsPlanner = utils_goap_planner::PromoteActionToPlanner(
-            _HeavyAttacks_AsAction, HeavyAttacksPlannerParams);
-
-        // ------------------------------------------------------------------
-        // Tier 3 - atomic leaves under each promoted composite.
-        // ------------------------------------------------------------------
-        utils_goap_planner::AddAction(_LightAttacks_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CombatBrain_Light1));
-        utils_goap_planner::AddAction(_LightAttacks_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CombatBrain_Light2));
-        utils_goap_planner::AddAction(_LightAttacks_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CombatBrain_Light3));
-
-        utils_goap_planner::AddAction(_HeavyAttacks_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CombatBrain_Heavy1));
-        utils_goap_planner::AddAction(_HeavyAttacks_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CombatBrain_Heavy2));
-
-        // ---- Label maps ----
+            utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.WS.CombatBrain.EnemyAttacked"), true));
+        if (!TryPromoteAction(0, utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.CombatBrain.Engage"), EngageGoal, false,
+                _Engage_AsPlanner))
+        { return false; }
+        if (!TryAddAction(1, UCk_GoapGym_CombatBrain_LightAttacks,
+                _LightAttacks_AsAction) ||
+            !TryAddAction(1, UCk_GoapGym_CombatBrain_HeavyAttacks,
+                _HeavyAttacks_AsAction) ||
+            !TryAddAction(1, UCk_GoapGym_CombatBrain_Engage_HoldFire, Action))
+        { return false; }
+        auto LightGoal = TArray<FCk_GoapWS_Condition_Authored>();
+        LightGoal.Add(FCk_GoapWS_Condition_Authored(
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CombatBrain.EnemyHit"), true));
+        if (!TryPromoteAction(3, utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.CombatBrain.LightAttacks"), LightGoal, false,
+                _LightAttacks_AsPlanner))
+        { return false; }
+        auto HeavyGoal = TArray<FCk_GoapWS_Condition_Authored>();
+        HeavyGoal.Add(FCk_GoapWS_Condition_Authored(
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CombatBrain.EnemyHit"), true));
+        if (!TryPromoteAction(4, utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.CombatBrain.HeavyAttacks"), HeavyGoal, false,
+                _HeavyAttacks_AsPlanner))
+        { return false; }
+        if (!TryAddAction(2, UCk_GoapGym_CombatBrain_Light1, Action) ||
+            !TryAddAction(2, UCk_GoapGym_CombatBrain_Light2, Action) ||
+            !TryAddAction(2, UCk_GoapGym_CombatBrain_Light3, Action) ||
+            !TryAddAction(3, UCk_GoapGym_CombatBrain_Heavy1, Action) ||
+            !TryAddAction(3, UCk_GoapGym_CombatBrain_Heavy2, Action))
+        { return false; }
         _KnownClasses_Alive.Add(UCk_GoapGym_CombatBrain_Engage);
         _KnownLabels_Alive.Add("Engage");
         _KnownClasses_Alive.Add(UCk_GoapGym_CombatBrain_Win);
         _KnownLabels_Alive.Add("Win");
         _KnownClasses_Alive.Add(UCk_GoapGym_CombatBrain_Standby);
         _KnownLabels_Alive.Add("Standby");
-
         _KnownClasses_Engage.Add(UCk_GoapGym_CombatBrain_LightAttacks);
         _KnownLabels_Engage.Add("LightAttacks");
         _KnownClasses_Engage.Add(UCk_GoapGym_CombatBrain_HeavyAttacks);
         _KnownLabels_Engage.Add("HeavyAttacks");
         _KnownClasses_Engage.Add(UCk_GoapGym_CombatBrain_Engage_HoldFire);
         _KnownLabels_Engage.Add("HoldFire");
-
         _KnownClasses_Light.Add(UCk_GoapGym_CombatBrain_Light1);
         _KnownLabels_Light.Add("Light1");
         _KnownClasses_Light.Add(UCk_GoapGym_CombatBrain_Light2);
         _KnownLabels_Light.Add("Light2");
         _KnownClasses_Light.Add(UCk_GoapGym_CombatBrain_Light3);
         _KnownLabels_Light.Add("Light3");
-
         _KnownClasses_Heavy.Add(UCk_GoapGym_CombatBrain_Heavy1);
         _KnownLabels_Heavy.Add("Heavy1");
         _KnownClasses_Heavy.Add(UCk_GoapGym_CombatBrain_Heavy2);
         _KnownLabels_Heavy.Add("Heavy2");
-
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
+        return true;
     }
-
-    void Reset_WS()
+    private bool ReadKey(FName Name) const
     {
-        if (ck::Is_NOT_Valid(_WS)) { return; }
-        SetWS(n"Gym.Goap.WS.CombatBrain.EnemyVisible", false);
-        SetWS(n"Gym.Goap.WS.CombatBrain.WeaponEquipped", false);
-        SetWS(n"Gym.Goap.WS.CombatBrain.StaminaHigh", false);
-        SetWS(n"Gym.Goap.WS.CombatBrain.EnemyHit", false);
-        SetWS(n"Gym.Goap.WS.CombatBrain.EnemyAttacked", false);
-        SetWS(n"Gym.Goap.WS.CombatBrain.EnemyDead", false);
+        return utils_goap_world_state::Get_Value(
+            _WS, utils_gameplay_tag::ResolveGameplayTag(Name));
     }
-
-    void SetWS(FName InKey, bool InValue)
+    protected bool FillStationText(FCkGoapGym_StationFrame&out Frame) const override
     {
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey), InValue);
-    }
 
-    private bool GetWS(FName InKey)
-    {
-        return utils_goap_world_state::Get_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey));
-    }
-
-    UFUNCTION()
-    private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        if (ck::Is_NOT_Valid(_AlivePlanner)) { return; }
-
-        auto EnemyVisible    = GetWS(n"Gym.Goap.WS.CombatBrain.EnemyVisible");
-        auto WeaponEquipped  = GetWS(n"Gym.Goap.WS.CombatBrain.WeaponEquipped");
-        auto StaminaHigh     = GetWS(n"Gym.Goap.WS.CombatBrain.StaminaHigh");
-        auto EnemyHit        = GetWS(n"Gym.Goap.WS.CombatBrain.EnemyHit");
-        auto EnemyAttacked   = GetWS(n"Gym.Goap.WS.CombatBrain.EnemyAttacked");
-        auto EnemyDead       = GetWS(n"Gym.Goap.WS.CombatBrain.EnemyDead");
+        auto EnemyVisible    = ReadKey(n"Gym.Goap.WS.CombatBrain.EnemyVisible");
+        auto WeaponEquipped  = ReadKey(n"Gym.Goap.WS.CombatBrain.WeaponEquipped");
+        auto StaminaHigh     = ReadKey(n"Gym.Goap.WS.CombatBrain.StaminaHigh");
+        auto EnemyHit        = ReadKey(n"Gym.Goap.WS.CombatBrain.EnemyHit");
+        auto EnemyAttacked   = ReadKey(n"Gym.Goap.WS.CombatBrain.EnemyAttacked");
+        auto EnemyDead       = ReadKey(n"Gym.Goap.WS.CombatBrain.EnemyDead");
 
         auto Chain = utils_goap_planner::Get_ActiveChain(_AlivePlanner);
         auto ChainLen = Chain.Num();
@@ -311,7 +206,7 @@ class UCk_EntityScript_GoapGym_CombatBrain_Station : UCk_GenericEntityScript_UE
                 _KnownClasses_Heavy, _KnownLabels_Heavy);
         }
 
-        auto Body = "World State\n"
+        Frame.Detail = "World State\n"
             + f"  EnemyVisible    {CkGoapGym_Common::Render_Bool(EnemyVisible)}\n"
             + f"  WeaponEquipped  {CkGoapGym_Common::Render_Bool(WeaponEquipped)}\n"
             + f"  StaminaHigh     {CkGoapGym_Common::Render_Bool(StaminaHigh)}\n"
@@ -335,8 +230,9 @@ class UCk_EntityScript_GoapGym_CombatBrain_Station : UCk_GenericEntityScript_UE
             + "  panel [X] / [Y] / [Z]  EnemyVisible / WeaponEquipped / StaminaHigh\n"
             + "  panel [5] / [6]        Drive to EnemyDead / Reset";
 
-        CkGym_Common::Update_StationDisplay(ck::ToEntity(this),
-            "STATION 6 / COMBAT BRAIN", Body,
-            "Canonical 3-tier Planner (spec 2.2).\nAlive -> Engage -> Light/Heavy -> atomic leaves.");
+
+        Frame.Title = "STATION 6 / COMBAT BRAIN";
+        Frame.Footer = "Canonical 3-tier Planner (spec 2.2).\nAlive -> Engage -> Light/Heavy -> atomic leaves.";
+        return true;
     }
 }

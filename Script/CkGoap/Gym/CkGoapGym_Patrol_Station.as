@@ -56,26 +56,13 @@ struct FCk_GoapGym_Patrol_Station_SpawnParams
     FTransform InitialTransform = FTransform::Identity;
 }
 
-class UCk_EntityScript_GoapGym_Patrol_Station : UCk_GenericEntityScript_UE
+class UCk_EntityScript_GoapGym_Patrol_Station : UCk_EntityScript_GoapGym_SharedStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
-    // ---- Top-level Planner ----
     private FCk_Handle_Goap_Planner _TopPlanner;
-
-    // ---- Tier-1 composites (Action+Planner) ----
     private FCk_Handle_Goap_Action  _GoToWaypoint_AsAction;
     private FCk_Handle_Goap_Planner _GoToWaypoint_AsPlanner;
     private FCk_Handle_Goap_Action  _Observe_AsAction;
     private FCk_Handle_Goap_Planner _Observe_AsPlanner;
-
-    // ---- WorldState ----
-    private FCk_Handle_Goap_WorldState _WS;
-
-    // ---- Label maps for plan rendering ----
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Top;
     private TArray<FString> _KnownLabels_Top;
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_GoTo;
@@ -83,143 +70,64 @@ class UCk_EntityScript_GoapGym_Patrol_Station : UCk_GenericEntityScript_UE
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses_Observe;
     private TArray<FString> _KnownLabels_Observe;
 
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow
-    DoConstruct(FCk_Handle& InHandle)
+    int32 Get_StationIndex() const override { return 3; }
+
+    protected bool PrepareStation() override
     {
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-
-        // ------------------------------------------------------------------
-        // WorldState - all keys start false.
-        // ------------------------------------------------------------------
-        _WS = utils_goap_world_state::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Patrol"),
-            FCk_Goap_WorldState_Spec());
-        Reset_WS();
-
-        // ------------------------------------------------------------------
-        // Top-level Planner, goal: AreaPatrolled=true.
-        // ------------------------------------------------------------------
-        auto Goal = TArray<FCk_GoapWS_Condition_Authored>();
-        Goal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Patrol.AreaPatrolled"),
-            true));
-
-        auto PlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Patrol"));
-        PlannerParams.Set_Goal(Goal);
-        PlannerParams.Set_WorldStateSource(_WS);
-        PlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _TopPlanner = utils_goap_planner::Add(InHandle, PlannerParams);
-
-        // ------------------------------------------------------------------
-        // Tier 1a - GoToWaypoint composite.
-        // Step 1: AddAction registers GoToWaypoint as a direct child of the
-        //         top-level Planner (PR-B.1b Stage 5: no implicit root).
-        // Step 2: Promote to Planner with its own independent goal (AtWaypoint=true).
-        // Step 3: Add Tier-2 leaf actions under its promoted Planner role.
-        // ------------------------------------------------------------------
-        auto GoToWaypointActionParams = FCk_Goap_Action_Spec(
-            UCk_GoapGym_Patrol_GoToWaypoint);
-        _GoToWaypoint_AsAction = utils_goap_planner::AddAction(_TopPlanner, GoToWaypointActionParams);
-
-        // Promote: GoToWaypoint entity now carries BOTH Action and Planner roles.
-        auto GoToWaypointGoal = TArray<FCk_GoapWS_Condition_Authored>();
-        GoToWaypointGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Patrol.AtWaypoint"),
-            true));
-        auto GoToWaypointPlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Patrol.GoToWaypoint"));
-        GoToWaypointPlannerParams.Set_Goal(GoToWaypointGoal);
-        GoToWaypointPlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _GoToWaypoint_AsPlanner = utils_goap_planner::PromoteActionToPlanner(
-            _GoToWaypoint_AsAction, GoToWaypointPlannerParams);
-
-        // Tier-2 leaves under GoToWaypoint's Planner (direct tree children of
-        // the promoted host).
-        utils_goap_planner::AddAction(_GoToWaypoint_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Patrol_Run));
-        utils_goap_planner::AddAction(_GoToWaypoint_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Patrol_Walk));
-
-        // ------------------------------------------------------------------
-        // Tier 1b - Observe composite (same promotion pattern).
-        // ------------------------------------------------------------------
-        auto ObserveActionParams = FCk_Goap_Action_Spec(
-            UCk_GoapGym_Patrol_Observe);
-        _Observe_AsAction = utils_goap_planner::AddAction(_TopPlanner, ObserveActionParams);
-
+        if (!TryCreateWS(utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Patrol"))) { return false; }
+        auto TopGoal = TArray<FCk_GoapWS_Condition_Authored>();
+        TopGoal.Add(FCk_GoapWS_Condition_Authored(
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Patrol.AreaPatrolled"), true));
+        if (!TryCreateTopPlanner(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.Patrol"), TopGoal, false, _TopPlanner))
+        { return false; }
+        if (!TryAddAction(0, UCk_GoapGym_Patrol_GoToWaypoint, _GoToWaypoint_AsAction))
+        { return false; }
+        auto GoToGoal = TArray<FCk_GoapWS_Condition_Authored>();
+        GoToGoal.Add(FCk_GoapWS_Condition_Authored(
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Patrol.AtWaypoint"), true));
+        if (!TryPromoteAction(0, utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.Patrol.GoToWaypoint"), GoToGoal, false,
+                _GoToWaypoint_AsPlanner))
+        { return false; }
+        FCk_Handle_Goap_Action Action;
+        if (!TryAddAction(1, UCk_GoapGym_Patrol_Run, Action) ||
+            !TryAddAction(1, UCk_GoapGym_Patrol_Walk, Action) ||
+            !TryAddAction(0, UCk_GoapGym_Patrol_Observe, _Observe_AsAction))
+        { return false; }
         auto ObserveGoal = TArray<FCk_GoapWS_Condition_Authored>();
         ObserveGoal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Patrol.AreaScanned"),
-            true));
-        auto ObservePlannerParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Patrol.Observe"));
-        ObservePlannerParams.Set_Goal(ObserveGoal);
-        ObservePlannerParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _Observe_AsPlanner = utils_goap_planner::PromoteActionToPlanner(
-            _Observe_AsAction, ObservePlannerParams);
-
-        utils_goap_planner::AddAction(_Observe_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Patrol_LookAround));
-        utils_goap_planner::AddAction(_Observe_AsPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Patrol_WaitAtPost));
-
-        // ------------------------------------------------------------------
-        // Tier 1c - MarkDone atomic leaf (no Planner promotion needed).
-        // ------------------------------------------------------------------
-        utils_goap_planner::AddAction(_TopPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Patrol_MarkDone));
-
-        // Always-valid-plan tenet fallback - see the CkGoap docs Sec. "Design tenets".
-        utils_goap_planner::AddAction(_TopPlanner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_Patrol_StandWatch));
-
-        // ---- Label maps ----
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Patrol.AreaScanned"), true));
+        if (!TryPromoteAction(3, utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.Patrol.Observe"), ObserveGoal, false,
+                _Observe_AsPlanner))
+        { return false; }
+        if (!TryAddAction(2, UCk_GoapGym_Patrol_LookAround, Action) ||
+            !TryAddAction(2, UCk_GoapGym_Patrol_WaitAtPost, Action) ||
+            !TryAddAction(0, UCk_GoapGym_Patrol_MarkDone, Action) ||
+            !TryAddAction(0, UCk_GoapGym_Patrol_StandWatch, Action))
+        { return false; }
         _KnownClasses_Top.Add(UCk_GoapGym_Patrol_GoToWaypoint); _KnownLabels_Top.Add("GoToWaypoint");
         _KnownClasses_Top.Add(UCk_GoapGym_Patrol_Observe);      _KnownLabels_Top.Add("Observe");
         _KnownClasses_Top.Add(UCk_GoapGym_Patrol_MarkDone);     _KnownLabels_Top.Add("MarkDone");
         _KnownClasses_Top.Add(UCk_GoapGym_Patrol_StandWatch);   _KnownLabels_Top.Add("StandWatch");
-
         _KnownClasses_GoTo.Add(UCk_GoapGym_Patrol_Run);  _KnownLabels_GoTo.Add("Run");
         _KnownClasses_GoTo.Add(UCk_GoapGym_Patrol_Walk); _KnownLabels_GoTo.Add("Walk");
-
         _KnownClasses_Observe.Add(UCk_GoapGym_Patrol_LookAround); _KnownLabels_Observe.Add("LookAround");
         _KnownClasses_Observe.Add(UCk_GoapGym_Patrol_WaitAtPost); _KnownLabels_Observe.Add("WaitAtPost");
-
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
+        return true;
     }
-
-    void Reset_WS()
+    private bool ReadKey(FName Name) const
     {
-        if (ck::Is_NOT_Valid(_WS)) { return; }
-        SetWS(n"Gym.Goap.WS.Patrol.AtWaypoint", false);
-        SetWS(n"Gym.Goap.WS.Patrol.AreaScanned", false);
-        SetWS(n"Gym.Goap.WS.Patrol.AreaPatrolled", false);
+        return utils_goap_world_state::Get_Value(
+            _WS, utils_gameplay_tag::ResolveGameplayTag(Name));
     }
-
-    void SetWS(FName InKey, bool InValue)
+    protected bool FillStationText(FCkGoapGym_StationFrame&out Frame) const override
     {
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey), InValue);
-    }
 
-    private bool GetWS(FName InKey)
-    {
-        return utils_goap_world_state::Get_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey));
-    }
-
-    UFUNCTION()
-    private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        if (ck::Is_NOT_Valid(_TopPlanner)) { return; }
-
-        auto AtWaypoint   = GetWS(n"Gym.Goap.WS.Patrol.AtWaypoint");
-        auto AreaScanned  = GetWS(n"Gym.Goap.WS.Patrol.AreaScanned");
-        auto AreaPatrolled = GetWS(n"Gym.Goap.WS.Patrol.AreaPatrolled");
+        auto AtWaypoint   = ReadKey(n"Gym.Goap.WS.Patrol.AtWaypoint");
+        auto AreaScanned  = ReadKey(n"Gym.Goap.WS.Patrol.AreaScanned");
+        auto AreaPatrolled = ReadKey(n"Gym.Goap.WS.Patrol.AreaPatrolled");
 
         auto Chain = utils_goap_planner::Get_ActiveChain(_TopPlanner);
         auto ChainLen = Chain.Num();
@@ -252,7 +160,7 @@ class UCk_EntityScript_GoapGym_Patrol_Station : UCk_GenericEntityScript_UE
                 _KnownClasses_Observe, _KnownLabels_Observe);
         }
 
-        auto Body = "World State\n"
+        Frame.Detail = "World State\n"
             + f"  AtWaypoint      {CkGoapGym_Common::Render_Bool(AtWaypoint)}\n"
             + f"  AreaScanned     {CkGoapGym_Common::Render_Bool(AreaScanned)}\n"
             + f"  AreaPatrolled   {CkGoapGym_Common::Render_Bool(AreaPatrolled)}\n\n"
@@ -270,8 +178,9 @@ class UCk_EntityScript_GoapGym_Patrol_Station : UCk_GenericEntityScript_UE
             + "  panel [G] / [I]  AtWaypoint / AreaScanned\n"
             + "  panel [O] / [3]  AreaPatrolled / Reset";
 
-        CkGym_Common::Update_StationDisplay(ck::ToEntity(this),
-            "STATION 4 / PATROL ROUTE", Body,
-            "Multi-tier Planner. 2-deep chain:\n[GoToWaypoint/Observe/MarkDone, Run/LookAround].");
+
+        Frame.Title = "STATION 4 / PATROL ROUTE";
+        Frame.Footer = "Multi-tier Planner. 2-deep chain:\n[GoToWaypoint/Observe/MarkDone, Run/LookAround].";
+        return true;
     }
 }

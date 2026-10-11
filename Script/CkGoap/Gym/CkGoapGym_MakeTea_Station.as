@@ -24,110 +24,56 @@ struct FCk_GoapGym_MakeTea_Station_SpawnParams
     FTransform InitialTransform = FTransform::Identity;
 }
 
-class UCk_EntityScript_GoapGym_MakeTea_Station : UCk_GenericEntityScript_UE
+class UCk_EntityScript_GoapGym_MakeTea_Station : UCk_EntityScript_GoapGym_SharedStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
     private FCk_Handle_Goap_Planner _Planner;
-    private FCk_Handle_Goap_WorldState _WS;
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses;
     private TArray<FString> _KnownLabels;
 
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow
-    DoConstruct(FCk_Handle& InHandle)
+    int32 Get_StationIndex() const override { return 1; }
+
+    protected bool PrepareStation() override
     {
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-
-        _WS = utils_goap_world_state::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Tea"),
-            FCk_Goap_WorldState_Spec());
-        Reset_WS_To_AllIngredients();
-
-        // U11.1: Planner goal on PlannerParams.
+        if (!TryCreateWS(utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Tea"))) { return false; }
         auto Goal = TArray<FCk_GoapWS_Condition_Authored>();
         Goal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Tea.TeaServed"),
-            true));
-
-        auto ActionSetParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.Tea"));
-        ActionSetParams.Set_Goal(Goal);
-        ActionSetParams.Set_WorldStateSource(_WS);
-        ActionSetParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        // ----------------------------------------------------------------------
-        // Always-valid-plan tenet OPT-OUT (the CkGoap docs Sec. "Design tenets").
-        // This station INTENTIONALLY demonstrates PlanFailed as a teaching
-        // exception: dropping an ingredient (HasKettle/HasWater/HasTeaLeaves/
-        // HasCup) collapses the dependency chain and the planner returns
-        // PlanFailed. Adding a fallback Action here would defeat the entire
-        // teaching purpose of the gym - we want to show what PlanFailed looks
-        // like so consumers understand why every shipping Planner must avoid it.
-        // The other CkGoap gym Planners all carry no-precondition fallbacks per
-        // the tenet; only this one and the dedicated OptOutDemo station opt out.
-        // ----------------------------------------------------------------------
-        ActionSetParams.Set_AllowPlanFailed(true);
-        _Planner = utils_goap_planner::Add(InHandle, ActionSetParams);
-
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_MakeTea_BoilWater));
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_MakeTea_SteepLeaves));
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_MakeTea_PourCup));
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_MakeTea_Serve));
-
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.Tea.TeaServed"), true));
+        if (!TryCreateTopPlanner(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.Tea"), Goal, true, _Planner))
+        { return false; }
+        FCk_Handle_Goap_Action Action;
+        if (!TryAddAction(0, UCk_GoapGym_MakeTea_BoilWater, Action) ||
+            !TryAddAction(0, UCk_GoapGym_MakeTea_SteepLeaves, Action) ||
+            !TryAddAction(0, UCk_GoapGym_MakeTea_PourCup, Action) ||
+            !TryAddAction(0, UCk_GoapGym_MakeTea_Serve, Action))
+        { return false; }
         _KnownClasses.Add(UCk_GoapGym_MakeTea_BoilWater);   _KnownLabels.Add("BoilWater");
         _KnownClasses.Add(UCk_GoapGym_MakeTea_SteepLeaves); _KnownLabels.Add("SteepLeaves");
         _KnownClasses.Add(UCk_GoapGym_MakeTea_PourCup);     _KnownLabels.Add("PourCup");
         _KnownClasses.Add(UCk_GoapGym_MakeTea_Serve);       _KnownLabels.Add("Serve");
-
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
+        return true;
     }
-
-    private void Reset_WS_To_AllIngredients()
+    private bool ReadKey(FName Name) const
     {
-        if (ck::Is_NOT_Valid(_WS)) { return; }
-        Set(n"Gym.Goap.WS.Tea.HasKettle", true);
-        Set(n"Gym.Goap.WS.Tea.HasWater", true);
-        Set(n"Gym.Goap.WS.Tea.HasTeaLeaves", true);
-        Set(n"Gym.Goap.WS.Tea.HasCup", true);
-        Set(n"Gym.Goap.WS.Tea.WaterBoiled", false);
-        Set(n"Gym.Goap.WS.Tea.TeaSteeped", false);
-        Set(n"Gym.Goap.WS.Tea.TeaPoured", false);
-        Set(n"Gym.Goap.WS.Tea.TeaServed", false);
+        return utils_goap_world_state::Get_Value(
+            _WS, utils_gameplay_tag::ResolveGameplayTag(Name));
     }
-
-    private void Set(FName InKey, bool InValue)
+    protected bool FillStationText(FCkGoapGym_StationFrame&out Frame) const override
     {
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey), InValue);
-    }
 
-    UFUNCTION()
-    private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        if (ck::Is_NOT_Valid(_Planner)) { return; }
-
-        auto HasKettle  = Get(n"Gym.Goap.WS.Tea.HasKettle");
-        auto HasWater   = Get(n"Gym.Goap.WS.Tea.HasWater");
-        auto HasLeaves  = Get(n"Gym.Goap.WS.Tea.HasTeaLeaves");
-        auto HasCup     = Get(n"Gym.Goap.WS.Tea.HasCup");
-        auto WaterBoiled = Get(n"Gym.Goap.WS.Tea.WaterBoiled");
-        auto TeaSteeped = Get(n"Gym.Goap.WS.Tea.TeaSteeped");
-        auto TeaPoured  = Get(n"Gym.Goap.WS.Tea.TeaPoured");
-        auto TeaServed  = Get(n"Gym.Goap.WS.Tea.TeaServed");
+        auto HasKettle  = ReadKey(n"Gym.Goap.WS.Tea.HasKettle");
+        auto HasWater   = ReadKey(n"Gym.Goap.WS.Tea.HasWater");
+        auto HasLeaves  = ReadKey(n"Gym.Goap.WS.Tea.HasTeaLeaves");
+        auto HasCup     = ReadKey(n"Gym.Goap.WS.Tea.HasCup");
+        auto WaterBoiled = ReadKey(n"Gym.Goap.WS.Tea.WaterBoiled");
+        auto TeaSteeped = ReadKey(n"Gym.Goap.WS.Tea.TeaSteeped");
+        auto TeaPoured  = ReadKey(n"Gym.Goap.WS.Tea.TeaPoured");
+        auto TeaServed  = ReadKey(n"Gym.Goap.WS.Tea.TeaServed");
 
         auto Status = utils_goap_planner::Get_PlanStatus(_Planner);
         auto Plan = utils_goap_planner::Get_PlanClasses(_Planner);
 
-        auto Body = "Ingredients\n"
+        Frame.Detail = "Ingredients\n"
             + f"  HasKettle      {CkGoapGym_Common::Render_Bool(HasKettle)}\n"
             + f"  HasWater       {CkGoapGym_Common::Render_Bool(HasWater)}\n"
             + f"  HasTeaLeaves   {CkGoapGym_Common::Render_Bool(HasLeaves)}\n"
@@ -144,14 +90,9 @@ class UCk_EntityScript_GoapGym_MakeTea_Station : UCk_GenericEntityScript_UE
             + "  panel [K] / [L] / [M] / [N]  Kettle / Water / Leaves / Cup\n"
             + "  panel [1]                    Reset the tea WS";
 
-        CkGym_Common::Update_StationDisplay(ck::ToEntity(this),
-            "STATION 2 / MAKE TEA", Body,
-            "4-step dependency chain. Drop an ingredient to see PlanFailed.");
-    }
 
-    private bool Get(FName InKey)
-    {
-        return utils_goap_world_state::Get_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey));
+        Frame.Title = "STATION 2 / MAKE TEA";
+        Frame.Footer = "4-step dependency chain. Drop an ingredient to see PlanFailed.";
+        return true;
     }
 }

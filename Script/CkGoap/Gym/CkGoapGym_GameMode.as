@@ -1,30 +1,10 @@
 // Language=angelscript
 
-//============================================================================
-// CkGoap_Gym - Main Gym GameMode + PlayerController
-//
-// Spawns 7 stations of ascending complexity:
-//   1. Open Door         - atomic plan
-//   2. Make Tea          - 4-step linear chain (intentional PlanFailed demo
-//                          ingredient drop; opts out of always-valid-plan tenet)
-//   3. Cross River       - 3-branch cost selection
-//   4. Patrol Route      - composite Action, chain extends to [Root, DoPatrol]
-//   5. Survival Decision - two independent ActionSets on one entity
-//   6. Combat Brain      - 4-tier canonical hierarchy (spec 2.2)
-//   7. Opt-Out Demo      - intentional permanent PlanFailed via
-//                          _AllowPlanFailed=true; counterpart to MakeTea
-//
-// Each station is its own ECS entity tagged with a station identity gameplay
-// tag. The control-panel rows resolve a station entity by tag, then locate its
-// named WorldState (created in DoConstruct with a gym-specific name tag) via
-// utils_goap_world_state::Find_ByName and read or mutate it directly. The Goap
-// runtime reacts via OnWorldStateDirty replan policies on each root.
-//============================================================================
-
 class ACk_GoapGym_GameMode : ACkTests_Gym_Base_GameMode
 {
     default PlayerControllerClass = ACk_GoapGym_PlayerController;
     default DefaultPawnClass = ACk_Gym_Base_Pawn;
+    default GameStateClass = ACk_GoapGym_GameState;
 }
 
 class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
@@ -32,35 +12,20 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
         auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
-
-        Stations.Add(MakeStationPayload(n"Gym.Goap.Station.OpenDoor", "STATION 1 / OPEN DOOR",
-            "Atomic plan.\nGoal: Door.IsOpen=true."));
-
-        Stations.Add(MakeStationPayload(n"Gym.Goap.Station.MakeTea", "STATION 2 / MAKE TEA",
-            "4-step dependency chain.\nGoal: TeaServed=true."));
-
-        Stations.Add(MakeStationPayload(n"Gym.Goap.Station.CrossRiver", "STATION 3 / CROSS RIVER",
-            "Branching cost-sensitive plan.\nGoal: Crossed=true."));
-
-        Stations.Add(MakeStationPayload(n"Gym.Goap.Station.Patrol", "STATION 4 / PATROL ROUTE",
-            "Multi-tier Planner (U11.6).\nGoToWaypoint + Observe promoted to Planners.\nChain: [Root, Composite, Leaf]."));
-
-        Stations.Add(MakeStationPayload(n"Gym.Goap.Station.Survival", "STATION 5 / SURVIVAL DECISION",
-            "Two independent ActionSets.\nGoals: Hungry=false AND SafeFromThreat=true."));
-
-        Stations.Add(MakeStationPayload(n"Gym.Goap.Station.CombatBrain", "STATION 6 / COMBAT BRAIN",
-            "4-tier canonical Planner (spec 2.2).\nAlive -> Engage -> Light/Heavy -> leaves.\nSibling promotions at tier 3."));
-
-        Stations.Add(MakeStationPayload(n"Gym.Goap.Station.OptOutDemo", "STATION 7 / OPT-OUT DEMO",
-            "Intentional _AllowPlanFailed=true.\nGoal is structurally unreachable.\nDebugger should show OPT-OUT indicator."));
-
+        if (!IsLocalController()) { return Stations; }
+        for (int32 I = 0; I < 7; ++I)
+        {
+            Stations.Add(MakeStationPayload(FName(CkGoapGym::Get_BaseTag(I)),
+                CkGoapGym::Get_Title(I), CkGoapGym::Get_Description(I)));
+            Stations[I].Transform = CkGoapGym::Get_StationTransform(I);
+        }
         return Stations;
     }
 
     private FCkGym_Station_SpawnParams_Payload MakeStationPayload(FName InTag, FString InTitle, FString InDesc)
     {
         auto Station = FCkGym_Station_SpawnParams_Payload();
-        Station.Tags.Add(InTag);
+        Station.Tags.Add(FName(Get_StationTag(InTag.ToString())));
         Station.Title = FText::FromString(InTitle);
         auto Desc = TArray<FText>();
         Desc.Add(FText::FromString(InDesc));
@@ -71,315 +36,485 @@ class ACk_GoapGym_PlayerController : ACk_Gym_Base_PlayerController
         return Station;
     }
 
+    UPROPERTY(Replicated) FCkGoapGym_ControlAck LastControlAck;
+
+    private bool _Admitted = false;
+    private bool _Ending = false;
+    private bool _LocalFailed = false;
+    private FString _LocalFailureReason;
+    private bool _StateCaptured = false;
+    private bool _CatalogCaptured = false;
+    private bool _PawnCaptured = false;
+    private bool _StationsBound = false;
+    private bool _ServerPending = false;
+    private double _BootstrapStartedSeconds = 0.0;
+    private int32 _CatalogIndex = -1;
+    private FCkGym_Entry _CatalogEntry;
+    private UWorld _BoundWorld;
+    private ACk_GoapGym_GameState _BoundState;
+    private APawn _BoundPawn;
+    private TArray<FCk_Handle> _Stations;
+    private TArray<FCk_Handle> _StationCohorts;
+    private FCkGoapGym_WireSnapshot _PresentedFrame;
+    private int64 _ProjectedSourceGeneration = 0;
+    private int64 _ProjectedSequence = 0;
+    private int32 _RequestedSerial = 0;
+    private int32 _PendingSerial = 0;
+    private int32 _PendingAction = -1;
+    private int64 _PendingSourceGeneration = 0;
+    private int64 _PendingGeneration = 0;
+
+    FCk_Handle Get_StationLifetimeOwner() override
+    { return IsLocalController() ? ck::ToEntity(this) : FCk_Handle(); }
+
+    FString Get_StationTag(FString Tag) override
+    { return f"{Tag}_{GetName()}"; }
+
+    private bool IsDirect(FCk_Handle Child, FCk_Handle Parent)
+    {
+        return ck::IsValid(Child) && ck::IsValid(Parent) &&
+            !utils_entity_lifetime::Get_IsPendingDestroy(
+                Child, ECk_EntityLifetime_DestructionPhase::BeginDestroy) &&
+            utils_entity_lifetime::Has_LifetimeOwner(Child) &&
+            utils_entity_lifetime::Get_LifetimeOwner(Child) == Parent;
+    }
+
+    private ACk_GoapGym_GameState Get_ExactState()
+    {
+        auto World = GetWorld();
+        if (!_Admitted || _Ending || IsActorBeingDestroyed() ||
+            ck::Is_NOT_Valid(World) || World != _BoundWorld) { return nullptr; }
+        auto State = Cast<ACk_GoapGym_GameState>(World.GetGameState());
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != World ||
+            State.GetClass() != ACk_GoapGym_GameState ||
+            State.IsActorBeingDestroyed() ||
+            (_StateCaptured && State != _BoundState)) { return nullptr; }
+        if (HasAuthority())
+        {
+            auto Mode = Gameplay::GetGameMode();
+            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != World ||
+                Mode.GetClass() != ACk_GoapGym_GameMode) { return nullptr; }
+        }
+        if (!State.Get_HasPublishedCatalog()) { return nullptr; }
+        auto Entries = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (Index < 0 || Index >= Entries.Num()) { return nullptr; }
+        auto Entry = Entries[Index];
+        if (Entry.DisplayName != "Goap" ||
+            Entry.GameModeClass != ACk_GoapGym_GameMode ||
+            (_CatalogCaptured && (Index != _CatalogIndex ||
+                Entry.DisplayName != _CatalogEntry.DisplayName ||
+                Entry.GameModeClass != _CatalogEntry.GameModeClass ||
+                Entry.LevelName != _CatalogEntry.LevelName ||
+                Entry.Category != _CatalogEntry.Category ||
+                Entry.HintCode != _CatalogEntry.HintCode))) { return nullptr; }
+        return State;
+    }
+
+    private bool CaptureStateIfReady()
+    {
+        auto World = GetWorld();
+        auto Observed = ck::IsValid(World)
+            ? Cast<ACk_GoapGym_GameState>(World.GetGameState()) : nullptr;
+        if (ck::IsValid(Observed) && Observed.GetWorld() == World &&
+            Observed.GetClass() == ACk_GoapGym_GameState &&
+            !Observed.IsActorBeingDestroyed() && !_StateCaptured)
+        { _BoundState = Observed; _StateCaptured = true; }
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State)) { return false; }
+        if (!_StateCaptured) { _BoundState = State; _StateCaptured = true; }
+        if (!_CatalogCaptured)
+        {
+            _CatalogIndex = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+            _CatalogEntry = UCk_Utils_GymRegistry_UE::Get_GymRegistry()[_CatalogIndex];
+            _CatalogCaptured = true;
+        }
+        return true;
+    }
+
+    private bool HasExactPawn()
+    {
+        auto Pawn = GetControlledPawn();
+        return _PawnCaptured && ck::IsValid(Pawn) &&
+            Pawn == _BoundPawn && Pawn.GetWorld() == _BoundWorld &&
+            !Pawn.IsActorBeingDestroyed() &&
+            Pawn.GetClass() == ACk_Gym_Base_Pawn &&
+            Pawn.GetController() == this;
+    }
+
+    private bool CapturePawnIfReady()
+    {
+        if (_PawnCaptured) { return HasExactPawn(); }
+        auto Pawn = GetControlledPawn();
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetWorld() != _BoundWorld ||
+            Pawn.IsActorBeingDestroyed() ||
+            Pawn.GetClass() != ACk_Gym_Base_Pawn ||
+            Pawn.GetController() != this) { return false; }
+        _BoundPawn = Pawn;
+        _PawnCaptured = true;
+        return HasExactPawn();
+    }
+
+    private bool CheckStations(bool Bind)
+    {
+        if (!IsLocalController() || !HasExactPawn()) { return false; }
+        auto ControllerEntity = ck::ToEntity(this);
+        auto WorldRoot = ck::TransientEntity();
+        if (ck::Is_NOT_Valid(ControllerEntity) || ck::Is_NOT_Valid(WorldRoot) ||
+            utils_entity_lifetime::Get_WorldForEntity(WorldRoot) != _BoundWorld ||
+            (_StationsBound &&
+                (_Stations.Num() != 7 || _StationCohorts.Num() != 7)))
+        { return false; }
+        TArray<FCk_Handle> Found;
+        TArray<FCk_Handle> Cohorts;
+        for (int32 I = 0; I < 7; ++I)
+        {
+            auto Tag = CkGoapGym::Get_BaseTag(I);
+            if (Tag.IsEmpty()) { return false; }
+            auto Matches = utils_entity_tag::ForEach_Entity(
+                WorldRoot, FName(Get_StationTag(Tag)));
+            if (Matches.Num() != 1 || ck::Is_NOT_Valid(Matches[0]) ||
+                !Matches[0].Has_Fragment(FCkGym_Station_Anchors) ||
+                !utils_entity_lifetime::Has_LifetimeOwner(Matches[0]))
+            { return false; }
+            auto Station = Matches[0];
+            auto Cohort = utils_entity_lifetime::Get_LifetimeOwner(Station);
+            if (!IsDirect(Station, Cohort) ||
+                !IsDirect(Cohort, ControllerEntity) ||
+                (Station.Get_Fragment(FCkGym_Station_Anchors).FootprintCenter -
+                    CkGoapGym::Get_StationTransform(I).GetLocation()
+                ).SizeSquared() > 1.0 ||
+                (_StationsBound &&
+                    (Station != _Stations[I] || Cohort != _StationCohorts[I])))
+            { return false; }
+            auto Script = Cast<UCk_EntityScript_GymStation>(
+                UCk_Utils_EntityScript_UE::TryGet_EntityScript(Station));
+            if (ck::Is_NOT_Valid(Script) ||
+                UCk_GymStation_VisibleRuntime_UE::TryGet_StationEntity(Script)
+                    != Station || Found.Contains(Station))
+            { return false; }
+            Found.Add(Station);
+            Cohorts.Add(Cohort);
+        }
+        if (Bind && !_StationsBound)
+        {
+            _Stations = Found;
+            _StationCohorts = Cohorts;
+            _StationsBound = true;
+        }
+        return _StationsBound;
+    }
+
+    private void CloseLocal(FString Reason, bool FailShared = true)
+    {
+        if (_LocalFailed) { return; }
+        _LocalFailed = true;
+        _LocalFailureReason = Reason;
+        if (FailShared && _StateCaptured && ck::IsValid(_BoundState) &&
+            _BoundState.GetWorld() == _BoundWorld)
+        {
+            if (HasAuthority()) { _BoundState.Request_Fail(Reason); }
+            else { _BoundState.Request_CloseClient(Reason); }
+        }
+        ck::Trace(f"Goap local presentation closed: {Reason}");
+    }
+
     void Request_StartGym() override
     {
-        Spawn_OpenDoor("Gym.Goap.Station.OpenDoor");
-        Spawn_MakeTea("Gym.Goap.Station.MakeTea");
-        Spawn_CrossRiver("Gym.Goap.Station.CrossRiver");
-        Spawn_Patrol("Gym.Goap.Station.Patrol");
-        Spawn_Survival("Gym.Goap.Station.Survival");
-        Spawn_CombatBrain("Gym.Goap.Station.CombatBrain");
-        Spawn_OptOutDemo("Gym.Goap.Station.OptOutDemo");
+        if (_Ending || _Admitted) { return; }
+        _BoundWorld = GetWorld();
+        if (ck::Is_NOT_Valid(_BoundWorld))
+        { _LocalFailed = true; _LocalFailureReason = "Controller world is unavailable"; return; }
+        _Admitted = true;
+        _BootstrapStartedSeconds =
+            UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds();
+        CaptureStateIfReady();
     }
 
-    private void Spawn_OpenDoor(FString InTag)
+    UFUNCTION(BlueprintOverride) void Tick(float DeltaSeconds)
     {
-        auto Params = FCk_GoapGym_OpenDoor_Station_SpawnParams();
-        Params.InitialTransform = Get_StationAnchorTransform(InTag, ECk_GymStation_Anchor::PanelCenter);
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle(InTag),
-            UCk_EntityScript_GoapGym_OpenDoor_Station,
-            FInstancedStruct::Make(Params));
+        if (!_Admitted || _Ending || _LocalFailed) { return; }
+        if (ck::Is_NOT_Valid(_BoundWorld) || GetWorld() != _BoundWorld ||
+            IsActorBeingDestroyed())
+        { CloseLocal("Controller world changed"); return; }
+        if (!CaptureStateIfReady())
+        {
+            auto Current = Cast<ACk_GoapGym_GameState>(
+                _BoundWorld.GetGameState());
+            if (_CatalogCaptured ||
+                (_StateCaptured && (ck::Is_NOT_Valid(_BoundState) ||
+                    Current != _BoundState ||
+                    _BoundState.IsActorBeingDestroyed())) ||
+                UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds() -
+                    _BootstrapStartedSeconds >= 20.0)
+            { CloseLocal("Goap GameState or catalog did not converge"); }
+            return;
+        }
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State))
+        { CloseLocal("Goap state changed"); return; }
+        if (State.Get_HasSessionFailure())
+        { CloseLocal("Shared Goap session failed"); return; }
+        if (!CapturePawnIfReady())
+        {
+            if (_PawnCaptured)
+            { CloseLocal("Goap pawn changed", false); }
+            else if (UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds() -
+                _BootstrapStartedSeconds >= 20.0)
+            { CloseLocal("Goap pawn did not converge"); }
+            return;
+        }
+        if (HasAuthority()) { State.Request_EnsureSharedDemo(); }
+        if (!IsLocalController()) { return; }
+        if (!CheckStations(!_StationsBound))
+        { CloseLocal("Local Goap stations changed"); return; }
+        FCkGoapGym_WireSnapshot Frame;
+        if (!State.TryGetPresentation(Frame)) { return; }
+        if (!CkGoapGym::IsValidFrame(Frame))
+        { CloseLocal("Goap presentation is malformed"); return; }
+        if (Frame.Phase == 4)
+        { CloseLocal("Goap presentation ended"); return; }
+        if (_ProjectedSourceGeneration > Frame.SourceGeneration ||
+            (_ProjectedSourceGeneration == Frame.SourceGeneration &&
+                _ProjectedSequence > Frame.Sequence))
+        { CloseLocal("Goap presentation went backward"); return; }
+        if (!ProjectFrame(Frame))
+        { CloseLocal("Goap presentation failed"); return; }
+        _PresentedFrame = Frame; // local value copy, never source handles
+        _ProjectedSourceGeneration = Frame.SourceGeneration;
+        _ProjectedSequence = Frame.Sequence;
     }
 
-    private void Spawn_MakeTea(FString InTag)
+    private bool TryReadyFrame(FCkGoapGym_WireSnapshot&out Frame)
     {
-        auto Params = FCk_GoapGym_MakeTea_Station_SpawnParams();
-        Params.InitialTransform = Get_StationAnchorTransform(InTag, ECk_GymStation_Anchor::PanelCenter);
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle(InTag),
-            UCk_EntityScript_GoapGym_MakeTea_Station,
-            FInstancedStruct::Make(Params));
+        Frame = FCkGoapGym_WireSnapshot();
+        if (!_Admitted || _Ending || _LocalFailed || !IsLocalController() ||
+            !CheckStations(false) || !HasExactPawn() ||
+            _RequestedSerial != LastControlAck.Serial) { return false; }
+        auto State = Get_ExactState();
+        FCkGoapGym_WireSnapshot Current;
+        if (ck::Is_NOT_Valid(State) || State.Get_HasSessionFailure() ||
+            !State.TryGetPresentation(Current) ||
+            !CkGoapGym::IsValidFrame(Current) || Current.Phase != 2 ||
+            !CkGoapGym::IsValidFrame(_PresentedFrame) ||
+            _PresentedFrame.Phase != 2 ||
+            _ProjectedSourceGeneration != _PresentedFrame.SourceGeneration ||
+            _ProjectedSequence != _PresentedFrame.Sequence ||
+            _ProjectedSequence <= 0 ||
+            _PresentedFrame.SourceGeneration != Current.SourceGeneration ||
+            _PresentedFrame.ControlGeneration != Current.ControlGeneration ||
+            _PresentedFrame.Sequence > Current.Sequence) { return false; }
+        Frame = _PresentedFrame;
+        if (LastControlAck.Result != 1) { return true; }
+        return LastControlAck.RequestedGeneration > 0 &&
+            LastControlAck.CompletedGeneration >
+                LastControlAck.RequestedGeneration &&
+            LastControlAck.CompletedSequence > 0 &&
+            Frame.ControlGeneration >= LastControlAck.CompletedGeneration &&
+            Frame.Sequence >= LastControlAck.CompletedSequence;
     }
 
-    private void Spawn_CrossRiver(FString InTag)
+    UFUNCTION(BlueprintPure) bool Get_IsLocalPresentationReady()
     {
-        auto Params = FCk_GoapGym_CrossRiver_Station_SpawnParams();
-        Params.InitialTransform = Get_StationAnchorTransform(InTag, ECk_GymStation_Anchor::PanelCenter);
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle(InTag),
-            UCk_EntityScript_GoapGym_CrossRiver_Station,
-            FInstancedStruct::Make(Params));
+        FCkGoapGym_WireSnapshot Frame;
+        return TryReadyFrame(Frame);
     }
 
-    private void Spawn_Patrol(FString InTag)
+    UFUNCTION(BlueprintPure) FString Get_DiagnosticState() const
     {
-        auto Params = FCk_GoapGym_Patrol_Station_SpawnParams();
-        Params.InitialTransform = Get_StationAnchorTransform(InTag, ECk_GymStation_Anchor::PanelCenter);
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle(InTag),
-            UCk_EntityScript_GoapGym_Patrol_Station,
-            FInstancedStruct::Make(Params));
+        return f"admitted={_Admitted} localFailed={_LocalFailed} " +
+            f"pawnCaptured={_PawnCaptured} stateCaptured={_StateCaptured} " +
+            f"stationsBound={_StationsBound} projectedGen={_ProjectedSourceGeneration} " +
+            f"projectedSeq={_ProjectedSequence} reason={_LocalFailureReason}";
     }
 
-    private void Spawn_Survival(FString InTag)
+    UFUNCTION(Server) void Server_RequestGoapControl(
+        int32 Serial, int64 SourceGeneration, int64 Generation, int32 Action)
     {
-        auto Params = FCk_GoapGym_Survival_Station_SpawnParams();
-        Params.InitialTransform = Get_StationAnchorTransform(InTag, ECk_GymStation_Anchor::PanelCenter);
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle(InTag),
-            UCk_EntityScript_GoapGym_Survival_Station,
-            FInstancedStruct::Make(Params));
+        if (!HasAuthority() || !_Admitted || _Ending || _ServerPending ||
+            Serial <= 0 || LastControlAck.Serial >= 2147483647 ||
+            Serial != LastControlAck.Serial + 1 ||
+            (Action < 0 || Action > 22))
+        { return; }
+        FCkGoapGym_ControlAck Rejected;
+        Rejected.Serial = Serial;
+        Rejected.Action = Action;
+        Rejected.RequestedGeneration = Generation;
+        Rejected.Result = 2;
+        auto State = Get_ExactState();
+        FCkGoapGym_WireSnapshot Frame;
+        if (ck::Is_NOT_Valid(State) || !HasExactPawn() ||
+            !State.TryGetPresentation(Frame) ||
+            !CkGoapGym::IsValidFrame(Frame) ||
+            Frame.Phase != 2 ||
+            SourceGeneration <= 0 || Generation <= 0 ||
+            SourceGeneration != Frame.SourceGeneration ||
+            Generation != Frame.ControlGeneration)
+        { LastControlAck = Rejected; ForceNetUpdate(); return; }
+        _ServerPending = true;
+        _PendingSerial = Serial;
+        _PendingAction = Action;
+        _PendingSourceGeneration = SourceGeneration;
+        _PendingGeneration = Generation;
+        if (!State.TryStartControl(this, Serial, SourceGeneration,
+                Generation, Action))
+        {
+            if (_ServerPending && _PendingSerial == Serial)
+            {
+                _ServerPending = false;
+                _PendingSerial = 0;
+                _PendingAction = -1;
+                LastControlAck = Rejected;
+                ForceNetUpdate();
+            }
+        }
     }
 
-    private void Spawn_CombatBrain(FString InTag)
+    void Complete_GoapControl(int32 Serial, int64 RequestedGeneration,
+        int32 Action, bool Success, int64 CompletedGeneration,
+        int64 CompletedSequence)
     {
-        auto Params = FCk_GoapGym_CombatBrain_Station_SpawnParams();
-        Params.InitialTransform = Get_StationAnchorTransform(InTag, ECk_GymStation_Anchor::PanelCenter);
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle(InTag),
-            UCk_EntityScript_GoapGym_CombatBrain_Station,
-            FInstancedStruct::Make(Params));
+        auto State = Get_ExactState();
+        if (!HasAuthority() || !_Admitted || _Ending || !_ServerPending ||
+            Serial != _PendingSerial || Action != _PendingAction ||
+            RequestedGeneration != _PendingGeneration ||
+            LastControlAck.Serial + 1 != Serial ||
+            ck::Is_NOT_Valid(State)) { return; }
+        if (Success && (!HasExactPawn() || State.Get_HasSessionFailure() ||
+            CompletedGeneration <= RequestedGeneration ||
+            CompletedSequence <= 0 ||
+            State.Snapshot.Phase != 2 ||
+            State.Snapshot.SourceGeneration != _PendingSourceGeneration ||
+            State.Snapshot.ControlGeneration != CompletedGeneration ||
+            State.Snapshot.Sequence != CompletedSequence ||
+            !CkGoapGym::IsValidFrame(State.Snapshot)))
+        {
+            State.Request_Fail("Completed Goap control lost its owner or frame");
+            return;
+        }
+        _ServerPending = false;
+        _PendingSerial = 0;
+        _PendingAction = -1;
+        FCkGoapGym_ControlAck Completed;
+        Completed.Serial = Serial;
+        Completed.Action = Action;
+        Completed.RequestedGeneration = RequestedGeneration;
+        Completed.Result = Success ? 1 : 2;
+        if (Success)
+        {
+            Completed.CompletedGeneration = CompletedGeneration;
+            Completed.CompletedSequence = CompletedSequence;
+        }
+        LastControlAck = Completed;
+        ForceNetUpdate();
     }
 
-    private void Spawn_OptOutDemo(FString InTag)
+    private void Request_SharedControl(int32 Action)
     {
-        auto Params = FCk_GoapGym_OptOutDemo_Station_SpawnParams();
-        Params.InitialTransform = Get_StationAnchorTransform(InTag, ECk_GymStation_Anchor::PanelCenter);
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle(InTag),
-            UCk_EntityScript_GoapGym_OptOutDemo_Station,
-            FInstancedStruct::Make(Params));
+        FCkGoapGym_WireSnapshot Frame;
+        if (Action < 0 || Action > 22 || !TryReadyFrame(Frame) ||
+            LastControlAck.Serial >= 2147483647) { return; }
+        _RequestedSerial = LastControlAck.Serial + 1;
+        Server_RequestGoapControl(_RequestedSerial,
+            Frame.SourceGeneration, Frame.ControlGeneration, Action);
     }
 
-    //--------------------------------------------------------------------------
-    // WS lookup helpers - locate the named WorldState child of a station entity.
-    // Each station creates its WS in DoConstruct with a name tag matching the
-    // station's domain (Door / Tea / CrossRiver / Patrol / Survival).
-    //--------------------------------------------------------------------------
+    UFUNCTION(BlueprintPure) FCkGoapGym_WireSnapshot Get_PresentedFrame() const
+    { return _PresentedFrame; }
 
-    private FCk_Handle_Goap_WorldState
-    Find_StationWS(FString InStationTag, FName InWsName)
+    private bool ProjectFrame(FCkGoapGym_WireSnapshot Frame)
     {
-        auto Entity = Get_StationHandle(InStationTag);
-        if (ck::Is_NOT_Valid(Entity)) { return FCk_Handle_Goap_WorldState(); }
-        return utils_goap_world_state::Find_ByName(Entity,
-            utils_gameplay_tag::ResolveGameplayTag(InWsName));
+        if (!CkGoapGym::IsValidFrame(Frame) || Frame.Phase != 2 ||
+            !CheckStations(false)) { return false; }
+        // Validate all targets before publishing a single copied frame.
+        for (int32 I = 0; I < 7; ++I)
+        {
+            if (ck::Is_NOT_Valid(_Stations[I]) ||
+                (_Stations[I].Get_Fragment(FCkGym_Station_Anchors).FootprintCenter -
+                    CkGoapGym::Get_StationTransform(I).GetLocation()).SizeSquared() > 1.0)
+            { return false; }
+        }
+        for (int32 I = 0; I < 7; ++I)
+        {
+            auto& Text = _Stations[I].AddOrGet_Fragment(
+                FCkGym_Station_TitleAndDescription);
+            Text.Title = FText::FromString(Frame.Stations[I].Title);
+            Text.Description = FText::FromString(Frame.Stations[I].Detail);
+            Text.Instructions = FText::FromString(Frame.Stations[I].Footer);
+        }
+        return true;
     }
 
-    private void Flip(FCk_Handle_Goap_WorldState InWS, FName InKey)
+    private int32 Get_DisplayedMask(int32 Index)
     {
-        if (ck::Is_NOT_Valid(InWS)) { return; }
-        auto Tag = utils_gameplay_tag::ResolveGameplayTag(InKey);
-        auto Cur = utils_goap_world_state::Get_Value(InWS, Tag);
-        utils_goap_world_state::Set_Value(InWS, Tag, !Cur);
+        if (!_Admitted || _Ending || _LocalFailed || !IsLocalController() ||
+            !CkGoapGym::IsValidFrame(_PresentedFrame) ||
+            _PresentedFrame.Phase != 2 || _PresentedFrame.Stations.Num() != 7 ||
+            !CheckStations(false) || Index < 0 || Index >= 7) { return 0; }
+        return _PresentedFrame.Stations[Index].WorldStateMask;
     }
 
-    private void Set(FCk_Handle_Goap_WorldState InWS, FName InKey, bool InValue)
-    {
-        if (ck::Is_NOT_Valid(InWS)) { return; }
-        utils_goap_world_state::Set_Value(InWS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey), InValue);
-    }
-
-    private bool Get(FCk_Handle_Goap_WorldState InWS, FName InKey)
-    {
-        if (ck::Is_NOT_Valid(InWS)) { return false; }
-        return utils_goap_world_state::Get_Value(InWS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey));
-    }
-
-    //--------------------------------------------------------------------------
-    // Per-station WS lookups - one call site each, so the row builder and the
-    // dispatch cannot drift on which WS a station owns.
-    //--------------------------------------------------------------------------
-
-    private FCk_Handle_Goap_WorldState Find_DoorWS()
-    { return Find_StationWS("Gym.Goap.Station.OpenDoor", n"Gym.Goap.WS.Door"); }
-
-    private FCk_Handle_Goap_WorldState Find_TeaWS()
-    { return Find_StationWS("Gym.Goap.Station.MakeTea", n"Gym.Goap.WS.Tea"); }
-
-    private FCk_Handle_Goap_WorldState Find_RiverWS()
-    { return Find_StationWS("Gym.Goap.Station.CrossRiver", n"Gym.Goap.WS.CrossRiver"); }
-
-    private FCk_Handle_Goap_WorldState Find_PatrolWS()
-    { return Find_StationWS("Gym.Goap.Station.Patrol", n"Gym.Goap.WS.Patrol"); }
-
-    private FCk_Handle_Goap_WorldState Find_SurvivalWS()
-    { return Find_StationWS("Gym.Goap.Station.Survival", n"Gym.Goap.WS.Survival"); }
-
-    private FCk_Handle_Goap_WorldState Find_CombatBrainWS()
-    { return Find_StationWS("Gym.Goap.Station.CombatBrain", n"Gym.Goap.WS.CombatBrain"); }
-
-    //--------------------------------------------------------------------------
-    // Station resets and scripted scenarios
-    //--------------------------------------------------------------------------
-
-    private void DoResetTea()
-    {
-        auto WS = Find_TeaWS();
-        Set(WS, n"Gym.Goap.WS.Tea.HasKettle", true);
-        Set(WS, n"Gym.Goap.WS.Tea.HasWater", true);
-        Set(WS, n"Gym.Goap.WS.Tea.HasTeaLeaves", true);
-        Set(WS, n"Gym.Goap.WS.Tea.HasCup", true);
-        Set(WS, n"Gym.Goap.WS.Tea.WaterBoiled", false);
-        Set(WS, n"Gym.Goap.WS.Tea.TeaSteeped", false);
-        Set(WS, n"Gym.Goap.WS.Tea.TeaPoured", false);
-        Set(WS, n"Gym.Goap.WS.Tea.TeaServed", false);
-    }
-
-    private void DoResetRiver()
-    {
-        auto WS = Find_RiverWS();
-        Set(WS, n"Gym.Goap.WS.CrossRiver.BridgeIsOpen", true);
-        Set(WS, n"Gym.Goap.WS.CrossRiver.HasCoin", true);
-        Set(WS, n"Gym.Goap.WS.CrossRiver.Crossed", false);
-    }
-
-    private void DoResetPatrol()
-    {
-        auto WS = Find_PatrolWS();
-        Set(WS, n"Gym.Goap.WS.Patrol.AtWaypoint", false);
-        Set(WS, n"Gym.Goap.WS.Patrol.AreaScanned", false);
-        Set(WS, n"Gym.Goap.WS.Patrol.AreaPatrolled", false);
-    }
-
-    private void DoResetSurvival()
-    {
-        auto WS = Find_SurvivalWS();
-        Set(WS, n"Gym.Goap.WS.Survival.Hungry", true);
-        Set(WS, n"Gym.Goap.WS.Survival.HasFood", false);
-        Set(WS, n"Gym.Goap.WS.Survival.ThreatActive", true);
-        Set(WS, n"Gym.Goap.WS.Survival.HasWeapon", true);
-        Set(WS, n"Gym.Goap.WS.Survival.SafeFromThreat", false);
-    }
-
-    private void DoResetCombatBrain()
-    {
-        auto WS = Find_CombatBrainWS();
-        Set(WS, n"Gym.Goap.WS.CombatBrain.EnemyVisible", false);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.WeaponEquipped", false);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.StaminaHigh", false);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.EnemyHit", false);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.EnemyAttacked", false);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.EnemyDead", false);
-    }
-
-    // Drive the entire chain to terminal state - useful for showing the
-    // plan running to completion without manually flipping every key.
-    private void DoCompleteCombatBrain()
-    {
-        auto WS = Find_CombatBrainWS();
-        Set(WS, n"Gym.Goap.WS.CombatBrain.EnemyVisible", true);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.WeaponEquipped", true);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.StaminaHigh", true);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.EnemyHit", true);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.EnemyAttacked", true);
-        Set(WS, n"Gym.Goap.WS.CombatBrain.EnemyDead", true);
-    }
-
-    //--------------------------------------------------------------------------
-    // CONTROL PANEL (Script/Common/CkGym_ControlPanel.as)
-    //
-    // Seven stations replan off these keys, so the panel is grouped by station and every toggle
-    // reads its key back from the world state - the panel is the WS view as much as it is the input.
-    //
-    // The one-way setters (the coin, the three Patrol keys) stay Actions rather than becoming
-    // toggles, because the plan being demonstrated depends on them being irreversible except through
-    // the station's Reset. Their live value shows as the row greying out once it is spent.
-    //
-    // Station 7 (Opt-Out Demo) has no controls: its goal is structurally unreachable by design.
-    //--------------------------------------------------------------------------
-
-    FString Get_ControlPanelTitle() override
-    {
-        return "GOAP: STATIONS 1-7";
-    }
+    FString Get_ControlPanelTitle() override { return "GOAP: STATIONS 1-7"; }
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override
     {
         auto Rows = TArray<FCkGym_ControlRow>();
-
-        auto DoorWS = Find_DoorWS();
+        auto Door = Get_DisplayedMask(0);
+        auto Tea = Get_DisplayedMask(1);
+        auto River = Get_DisplayedMask(2);
+        auto Patrol = Get_DisplayedMask(3);
+        auto Survival = Get_DisplayedMask(4);
+        auto Combat = Get_DisplayedMask(5);
         Rows.Add(CkGym_Control::Header("1 / OPEN DOOR"));
-        Rows.Add(CkGym_Control::Toggle(EKeys::J, "J", "Door.IsOpen", Get(DoorWS, n"Gym.Goap.WS.Door.IsOpen")));
-
-        auto TeaWS = Find_TeaWS();
+        Rows.Add(CkGym_Control::Toggle(EKeys::J, "J", "Door.IsOpen", (Door & 1) != 0));
         Rows.Add(CkGym_Control::Header("2 / MAKE TEA"));
-        Rows.Add(CkGym_Control::Toggle(EKeys::K, "K", "HasKettle",    Get(TeaWS, n"Gym.Goap.WS.Tea.HasKettle")));
-        Rows.Add(CkGym_Control::Toggle(EKeys::L, "L", "HasWater",     Get(TeaWS, n"Gym.Goap.WS.Tea.HasWater")));
-        Rows.Add(CkGym_Control::Toggle(EKeys::M, "M", "HasTeaLeaves", Get(TeaWS, n"Gym.Goap.WS.Tea.HasTeaLeaves")));
-        Rows.Add(CkGym_Control::Toggle(EKeys::N, "N", "HasCup",       Get(TeaWS, n"Gym.Goap.WS.Tea.HasCup")));
+        Rows.Add(CkGym_Control::Toggle(EKeys::K, "K", "HasKettle", (Tea & 1) != 0));
+        Rows.Add(CkGym_Control::Toggle(EKeys::L, "L", "HasWater", (Tea & 2) != 0));
+        Rows.Add(CkGym_Control::Toggle(EKeys::M, "M", "HasTeaLeaves", (Tea & 4) != 0));
+        Rows.Add(CkGym_Control::Toggle(EKeys::N, "N", "HasCup", (Tea & 8) != 0));
         Rows.Add(CkGym_Control::Action(EKeys::One, "1", "Reset the tea WS"));
-
-        auto RiverWS = Find_RiverWS();
-        auto HasCoin = Get(RiverWS, n"Gym.Goap.WS.CrossRiver.HasCoin");
         Rows.Add(CkGym_Control::Header("3 / CROSS RIVER"));
-        Rows.Add(CkGym_Control::Toggle(EKeys::B, "B", "BridgeIsOpen", Get(RiverWS, n"Gym.Goap.WS.CrossRiver.BridgeIsOpen")));
-        Rows.Add(CkGym_Control::Action(EKeys::F, "F", "Spend the coin (one-way)", HasCoin));
+        Rows.Add(CkGym_Control::Toggle(EKeys::B, "B", "BridgeIsOpen", (River & 1) != 0));
+        Rows.Add(CkGym_Control::Action(EKeys::F, "F", "Spend the coin (one-way)", (River & 2) != 0));
         Rows.Add(CkGym_Control::Action(EKeys::Two, "2", "Reset the river WS"));
-
-        auto PatrolWS = Find_PatrolWS();
         Rows.Add(CkGym_Control::Header("4 / PATROL ROUTE"));
-        Rows.Add(CkGym_Control::Action(EKeys::G, "G", "Set AtWaypoint",
-            Get(PatrolWS, n"Gym.Goap.WS.Patrol.AtWaypoint") == false));
-        Rows.Add(CkGym_Control::Action(EKeys::I, "I", "Set AreaScanned",
-            Get(PatrolWS, n"Gym.Goap.WS.Patrol.AreaScanned") == false));
-        Rows.Add(CkGym_Control::Action(EKeys::O, "O", "Set AreaPatrolled",
-            Get(PatrolWS, n"Gym.Goap.WS.Patrol.AreaPatrolled") == false));
+        Rows.Add(CkGym_Control::Action(EKeys::G, "G", "Set AtWaypoint", (Patrol & 1) == 0));
+        Rows.Add(CkGym_Control::Action(EKeys::I, "I", "Set AreaScanned", (Patrol & 2) == 0));
+        Rows.Add(CkGym_Control::Action(EKeys::O, "O", "Set AreaPatrolled", (Patrol & 4) == 0));
         Rows.Add(CkGym_Control::Action(EKeys::Three, "3", "Reset the patrol WS"));
-
-        auto SurvivalWS = Find_SurvivalWS();
         Rows.Add(CkGym_Control::Header("5 / SURVIVAL DECISION"));
-        Rows.Add(CkGym_Control::Toggle(EKeys::P, "P", "Hungry",       Get(SurvivalWS, n"Gym.Goap.WS.Survival.Hungry")));
-        Rows.Add(CkGym_Control::Toggle(EKeys::T, "T", "HasFood",      Get(SurvivalWS, n"Gym.Goap.WS.Survival.HasFood")));
-        Rows.Add(CkGym_Control::Toggle(EKeys::U, "U", "ThreatActive", Get(SurvivalWS, n"Gym.Goap.WS.Survival.ThreatActive")));
-        Rows.Add(CkGym_Control::Toggle(EKeys::V, "V", "HasWeapon",    Get(SurvivalWS, n"Gym.Goap.WS.Survival.HasWeapon")));
+        Rows.Add(CkGym_Control::Toggle(EKeys::P, "P", "Hungry", (Survival & 1) != 0));
+        Rows.Add(CkGym_Control::Toggle(EKeys::T, "T", "HasFood", (Survival & 2) != 0));
+        Rows.Add(CkGym_Control::Toggle(EKeys::U, "U", "ThreatActive", (Survival & 4) != 0));
+        Rows.Add(CkGym_Control::Toggle(EKeys::V, "V", "HasWeapon", (Survival & 8) != 0));
         Rows.Add(CkGym_Control::Action(EKeys::Four, "4", "Reset the survival WS"));
-
-        auto CombatWS = Find_CombatBrainWS();
         Rows.Add(CkGym_Control::Header("6 / COMBAT BRAIN"));
-        Rows.Add(CkGym_Control::Toggle(EKeys::X, "X", "EnemyVisible",   Get(CombatWS, n"Gym.Goap.WS.CombatBrain.EnemyVisible")));
-        Rows.Add(CkGym_Control::Toggle(EKeys::Y, "Y", "WeaponEquipped", Get(CombatWS, n"Gym.Goap.WS.CombatBrain.WeaponEquipped")));
-        Rows.Add(CkGym_Control::Toggle(EKeys::Z, "Z", "StaminaHigh",    Get(CombatWS, n"Gym.Goap.WS.CombatBrain.StaminaHigh")));
+        Rows.Add(CkGym_Control::Toggle(EKeys::X, "X", "EnemyVisible", (Combat & 1) != 0));
+        Rows.Add(CkGym_Control::Toggle(EKeys::Y, "Y", "WeaponEquipped", (Combat & 2) != 0));
+        Rows.Add(CkGym_Control::Toggle(EKeys::Z, "Z", "StaminaHigh", (Combat & 4) != 0));
         Rows.Add(CkGym_Control::Action(EKeys::Five, "5", "Drive the chain to EnemyDead"));
-        Rows.Add(CkGym_Control::Action(EKeys::Six,  "6", "Reset the combat WS"));
-
+        Rows.Add(CkGym_Control::Action(EKeys::Six, "6", "Reset the combat WS"));
         return Rows;
     }
 
-    void Request_ControlActivated(int32 InRowIndex) override
+    UFUNCTION() void Request_ControlActivated(int32 RowIndex) override
     {
-        // Rows 0, 2, 8, 12, 17 and 23 are headers - no key, never dispatched, but they DO occupy an
-        // index. Keep this branch list in the same order as Get_ControlRows above.
-        if (InRowIndex == 1) { Flip(Find_DoorWS(), n"Gym.Goap.WS.Door.IsOpen"); }
+        if (RowIndex == 1) { Request_SharedControl(0); }
+        else if (RowIndex >= 3 && RowIndex <= 7)
+        { Request_SharedControl(RowIndex - 2); }
+        else if (RowIndex >= 9 && RowIndex <= 11)
+        { Request_SharedControl(RowIndex - 3); }
+        else if (RowIndex >= 13 && RowIndex <= 16)
+        { Request_SharedControl(RowIndex - 4); }
+        else if (RowIndex >= 18 && RowIndex <= 22)
+        { Request_SharedControl(RowIndex - 5); }
+        else if (RowIndex >= 24 && RowIndex <= 28)
+        { Request_SharedControl(RowIndex - 6); }
+    }
 
-        else if (InRowIndex == 3) { Flip(Find_TeaWS(), n"Gym.Goap.WS.Tea.HasKettle"); }
-        else if (InRowIndex == 4) { Flip(Find_TeaWS(), n"Gym.Goap.WS.Tea.HasWater"); }
-        else if (InRowIndex == 5) { Flip(Find_TeaWS(), n"Gym.Goap.WS.Tea.HasTeaLeaves"); }
-        else if (InRowIndex == 6) { Flip(Find_TeaWS(), n"Gym.Goap.WS.Tea.HasCup"); }
-        else if (InRowIndex == 7) { DoResetTea(); }
-
-        else if (InRowIndex == 9)  { Flip(Find_RiverWS(), n"Gym.Goap.WS.CrossRiver.BridgeIsOpen"); }
-        else if (InRowIndex == 10) { Set(Find_RiverWS(), n"Gym.Goap.WS.CrossRiver.HasCoin", false); }
-        else if (InRowIndex == 11) { DoResetRiver(); }
-
-        else if (InRowIndex == 13) { Set(Find_PatrolWS(), n"Gym.Goap.WS.Patrol.AtWaypoint", true); }
-        else if (InRowIndex == 14) { Set(Find_PatrolWS(), n"Gym.Goap.WS.Patrol.AreaScanned", true); }
-        else if (InRowIndex == 15) { Set(Find_PatrolWS(), n"Gym.Goap.WS.Patrol.AreaPatrolled", true); }
-        else if (InRowIndex == 16) { DoResetPatrol(); }
-
-        else if (InRowIndex == 18) { Flip(Find_SurvivalWS(), n"Gym.Goap.WS.Survival.Hungry"); }
-        else if (InRowIndex == 19) { Flip(Find_SurvivalWS(), n"Gym.Goap.WS.Survival.HasFood"); }
-        else if (InRowIndex == 20) { Flip(Find_SurvivalWS(), n"Gym.Goap.WS.Survival.ThreatActive"); }
-        else if (InRowIndex == 21) { Flip(Find_SurvivalWS(), n"Gym.Goap.WS.Survival.HasWeapon"); }
-        else if (InRowIndex == 22) { DoResetSurvival(); }
-
-        else if (InRowIndex == 24) { Flip(Find_CombatBrainWS(), n"Gym.Goap.WS.CombatBrain.EnemyVisible"); }
-        else if (InRowIndex == 25) { Flip(Find_CombatBrainWS(), n"Gym.Goap.WS.CombatBrain.WeaponEquipped"); }
-        else if (InRowIndex == 26) { Flip(Find_CombatBrainWS(), n"Gym.Goap.WS.CombatBrain.StaminaHigh"); }
-        else if (InRowIndex == 27) { DoCompleteCombatBrain(); }
-        else if (InRowIndex == 28) { DoResetCombatBrain(); }
+    UFUNCTION(BlueprintOverride) void EndPlay(EEndPlayReason InReason)
+    {
+        _Ending = true;
+        Super::EndPlay(InReason);
     }
 }

@@ -1,0 +1,409 @@
+// Language=angelscript
+
+// Seven world-owned GOAP stations; owned controls change its shared world state.
+class ACk_GoapGym_GameState : ACkGym_GameState_UE
+{
+    default NetUpdateFrequency = 15.0;
+    UPROPERTY(Replicated) FCkGoapGym_WireSnapshot Snapshot;
+    UPROPERTY(Replicated) bool SourceFailed = false;
+    private TArray<UCk_EntityScript_GoapGym_SharedStation> _Sources;
+    private TArray<FCk_Handle> _Roots;
+    private TArray<FCk_Handle_PendingEntityScript> _Pending;
+    private UWorld _World;
+    private FCk_Handle _WorldRoot;
+    private FCkGym_Entry _Entry;
+    private int32 _Index = -1;
+    private bool _Captured = false;
+    private bool _Failed = false;
+    private bool _Ending = false;
+    private FString _FailureReason;
+    // 0 waiting, 1 preparing, 3 active; failure remains terminal.
+    private int32 _Phase = 0;
+    private double _PendingSince = 0.0;
+    private double _PublishElapsed = 0.0;
+    private bool _HasConsumed = false;
+    private FCkGoapGym_WireSnapshot _Consumed;
+    private ACk_GoapGym_PlayerController _Requester;
+    private APawn _RequesterPawn;
+    private int32 _RequestSerial = 0;
+    private int32 _RequestAction = -1;
+    private int32 _RequestStation = -1;
+    private int64 _RequestedGeneration = 0;
+    private int64 _CompletedControlsBefore = 0;
+    private int32 _ExpectedMask = 0;
+    private double _RequestSince = 0.0;
+
+    UFUNCTION(BlueprintOverride)
+    void BeginPlay() { SetTickGroup(ETickingGroup::TG_PostUpdateWork); }
+
+    UFUNCTION(BlueprintPure)
+    FCk_Handle Get_SourceRoot(int32 Index)
+    { return HasAuthority() && _Roots.IsValidIndex(Index) ? _Roots[Index] : FCk_Handle(); }
+
+    UFUNCTION(BlueprintPure)
+    bool Get_HasSessionFailure() const { return _Failed || SourceFailed; }
+
+    UFUNCTION(BlueprintPure)
+    FString Get_DiagnosticState() const
+    { return f"phase={_Phase} roots={_Roots.Num()} captured={_Captured} failed={_Failed} reason={_FailureReason}"; }
+
+    private bool TryCapture()
+    {
+        auto World = GetWorld();
+        if (_Ending || IsActorBeingDestroyed() || ck::Is_NOT_Valid(World) ||
+            World.GetGameState() != this || !Get_HasPublishedCatalog() ||
+            (_Captured && World != _World)) { return false; }
+        if (HasAuthority())
+        {
+            auto Mode = Gameplay::GetGameMode();
+            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != World ||
+                Mode.GetClass() != ACk_GoapGym_GameMode) { return false; }
+        }
+        else if (World.GetNetMode() != ENetMode::NM_Client) { return false; }
+        auto Entries = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (Index < 0 || Index >= Entries.Num()) { return false; }
+        auto Entry = Entries[Index];
+        if (Entry.DisplayName != "Goap" || Entry.GameModeClass != ACk_GoapGym_GameMode ||
+            (_Captured && (Index != _Index || Entry.DisplayName != _Entry.DisplayName ||
+                Entry.GameModeClass != _Entry.GameModeClass || Entry.LevelName != _Entry.LevelName ||
+                Entry.Category != _Entry.Category || Entry.HintCode != _Entry.HintCode)))
+        { return false; }
+        auto Ecs = Subsystem::GetWorldSubsystem(UCk_EcsWorld_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Ecs)) { return false; }
+        auto Root = Ecs.Get_TransientEntity();
+        if (!UCk_GoapGym_Runtime_UE::Get_IsLiveInWorld(Root, World) ||
+            (_Captured && Root != _WorldRoot)) { return false; }
+        bool Closed = true;
+        if (!UCkGym_AdmissionRuntime_UE::TryGet_IsClosedUnproven(Root, Closed) || Closed)
+        { return false; }
+        if (!_Captured)
+        { _World = World; _WorldRoot = Root; _Entry = Entry; _Index = Index; _Captured = true; }
+        return true;
+    }
+
+    private bool HasRoot(int32 Index)
+    {
+        if (!_Roots.IsValidIndex(Index)) { return false; }
+        auto Root = _Roots[Index];
+        return UCk_GoapGym_Runtime_UE::Get_IsLiveInWorld(Root, _World) &&
+            utils_entity_lifetime::Has_LifetimeOwner(Root) &&
+            utils_entity_lifetime::Get_LifetimeOwner(Root) == _WorldRoot;
+    }
+
+    void Request_CloseClient(FString Reason)
+    {
+        if (HasAuthority() || _Failed || _Ending) { return; }
+        _Failed = true; _FailureReason = Reason;
+        if (_Captured) { UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(_WorldRoot); }
+        ck::Trace(f"Goap client presentation closed: {Reason}");
+    }
+
+    UFUNCTION()
+    void Request_Fail(FString Reason)
+    {
+        if (!HasAuthority()) { Request_CloseClient(Reason); return; }
+        if (_Failed || _Ending) { return; }
+        _Failed = true; SourceFailed = true; _FailureReason = Reason; _Phase = 0;
+        for (auto Source : _Sources)
+        { if (ck::IsValid(Source)) { Source.Request_Block(); } }
+        for (int32 I = 0; I < _Roots.Num(); ++I)
+        {
+            if (HasRoot(I))
+            {
+                if (_Pending.IsValidIndex(I) && utils_pending_entity_script::Get_IsValid(_Pending[I]))
+                { utils_pending_entity_script::Request_DestroyEntity(_Pending[I]); }
+                else { utils_entity_lifetime::Request_DestroyEntity(_Roots[I]); }
+            }
+        }
+        if (_Captured) { UCkGym_AdmissionRuntime_UE::TryCloseWorldUnproven(_WorldRoot); }
+        Snapshot.Phase = 4; Snapshot.Replacing = -1;
+        if (Snapshot.Sequence < 9223372036854775806) { Snapshot.Sequence++; }
+        ForceNetUpdate(); CompleteRequest(false);
+        ck::Trace(f"Goap authority bank closed: {Reason}");
+    }
+
+    void Request_EnsureSharedDemo()
+    {
+        if (!HasAuthority() || _Ending || _Failed || _Phase != 0 || !TryCapture()) { return; }
+        if (CkGym_Admission::Get_IsBusy(_WorldRoot)) { return; }
+        _Phase = 1; _PendingSince = UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds();
+        for (int32 I = 0; I < 7; ++I)
+        {
+            _Sources.Add(nullptr); _Roots.Add(FCk_Handle());
+            _Pending.Add(FCk_Handle_PendingEntityScript());
+        }
+        for (int32 I = 0; I < 7; ++I)
+        { if (!SpawnSource(I)) { Request_Fail("Goap source spawn rejected"); return; } }
+    }
+
+    private bool SpawnSource(int32 Index)
+    {
+        if (!_Roots.IsValidIndex(Index) || !TryCapture() ||
+            !utils_entity_lifetime::Get_CanCreateEntity(_WorldRoot)) { return false; }
+        if (Index == 0)
+        {
+            auto Params = FCk_GoapGym_OpenDoor_Station_SpawnParams();
+            Params.InitialTransform = CkGoapGym::Get_SourceTransform(Index);
+            _Pending[Index] = utils_entity_script::Request_SpawnEntity(_WorldRoot,
+                UCk_EntityScript_GoapGym_OpenDoor_Station, FInstancedStruct::Make(Params));
+        }
+        else if (Index == 1)
+        {
+            auto Params = FCk_GoapGym_MakeTea_Station_SpawnParams();
+            Params.InitialTransform = CkGoapGym::Get_SourceTransform(Index);
+            _Pending[Index] = utils_entity_script::Request_SpawnEntity(_WorldRoot,
+                UCk_EntityScript_GoapGym_MakeTea_Station, FInstancedStruct::Make(Params));
+        }
+        else if (Index == 2)
+        {
+            auto Params = FCk_GoapGym_CrossRiver_Station_SpawnParams();
+            Params.InitialTransform = CkGoapGym::Get_SourceTransform(Index);
+            _Pending[Index] = utils_entity_script::Request_SpawnEntity(_WorldRoot,
+                UCk_EntityScript_GoapGym_CrossRiver_Station, FInstancedStruct::Make(Params));
+        }
+        else if (Index == 3)
+        {
+            auto Params = FCk_GoapGym_Patrol_Station_SpawnParams();
+            Params.InitialTransform = CkGoapGym::Get_SourceTransform(Index);
+            _Pending[Index] = utils_entity_script::Request_SpawnEntity(_WorldRoot,
+                UCk_EntityScript_GoapGym_Patrol_Station, FInstancedStruct::Make(Params));
+        }
+        else if (Index == 4)
+        {
+            auto Params = FCk_GoapGym_Survival_Station_SpawnParams();
+            Params.InitialTransform = CkGoapGym::Get_SourceTransform(Index);
+            _Pending[Index] = utils_entity_script::Request_SpawnEntity(_WorldRoot,
+                UCk_EntityScript_GoapGym_Survival_Station, FInstancedStruct::Make(Params));
+        }
+        else if (Index == 5)
+        {
+            auto Params = FCk_GoapGym_CombatBrain_Station_SpawnParams();
+            Params.InitialTransform = CkGoapGym::Get_SourceTransform(Index);
+            _Pending[Index] = utils_entity_script::Request_SpawnEntity(_WorldRoot,
+                UCk_EntityScript_GoapGym_CombatBrain_Station, FInstancedStruct::Make(Params));
+        }
+        else if (Index == 6)
+        {
+            auto Params = FCk_GoapGym_OptOutDemo_Station_SpawnParams();
+            Params.InitialTransform = CkGoapGym::Get_SourceTransform(Index);
+            _Pending[Index] = utils_entity_script::Request_SpawnEntity(_WorldRoot,
+                UCk_EntityScript_GoapGym_OptOutDemo_Station, FInstancedStruct::Make(Params));
+        }
+        else { return false; }
+        if (!utils_pending_entity_script::Get_IsValid(_Pending[Index])) { return false; }
+        _Roots[Index] = _Pending[Index].Get_EntityUnderConstruction();
+        _Sources[Index] = nullptr;
+        return HasRoot(Index);
+    }
+
+    private bool BindPrepared(int32 Index)
+    {
+        if (!HasRoot(Index)) { Request_Fail("Goap source root lost"); return false; }
+        auto Source = Cast<UCk_EntityScript_GoapGym_SharedStation>(utils_entity_script::TryGet_EntityScript(_Roots[Index]));
+        if (ck::Is_NOT_Valid(Source)) { return false; }
+        if (Source.GetClass() != CkGoapGym::Get_SourceClass(Index) ||
+            Source.Get_StationIndex() != Index ||
+            (ck::IsValid(_Sources[Index]) && Source != _Sources[Index]) ||
+            Source.Get_SourceRoot() != _Roots[Index] || Source.Get_IsClosed())
+        { Request_Fail(f"Goap source {Index} identity or preparation failed: closed={Source.Get_IsClosed()}"); return false; }
+        _Sources[Index] = Source;
+        return Source.Get_IsPrepared();
+    }
+
+    private bool HasRequestOwner()
+    {
+        if (_RequestSerial == 0) { return true; }
+        return ck::IsValid(_Requester) && !_Requester.IsActorBeingDestroyed() &&
+            _Requester.GetWorld() == _World && _Requester.HasAuthority() &&
+            _Requester.GetClass() == ACk_GoapGym_PlayerController &&
+            ck::IsValid(_RequesterPawn) && !_RequesterPawn.IsActorBeingDestroyed() &&
+            _RequesterPawn.GetWorld() == _World && _Requester.GetControlledPawn() == _RequesterPawn &&
+            _RequesterPawn.GetController() == _Requester;
+    }
+
+    bool TryStartControl(ACk_GoapGym_PlayerController Requester, int32 Serial,
+        int64 SourceGeneration, int64 Generation, int32 Action)
+    {
+        if (!HasAuthority() || _Failed || _Ending || _Phase != 3 || !TryCapture() ||
+            ck::Is_NOT_Valid(Requester) || Requester.IsActorBeingDestroyed() ||
+            Requester.GetWorld() != _World || !Requester.HasAuthority() ||
+            Requester.GetClass() != ACk_GoapGym_PlayerController || Serial <= 0 ||
+            _RequestSerial != 0 || SourceGeneration != 1 || Action < 0 || Action > 22 ||
+            _Sources.Num() != 7 || _Roots.Num() != 7 ||
+            Generation != Snapshot.ControlGeneration || Generation >= 9223372036854775806 ||
+            Snapshot.Sequence >= 9223372036854775806) { return false; }
+        auto Pawn = Requester.GetControlledPawn();
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.IsActorBeingDestroyed() ||
+            Pawn.GetWorld() != _World || Pawn.GetController() != Requester) { return false; }
+        for (int32 I = 0; I < 7; ++I)
+        {
+            if (!HasRoot(I) || ck::Is_NOT_Valid(_Sources[I]) ||
+                !_Sources[I].Get_IsPrepared() || !_Sources[I].Get_IsStarted() ||
+                _Sources[I].Get_SourceRoot() != _Roots[I]) { return false; }
+        }
+        auto Station = CkGoapGym::Get_ActionStation(Action);
+        if (!_Sources.IsValidIndex(Station)) { return false; }
+        auto CompletedControls = _Sources[Station].Get_ControlCompletionCount();
+        if (CompletedControls < 0 || CompletedControls >= 2147483647) { return false; }
+        auto BeforeMask = _Sources[Station].Get_WorldStateMask();
+        int32 ExpectedMask = -1;
+        if (!CkGoapGym::TryGet_ControlMask(Station, Action, BeforeMask, ExpectedMask))
+        { return false; }
+        _Requester = Requester; _RequesterPawn = Pawn; _RequestSerial = Serial;
+        _RequestAction = Action; _RequestStation = Station;
+        _RequestedGeneration = Generation; _CompletedControlsBefore = CompletedControls;
+        _ExpectedMask = ExpectedMask;
+        _RequestSince = UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds();
+        if (!_Sources[Station].Request_Control(Action))
+        { CompleteRequest(false); return false; }
+        return true;
+    }
+
+    private void CompleteRequest(bool Success)
+    {
+        auto Requester = _Requester;
+        int32 Serial = _RequestSerial; int32 Action = _RequestAction;
+        int64 Generation = _RequestedGeneration;
+        _Requester = nullptr; _RequesterPawn = nullptr; _RequestSerial = 0;
+        _RequestAction = -1; _RequestStation = -1; _RequestedGeneration = 0;
+        if (Serial > 0 && ck::IsValid(Requester) && Requester.GetWorld() == _World)
+        {
+            Requester.Complete_GoapControl(Serial, Generation, Action, Success,
+                Success ? Snapshot.ControlGeneration : 0, Success ? Snapshot.Sequence : 0);
+        }
+    }
+
+    private bool PublishComplete(bool CompleteControl)
+    {
+        if (!TryCapture() || !HasRequestOwner() || _Sources.Num() != 7 ||
+            Snapshot.Sequence >= 9223372036854775806 ||
+            (CompleteControl && Snapshot.ControlGeneration >= 9223372036854775806))
+        { Request_Fail("Goap publication lost its bank, world or owner"); return false; }
+        FCkGoapGym_WireSnapshot Frame;
+        Frame.SourceGeneration = 1; Frame.ControlGeneration = Snapshot.ControlGeneration + (CompleteControl ? 1 : 0);
+        Frame.Sequence = Snapshot.Sequence + 1; Frame.Phase = 2;
+        for (int32 I = 0; I < 7; ++I)
+        {
+            if (!HasRoot(I) || ck::Is_NOT_Valid(_Sources[I]) || _Sources[I].Get_IsClosed() ||
+                _Sources[I].Get_SourceRoot() != _Roots[I])
+            { Request_Fail("Goap source lost before publication"); return false; }
+            FCkGoapGym_StationFrame Station;
+            if (!_Sources[I].Get_IsPrepared() || !_Sources[I].Get_IsStarted() ||
+                !_Sources[I].TryGet_Frame(Station))
+            { Request_Fail("Goap source stopped producing valid values"); return false; }
+            Station.Index = I; Station.Generation = 1; Frame.Stations.Add(Station);
+        }
+        if (!CkGoapGym::IsValidFrame(Frame)) { Request_Fail("Malformed Goap source values"); return false; }
+        Snapshot = Frame; _PublishElapsed = 0.0; ForceNetUpdate(); return true;
+    }
+
+    private bool ConsumeSnapshot()
+    {
+        if (_Failed || _Ending || !TryCapture() || Snapshot.Sequence == 0) { return false; }
+        if (!CkGoapGym::IsValidFrame(Snapshot)) { Request_CloseClient("Malformed Goap frame"); return false; }
+        if (_HasConsumed)
+        {
+            if (Snapshot.Sequence < _Consumed.Sequence || Snapshot.ControlGeneration < _Consumed.ControlGeneration)
+            { Request_CloseClient("Goap frame moved backward"); return false; }
+            if (Snapshot.Sequence == _Consumed.Sequence)
+            {
+                if (!UCk_GoapGym_Runtime_UE::Get_IsSameFrame(Snapshot, _Consumed))
+                { Request_CloseClient("Goap values changed without a new sequence"); return false; }
+                return Snapshot.Phase == 2;
+            }
+            if (Snapshot.Phase != 4 && _Consumed.Stations.Num() == 7)
+            {
+                for (int32 I = 0; I < 7; ++I)
+                {
+                    auto Current = Snapshot.Stations[I];
+                    auto Previous = _Consumed.Stations[I];
+                    if (Current.Generation != Previous.Generation ||
+                        Current.ControlCount < Previous.ControlCount ||
+                        Current.Planners.Num() != Previous.Planners.Num())
+                    { Request_CloseClient("Goap station generation moved backward"); return false; }
+                    for (int32 P = 0; P < Current.Planners.Num(); ++P)
+                    {
+                        if (Current.Planners[P].PlanCount < Previous.Planners[P].PlanCount ||
+                            Current.Planners[P].FailureCount < Previous.Planners[P].FailureCount)
+                        { Request_CloseClient("Goap planner completion count moved backward"); return false; }
+                    }
+                }
+            }
+        }
+        _Consumed = Snapshot; _HasConsumed = true;
+        if (Snapshot.Phase == 4 || SourceFailed)
+        { Request_CloseClient("Authority closed the Goap bank"); return false; }
+        return Snapshot.Phase == 2;
+    }
+
+    bool TryGetPresentation(FCkGoapGym_WireSnapshot&out Frame)
+    {
+        Frame = FCkGoapGym_WireSnapshot();
+        if (_Failed || SourceFailed || _Ending || !TryCapture()) { return false; }
+        if (HasAuthority())
+        {
+            if (_Phase != 3 || !CkGoapGym::IsValidFrame(Snapshot) || Snapshot.Phase != 2) { return false; }
+            Frame = Snapshot; return true;
+        }
+        if (!ConsumeSnapshot()) { return false; }
+        Frame = _Consumed; return true;
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void Tick(float DeltaSeconds)
+    {
+        if (_Failed || _Ending) { return; }
+        if (!_Captured) { if (!HasAuthority()) { ConsumeSnapshot(); } return; }
+        if (!TryCapture()) { Request_Fail("Captured Goap world or catalog changed"); return; }
+        if (!HasAuthority()) { ConsumeSnapshot(); return; }
+        if (!HasRequestOwner()) { Request_Fail("Goap requester changed"); return; }
+        if (_Phase == 0) { return; }
+        if (!Math::IsFinite(DeltaSeconds) || DeltaSeconds < 0.0)
+        { Request_Fail("Goap elapsed time invalid"); return; }
+        auto Now = UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds();
+        if (_Phase == 1)
+        {
+            if (Now - _PendingSince >= 30.0)
+            { Request_Fail("Goap preparation timed out"); return; }
+            for (int32 I = 0; I < 7; ++I)
+            { if (!BindPrepared(I)) { return; } }
+            for (int32 I = 0; I < 7; ++I)
+            {
+                if (!_Sources[I].Get_IsStarted() && !_Sources[I].Request_StartPrepared())
+                { Request_Fail("Goap prepared source failed to start"); return; }
+            }
+            if (PublishComplete(false)) { _Phase = 3; }
+            return;
+        }
+        for (int32 I = 0; I < 7; ++I)
+        {
+            if (!HasRoot(I) || ck::Is_NOT_Valid(_Sources[I]) ||
+                !_Sources[I].Request_UpdateControl())
+            { Request_Fail("Goap source or control completion failed"); return; }
+        }
+        if (_RequestSerial > 0)
+        {
+            if (!_Sources.IsValidIndex(_RequestStation) || !HasRoot(_RequestStation) ||
+                ck::Is_NOT_Valid(_Sources[_RequestStation]) || _Sources[_RequestStation].Get_IsClosed())
+            { Request_Fail("Goap controlled source lost"); return; }
+            auto Count = _Sources[_RequestStation].Get_ControlCompletionCount();
+            if (Count < _CompletedControlsBefore || Count > _CompletedControlsBefore + 1)
+            { Request_Fail("Goap control completion count changed unexpectedly"); return; }
+            if (Count > _CompletedControlsBefore &&
+                _Sources[_RequestStation].Get_WorldStateMask() == _ExpectedMask)
+            {
+                if (PublishComplete(true)) { CompleteRequest(true); }
+                return;
+            }
+            if (Now - _RequestSince >= 15.0)
+            { Request_Fail("Goap control request timed out"); return; }
+        }
+        _PublishElapsed += DeltaSeconds;
+        if (_PublishElapsed >= 0.1) { PublishComplete(false); }
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void EndPlay(EEndPlayReason Reason)
+    { if (HasAuthority()) { Request_Fail("Goap gym session ended"); } _Ending = true; }
+}
