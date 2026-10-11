@@ -16,10 +16,11 @@ class ACk_TransformGym_Cube : AActor
 	default bReplicates = true;
 	default bReplicateUsingRegisteredSubObjectList = true;
 	default bAlwaysRelevant = true;
-	default bReplicateMovement = true;
+	default bReplicateMovement = false;
 
 	UPROPERTY(DefaultComponent)
 	UStaticMeshComponent Mesh;
+	default Mesh.Mobility = EComponentMobility::Movable;
 	default Mesh.StaticMesh = Cast<UStaticMesh>(utils_i_o::LoadAssetByName("Cube1", ECk_AssetSearchScope::Engine, ECk_AssetSearchStrategy::ExactOnly)._Asset);
 	default Mesh.CollisionEnabled = ECollisionEnabled::NoCollision;
 
@@ -30,9 +31,35 @@ class ACk_TransformGym_Cube : AActor
 	default TextRenderer.WorldSize = 40.0f;
 	default TextRenderer.TextRenderColor = FColor::Orange;
 
-	UPROPERTY(ExposeOnSpawn)
+	UPROPERTY(ExposeOnSpawn, Replicated)
 	ECk_TransformGym_Behavior Behavior = ECk_TransformGym_Behavior::SetLocation;
 
+    UPROPERTY(Replicated) int32 SharedSlot = -1;
+    UPROPERTY(Replicated) int32 SharedGeneration = 0;
+    private FCk_Handle_PendingEntityScript SharedPending;
+    UFUNCTION(BlueprintPure) FCk_Handle Get_SharedPendingBridge() const
+    { return SharedPending.Get_EntityUnderConstruction(); }
+    UFUNCTION(BlueprintPure) FCk_Handle Get_SharedBridge()
+    {
+        auto H = utils_owning_actor::TryGet_ActorEntityHandle(this);
+        if (!CkTransformShared::IsLive(H) || !utils_owning_actor::Has(H) ||
+            utils_owning_actor::TryGet_EntityOwningActor(H) != this || !utils_entity_script::Has(H) ||
+            !utils_transform::Has(H) || !utils_net::Has(H) || utils_net::Get_Replication(H) != ECk_Replication::Replicates ||
+            (HasAuthority() && !utils_entity_replication_driver::Has(H))) { return FCk_Handle(); }
+        auto Script = utils_entity_script::TryGet_EntityScript(H);
+        if (ck::Is_NOT_Valid(Script) || Script.GetClass() != UCk_EntityScript_WithActor_UE) { return FCk_Handle(); }
+        return H;
+    }
+    private bool Get_CanRunSharedBehavior()
+    {
+        if (!ck::IsValid(this) || !HasAuthority()) { return false; }
+        auto CurrentWorld = GetWorld();
+        if (!ck::IsValid(CurrentWorld)) { return false; }
+        auto State = CkTransformShared::Get_State(CurrentWorld);
+        if (!ck::IsValid(State) || State.GetWorld() != CurrentWorld || CurrentWorld.GetGameState() != State || State.Snapshot.Failed) { return false; }
+        auto Bridge = Get_SharedBridge();
+        return CkTransformShared::IsLive(Bridge) && Bridge == EcsEntity && utils_transform::Has(Bridge);
+    }
 	// --- Shared state ---
 	FCk_Handle EcsEntity;
 	float32 ElapsedTime = 0.0f;
@@ -71,6 +98,7 @@ class ACk_TransformGym_Cube : AActor
 
 		auto PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
 			this, UCk_EntityScript_WithActor_UE);
+		SharedPending = PendingEntity;
 		if (utils_pending_entity_script::Get_IsValid(PendingEntity))
 		{
 			utils_pending_entity_script::Promise_OnConstructed(
@@ -110,6 +138,7 @@ class ACk_TransformGym_Cube : AActor
 	UFUNCTION()
 	private void OnStepTimer(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+        if (!Get_CanRunSharedBehavior()) { return; }
 		if (Behavior == ECk_TransformGym_Behavior::SetLocation)
 		{
 			CurrentCorner = (CurrentCorner + 1) % 4;
@@ -154,6 +183,7 @@ class ACk_TransformGym_Cube : AActor
 	UFUNCTION()
 	private void OnFrameTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+        if (!Get_CanRunSharedBehavior()) { return; }
 		auto DeltaSeconds = float32(InDeltaT.Get_Seconds());
 		ElapsedTime = ElapsedTime + DeltaSeconds;
 
