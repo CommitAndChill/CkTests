@@ -85,7 +85,41 @@ class ACk_SmTest_GymActor : ACk_SmTest_GymSourceActor
         auto ModeLabel = EnablePauseResume ? "Pause/Resume + State Graph" : "State Graph Auto";
         InfoText.SetText(ck::Text(f"SM: {ModeLabel}"));
 
-        if (HasAuthority()) { Request_SourceEntity(n"OnEntityConstructed"); }
+        if (HasAuthority()) { Request_PrepareSource(); }
+        else { Request_RefreshSourcePresentation(); }
+    }
+
+    bool Validate_SourceConfiguration() override
+    {
+        return Math::IsFinite(CycleDuration) && CycleDuration > 0.0f &&
+            (!EnablePauseResume ||
+             (PauseAfterTransitions > 0 && Math::IsFinite(PauseDuration) &&
+              PauseDuration > 0.0f));
+    }
+
+    void DoStart_Source() override
+    { Request_PassSource(n"OnEntityConstructed"); }
+
+    bool TryGet_SourcePresentation(FString&out OutTitle, FString&out OutDetail,
+        FColor&out OutColor) override
+    {
+        OutTitle = "";
+        OutDetail = "";
+        OutColor = FColor::White;
+        if (!Get_HasCurrentSourceContext() || !Get_SourceStarted())
+        { return false; }
+        OutTitle = StateText.Text.ToString();
+        OutDetail = InfoText.Text.ToString();
+        OutColor = StateText.TextRenderColor;
+        return true;
+    }
+
+    void Apply_SourcePresentation(const FCkStateMachineGym_StationFrame&in Frame) override
+    {
+        StateText.SetText(FText::FromString(Frame.Title));
+        StateText.SetTextRenderColor(Frame.Color);
+        InfoText.SetText(FText::FromString(Frame.Detail));
+        InfoText.SetTextRenderColor(Frame.Color);
     }
 
     // ========================================================================
@@ -95,18 +129,29 @@ class ACk_SmTest_GymActor : ACk_SmTest_GymSourceActor
     UFUNCTION()
     private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (!TryAccept_SourceEntity(InEntityScriptHandle)) { return; }
+        if (!TryAccept_PassSource(InEntityScriptHandle)) { return; }
 
         auto OwnerHandle = FCk_Handle(InEntityScriptHandle);
+        auto Roots = Get_SourceRoots();
+        if (!Get_HasCurrentSourceContext() || Roots.Num() != 1 ||
+            Roots[0] != OwnerHandle || Get_SourceConstructedCount() != 1)
+        { Request_CloseSource(); return; }
         OwnerHandle.Set_DebugName(n"StateMachine");
+        if (!Get_HasCurrentSourceContext()) { return; }
         auto StateClass = InitialStateClass.IsValid()
             ? InitialStateClass
             : TSubclassOf<UCk_SmState_EntityScript>(UCk_SmTest_State_Idle);
+        auto Spec = FCk_StateMachine_Spec(StateClass);
+        Spec.Set_AutoStart(ECk_SmAutoStart::Disabled);
         SmHandle = UCk_Utils_StateMachine_UE::Add(
-            OwnerHandle,
-            FCk_StateMachine_Spec(StateClass));
-        if (ck::Is_NOT_Valid(SmHandle)) { Request_CloseSource(); return; }
+            OwnerHandle, Spec);
+        if (!Get_HasCurrentSourceContext() || ck::Is_NOT_Valid(SmHandle) ||
+            FCk_Handle(SmHandle) != OwnerHandle ||
+            !utils_state_machine::Has(OwnerHandle))
+        { Request_CloseSource(); return; }
         BindSignals();
+        if (!Get_HasCurrentSourceContext()) { return; }
+        SmHandle.Request_Start();
     }
 
     // ========================================================================

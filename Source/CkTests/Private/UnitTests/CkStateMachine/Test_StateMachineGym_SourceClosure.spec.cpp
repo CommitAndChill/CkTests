@@ -4,6 +4,7 @@
 
 #include "CkSelectionGym_BankCensus.h"
 #include "CkEntityScriptGym_Runtime.h"
+#include "CkStateMachineGym_Runtime.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/OwningActor/CkOwningActor_Utils.h"
@@ -36,7 +37,9 @@ namespace ck_sm_gym_source_closure_test
         TWeakObjectPtr<AActor> Generic;
         FCk_Handle RacingRoot;
         FCk_Handle RacingNormalRoot;
+        FCk_Handle RacingNormalPrimary;
         FCk_Handle GenericRoot;
+        FCk_Handle GenericPrimary;
         TArray<FCk_Handle> GenericForest;
         FString FirstCensusReason;
         int32 GenericCensusAttempts = 0;
@@ -101,6 +104,18 @@ namespace ck_sm_gym_source_closure_test
             Return->ContainerPtrToValuePtr<void>(C.Args->GetStructMemory()));
         for (int32 I = 0; I < Array.Num(); ++I)
         { Out.Add(*reinterpret_cast<FCk_Handle*>(Array.GetRawPtr(I))); }
+        return true;
+    }
+
+    bool Primary(AActor* Actor, const TCHAR* Name, FCk_Handle& Out)
+    {
+        Out = {};
+        FCall C(Actor, Name);
+        auto* Return = Field<FStructProperty>(C.Function, TEXT("ReturnValue"));
+        if (!Return || Return->Struct != FCk_Handle::StaticStruct() ||
+            C.Function->NumParms != 1 || !C.Send()) { return false; }
+        Out = *Return->ContainerPtrToValuePtr<FCk_Handle>(
+            C.Args->GetStructMemory());
         return true;
     }
 
@@ -206,16 +221,22 @@ namespace ck_sm_gym_source_closure_test
             !Roots(Actor, Out) || Out.Num() != Expected) { return false; }
         const auto WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
             TryGet_TransientEntityForWorld(*World);
-        if (!Allocated(WorldRoot)) { return false; }
+        FCk_Handle SourcePrimary;
+        if (!Allocated(WorldRoot) ||
+            !Primary(Actor, TEXT("Get_SourcePrimary"), SourcePrimary) ||
+            !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(
+                SourcePrimary, Actor)) { return false; }
         TSet<FCk_Handle> Seen;
-        for (const auto& Root : Out)
+        for (const auto& Pass : Out)
         {
-            if (!Allocated(Root) || Seen.Contains(Root) ||
-                !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Root) ||
-                UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Root) != WorldRoot ||
-                UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(Root) != World)
+            if (!Allocated(Pass) || Seen.Contains(Pass) ||
+                !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePass(
+                    Pass, SourcePrimary) ||
+                !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Pass) ||
+                UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Pass) != SourcePrimary ||
+                UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(Pass) != World)
             { return false; }
-            Seen.Add(Root);
+            Seen.Add(Pass);
         }
         return true;
     }
@@ -336,12 +357,13 @@ bool FCkStateMachineGym_SourceClosure::RunTest(const FString& Parameters)
             Actor->FinishSpawning(FTransform::Identity);
             TArray<FCk_Handle> RootsBefore;
             int32 Constructed = INDEX_NONE;
-            const bool Receipt = ExactRoots(Actor, World, 1, RootsBefore) &&
+            const bool Receipt = Roots(Actor, RootsBefore) && RootsBefore.IsEmpty() &&
+                Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Run->RacingRoot) &&
+                Allocated(Run->RacingRoot) &&
                 Int(Actor, TEXT("Get_SourceConstructedCount"), Constructed) &&
                 Constructed == 0;
             TestTrue(TEXT("real Racing source pending target retained before deferred construction"), Receipt);
             if (!Receipt) { return; }
-            Run->RacingRoot = RootsBefore[0];
             bool Closed = false;
             Run->RacingClosedSameAction = Close(Actor) &&
                 Bool(Actor, TEXT("Get_SourceClosed"), Closed) && Closed;
@@ -351,9 +373,11 @@ bool FCkStateMachineGym_SourceClosure::RunTest(const FString& Parameters)
             TestTrue(TEXT("pending Racing source closes in the same action as FinishSpawning"),
                 Run->RacingClosedSameAction && TextCaptured && HasNoSmHandle(Actor));
             TArray<FCk_Handle> RootsAfter;
+            FCk_Handle TargetAfter;
             TestTrue(TEXT("pending target identity retained after source closure"),
-                Roots(Actor, RootsAfter) && RootsAfter.Num() == 1 &&
-                RootsAfter[0] == Run->RacingRoot);
+                Roots(Actor, RootsAfter) && RootsAfter.IsEmpty() &&
+                Primary(Actor, TEXT("Get_SourcePrimaryTarget"), TargetAfter) &&
+                TargetAfter == Run->RacingRoot);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([Run]() {
@@ -396,6 +420,36 @@ bool FCkStateMachineGym_SourceClosure::RunTest(const FString& Parameters)
                 ClientLocalRacingSpawnClosesWithoutSource(World, Run->RacingClass));
         })));
 
+    // Invalid authored configuration closes before a primary request or pass
+    // can be admitted, even if source start was deferred.
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
+            auto* Actor = IsValid(World) ? World->SpawnActorDeferred<AActor>(
+                Run->RacingClass, FTransform(FVector(0, 300, 0))) : nullptr;
+            if (!TestTrue(TEXT("invalid Racing source actor allocated"), IsValid(Actor)))
+            { return; }
+            auto* Defer = Field<FBoolProperty>(Actor->GetClass(), TEXT("DeferSourceStart"));
+            auto* Fast = Field<FFloatProperty>(Actor->GetClass(), TEXT("FastDelaySeconds"));
+            if (!TestTrue(TEXT("invalid Racing source config reflects"), Defer && Fast))
+            { Actor->Destroy(); return; }
+            Defer->SetPropertyValue_InContainer(Actor, true);
+            Fast->SetPropertyValue_InContainer(Actor, -1.0f);
+            Actor->FinishSpawning(FTransform(FVector(0, 300, 0)));
+            TArray<FCk_Handle> Passes;
+            FCk_Handle Target;
+            int32 Constructed = INDEX_NONE;
+            bool Closed = false;
+            TestTrue(TEXT("invalid Racing admission has no primary, pass or runnable SM"),
+                Roots(Actor, Passes) && Passes.IsEmpty() &&
+                Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Target) &&
+                !Allocated(Target) &&
+                Int(Actor, TEXT("Get_SourceConstructedCount"), Constructed) &&
+                Constructed == 0 &&
+                Bool(Actor, TEXT("Get_SourceClosed"), Closed) && Closed &&
+                HasNoSmHandle(Actor));
+            Actor->Destroy();
+        })));
+
     // Preserve the real default Racing verdict in this focused gate. This is a
     // second source actor, with no test-side timer/counter or callback injection.
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -407,18 +461,23 @@ bool FCkStateMachineGym_SourceClosure::RunTest(const FString& Parameters)
             { return; }
             Run->RacingNormal = Actor;
             Actor->FinishSpawning(FTransform(FVector(0, 150, 0)));
-            TArray<FCk_Handle> RootsNow;
-            TestTrue(TEXT("normal Racing first-return root retained"),
-                ExactRoots(Actor, World, 1, RootsNow));
-            if (RootsNow.Num() == 1) { Run->RacingNormalRoot = RootsNow[0]; }
+            FCk_Handle PendingPrimary;
+            TestTrue(TEXT("normal Racing primary request retained"),
+                Primary(Actor, TEXT("Get_SourcePrimaryTarget"), PendingPrimary) &&
+                Allocated(PendingPrimary));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([Run]() {
             auto* Actor = Run->RacingNormal.Get();
+            TArray<FCk_Handle> RootsNow;
+            if (!ExactRoots(Actor, ck::auto_test::net::Get_ServerWorld(),
+                    1, RootsNow)) { return false; }
+            Run->RacingNormalRoot = RootsNow[0];
             if (!IsValid(Actor) || !Allocated(Run->RacingNormalRoot) ||
                 !UCk_Utils_StateMachine_UE::Has(Run->RacingNormalRoot) ||
+                !Primary(Actor, TEXT("Get_SourcePrimary"), Run->RacingNormalPrimary) ||
                 UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor) !=
-                    Run->RacingNormalRoot) { return false; }
+                    Run->RacingNormalPrimary) { return false; }
             int32 Count = INDEX_NONE;
             auto* A = Field<FIntProperty>(Actor->GetClass(), TEXT("Counter_DestA"));
             auto* B = Field<FIntProperty>(Actor->GetClass(), TEXT("Counter_DestB"));
@@ -456,6 +515,7 @@ bool FCkStateMachineGym_SourceClosure::RunTest(const FString& Parameters)
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([Run]() {
             return !Allocated(Run->RacingNormalRoot) &&
+                !Allocated(Run->RacingNormalPrimary) &&
                 SourceActorsInWorld(ck::auto_test::net::Get_ServerWorld(),
                     Run->RacingClass) == 0;
         }), 15.0, TEXT("normal Racing ECS root deallocated and actor removed from world")));
@@ -463,6 +523,7 @@ bool FCkStateMachineGym_SourceClosure::RunTest(const FString& Parameters)
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld*) {
             TestTrue(TEXT("normal Racing source closes with root gone and no client source constructors"),
                 !Allocated(Run->RacingNormalRoot) &&
+                !Allocated(Run->RacingNormalPrimary) &&
                 ClientSourceConstructorsRemainIdle(*Run));
         })));
 
@@ -496,19 +557,21 @@ bool FCkStateMachineGym_SourceClosure::RunTest(const FString& Parameters)
             if (!ExactRoots(Actor, World, 1, RootsNow) ||
                 !Int(Actor, TEXT("Get_SourceConstructedCount"), Count) || Count != 1 ||
                 !UCk_Utils_StateMachine_UE::Has(RootsNow[0]) ||
-                UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor) != RootsNow[0] ||
+                !Primary(Actor, TEXT("Get_SourcePrimary"), Run->GenericPrimary) ||
+                UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor) != Run->GenericPrimary ||
                 !GenericVisual(Actor, Transitions, Text, Paused) || !Paused ||
                 Transitions < 1) { return false; }
             TArray<FCk_Handle> Forest;
             FString Why;
             ++Run->GenericCensusAttempts;
             const bool Complete = ck_selection_gym_census::TryCensusAllocatedBank(
-                World, RootsNow[0], {}, Forest, Why);
+                World, Run->GenericPrimary, {}, Forest, Why);
             if (!Complete)
             { if (Run->FirstCensusReason.IsEmpty()) { Run->FirstCensusReason = Why; } return false; }
             Run->GenericRoot = RootsNow[0];
             Run->GenericForest = MoveTemp(Forest);
-            return Run->GenericForest.Contains(Run->GenericRoot);
+            return Run->GenericForest.Contains(Run->GenericRoot) &&
+                Run->GenericForest.Contains(Run->GenericPrimary);
         }), 15.0, TEXT("actual generic SM, pause and complete owner forest settled")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Run](UWorld* World) {
@@ -555,7 +618,9 @@ bool FCkStateMachineGym_SourceClosure::RunTest(const FString& Parameters)
             return SourceActorsInWorld(World, Run->RacingClass) == 0 &&
                 SourceActorsInWorld(World, Run->GenericClass) == 0 &&
                 !Allocated(Run->RacingRoot) &&
-                !Allocated(Run->RacingNormalRoot) && !Allocated(Run->GenericRoot);
+                !Allocated(Run->RacingNormalRoot) &&
+                !Allocated(Run->RacingNormalPrimary) &&
+                !Allocated(Run->GenericRoot) && !Allocated(Run->GenericPrimary);
         }), 15.0, TEXT("all exact source actors removed and retained roots deallocated")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     return true;

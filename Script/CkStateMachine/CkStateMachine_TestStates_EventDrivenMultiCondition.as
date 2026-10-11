@@ -49,17 +49,21 @@ namespace SmEventDrivenMultiCondition_Registry
         auto Actor = Cast<ACk_SmTest_EventDrivenMultiCondition_GymActor>(
             utils_owning_actor::TryGet_EntityOwningActor(Context));
         if (ck::Is_NOT_Valid(Actor) || Actor.IsActorBeingDestroyed() ||
-            Actor.Get_SourceClosed() || Actor.SmEntity != Context)
+            Actor.Get_SourceClosed() || Context != Actor.Get_SourcePrimary())
+        { return nullptr; }
+        FCk_Handle Pass;
+        if (!UCk_StateMachineGym_Runtime_UE::TryGet_DirectPassChild(
+                InCallback, Context, Pass) || Actor.SmEntity != Pass)
         { return nullptr; }
         auto Roots = Actor.Get_SourceRoots();
-        if (Roots.Num() != 1 || Roots[0] != Context ||
+        if (Roots.Num() != 1 || Roots[0] != Pass ||
             Actor.Get_SourceConstructedCount() != 1 ||
             !Actor.Get_HasCurrentSourceContext())
         { return nullptr; }
         // Initial state callbacks can run synchronously inside Add, before
         // OnEntityConstructed stores Add's returned typed handle.
         if (ck::IsValid(Actor.SmHandle) &&
-            FCk_Handle(Actor.SmHandle) != Context)
+            FCk_Handle(Actor.SmHandle) != Pass)
         { Actor.Request_CloseSource(); return nullptr; }
         return Actor;
     }

@@ -76,9 +76,8 @@ class ACk_SmTest_GraphWalkRegression_GymActor : ACk_SmTest_GymSourceActor
     // ========================================================================
 
     // An ECS entity can hold only one state machine (the SM fragments
-    // collide on the second Add), so we spawn a dedicated EntityScript per
-    // SM. Both are lifetime-owned by ck::TransientEntity() and hold a back
-    // reference to this actor.
+    // collide on the second Add), so each machine has a separate actorless
+    // pass child of the retained actor-owning primary.
     UPROPERTY()
     FCk_Handle TopEntity;
 
@@ -170,25 +169,51 @@ class ACk_SmTest_GraphWalkRegression_GymActor : ACk_SmTest_GymSourceActor
         DetailText.SetText(ck::Text("Constructing..."));
 
         if (HasAuthority() == false)
-        { return; }
-
-        if (!Math::IsFinite(FirstVerifyDelay) || FirstVerifyDelay <= 0.0f ||
-            !Math::IsFinite(SecondVerifyDelay) ||
-            SecondVerifyDelay <= FirstVerifyDelay)
-        { Request_CloseSource(); return; }
+        { Request_RefreshSourcePresentation(); return; }
 
         // Source construction and SM callbacks can arrive after BeginPlay.
         // Never reset after an accepted source callback has begun.
         Reset_Counters();
-        if (!Request_SourceEntity(n"OnTopEntityConstructed")) { return; }
-        if (!Request_SourceEntity(n"OnSubEntityConstructed")) { return; }
+        Request_PrepareSource();
         DetailText.SetText(ck::Text("Waiting for both source machines..."));
+    }
+
+    bool Validate_SourceConfiguration() override
+    {
+        return Math::IsFinite(FirstVerifyDelay) && FirstVerifyDelay > 0.0f &&
+            Math::IsFinite(SecondVerifyDelay) &&
+            SecondVerifyDelay > FirstVerifyDelay;
+    }
+
+    void DoStart_Source() override
+    { Request_PassSource(n"OnTopEntityConstructed"); }
+
+    bool TryGet_SourcePresentation(FString&out OutTitle, FString&out OutDetail,
+        FColor&out OutColor) override
+    {
+        OutTitle = "";
+        OutDetail = "";
+        OutColor = FColor::White;
+        if (!Get_HasCurrentSourceContext() || !Get_SourceStarted())
+        { return false; }
+        OutTitle = ResultText.Text.ToString();
+        OutDetail = DetailText.Text.ToString();
+        OutColor = ResultText.TextRenderColor;
+        return true;
+    }
+
+    void Apply_SourcePresentation(const FCkStateMachineGym_StationFrame&in Frame) override
+    {
+        ResultText.SetText(FText::FromString(Frame.Title));
+        ResultText.SetTextRenderColor(Frame.Color);
+        DetailText.SetText(FText::FromString(Frame.Detail));
+        DetailText.SetTextRenderColor(Frame.Color);
     }
 
     UFUNCTION()
     private void OnTopEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (Get_SourceClosed() || !TryAccept_SourceEntity(InEntityScriptHandle))
+        if (Get_SourceClosed() || !TryAccept_PassSource(InEntityScriptHandle))
         { return; }
         TopEntity = FCk_Handle(InEntityScriptHandle);
         if (!Get_HasCurrentSourceContext()) { return; }
@@ -198,22 +223,22 @@ class ACk_SmTest_GraphWalkRegression_GymActor : ACk_SmTest_GymSourceActor
         // Top-level linear SM - exercises the non-hierarchical graph-walk
         // path. A task callback may occur before Add returns its typed
         // handle; debugger graph-walk capture can continue later.
-        TopSmHandle = UCk_Utils_StateMachine_UE::Add(
-            TopEntity,
-            FCk_StateMachine_Spec(UCk_SmTest_GraphWalk_Top_State_A));
+        auto Spec = FCk_StateMachine_Spec(UCk_SmTest_GraphWalk_Top_State_A);
+        Spec.Set_AutoStart(ECk_SmAutoStart::Disabled);
+        TopSmHandle = UCk_Utils_StateMachine_UE::Add(TopEntity, Spec);
         if (!Get_HasCurrentSourceContext() || ck::Is_NOT_Valid(TopSmHandle) ||
             FCk_Handle(TopSmHandle) != TopEntity ||
             !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
                 FCk_Handle(TopSmHandle)) ||
             !utils_state_machine::Has(FCk_Handle(TopSmHandle)))
         { Request_CloseSource(); return; }
-        TryArmVerification();
+        if (!Request_PassSource(n"OnSubEntityConstructed")) { return; }
     }
 
     UFUNCTION()
     private void OnSubEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (Get_SourceClosed() || !TryAccept_SourceEntity(InEntityScriptHandle))
+        if (Get_SourceClosed() || !TryAccept_PassSource(InEntityScriptHandle))
         { return; }
         SubEntity = FCk_Handle(InEntityScriptHandle);
         if (!Get_HasCurrentSourceContext()) { return; }
@@ -223,9 +248,9 @@ class ACk_SmTest_GraphWalkRegression_GymActor : ACk_SmTest_GymSourceActor
         // Sub-SM variant - parent wrapper state holds UCk_SmTask_SubStateMachine
         // pointing at Sub_State_A. Exercises the hierarchical code path in the
         // graph-walk processor independently from the top-level case.
-        SubSmParentHandle = UCk_Utils_StateMachine_UE::Add(
-            SubEntity,
-            FCk_StateMachine_Spec(UCk_SmTest_GraphWalk_SubSmWrapper_State));
+        auto Spec = FCk_StateMachine_Spec(UCk_SmTest_GraphWalk_SubSmWrapper_State);
+        Spec.Set_AutoStart(ECk_SmAutoStart::Disabled);
+        SubSmParentHandle = UCk_Utils_StateMachine_UE::Add(SubEntity, Spec);
         if (!Get_HasCurrentSourceContext() ||
             ck::Is_NOT_Valid(SubSmParentHandle) ||
             FCk_Handle(SubSmParentHandle) != SubEntity ||
@@ -233,6 +258,11 @@ class ACk_SmTest_GraphWalkRegression_GymActor : ACk_SmTest_GymSourceActor
                 FCk_Handle(SubSmParentHandle)) ||
             !utils_state_machine::Has(FCk_Handle(SubSmParentHandle)))
         { Request_CloseSource(); return; }
+        if (!Get_HasExactVerificationSource()) { return; }
+        TopSmHandle.Request_Start();
+        if (!Get_HasExactVerificationSource()) { return; }
+        SubSmParentHandle.Request_Start();
+        if (!Get_HasExactVerificationSource()) { return; }
         TryArmVerification();
     }
 

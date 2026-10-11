@@ -18,6 +18,12 @@ class UCk_SmTest_DivergencePassScript : UCk_GenericEntityScript_UE
 UCLASS(Blueprintable)
 class ACk_SmTest_GymSourceActor : AActor
 {
+    UPROPERTY(ExposeOnSpawn)
+    bool DeferSourceStart = false;
+    private bool _SourcePrepared = false;
+    private bool _SourceStarted = false;
+    UPROPERTY(ReplicatedUsing=OnSourceDisplayUpdated)
+    private FCkStateMachineGym_StationFrame _SourceDisplay;
     private UWorld _SourceWorld;
     private FCk_Handle _SourceWorldRoot;
     private TArray<FCk_Handle_PendingEntityScript> _SourcePending;
@@ -30,6 +36,7 @@ class ACk_SmTest_GymSourceActor : AActor
     private bool _PrimaryAccepted = false;
     private bool _SourceCaptured = false;
     private bool _SourceClosed = false;
+    private bool _RetirementAttempted = false;
 
     UFUNCTION(BlueprintPure)
     bool Get_SourceClosed() const { return _SourceClosed; }
@@ -47,6 +54,68 @@ class ACk_SmTest_GymSourceActor : AActor
                 _PrimaryTarget, this))
         { return FCk_Handle(); }
         return _PrimaryTarget;
+    }
+
+    UFUNCTION(BlueprintPure)
+    bool Get_SourcePrepared()
+    { return _SourcePrepared && !_SourceClosed && Get_HasCurrentSourceContext(); }
+
+    UFUNCTION(BlueprintPure)
+    bool Get_SourceStarted() const
+    { return _SourceStarted && !_SourceClosed; }
+
+    bool Validate_SourceConfiguration() { return true; }
+    void DoStart_Source() {}
+
+    bool TryGet_SourcePresentation(FString&out Title, FString&out Detail, FColor&out Color)
+    { Title = ""; Detail = ""; Color = FColor::White; return false; }
+
+    void Apply_SourcePresentation(const FCkStateMachineGym_StationFrame&in Frame) {}
+
+    void Publish_SourcePresentation(const FCkStateMachineGym_StationFrame&in Frame)
+    {
+        if (!HasAuthority() || Get_SourceClosed() || Frame.Index < 0 ||
+            Frame.Index >= 9 || Frame.Generation <= 0) { return; }
+        _SourceDisplay = Frame;
+        ForceNetUpdate();
+    }
+
+    void Request_RefreshSourcePresentation() { OnSourceDisplayUpdated(); }
+
+    UFUNCTION()
+    private void OnSourceDisplayUpdated()
+    {
+        if (HasAuthority() || IsActorBeingDestroyed() || _SourceDisplay.Index < 0 ||
+            _SourceDisplay.Index >= 9 || _SourceDisplay.Generation <= 0 ||
+            _SourceDisplay.Title.Len() > 4096 || _SourceDisplay.Detail.Len() > 16384)
+        { return; }
+        Apply_SourcePresentation(_SourceDisplay);
+    }
+
+    bool Request_PrepareSource()
+    {
+        if (!Validate_SourceConfiguration())
+        { Request_CloseSource(); return false; }
+        return Request_PrimarySource(n"OnSourcePrimaryPrepared");
+    }
+
+    UFUNCTION()
+    private void OnSourcePrimaryPrepared(FCk_Handle_EntityScript InHandle)
+    {
+        if (!TryAccept_PrimarySource(InHandle)) { return; }
+        if (!Validate_SourceConfiguration()) { Request_CloseSource(); return; }
+        _SourcePrepared = true;
+        if (!DeferSourceStart) { Request_StartAdmittedSource(); }
+    }
+
+    bool Request_StartAdmittedSource()
+    {
+        if (!Get_SourcePrepared() || !Validate_SourceConfiguration())
+        { Request_CloseSource(); return false; }
+        if (_SourceStarted) { return true; }
+        _SourceStarted = true;
+        DoStart_Source();
+        return !_SourceClosed;
     }
 
     private bool HasLiveSourceContext()
@@ -277,10 +346,36 @@ class ACk_SmTest_GymSourceActor : AActor
     }
 
     UFUNCTION()
+    void Request_BlockSource()
+    { _SourceClosed = true; }
+
+    private void StopAcceptedPasses()
+    {
+        if (!_PrimaryMode || !_PrimaryAccepted ||
+            !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(_PrimaryTarget, this))
+        { return; }
+        // A later pass can still be pending when the session closes. Stop every
+        // individually proved accepted machine without adopting that partial tree.
+        for (int32 I = 0; I < _SourceAccepted.Num(); ++I)
+        {
+            if (I >= _SourceRoots.Num() || _SourceRoots[I] != _SourceAccepted[I]) { return; }
+            auto Pass = _SourceAccepted[I];
+            if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Pass) ||
+                ck::Is_NOT_Valid(Pass) ||
+                !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePass(Pass, _PrimaryTarget) ||
+                !utils_state_machine::Has(Pass)) { continue; }
+            auto Machine = utils_state_machine::DoCastChecked(Pass);
+            Machine.Request_Stop();
+        }
+    }
+
+    UFUNCTION()
     void Request_CloseSource()
     {
-        if (_SourceClosed) { return; }
+        if (_RetirementAttempted) { return; }
         _SourceClosed = true; // a destruction callback must not resume source mutation
+        _RetirementAttempted = true;
+        StopAcceptedPasses();
 
         if (_PrimaryMode)
         {

@@ -1,4 +1,5 @@
 #include "Misc/AutomationTest.h"
+#include "CkStateMachineGym_Runtime.h"
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
@@ -113,6 +114,18 @@ namespace ck_sm_event_multi_isolation_test
         return true;
     }
 
+    bool Primary(AActor* Actor, const TCHAR* Name, FCk_Handle& Out)
+    {
+        Out = {};
+        FCall C(Actor, Name);
+        auto* P = Field<FStructProperty>(C.Function, TEXT("ReturnValue"));
+        if (!P || P->Struct != FCk_Handle::StaticStruct() ||
+            C.Function->NumParms != 1 || !C.Send()) { return false; }
+        Out = *P->ContainerPtrToValuePtr<FCk_Handle>(
+            C.Args->GetStructMemory());
+        return true;
+    }
+
     bool Close(AActor* Actor)
     {
         FCall C(Actor, TEXT("Request_CloseSource"));
@@ -172,18 +185,17 @@ namespace ck_sm_event_multi_isolation_test
     bool OneRoot(AActor* Actor, UWorld* World, FCk_Handle& Out)
     {
         Out = {};
-        TArray<FCk_Handle> Found;
         if (!IsValid(Actor) || !IsValid(World) || Actor->GetWorld() != World ||
-            !Roots(Actor, Found) || Found.Num() != 1 || !Allocated(Found[0]))
+            !Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Out) ||
+            !Allocated(Out) || !ck::IsValid(Out))
         { return false; }
         const auto WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
             TryGet_TransientEntityForWorld(*World);
         if (!Allocated(WorldRoot) ||
-            !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Found[0]) ||
-            UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Found[0]) != WorldRoot ||
-            UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(Found[0]) != World)
+            !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Out) ||
+            UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Out) != WorldRoot ||
+            UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(Out) != World)
         { return false; }
-        Out = Found[0];
         return true;
     }
 
@@ -271,11 +283,20 @@ namespace ck_sm_event_multi_isolation_test
         FCk_Handle_StateMachine Sm;
         int32 Count, Constructed;
         FString Text;
+        TArray<FCk_Handle> Passes;
+        FCk_Handle Accepted;
         return OneRoot(Actor, World, Root) && Root == Expected &&
+            Primary(Actor, TEXT("Get_SourcePrimary"), Accepted) &&
+            Accepted == Root &&
+            UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(
+                Root, Actor) &&
+            Roots(Actor, Passes) && Passes.Num() == 1 &&
+            UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePass(
+                Passes[0], Root) &&
             UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor) == Root &&
             Int(Actor, TEXT("Get_SourceConstructedCount"), Constructed) &&
             Constructed == 1 && ReadSm(Actor, Sm) &&
-            FCk_Handle(Sm) == Expected && Allocated(FCk_Handle(Sm)) &&
+            FCk_Handle(Sm) == Passes[0] && Allocated(FCk_Handle(Sm)) &&
             ck::IsValid(FCk_Handle(Sm)) &&
             UCk_Utils_StateMachine_UE::Has(FCk_Handle(Sm)) &&
             UCk_Utils_StateMachine_UE::Get_CurrentStateClass(Sm).Get() == FinishClass &&
@@ -290,8 +311,12 @@ namespace ck_sm_event_multi_isolation_test
         FCk_Handle_StateMachine Sm;
         int32 Count, Constructed;
         FString Text;
-        return IsValid(Actor) && Roots(Actor, Found) && Found.Num() == 1 &&
-            Found[0] == R.PendingRoot && !Allocated(R.PendingRoot) &&
+        FCk_Handle Target, Accepted;
+        return IsValid(Actor) && Roots(Actor, Found) && Found.IsEmpty() &&
+            Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Target) &&
+            Target == R.PendingRoot &&
+            Primary(Actor, TEXT("Get_SourcePrimary"), Accepted) &&
+            Accepted == FCk_Handle{} && !Allocated(R.PendingRoot) &&
             Int(Actor, TEXT("Get_SourceConstructedCount"), Constructed) &&
             Constructed == 0 && ReadSm(Actor, Sm) && !ck::IsValid(Sm) &&
             ReadCounter(Actor, Count) && Count == 0 &&
@@ -382,7 +407,9 @@ bool FCkStateMachineGym_EventMultiConditionIsolation::RunTest(const FString& Par
     if (!TestTrue(TEXT("real EventMultiCondition actor and Finish classes resolve"),
         Run->ActorClass && Run->FinishClass &&
         Run->ActorClass->FindFunctionByName(TEXT("Request_CloseSource")) &&
-        Run->ActorClass->FindFunctionByName(TEXT("Get_SourceRoots"))))
+        Run->ActorClass->FindFunctionByName(TEXT("Get_SourceRoots")) &&
+        Run->ActorClass->FindFunctionByName(TEXT("Get_SourcePrimary")) &&
+        Run->ActorClass->FindFunctionByName(TEXT("Get_SourcePrimaryTarget"))))
     { return false; }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(

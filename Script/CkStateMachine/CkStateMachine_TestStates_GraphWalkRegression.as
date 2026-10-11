@@ -50,20 +50,25 @@ namespace SmGraphWalk_Regression
         if (ck::Is_NOT_Valid(Actor) || Actor.IsActorBeingDestroyed() ||
             Actor.Get_SourceClosed())
         { return nullptr; }
+        FCk_Handle Pass;
+        if (Context != Actor.Get_SourcePrimary() ||
+            !UCk_StateMachineGym_Runtime_UE::TryGet_DirectPassChild(
+                InCallback, Context, Pass))
+        { return nullptr; }
         auto Roots = Actor.Get_SourceRoots();
         if (Roots.Num() < 1 || Roots.Num() > 2 ||
             (Roots.Num() == 2 && Roots[0] == Roots[1]) ||
             Actor.Get_SourceConstructedCount() < 1 ||
             Actor.Get_SourceConstructedCount() > Roots.Num() ||
-            (InTop && (Context != Roots[0] || Actor.TopEntity != Context)) ||
-            (!InTop && (Roots.Num() != 2 || Context != Roots[1] ||
-                Actor.SubEntity != Context)) ||
+            (InTop && (Pass != Roots[0] || Actor.TopEntity != Pass)) ||
+            (!InTop && (Roots.Num() != 2 || Pass != Roots[1] ||
+                Actor.SubEntity != Pass)) ||
             !Actor.Get_HasCurrentSourceContext())
         { return nullptr; }
         // A state/task callback may run before Add's returned SM handle is
         // assigned. An assigned handle must still identify this source root.
         auto Assigned = InTop ? Actor.TopSmHandle : Actor.SubSmParentHandle;
-        if (ck::IsValid(Assigned) && FCk_Handle(Assigned) != Context)
+        if (ck::IsValid(Assigned) && FCk_Handle(Assigned) != Pass)
         { Actor.Request_CloseSource(); return nullptr; }
         return Actor;
     }
@@ -89,9 +94,13 @@ namespace SmGraphWalk_Regression
             !utils_state_machine::Has(Sm))
         { return false; }
         FCk_Handle SmContext;
+        FCk_Handle SmPass;
         if (!UCk_StateMachineGym_Runtime_UE::TryGet_SourceContext(
                 Sm, SmContext) ||
-            SmContext != (InTop ? Actor.TopEntity : Actor.SubEntity))
+            SmContext != Actor.Get_SourcePrimary() ||
+            !UCk_StateMachineGym_Runtime_UE::TryGet_DirectPassChild(
+                Sm, SmContext, SmPass) ||
+            SmPass != (InTop ? Actor.TopEntity : Actor.SubEntity))
         { return false; }
         // Do not require this to be the outer SM: Sub E belongs to the
         // nested SM whose context is still the accepted SubEntity root.

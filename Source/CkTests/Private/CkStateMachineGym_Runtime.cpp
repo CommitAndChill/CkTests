@@ -559,7 +559,11 @@ namespace ck_state_machine_gym_retirement
         if (!LiveActor(Actor)) { return false; }
         const auto Path = Actor->GetClass()->GetPathName();
         if (Path != TEXT("/Script/Angelscript.Ck_SmTest_DivergenceFirstBranch_GymActor") &&
-            Path != TEXT("/Script/Angelscript.Ck_SmTest_DivergenceTimed_GymActor"))
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_DivergenceTimed_GymActor") &&
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_GymActor") &&
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_GraphWalkRegression_GymActor") &&
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_RacingEventDriven_GymActor") &&
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_EventDrivenMultiCondition_GymActor"))
         { return false; }
         bool Closed = false;
         FCk_Handle RetainedPrimary;
