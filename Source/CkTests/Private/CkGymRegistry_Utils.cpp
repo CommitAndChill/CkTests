@@ -40,7 +40,8 @@ auto
         const FString& InDisplayName,
         TSubclassOf<AGameModeBase> InGameModeClass,
         const FString& InLevelName,
-        const FString& InCategory)
+        const FString& InCategory,
+        bool InHasMultiplayerComponent)
     -> void
 {
     auto* Subsystem = DoGet_Subsystem(InWorldContextObject);
@@ -56,6 +57,7 @@ auto
     Entry.GameModeClass = InGameModeClass;
     Entry.LevelName = InLevelName;
     Entry.Category = InCategory;
+    Entry.HasMultiplayerComponent = InHasMultiplayerComponent;
 
     Subsystem->Register(Entry);
 }

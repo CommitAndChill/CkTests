@@ -33,7 +33,8 @@ public:
         const FString& InDisplayName,
         TSubclassOf<AGameModeBase> InGameModeClass,
         const FString& InLevelName,
-        const FString& InCategory);
+        const FString& InCategory,
+        bool InHasMultiplayerComponent = false);
 
     UFUNCTION(BlueprintPure, Category = "Ck|Utils|GymRegistry",
               DisplayName = "[Ck][GymRegistry] Get GymRegistry",

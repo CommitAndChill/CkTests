@@ -33,6 +33,21 @@ namespace ck_gym_switchboard_widget
                 .ColorAndOpacity(InFillAlpha > 0.5f ? ChipInk : CkStyle::OverlayOf(InHue, 0.95f))
             ];
     }
+
+    auto Make_MultiplayerPill() -> TSharedRef<SWidget>
+    {
+        return SNew(SBorder)
+            .BorderImage(CkStyle::GetRoundedBrush())
+            .BorderBackgroundColor(CkStyle::OverlayOf(CkStyle::Accent(), 0.85f))
+            .ToolTipText(FText::FromString(TEXT("Multiplayer component")))
+            .Padding(FMargin{CkStyle::SpaceS, 1.0f})
+            [
+                SNew(STextBlock)
+                .Text(FText::FromString(TEXT("MP")))
+                .Font(CkStyle::BoldFont(CkStyle::FontSizeMicro()))
+                .ColorAndOpacity(ChipInk)
+            ];
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -325,6 +340,17 @@ auto
                 .ColorAndOpacity(IsSelected ? CkStyle::TextStrong() : CkStyle::Text())
             ];
 
+        if (Row.HasMultiplayerComponent)
+        {
+            RowContent->AddSlot()
+                .AutoWidth()
+                .VAlign(VAlign_Center)
+                .Padding(FMargin{CkStyle::SpaceS, 0.0f, CkStyle::SpaceS, 0.0f})
+                [
+                    Make_MultiplayerPill()
+                ];
+        }
+
         if (Row.DisplayName == InModel.DefaultGymName && NOT InModel.DefaultGymName.IsEmpty())
         {
             RowContent->AddSlot()
@@ -428,6 +454,22 @@ auto
             SNew(STextBlock)
             .Text(FText::FromString(TEXT("[2] start on selected")))
             .Font(CkStyle::MonoFont(CkStyle::FontSizeMicro()))
+            .ColorAndOpacity(CkStyle::TextMute())
+        ]
+        + SHorizontalBox::Slot()
+        .AutoWidth()
+        .VAlign(VAlign_Center)
+        .Padding(FMargin{CkStyle::SpaceL, 0.0f, CkStyle::SpaceS, 0.0f})
+        [
+            ck_gym_switchboard_widget::Make_MultiplayerPill()
+        ]
+        + SHorizontalBox::Slot()
+        .AutoWidth()
+        .VAlign(VAlign_Center)
+        [
+            SNew(STextBlock)
+            .Text(FText::FromString(TEXT("Multiplayer component")))
+            .Font(CkStyle::RegularFont(CkStyle::FontSizeMicro()))
             .ColorAndOpacity(CkStyle::TextMute())
         ];
 }
