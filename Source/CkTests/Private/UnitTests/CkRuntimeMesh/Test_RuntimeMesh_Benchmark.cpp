@@ -5,6 +5,7 @@
 #include "CkRuntimeMesh/CkRuntimeMesh_Processor.h"
 #include "CkRuntimeMesh/CkRuntimeMesh_Utils.h"
 #include "CkRuntimeMesh/Internal/CkRuntimeMesh_Slice.h"
+#include "CkRuntimeMesh/Settings/CkRuntimeMesh_ProjectSettings.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 #include "CkCore/Time/CkTime.h"
@@ -768,9 +769,10 @@ namespace ck_test_runtime_mesh_benchmark
             const FQueueReport& InReport)
         -> void
     {
-        Emit(InTest, FString::Printf(TEXT("Queue source %s: %d triangles; %d requests per round, budget %d per drain, %d rounds"),
+        Emit(InTest, FString::Printf(TEXT("Queue source %s: %d triangles; %d requests per round, drain time budget %.3f ms, at most %d per drain, %d rounds"),
             CpuFixturePath, InReport.SourceTriangles, ck::runtimemesh::QueueCapacity,
-            ck::runtimemesh::DrainBudgetPerTick, InReport.Rounds));
+            UCk_Utils_RuntimeMesh_Settings_UE::Get_DrainTimeBudget().Get_Milliseconds(),
+            UCk_Utils_RuntimeMesh_Settings_UE::Get_MaximumSlicesPerDrain(), InReport.Rounds));
         EmitSummary(InTest, TEXT("Queue drains until empty"), InReport.DrainsPerRound, ESummaryUnit::Count);
         EmitSummary(InTest, TEXT("Queue single drain ms"), InReport.DrainMilliseconds, ESummaryUnit::Milliseconds);
         Emit(InTest, FString::Printf(TEXT("Queue worst single drain ms: %.4f"),
@@ -889,7 +891,8 @@ namespace ck_test_runtime_mesh_benchmark
         Ceilings->SetNumberField(TEXT("cutMaximumVertices"), CutLimits.Get_MaximumVertices());
         Ceilings->SetNumberField(TEXT("cutMaximumTriangles"), CutLimits.Get_MaximumTriangles());
         Ceilings->SetNumberField(TEXT("queueCapacity"), ck::runtimemesh::QueueCapacity);
-        Ceilings->SetNumberField(TEXT("drainBudgetPerTick"), ck::runtimemesh::DrainBudgetPerTick);
+        Ceilings->SetNumberField(TEXT("drainTimeBudgetMs"), UCk_Utils_RuntimeMesh_Settings_UE::Get_DrainTimeBudget().Get_Milliseconds());
+        Ceilings->SetNumberField(TEXT("maximumSlicesPerDrain"), UCk_Utils_RuntimeMesh_Settings_UE::Get_MaximumSlicesPerDrain());
         Root->SetObjectField(TEXT("ceilings"), Ceilings);
 
         auto WorkloadValues = TArray<TSharedPtr<FJsonValue>>{};

@@ -4,6 +4,7 @@
 
 #include "CkRuntimeMesh/CkRuntimeMesh_Utils.h"
 #include "CkRuntimeMesh/CkRuntimeMesh_Processor.h"
+#include "CkRuntimeMesh/Settings/CkRuntimeMesh_ProjectSettings.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 #include "CkCore/Time/CkTime.h"
@@ -102,6 +103,29 @@ namespace ck_test_runtime_mesh_public
         Delegate.BindDynamic(InListener, &UCk_Test_RuntimeMeshListener_UE::OnRequestCompleted);
         return Delegate;
     }
+
+    // Overrides the project's drain limits for one test and restores them on scope exit (no config is saved).
+    struct FScopedDrainLimits
+    {
+        FCk_Time PreviousBudget;
+        int32 PreviousMaximum = 0;
+
+        FScopedDrainLimits(const FCk_Time& InBudget, int32 InMaximumSlices)
+        {
+            auto* Settings = GetMutableDefault<UCk_RuntimeMesh_ProjectSettings_UE>();
+            PreviousBudget = Settings->Get_DrainTimeBudget();
+            PreviousMaximum = Settings->Get_MaximumSlicesPerDrain();
+            Settings->Set_DrainTimeBudget(InBudget);
+            Settings->Set_MaximumSlicesPerDrain(InMaximumSlices);
+        }
+
+        ~FScopedDrainLimits()
+        {
+            auto* Settings = GetMutableDefault<UCk_RuntimeMesh_ProjectSettings_UE>();
+            Settings->Set_DrainTimeBudget(PreviousBudget);
+            Settings->Set_MaximumSlicesPerDrain(PreviousMaximum);
+        }
+    };
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -140,6 +164,17 @@ bool FCkTest_RuntimeMesh_PublicCut::RunTest(const FString& Parameters)
     TestEqual(TEXT("source unchanged"), UCk_Utils_RuntimeMesh_UE::Get_Metrics(
         Fixture.Source).Get_VolumeCm3(), SourceVolume);
     TestEqual(TEXT("generic completion once"), Listener->Completions.Num(), 1);
+    if (NOT TestEqual(TEXT("one positive piece"), Result.Get_PositivePieces().Num(), 1)
+        || NOT TestEqual(TEXT("one negative piece"), Result.Get_NegativePieces().Num(), 1))
+    { return false; }
+    TestTrue(TEXT("positive piece is the positive half"),
+        Result.Get_PositivePieces()[0].Get_Mesh() == Result.Get_Positive());
+    TestTrue(TEXT("negative piece is the negative half"),
+        Result.Get_NegativePieces()[0].Get_Mesh() == Result.Get_Negative());
+    TestEqual(TEXT("positive piece cap count"),
+        Result.Get_PositivePieces()[0].Get_CapTriangles(), Result.Get_PositiveCapTriangles());
+    TestEqual(TEXT("positive piece volume"),
+        Result.Get_PositivePieces()[0].Get_Metrics().Get_VolumeCm3(), Result.Get_PositiveMetrics().Get_VolumeCm3());
     return true;
 }
 
@@ -189,6 +224,8 @@ bool FCkTest_RuntimeMesh_PublicDistinctReceiversAndBudget::RunTest(
     using namespace ck_test_runtime_mesh_public;
     static_assert(ck::FProcessor_RuntimeMesh_Drain::PumpPolicy
         == ECk_ProcessorPumpPolicy::SkipPump);
+    constexpr auto MaximumSlicesPerDrain = 2;
+    const auto DrainLimits = FScopedDrainLimits{FCk_Time{10.0}, MaximumSlicesPerDrain};
     auto Fixture = FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
@@ -224,10 +261,70 @@ bool FCkTest_RuntimeMesh_PublicDistinctReceiversAndBudget::RunTest(
     }
     TestEqual(TEXT("a full queue stays deferred"), Pending->Results.Num(), 0);
     Fixture.Drain();
-    TestEqual(TEXT("a main pass drains at most the per-tick budget"), Pending->Results.Num(),
-        ck::runtimemesh::DrainBudgetPerTick);
-    TestEqual(TEXT("completion count matches budget"), Pending->Completions.Num(),
-        ck::runtimemesh::DrainBudgetPerTick);
+    TestEqual(TEXT("a main pass drains at most the maximum slices per drain"), Pending->Results.Num(),
+        MaximumSlicesPerDrain);
+    TestEqual(TEXT("completion count matches the maximum"), Pending->Completions.Num(),
+        MaximumSlicesPerDrain);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_PublicDrainTimeBudget,
+    "Ck.RuntimeMesh.Public.DrainTimeBudget",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_PublicDrainTimeBudget::RunTest(
+    const FString& Parameters)
+{
+    using namespace ck_test_runtime_mesh_public;
+    auto Fixture = FFixture{};
+    if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
+    { return false; }
+    auto Listener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
+        NewObject<UCk_Test_RuntimeMeshListener_UE>(GetTransientPackage())};
+    auto Enqueue = [&](int32 InCount) -> TArray<FGuid>
+    {
+        auto OperationIDs = TArray<FGuid>{};
+        for (auto Index = 0; Index < InCount; ++Index)
+        {
+            auto Request = MakeRequest(Fixture, FVector{30, 0, 0});
+            OperationIDs.Add(Request.Get_OperationID());
+            UCk_Utils_RuntimeMesh_UE::Request_Slice(Fixture.Source, Request,
+                Receiver(Listener.Get()), Completion(Listener.Get()));
+        }
+        return OperationIDs;
+    };
+    auto ResolvedIDs = [&]() -> TArray<FGuid>
+    {
+        auto OperationIDs = TArray<FGuid>{};
+        for (const auto& Result : Listener->Results)
+        { OperationIDs.Add(Result.Get_OperationID()); }
+        return OperationIDs;
+    };
+
+    {
+        // A zero budget is spent by the first slice, so every drain executes exactly one: progress, never a stall.
+        const auto DrainLimits = FScopedDrainLimits{FCk_Time{}, ck::runtimemesh::QueueCapacity};
+        const auto Queued = Enqueue(3);
+        for (auto Drain = 1; Drain <= Queued.Num(); ++Drain)
+        {
+            Fixture.Drain();
+            TestEqual(TEXT("a spent budget still executes the oldest slice"), Listener->Results.Num(), Drain);
+        }
+        TestTrue(TEXT("one slice per drain resolves in FIFO order"), ResolvedIDs() == Queued);
+    }
+
+    Listener->Results.Reset();
+    Listener->Completions.Reset();
+
+    {
+        const auto DrainLimits = FScopedDrainLimits{FCk_Time{10.0}, ck::runtimemesh::QueueCapacity};
+        const auto Queued = Enqueue(4);
+        Fixture.Drain();
+        TestEqual(TEXT("an unspent budget drains every queued slice in one pass"), Listener->Results.Num(), 4);
+        TestTrue(TEXT("one pass resolves in FIFO order"), ResolvedIDs() == Queued);
+        TestEqual(TEXT("one completion per slice"), Listener->Completions.Num(), 4);
+    }
     return true;
 }
 

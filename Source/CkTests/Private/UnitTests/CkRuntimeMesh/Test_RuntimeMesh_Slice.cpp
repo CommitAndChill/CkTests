@@ -66,13 +66,71 @@ namespace ck_test_runtime_mesh_slice
         return Geometry::Admit(MoveTemp(Mesh), {});
     }
 
+    // A per-vertex linear UV1 (a stand-in for a baked per-vertex channel such as a morph offset): interpolation along
+    // a cut edge reproduces it exactly, so the cap rim can be checked against the function itself.
     auto
-        MakeUPrism() -> Geometry::FImportResult
+        LinearUV1(const FVector3d& InPosition) -> FVector2f
+    {
+        return FVector2f{static_cast<float>(0.1 * InPosition.X + 0.5), static_cast<float>(0.2 * InPosition.Z - 1.0)};
+    }
+
+    auto
+        MakeLinearUV1Cube() -> Geometry::FImportResult
+    {
+        const FVector3d Corners[8] = {
+            {0, 0, 0}, {10, 0, 0}, {10, 10, 0}, {0, 10, 0},
+            {0, 0, 10}, {10, 0, 10}, {10, 10, 10}, {0, 10, 10}};
+        auto Mesh = UE::Geometry::FDynamicMesh3{};
+        for (const auto& Corner : Corners)
+        {
+            Mesh.AppendVertex(Corner);
+        }
+        for (const auto& Face : Faces)
+        {
+            Mesh.AppendTriangle(Face[0], Face[1], Face[2]);
+        }
+        Mesh.EnableAttributes();
+        auto* Attributes = Mesh.Attributes();
+        Attributes->SetNumUVLayers(2);
+        Attributes->EnablePrimaryColors();
+        Attributes->EnableMaterialID();
+        for (const auto TriangleID : Mesh.TriangleIndicesItr())
+        {
+            const auto Triangle = Mesh.GetTriangle(TriangleID);
+            const auto Normal = FVector3f(Mesh.GetTriNormal(TriangleID));
+            auto* Normals = Attributes->PrimaryNormals();
+            auto* Colors = Attributes->PrimaryColors();
+            const auto N0 = Normals->AppendElement(Normal);
+            const auto N1 = Normals->AppendElement(Normal);
+            const auto N2 = Normals->AppendElement(Normal);
+            Normals->SetTriangle(TriangleID, UE::Geometry::FIndex3i{N0, N1, N2});
+            const auto C0 = Colors->AppendElement(FVector4f{1, 1, 1, 1});
+            const auto C1 = Colors->AppendElement(FVector4f{1, 1, 1, 1});
+            const auto C2 = Colors->AppendElement(FVector4f{1, 1, 1, 1});
+            Colors->SetTriangle(TriangleID, UE::Geometry::FIndex3i{C0, C1, C2});
+            auto* UV0 = Attributes->GetUVLayer(0);
+            const auto U0 = UV0->AppendElement(FVector2f{0, 0});
+            const auto U1 = UV0->AppendElement(FVector2f{1, 0});
+            const auto U2 = UV0->AppendElement(FVector2f{0, 1});
+            UV0->SetTriangle(TriangleID, UE::Geometry::FIndex3i{U0, U1, U2});
+            auto* UV1 = Attributes->GetUVLayer(1);
+            const auto L0 = UV1->AppendElement(LinearUV1(Mesh.GetVertex(Triangle.A)));
+            const auto L1 = UV1->AppendElement(LinearUV1(Mesh.GetVertex(Triangle.B)));
+            const auto L2 = UV1->AppendElement(LinearUV1(Mesh.GetVertex(Triangle.C)));
+            UV1->SetTriangle(TriangleID, UE::Geometry::FIndex3i{L0, L1, L2});
+            Attributes->GetMaterialID()->SetValue(TriangleID, TriangleID < 6 ? 0 : 1);
+        }
+        return Geometry::Admit(MoveTemp(Mesh), {});
+    }
+
+    // The default right arm is as wide as the left; a narrower inner edge widens it so the arms differ in volume.
+    auto
+        MakeUPrism(double InRightArmInnerX = 8.0) -> Geometry::FImportResult
     {
         auto Generator = UE::Geometry::FGeneralizedCylinderGenerator{};
         const FVector2d Profile[8] = {
-            {0, 0}, {10, 0}, {10, 10}, {8, 10},
-            {8, 2}, {2, 2}, {2, 10}, {0, 10}};
+            {0, 0}, {10, 0}, {10, 10}, {InRightArmInnerX, 10},
+            {InRightArmInnerX, 2}, {2, 2}, {2, 10}, {0, 10}};
         for (const auto& Point : Profile)
         {
             Generator.CrossSection.AppendVertex(Point);
@@ -216,11 +274,13 @@ namespace ck_test_runtime_mesh_slice
         return CheckedCorners > 0;
     }
 
+    // InPlanarLayers: how many leading UV layers carry the planar cap projection (every layer by default).
     auto
         CheckCapAttributes(FAutomationTestBase& InTest,
             const Geometry::FValidatedGeometry& InPiece,
             const Slice::FCutOptions& InOptions, int32 InExpectedCaps,
-            const FVector3f& InExpectedNormal) -> bool
+            const FVector3f& InExpectedNormal,
+            int32 InPlanarLayers = TNumericLimits<int32>::Max()) -> bool
     {
         const auto& Mesh = InPiece.Get_Mesh();
         const auto* Attributes = Mesh.Attributes();
@@ -259,11 +319,11 @@ namespace ck_test_runtime_mesh_slice
                         / InOptions.Get_Cap().Get_CmPerUVUnit()) + InOptions.Get_Cap().Get_UVOffset().X,
                     static_cast<float>(Relative.Dot(FrameBitangent)
                         / InOptions.Get_Cap().Get_CmPerUVUnit()) + InOptions.Get_Cap().Get_UVOffset().Y};
-                for (int32 Layer = 0; Layer < Attributes->NumUVLayers(); ++Layer)
+                for (int32 Layer = 0; Layer < FMath::Min(Attributes->NumUVLayers(), InPlanarLayers); ++Layer)
                 {
                     const auto UV = Attributes->GetUVLayer(Layer)->GetElement(
                         Attributes->GetUVLayer(Layer)->GetTriangle(TriangleID)[Corner]);
-                    InTest.TestTrue(TEXT("cap UV uses shared request frame in every layer"),
+                    InTest.TestTrue(TEXT("cap UV uses shared request frame in every planar layer"),
                         UV.Equals(ExpectedUV, 0.0001f));
                 }
             }
@@ -271,6 +331,49 @@ namespace ck_test_runtime_mesh_slice
         InTest.TestEqual(TEXT("cap triangle count matches result"), CapCount, InExpectedCaps);
         InTest.TestTrue(TEXT("piece keeps exterior triangles"), ExteriorCount > 0);
         return CapCount == InExpectedCaps && ExteriorCount > 0;
+    }
+
+    // Every cap corner of InPiece carries InExpected(position) in UV layer 1.
+    template <typename T_Expected>
+    auto
+        CheckCapLayer1(FAutomationTestBase& InTest, const Geometry::FValidatedGeometry& InPiece,
+            int32 InCapMaterialID, T_Expected&& InExpected) -> bool
+    {
+        const auto& Mesh = InPiece.Get_Mesh();
+        const auto* Attributes = Mesh.Attributes();
+        if (NOT InTest.TestEqual(TEXT("piece keeps two UV layers"), Attributes->NumUVLayers(), 2))
+        { return false; }
+        const auto* UV1 = Attributes->GetUVLayer(1);
+        int32 CheckedCorners = 0;
+        auto AllMatch = true;
+        for (const auto TriangleID : Mesh.TriangleIndicesItr())
+        {
+            if (Attributes->GetMaterialID()->GetValue(TriangleID) != InCapMaterialID)
+            { continue; }
+            const auto Triangle = Mesh.GetTriangle(TriangleID);
+            const auto Elements = UV1->GetTriangle(TriangleID);
+            for (int32 Corner = 0; Corner < 3; ++Corner)
+            {
+                const auto Actual = UV1->GetElement(Elements[Corner]);
+                const auto Expected = InExpected(Mesh.GetVertex(Triangle[Corner]));
+                AllMatch &= Actual.Equals(Expected, 0.0001f);
+                ++CheckedCorners;
+            }
+        }
+        InTest.TestTrue(TEXT("every cap corner carries the expected UV1"), AllMatch);
+        InTest.TestTrue(TEXT("checked cap UV1 corners"), CheckedCorners > 0);
+        return AllMatch && CheckedCorners > 0;
+    }
+
+    auto
+        MakeIslandOptions() -> Slice::FCutOptions
+    {
+        auto Options = MakeOptions(FVector3d{0, 5, 0});
+        auto Plane = Options.Get_Plane();
+        Plane.Set_Normal(FVector3d{0, 1, 0});
+        Plane.Set_Tangent(FVector3d{1, 0, 0});
+        Options.Set_Plane(Plane);
+        return Options;
     }
 
     auto
@@ -283,7 +386,9 @@ namespace ck_test_runtime_mesh_slice
             InResult.Get_Positive().IsValid());
         const auto NoNegative = InTest.TestFalse(TEXT("failed cut has no negative payload"),
             InResult.Get_Negative().IsValid());
-        return Matching && NoPositive && NoNegative;
+        const auto NoPieces = InTest.TestTrue(TEXT("failed cut has no pieces"),
+            InResult.Get_PositivePieces().IsEmpty() && InResult.Get_NegativePieces().IsEmpty());
+        return Matching && NoPositive && NoNegative && NoPieces;
     }
 }
 
@@ -415,6 +520,139 @@ bool FCkTest_RuntimeMesh_Slice_RejectsMultipleIslands::RunTest(const FString&)
     Options.Set_Plane(Plane);
     const auto Result = Slice::Cut(*Source.Get_Geometry(), Options);
     return CheckOutcome(*this, Result, Slice::ECutOutcome::RejectedTopology);
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_Slice_SplitIslandsKeepsEveryPiece,
+    "Ck.RuntimeMesh.Slice.SplitIslandsKeepsEveryPiece",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_Slice_SplitIslandsKeepsEveryPiece::RunTest(const FString&)
+{
+    using namespace ck_test_runtime_mesh_slice;
+    const auto Source = MakeUPrism(7.0);
+    if (TestTrue(TEXT("asymmetric concave U prism admitted"), Source.Get_IsReady()) == false)
+    { return false; }
+    TestTrue(TEXT("U prism is 600 cm3"),
+        FMath::IsNearlyEqual(Source.Get_Geometry()->Get_VolumeCm3(), 600.0, 0.01));
+    auto Options = MakeIslandOptions();
+    CheckOutcome(*this, Slice::Cut(*Source.Get_Geometry(), Options), Slice::ECutOutcome::RejectedTopology);
+
+    Options.Set_IslandPolicy(Slice::EIslandPolicy::SplitIslands);
+    const auto Result = Slice::Cut(*Source.Get_Geometry(), Options);
+    if (TestTrue(TEXT("split-islands cut succeeds"), Result.Get_IsSuccess()) == false)
+    { return false; }
+    const auto& PositivePieces = Result.Get_PositivePieces();
+    const auto& NegativePieces = Result.Get_NegativePieces();
+    if (TestEqual(TEXT("two positive islands"), PositivePieces.Num(), 2) == false
+        || TestEqual(TEXT("one negative island"), NegativePieces.Num(), 1) == false)
+    { return false; }
+    TestTrue(TEXT("largest island first: the 3 cm arm is 150 cm3"),
+        FMath::IsNearlyEqual(PositivePieces[0].Get_Geometry()->Get_VolumeCm3(), 150.0, 0.01));
+    TestTrue(TEXT("largest island is the right arm"),
+        FMath::IsNearlyEqual(PositivePieces[0].Get_Geometry()->Get_CentroidCm().X, 8.5, 0.01));
+    TestTrue(TEXT("second island: the 2 cm arm is 100 cm3"),
+        FMath::IsNearlyEqual(PositivePieces[1].Get_Geometry()->Get_VolumeCm3(), 100.0, 0.01));
+    TestTrue(TEXT("negative base is 350 cm3"),
+        FMath::IsNearlyEqual(NegativePieces[0].Get_Geometry()->Get_VolumeCm3(), 350.0, 0.01));
+    TestTrue(TEXT("Positive names the largest positive island"),
+        Result.Get_Positive() == PositivePieces[0].Get_Geometry());
+    TestTrue(TEXT("Negative names the negative island"),
+        Result.Get_Negative() == NegativePieces[0].Get_Geometry());
+    TestEqual(TEXT("positive cap count is the largest island's"),
+        Result.Get_PositiveCapTriangles(), PositivePieces[0].Get_CapTriangles());
+    const auto Total = PositivePieces[0].Get_Geometry()->Get_VolumeCm3()
+        + PositivePieces[1].Get_Geometry()->Get_VolumeCm3()
+        + NegativePieces[0].Get_Geometry()->Get_VolumeCm3();
+    TestTrue(TEXT("islands conserve the source volume"),
+        FMath::IsNearlyEqual(Total, Source.Get_Geometry()->Get_VolumeCm3(), 0.01));
+    for (const auto& Piece : PositivePieces)
+    {
+        CheckCapAttributes(*this, *Piece.Get_Geometry(), Options, Piece.Get_CapTriangles(), FVector3f{0, -1, 0});
+    }
+    CheckCapAttributes(*this, *NegativePieces[0].Get_Geometry(), Options,
+        NegativePieces[0].Get_CapTriangles(), FVector3f{0, 1, 0});
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_Slice_SplitIslandsLimits,
+    "Ck.RuntimeMesh.Slice.SplitIslandsLimits",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_Slice_SplitIslandsLimits::RunTest(const FString&)
+{
+    using namespace ck_test_runtime_mesh_slice;
+    const auto Source = MakeUPrism(7.0);
+    if (TestTrue(TEXT("asymmetric concave U prism admitted"), Source.Get_IsReady()) == false)
+    { return false; }
+    auto Options = MakeIslandOptions();
+    Options.Set_IslandPolicy(Slice::EIslandPolicy::SplitIslands);
+    auto Limits = Options.Get_Limits();
+    Limits.Set_MaximumPiecesPerSide(1);
+    Options.Set_Limits(Limits);
+    CheckOutcome(*this, Slice::Cut(*Source.Get_Geometry(), Options), Slice::ECutOutcome::RejectedLimit);
+
+    Limits = MakeIslandOptions().Get_Limits();
+    Limits.Set_MaximumPiecesPerSide(0);
+    Options.Set_Limits(Limits);
+    CheckOutcome(*this, Slice::Cut(*Source.Get_Geometry(), Options), Slice::ECutOutcome::InvalidRequest);
+
+    // One island under the volume floor rejects the whole cut: a slice never publishes a subset of the source.
+    Limits = MakeIslandOptions().Get_Limits();
+    Limits.Set_MinimumOutputVolumeCm3(120.0);
+    Options.Set_Limits(Limits);
+    CheckOutcome(*this, Slice::Cut(*Source.Get_Geometry(), Options), Slice::ECutOutcome::RejectedTooSmall);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_Slice_CapUVPolicy,
+    "Ck.RuntimeMesh.Slice.CapUVPolicy",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_Slice_CapUVPolicy::RunTest(const FString&)
+{
+    using namespace ck_test_runtime_mesh_slice;
+    const auto Source = MakeLinearUV1Cube();
+    if (TestTrue(TEXT("two-layer cube admitted"), Source.Get_IsReady()) == false)
+    { return false; }
+    constexpr auto PlanarLayers = 1;
+    auto Options = MakeOptions();
+
+    auto Cap = Options.Get_Cap();
+    Cap.Set_UVPolicy(Slice::ECapUVPolicy::PlanarOnLayer0_ZeroOthers);
+    Options.Set_Cap(Cap);
+    const auto Zeroed = Slice::Cut(*Source.Get_Geometry(), Options);
+    if (TestTrue(TEXT("zero-others cut succeeds"), Zeroed.Get_IsSuccess()) == false)
+    { return false; }
+    for (const auto& Piece : {Zeroed.Get_Positive(), Zeroed.Get_Negative()})
+    {
+        CheckCapLayer1(*this, *Piece, Cap.Get_MaterialID(),
+            [](const FVector3d&) { return FVector2f::Zero(); });
+        CheckExteriorInterpolation(*this, *Source.Get_Geometry(), *Piece,
+            Options.Get_Plane().Get_PositionCm(), FVector3d{1, 0, 0});
+    }
+    CheckCapAttributes(*this, *Zeroed.Get_Positive(), Options,
+        Zeroed.Get_PositiveCapTriangles(), FVector3f{-1, 0, 0}, PlanarLayers);
+    CheckCapAttributes(*this, *Zeroed.Get_Negative(), Options,
+        Zeroed.Get_NegativeCapTriangles(), FVector3f{1, 0, 0}, PlanarLayers);
+
+    Cap.Set_UVPolicy(Slice::ECapUVPolicy::PlanarOnLayer0_KeepInterpolated);
+    Options.Set_Cap(Cap);
+    const auto Kept = Slice::Cut(*Source.Get_Geometry(), Options);
+    if (TestTrue(TEXT("keep-interpolated cut succeeds"), Kept.Get_IsSuccess()) == false)
+    { return false; }
+    for (const auto& Piece : {Kept.Get_Positive(), Kept.Get_Negative()})
+    {
+        CheckCapLayer1(*this, *Piece, Cap.Get_MaterialID(),
+            [](const FVector3d& InPosition) { return LinearUV1(InPosition); });
+    }
+    CheckCapAttributes(*this, *Kept.Get_Positive(), Options,
+        Kept.Get_PositiveCapTriangles(), FVector3f{-1, 0, 0}, PlanarLayers);
+    CheckCapAttributes(*this, *Kept.Get_Negative(), Options,
+        Kept.Get_NegativeCapTriangles(), FVector3f{1, 0, 0}, PlanarLayers);
+    return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
