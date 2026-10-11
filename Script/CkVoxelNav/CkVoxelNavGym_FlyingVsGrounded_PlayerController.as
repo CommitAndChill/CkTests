@@ -1,369 +1,497 @@
 class ACk_VoxelNavGym_FlyingVsGrounded_PlayerController : ACk_Gym_Base_PlayerController
 {
-    // ---- Scene constants (every position is KNOWN; nothing is looked up at runtime) ---------------
-
-    // Z SCALE MUST BE >= 0.5 - thinner slabs bake to zero walkable tiles. The floor's walkable
-    // surface sits at the actor origin, so the slab hangs below Z=0 and agents walk on Z=0.
-    private const FVector k_FloorLocation = FVector(0.0, 0.0, 0.0);
-    private const FVector k_FloorScale    = FVector(30.0, 30.0, 0.5);
-
-    // /Engine/BasicShapes/Cube is a 100uu cube CENTRED on its own origin, so a Z scale of 12 spans
-    // 1200uu and the actor must sit at Z=600 for the wall to run from the floor (0) up to 1200.
-    // Footprint: X +/-100, Y from -850 to +50 - it straddles the flying lane and clears the other.
-    private const FVector k_WallLocation = FVector(0.0, -400.0, 600.0);
-    private const FVector k_WallScale    = FVector(2.0, 9.0, 12.0);
-
-    // Flying lane Y=-400 runs into the wall; grounded lane Y=+400 is clear of it. Both start and end
-    // 1000uu up, so the grounded agent's goal hangs in the air above the floor it is clamped to.
-    private const FVector k_FlyerSpawn      = FVector(-1000.0, -400.0, 1000.0);
-    private const FVector k_FlyerGoal       = FVector( 1000.0, -400.0, 1000.0);
-    private const FVector k_GroundedSpawn   = FVector(-1000.0,  400.0, 1000.0);
-    private const FVector k_GroundedGoal    = FVector( 1000.0,  400.0, 1000.0);
-
+    // Original world coordinates remain fixed; only the authority owns the floor, wall, volume and agents.
     private const FVector k_VolumeMin = FVector(-1600.0, -1600.0, -100.0);
-    private const FVector k_VolumeMax = FVector( 1600.0,  1600.0, 1600.0);
-    private const float   k_FinestCellSizeUu = 50.0;
-
-    private const float k_AgentRadius = 42.0;
-    private const float k_AgentHeight = 192.0;
-
-    private const FLinearColor k_FlyerColor    = FLinearColor(0.15, 0.9, 1.0, 1.0);
+    private const FVector k_VolumeMax = FVector(1600.0, 1600.0, 1600.0);
+    private const FLinearColor k_FlyerColor = FLinearColor(0.15, 0.9, 1.0, 1.0);
     private const FLinearColor k_GroundedColor = FLinearColor(1.0, 0.55, 0.1, 1.0);
-    private const FLinearColor k_VolumeColor   = FLinearColor(0.35, 0.35, 0.45, 1.0);
-
-    private const FVector  k_PlayerViewLocation = FVector(2400.0, 0.0, 1000.0);
+    private const FLinearColor k_VolumeColor = FLinearColor(0.35, 0.35, 0.45, 1.0);
+    private const FVector k_PlayerViewLocation = FVector(2400.0, 0.0, 1000.0);
     private const FRotator k_PlayerViewRotation = FRotator(-15.0, 180.0, 0.0);
 
-    private const float k_TickIntervalSec = 0.1f;
-    private const float k_LabelZOffset    = 120.0f;
+    UPROPERTY(Replicated) FCkVoxelNavGym_ControlAck LastControlAck;
 
-    // ---- State -----------------------------------------------------------------------------------
-
-    private FCk_Handle _PcEntity;
-    private FCk_Handle_VoxelNavVolume _Volume;
-    private FCk_Handle_CrowdAgent _FlyerAgent;
-    private FCk_Handle_CrowdAgent _GroundedAgent;
-
-    private bool _GoalsAreOutbound = true;
-    private FVector _FlyerGoal = FVector::ZeroVector;
-    private FVector _GroundedGoal = FVector::ZeroVector;
-
-    // ---- Station ---------------------------------------------------------------------------------
+    private bool _Admitted = false;
+    private bool _Ending = false;
+    private bool _LocalFailed = false;
+    private FString _LocalFailureReason;
+    private bool _StateCaptured = false;
+    private bool _CatalogCaptured = false;
+    private bool _PawnCaptured = false;
+    private bool _StationBound = false;
+    private bool _ServerPending = false;
+    private bool _ViewpointPlaced = false;
+    private double _BootstrapStartedSeconds = 0.0;
+    private int32 _CatalogIndex = -1;
+    private FCkGym_Entry _CatalogEntry;
+    private UWorld _BoundWorld;
+    private ACk_VoxelNavGym_FlyingVsGrounded_GameState _BoundState;
+    private APawn _BoundPawn;
+    private FCk_Handle _Station;
+    private FCk_Handle _StationCohort;
+    private FCkVoxelNavGym_WireSnapshot _PresentedFrame;
+    private TArray<FCk_Handle> _PresentedAgents;
+    private TArray<FTransform> _PresentedTransforms;
+    private int64 _ProjectedSourceGeneration = 0;
+    private int64 _ProjectedSequence = 0;
+    private int32 _RequestedSerial = 0;
+    private int32 _PendingSerial = 0;
+    private int32 _PendingAction = -1;
+    private int64 _PendingSourceGeneration = 0;
+    private int64 _PendingGeneration = 0;
 
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
-        if (HasAuthority() == false)
-        { return TArray<FCkGym_Station_SpawnParams_Payload>(); }
-
         auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
-
+        if (!IsLocalController()) { return Stations; }
         auto Station = FCkGym_Station_SpawnParams_Payload();
-        Station.Tags.Add(n"VoxelNavFlyingVsGrounded");
+        Station.Tags.Add(FName(Get_StationTag(CkVoxelNavGym::Get_BaseTag(0))));
         Station.AutoSize = true;
-        Station.Transform = FTransform(FRotator(0.0, 180.0, 0.0), FVector(2600.0, 0.0, 0.0), FVector::OneVector);
-        Station.Title = FText::FromString("VoxelNav — Flying vs Grounded");
-
+        Station.Transform = CkVoxelNavGym::Get_StationTransform(0);
+        Station.Title = FText::FromString(CkVoxelNavGym::Get_Title(0));
         auto Description = TArray<FText>();
-        Description.Add(FText::FromString("Two agents spawn 1000cm up on the same baked voxel volume and differ only in _AgentMode. The FLYING one (cyan, Y=-400) climbs over the 1200cm wall in its lane with a visible nose-up/nose-down pitch and holds its altitude to the goal."));
-        Description.Add(FText::FromString("The GROUNDED one (orange, Y=+400) drops to the level's navmesh within a second and walks the floor flat for the rest of the run, then parks BENEATH its elevated goal — that is the navmesh constraint winning, not a pathing failure."));
-        Description.Add(FText::FromString("Fail signatures: flyer frozen at spawn = its displacement drain is missing; flyer sinking to the floor = it is still inside ConstrainToNavmesh's view; flyer rolling or banking = its rotation is being composed as a delta instead of written absolutely."));
-        Description.Add(FText::FromString("Panel [R] restart both agents\nPanel [T] send them back (return trip)"));
+        Description.Add(FText::FromString(CkVoxelNavGym::Get_Description(0)));
         Station.Description = Description;
-
         Stations.Add(Station);
         return Stations;
     }
 
-    // ---- Startup ---------------------------------------------------------------------------------
+    FCk_Handle Get_StationLifetimeOwner() override
+    { return IsLocalController() ? ck::ToEntity(this) : FCk_Handle(); }
+
+    FString Get_StationTag(FString Tag) override
+    { return f"{Tag}_{GetName()}"; }
+
+    private bool IsDirect(FCk_Handle Child, FCk_Handle Parent)
+    {
+        return ck::IsValid(Child) && ck::IsValid(Parent) &&
+            !utils_entity_lifetime::Get_IsPendingDestroy(
+                Child, ECk_EntityLifetime_DestructionPhase::BeginDestroy) &&
+            utils_entity_lifetime::Has_LifetimeOwner(Child) &&
+            utils_entity_lifetime::Get_LifetimeOwner(Child) == Parent;
+    }
+
+    private ACk_VoxelNavGym_FlyingVsGrounded_GameState Get_ExactState()
+    {
+        auto CurrentWorld = GetWorld();
+        if (!_Admitted || _Ending || IsActorBeingDestroyed() ||
+            ck::Is_NOT_Valid(CurrentWorld) || CurrentWorld != _BoundWorld) { return nullptr; }
+        auto State = Cast<ACk_VoxelNavGym_FlyingVsGrounded_GameState>(CurrentWorld.GetGameState());
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != CurrentWorld ||
+            State.GetClass() != ACk_VoxelNavGym_FlyingVsGrounded_GameState ||
+            State.IsActorBeingDestroyed() ||
+            (_StateCaptured && State != _BoundState)) { return nullptr; }
+        if (HasAuthority())
+        {
+            auto Mode = Gameplay::GetGameMode();
+            if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != CurrentWorld ||
+                Mode.GetClass() != ACk_VoxelNavGym_FlyingVsGrounded_GameMode) { return nullptr; }
+        }
+        if (!State.Get_HasPublishedCatalog()) { return nullptr; }
+        auto Entries = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (Index < 0 || Index >= Entries.Num()) { return nullptr; }
+        auto Entry = Entries[Index];
+        if (Entry.DisplayName != "VoxelNav Flying Vs Grounded" ||
+            Entry.GameModeClass != ACk_VoxelNavGym_FlyingVsGrounded_GameMode ||
+            (_CatalogCaptured && (Index != _CatalogIndex ||
+                Entry.DisplayName != _CatalogEntry.DisplayName ||
+                Entry.GameModeClass != _CatalogEntry.GameModeClass ||
+                Entry.LevelName != _CatalogEntry.LevelName ||
+                Entry.Category != _CatalogEntry.Category ||
+                Entry.HintCode != _CatalogEntry.HintCode ||
+                Entry.HasMultiplayerComponent != _CatalogEntry.HasMultiplayerComponent)))
+        { return nullptr; }
+        return State;
+    }
+
+    private bool CaptureStateIfReady()
+    {
+        auto CurrentWorld = GetWorld();
+        auto Observed = ck::IsValid(CurrentWorld)
+            ? Cast<ACk_VoxelNavGym_FlyingVsGrounded_GameState>(CurrentWorld.GetGameState()) : nullptr;
+        if (ck::IsValid(Observed) && Observed.GetWorld() == CurrentWorld &&
+            Observed.GetClass() == ACk_VoxelNavGym_FlyingVsGrounded_GameState &&
+            !Observed.IsActorBeingDestroyed() && !_StateCaptured)
+        { _BoundState = Observed; _StateCaptured = true; }
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State)) { return false; }
+        if (!_StateCaptured) { _BoundState = State; _StateCaptured = true; }
+        if (!_CatalogCaptured)
+        {
+            _CatalogIndex = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+            _CatalogEntry = UCk_Utils_GymRegistry_UE::Get_GymRegistry()[_CatalogIndex];
+            _CatalogCaptured = true;
+        }
+        return true;
+    }
+
+    private bool HasExactPawn()
+    {
+        auto Pawn = GetControlledPawn();
+        return _PawnCaptured && ck::IsValid(Pawn) &&
+            Pawn == _BoundPawn && Pawn.GetWorld() == _BoundWorld &&
+            !Pawn.IsActorBeingDestroyed() &&
+            Pawn.GetClass() == ACk_Gym_Base_Pawn &&
+            Pawn.GetController() == this;
+    }
+
+    private bool CapturePawnIfReady()
+    {
+        if (_PawnCaptured) { return HasExactPawn(); }
+        auto Pawn = GetControlledPawn();
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetWorld() != _BoundWorld ||
+            Pawn.IsActorBeingDestroyed() ||
+            Pawn.GetClass() != ACk_Gym_Base_Pawn ||
+            Pawn.GetController() != this) { return false; }
+        _BoundPawn = Pawn;
+        _PawnCaptured = true;
+        return HasExactPawn();
+    }
+
+    private bool CheckStation(bool Bind)
+    {
+        if (!IsLocalController() || !HasExactPawn()) { return false; }
+        auto ControllerEntity = ck::ToEntity(this);
+        auto WorldRoot = ck::TransientEntity();
+        if (ck::Is_NOT_Valid(ControllerEntity) || ck::Is_NOT_Valid(WorldRoot) ||
+            utils_entity_lifetime::Get_WorldForEntity(WorldRoot) != _BoundWorld)
+        { return false; }
+        auto Tag = CkVoxelNavGym::Get_BaseTag(0);
+        if (Tag.IsEmpty()) { return false; }
+        auto Matches = utils_entity_tag::ForEach_Entity(
+            WorldRoot, FName(Get_StationTag(Tag)));
+        if (Matches.Num() != 1 || ck::Is_NOT_Valid(Matches[0]) ||
+            !Matches[0].Has_Fragment(FCkGym_Station_Anchors) ||
+            !utils_entity_lifetime::Has_LifetimeOwner(Matches[0]))
+        { return false; }
+        auto Station = Matches[0];
+        auto Cohort = utils_entity_lifetime::Get_LifetimeOwner(Station);
+        if (!IsDirect(Station, Cohort) || !IsDirect(Cohort, ControllerEntity) ||
+            (Station.Get_Fragment(FCkGym_Station_Anchors).FootprintCenter -
+                CkVoxelNavGym::Get_StationTransform(0).GetLocation()
+            ).SizeSquared() > 1.0 ||
+            (_StationBound && (Station != _Station || Cohort != _StationCohort)))
+        { return false; }
+        auto Script = Cast<UCk_EntityScript_GymStation>(
+            UCk_Utils_EntityScript_UE::TryGet_EntityScript(Station));
+        if (ck::Is_NOT_Valid(Script) ||
+            UCk_GymStation_VisibleRuntime_UE::TryGet_StationEntity(Script)
+                != Station)
+        { return false; }
+        if (Bind && !_StationBound)
+        {
+            _Station = Station;
+            _StationCohort = Cohort;
+            _StationBound = true;
+        }
+        return _StationBound;
+    }
+
+    private void CloseLocal(FString Reason, bool FailShared = true)
+    {
+        if (_LocalFailed) { return; }
+        _LocalFailed = true;
+        _LocalFailureReason = Reason;
+        if (FailShared && _StateCaptured && ck::IsValid(_BoundState) &&
+            _BoundState.GetWorld() == _BoundWorld)
+        {
+            if (HasAuthority()) { _BoundState.Request_Fail(Reason); }
+            else { _BoundState.Request_CloseClient(Reason); }
+        }
+        ck::Trace(f"VoxelNav local presentation closed: {Reason}");
+    }
 
     void Request_StartGym() override
     {
-        if (HasAuthority() == false)
-        { return; }
-
-        _PcEntity = ck::ToEntity(this);
-        if (ck::Is_NOT_Valid(_PcEntity))
-        {
-            ck::voxelnav::Warning("VoxelNav gym: PC entity invalid; cannot start");
-            return;
-        }
-
-        _GoalsAreOutbound = true;
-        _FlyerGoal = k_FlyerGoal;
-        _GroundedGoal = k_GroundedGoal;
-
-        // Both toggles persist in the editor ini, so force them on entry: the planned polyline is
-        // what shows the flyer's route is airborne along its whole length, and the agent body is
-        // what shows its pitch.
-        System::ExecuteConsoleCommand("ck.Crowd.DrawPlannedPaths 1");
-        System::ExecuteConsoleCommand("ck.Crowd.Debug.AgentBody 1");
-
-        if (DoSpawnFloor() == false)
-        { return; }
-
-        if (DoSpawnWall() == false)
-        { return; }
-
-        // Recast has to see the runtime floor and wall before the grounded agent asks for a route.
-        utils_nav::Request_NavigationRebuild_ForTesting(_PcEntity);
-
-        // The volume's build resolves its UWorld by walking lifetime ownership, so an unparented
-        // entity has no world to voxelize.
-        auto VolumeEntity = utils_entity_lifetime::Request_CreateEntity(ck::TransientEntity());
-        VolumeEntity.Request_OverrideToSelf();
-
-        auto VolumeParams = FCk_VoxelNavVolume_Spec(
-            FBox(k_VolumeMin, k_VolumeMax), k_FinestCellSizeUu);
-        VolumeParams.Set_AutoBuildOnSetup(ECk_EnableDisable::Disable);
-        VolumeParams.Set_ClearanceUu(k_AgentRadius);
-
-        _Volume = utils_voxel_nav_volume::Add(VolumeEntity, VolumeParams);
-
-        // The bake spans many frames; this delegate fires when it FINISHES, not when it is accepted.
-        utils_voxel_nav_volume::Request_Build(_Volume, FCk_Request_VoxelNavVolume_Build(),
-            FCk_Delegate_Request_OnCompleted(this, n"OnBuildCompleted"));
-
-        auto TickerParams = FCk_Timer_Spec(FCk_Time(k_TickIntervalSec));
-        TickerParams.Set_StartingState(ECk_Timer_State::Running)
-                    .Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto Ticker = utils_timer::Add(_PcEntity, TickerParams);
-        Ticker.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnDrawTick"));
-
-        DoBringPlayerToViewpoint();
-        DoWaitOneFrame(n"OnViewpointSettle");
-
-        ck::voxelnav::Log("VoxelNav gym: volume bake requested - agents spawn when it completes");
+        if (_Ending || _Admitted) { return; }
+        _BoundWorld = GetWorld();
+        if (ck::Is_NOT_Valid(_BoundWorld))
+        { _LocalFailed = true; _LocalFailureReason = "Controller world is unavailable"; return; }
+        _Admitted = true;
+        _BootstrapStartedSeconds = UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds();
+        CaptureStateIfReady();
     }
 
-    private bool DoSpawnFloor()
+    private void PlaceLocalView()
     {
-        auto Floor = SpawnActor(ACk_Gym_Floor, k_FloorLocation, FRotator::ZeroRotator, NAME_None, true);
-        if (Floor == nullptr)
-        {
-            ck::voxelnav::Warning("VoxelNav gym: failed to spawn floor actor");
-            return false;
-        }
-        Floor.SetActorScale3D(k_FloorScale);
-        FinishSpawningActor(Floor);
-        return true;
-    }
-
-    private bool DoSpawnWall()
-    {
-        auto WallActor = Cast<AStaticMeshActor>(SpawnActor(AStaticMeshActor, k_WallLocation));
-        if (ck::Is_NOT_Valid(WallActor))
-        {
-            ck::voxelnav::Warning("VoxelNav gym: failed to spawn the wall actor");
-            return false;
-        }
-
-        // A runtime-spawned AStaticMeshActor must be Movable BEFORE it will accept a mesh.
-        WallActor.StaticMeshComponent.SetMobility(EComponentMobility::Movable);
-
-        auto CubeMesh = Cast<UStaticMesh>(LoadObject(this, "/Engine/BasicShapes/Cube.Cube"));
-        if (CubeMesh == nullptr)
-        {
-            ck::voxelnav::Warning("VoxelNav gym: failed to load /Engine/BasicShapes/Cube.Cube");
-            return false;
-        }
-        WallActor.StaticMeshComponent.SetStaticMesh(CubeMesh);
-
-        auto WallMaterial = Cast<UMaterialInterface>(LoadObject(this, "/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
-        if (WallMaterial != nullptr)
-        { WallActor.StaticMeshComponent.SetMaterial(0, WallMaterial); }
-
-        WallActor.SetActorScale3D(k_WallScale);
-        WallActor.StaticMeshComponent.SetCollisionProfileName(n"BlockAll");
-
-        auto NumBaked = utils_jolt_static_world::Request_BakeActor(WallActor);
-        if (NumBaked == 0)
-        {
-            ck::voxelnav::Warning("VoxelNav gym: the wall baked 0 Jolt bodies - the volume would voxelize it as free space");
-            ck::Error("VoxelNav gym: wall bake produced 0 Jolt bodies - gym aborted", n"VoxelNavGym.WallBake", 10.0);
-            return false;
-        }
-
-        return true;
-    }
-
-    private void DoBringPlayerToViewpoint()
-    {
-        auto ViewPawn = GetControlledPawn();
-        if (ck::Is_NOT_Valid(ViewPawn))
-        { return; }
-
-        ViewPawn.SetActorLocation(k_PlayerViewLocation);
+        if (_ViewpointPlaced || !IsLocalController() || !HasExactPawn()) { return; }
+        _BoundPawn.SetActorLocation(k_PlayerViewLocation);
         SetControlRotation(k_PlayerViewRotation);
+        _ViewpointPlaced = true;
     }
 
-    // Mirrors the gym base's private WaitOneFrame - a one-shot timer on the PC's own entity.
-    private void DoWaitOneFrame(FName InCallbackName)
+    UFUNCTION(BlueprintOverride) void Tick(float DeltaSeconds)
     {
-        auto Params = FCk_Timer_Spec(FCk_Time(0.05));
-        Params.Set_StartingState(ECk_Timer_State::Running)
-              .Set_Behavior(ECk_Timer_Behavior::StopOnDone);
-        auto Timer = utils_timer::Add(_PcEntity, Params);
-        Timer.BindTo_OnDone(FCk_Delegate_Timer(this, InCallbackName));
-    }
-
-    UFUNCTION()
-    private void OnViewpointSettle(FCk_Handle_Timer InTimer, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        // Retry - the pawn may not have been possessed yet when the gym started.
-        DoBringPlayerToViewpoint();
-    }
-
-    // ---- Bake completion -------------------------------------------------------------------------
-
-    UFUNCTION()
-    private void OnBuildCompleted(FCk_Handle InRequestOwner, ECk_Request_OperationResult InResult)
-    {
-        if (InResult != ECk_Request_OperationResult::Succeeded)
+        if (!_Admitted || _Ending || _LocalFailed) { return; }
+        if (ck::Is_NOT_Valid(_BoundWorld) || GetWorld() != _BoundWorld ||
+            IsActorBeingDestroyed())
+        { CloseLocal("Controller world changed"); return; }
+        if (!CaptureStateIfReady())
         {
-            ck::voxelnav::Warning(f"VoxelNav gym: the volume bake did not succeed (got {InResult}) - no agents spawned");
-            ck::Error("VoxelNav gym: volume bake failed - no agents spawned", n"VoxelNavGym.Bake", 10.0);
+            auto Current = Cast<ACk_VoxelNavGym_FlyingVsGrounded_GameState>(
+                _BoundWorld.GetGameState());
+            if (_CatalogCaptured ||
+                (_StateCaptured && (ck::Is_NOT_Valid(_BoundState) ||
+                    Current != _BoundState || _BoundState.IsActorBeingDestroyed())) ||
+                UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds() -
+                    _BootstrapStartedSeconds >= 20.0)
+            { CloseLocal("VoxelNav GameState or catalog did not converge"); }
             return;
         }
-
-        DoSpawnAgentsAndMove();
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State))
+        { CloseLocal("VoxelNav state changed"); return; }
+        if (State.Get_HasSessionFailure())
+        { CloseLocal("Shared VoxelNav session failed"); return; }
+        if (!CapturePawnIfReady())
+        {
+            if (_PawnCaptured)
+            { CloseLocal("VoxelNav pawn changed", false); }
+            else if (UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds() -
+                _BootstrapStartedSeconds >= 20.0)
+            { CloseLocal("VoxelNav pawn did not converge"); }
+            return;
+        }
+        if (HasAuthority()) { State.Request_EnsureSharedDemo(); }
+        if (!IsLocalController()) { return; }
+        PlaceLocalView();
+        if (!CheckStation(!_StationBound))
+        { CloseLocal("Local VoxelNav station changed"); return; }
+        if (!State.Get_HasConsumableFrame())
+        {
+            if (_ProjectedSequence == 0 &&
+                UCkCueGym_SourceVisuals::Get_RelayWallClockSeconds() -
+                    _BootstrapStartedSeconds >= 35.0)
+            { CloseLocal("VoxelNav presentation did not converge"); }
+            return;
+        }
+        auto Frame = State.Get_ConsumedFrame();
+        if (!CkVoxelNavGym::IsValidFrame(Frame))
+        { CloseLocal("VoxelNav presentation is malformed"); return; }
+        if (Frame.Phase == 4)
+        { CloseLocal("VoxelNav presentation ended"); return; }
+        if (_ProjectedSourceGeneration > Frame.SourceGeneration ||
+            (_ProjectedSourceGeneration == Frame.SourceGeneration &&
+                _ProjectedSequence > Frame.Sequence))
+        { CloseLocal("VoxelNav presentation went backward"); return; }
+        _PresentedFrame = Frame;
+        _ProjectedSourceGeneration = Frame.SourceGeneration;
+        _ProjectedSequence = Frame.Sequence;
+        DrawFrame(Frame);
     }
 
-    private void DoSpawnAgentsAndMove()
+    private void DrawFrame(FCkVoxelNavGym_WireSnapshot Frame)
     {
-        _FlyerAgent = DoSpawnAgent(k_FlyerSpawn, ECk_CrowdAgent_Mode::Flying, k_FlyerColor);
-        _GroundedAgent = DoSpawnAgent(k_GroundedSpawn, ECk_CrowdAgent_Mode::Grounded, k_GroundedColor);
-
-        DoMoveTo(_FlyerAgent, _FlyerGoal);
-        DoMoveTo(_GroundedAgent, _GroundedGoal);
-    }
-
-    private FCk_Handle_CrowdAgent DoSpawnAgent(FVector InSpawn, ECk_CrowdAgent_Mode InMode, FLinearColor InColor)
-    {
-        // The agent is a CHILD of the registry transient, never composed onto it: utils_crowd_agent
-        // permits one agent per entity, so composing onto the transient would put both agents on the
-        // same entity and make the destroy in Restart target the world transient.
-        auto Params = FCk_CrowdAgent_Spec(k_AgentRadius, k_AgentHeight);
-        Params.Set_AgentMode(InMode);
-
-        auto AgentEntity = utils_entity_lifetime::Request_CreateEntity(ck::TransientEntity());
-        auto AgentTransform = utils_transform::Add(AgentEntity,
-            FTransform(FRotator(0.0, 0.0, 0.0), InSpawn, FVector::OneVector), ECk_Replication::DoesNotReplicate);
-        auto Agent = utils_crowd_agent::Add(AgentTransform, Params);
-
-        utils_velocity::Add(AgentEntity,
-            FCk_Velocity_Spec(ECk_LocalWorld::World, FVector::ZeroVector), ECk_Replication::DoesNotReplicate);
-        utils_acceleration::Add(AgentEntity,
-            FCk_Acceleration_Spec(ECk_LocalWorld::World, FVector::ZeroVector), ECk_Replication::DoesNotReplicate);
-        utils_euler_integrator::Request_Start(AgentEntity);
-
-        auto Path = utils_voxel_nav_path::Add(FCk_Handle(Agent), FCk_VoxelNavPath_Spec(k_AgentRadius));
-        utils_voxel_nav_path::Request_SetVolume(Path, _Volume);
-
-        utils_crowd_agent::Set_DebugColor(Agent, InColor);
-
-        utils_crowd_agent::BindTo_OnGoalReached(Agent,
-            FCk_Delegate_CrowdAgent_OnGoalReached(this, n"OnAgentGoalReached"),
-            ECk_Signal_BindingPolicy::IgnorePayloadInFlight,
-            ECk_Signal_PostFireBehavior::DoNothing);
-
-        return Agent;
-    }
-
-    private void DoMoveTo(FCk_Handle_CrowdAgent InAgent, FVector InGoal)
-    {
-        if (ck::Is_NOT_Valid(InAgent))
+        if (!CkVoxelNavGym::IsValidFrame(Frame) || !CheckStation(false))
         { return; }
-
-        utils_crowd_agent::Request_MoveTo(InAgent, FCk_Request_CrowdAgent_MoveTo(InGoal));
-    }
-
-    private void DoDestroyAgents()
-    {
-        if (ck::IsValid(_FlyerAgent))
-        { utils_entity_lifetime::Request_DestroyEntity(_FlyerAgent); }
-        if (ck::IsValid(_GroundedAgent))
-        { utils_entity_lifetime::Request_DestroyEntity(_GroundedAgent); }
-
-        _FlyerAgent = utils_crowd_agent::Get_InvalidHandle();
-        _GroundedAgent = utils_crowd_agent::Get_InvalidHandle();
-    }
-
-    // ---- Per-tick draw ---------------------------------------------------------------------------
-
-    UFUNCTION()
-    private void OnDrawTick(FCk_Handle_Timer InTimer, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        // A local, not a class const: AS class-scope const floats reach float32 params as float64
-        // literals and warn on every call site.
         const float DrawSeconds = 0.12f;
-
-        const auto VolumeCenter = (k_VolumeMin + k_VolumeMax) * 0.5;
-        const auto VolumeExtent = (k_VolumeMax - k_VolumeMin) * 0.5;
-        utils_debug_draw::DrawDebugBox(VolumeCenter, VolumeExtent, k_VolumeColor,
+        auto Center = (k_VolumeMin + k_VolumeMax) * 0.5;
+        auto Extent = (k_VolumeMax - k_VolumeMin) * 0.5;
+        utils_debug_draw::DrawDebugBox(Center, Extent, k_VolumeColor,
             FRotator::ZeroRotator, DrawSeconds, 1.0f);
-
-        utils_debug_draw::DrawDebugSphere(_FlyerGoal, 60.0f, 16, k_FlyerColor, DrawSeconds, 2.0f);
-        utils_debug_draw::DrawDebugSphere(_GroundedGoal, 60.0f, 16, k_GroundedColor, DrawSeconds, 2.0f);
-
-        if (ck::IsValid(_Volume) && utils_voxel_nav_volume::Get_IsBuilt(_Volume) == false)
+        auto Station = Frame.Stations[0];
+        if (!Station.Built)
         {
             utils_debug_draw::DrawDebugString(FVector(0.0, 0.0, 500.0),
-                f"Baking voxel volume... {utils_voxel_nav_volume::Get_BuildProgress(_Volume)}",
+                f"Baking voxel volume... {Station.BuildProgress}",
                 FLinearColor(1.0f, 1.0f, 1.0f, 1.0f), DrawSeconds);
         }
-
-        if (ck::IsValid(_FlyerAgent))
+        _PresentedAgents.Reset();
+        _PresentedTransforms.Reset();
+        for (int32 I = 0; I < 2; ++I)
         {
-            utils_debug_draw::DrawDebugString(DoGet_LabelLocation(_FlyerAgent),
-                f"FLYING  pitch {utils_crowd_agent::Get_TargetPitchDegrees(_FlyerAgent)}  {utils_crowd_agent::Get_MovementState(_FlyerAgent)}",
-                k_FlyerColor, DrawSeconds);
+            auto Matches = utils_entity_tag::ForEach_Entity(ck::TransientEntity(), I == 0
+                ? n"VoxelNavFlyingVsGrounded.Agent.Flying"
+                : n"VoxelNavFlyingVsGrounded.Agent.Grounded");
+            if (Matches.Num() != 1 ||
+                !UCk_VoxelNavGym_Runtime_UE::Get_IsLiveInWorld(Matches[0], _BoundWorld) ||
+                !utils_transform::Has(Matches[0]))
+            { _PresentedAgents.Reset(); _PresentedTransforms.Reset(); return; }
+            auto Handle = Matches[0];
+            auto Script = Cast<UCk_EntityScript_VoxelNavGym_Agent>(
+                utils_entity_script::TryGet_EntityScript(Handle));
+            if (ck::Is_NOT_Valid(Script) || Script.Index != I ||
+                Script.PairGeneration != Station.PairGeneration ||
+                !utils_entity_replication_driver::Has(Handle) ||
+                !utils_entity_replication_driver::Get_IsReplicationComplete(Handle))
+            { _PresentedAgents.Reset(); _PresentedTransforms.Reset(); return; }
+            auto Pose = utils_transform::Get_EntityCurrentTransform(Handle.As_Transform());
+            _PresentedAgents.Add(Handle);
+            _PresentedTransforms.Add(Pose);
         }
-
-        if (ck::IsValid(_GroundedAgent))
+        for (int32 I = 0; I < 2; ++I)
         {
-            utils_debug_draw::DrawDebugString(DoGet_LabelLocation(_GroundedAgent),
-                f"GROUNDED  {utils_crowd_agent::Get_MovementState(_GroundedAgent)}",
-                k_GroundedColor, DrawSeconds);
+            auto Pose = _PresentedTransforms[I];
+            auto Color = I == 0 ? k_FlyerColor : k_GroundedColor;
+            auto Location = Pose.GetLocation();
+            utils_debug_draw::DrawDebugCapsule(Location, 96.0f, 42.0f,
+                Pose.GetRotation().Rotator(), Color, DrawSeconds, 2.0f);
+            auto Forward = Pose.GetRotation().GetForwardVector();
+            utils_debug_draw::DrawDebugArrow(Location,
+                Location + Forward * 150.0f, 24.0f, Color, DrawSeconds, 2.0f);
+            auto Label = I == 0 ? "FLYING (replicated Transform)" : "GROUNDED (replicated Transform)";
+            utils_debug_draw::DrawDebugString(
+                Location + FVector(0.0, 0.0, 120.0), Label, Color, DrawSeconds);
         }
     }
 
-    private FVector DoGet_LabelLocation(FCk_Handle_CrowdAgent InAgent)
+    private bool TryReadyFrame(FCkVoxelNavGym_WireSnapshot&out Frame)
     {
-        const auto AgentTransform = utils_transform::DoCastChecked(FCk_Handle(InAgent));
-        return utils_transform::Get_EntityCurrentLocation(AgentTransform) + FVector(0.0, 0.0, k_LabelZOffset);
+        Frame = FCkVoxelNavGym_WireSnapshot();
+        if (!_Admitted || _Ending || _LocalFailed || !IsLocalController() ||
+            !CheckStation(false) || !HasExactPawn() ||
+            _RequestedSerial != LastControlAck.Serial ||
+            _PresentedAgents.Num() != 2 || _PresentedTransforms.Num() != 2) { return false; }
+        for (auto Handle : _PresentedAgents)
+        {
+            if (!UCk_VoxelNavGym_Runtime_UE::Get_IsLiveInWorld(Handle, _BoundWorld))
+            { return false; }
+        }
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State) || State.Get_HasSessionFailure() ||
+            !State.Get_HasConsumableFrame()) { return false; }
+        auto Current = State.Get_ConsumedFrame();
+        if (!CkVoxelNavGym::IsValidFrame(Current) || Current.Phase != 2 ||
+            !CkVoxelNavGym::IsValidFrame(_PresentedFrame) ||
+            _PresentedFrame.Phase != 2 ||
+            _ProjectedSourceGeneration != _PresentedFrame.SourceGeneration ||
+            _ProjectedSequence != _PresentedFrame.Sequence ||
+            _ProjectedSequence <= 0 ||
+            _PresentedFrame.SourceGeneration != Current.SourceGeneration ||
+            _PresentedFrame.ControlGeneration != Current.ControlGeneration ||
+            _PresentedFrame.Sequence > Current.Sequence) { return false; }
+        Frame = _PresentedFrame;
+        if (LastControlAck.Result != 1) { return true; }
+        return LastControlAck.RequestedGeneration > 0 &&
+            LastControlAck.CompletedGeneration > LastControlAck.RequestedGeneration &&
+            LastControlAck.CompletedSequence > 0 &&
+            Frame.ControlGeneration >= LastControlAck.CompletedGeneration &&
+            Frame.Sequence >= LastControlAck.CompletedSequence;
     }
 
-    // ---- Signal handlers -------------------------------------------------------------------------
-
-    UFUNCTION()
-    void OnAgentGoalReached(FCk_Handle_CrowdAgent InAgent)
+    UFUNCTION(BlueprintPure) bool Get_IsLocalPresentationReady()
     {
-        if (InAgent == _FlyerAgent)
-        {
-            ck::Trace("VoxelNav gym: the FLYING agent reached its goal");
-            return;
-        }
-
-        if (InAgent == _GroundedAgent)
-        {
-            ck::Trace("VoxelNav gym: the GROUNDED agent reached its goal");
-            return;
-        }
-
-        ck::Trace("VoxelNav gym: an unrecognised agent reached its goal");
+        FCkVoxelNavGym_WireSnapshot Frame;
+        return TryReadyFrame(Frame);
     }
 
-    //--------------------------------------------------------------------------------------------------------------------------
-    // CONTROL PANEL (Script/Common/CkGym_ControlPanel.as)
-    //
-    // The comparison this gym exists for only happens WHILE the agents are moving, so re-running it and
-    // sending them back are the two controls that matter - and both were console-only.
-    //--------------------------------------------------------------------------------------------------------------------------
+    UFUNCTION(BlueprintPure) FCkVoxelNavGym_WireSnapshot Get_PresentedFrame() const
+    { return _PresentedFrame; }
+
+    UFUNCTION(BlueprintPure) FCk_Handle Get_PresentedAgent(int32 Index) const
+    {
+        return !_LocalFailed && !_Ending && _PresentedAgents.IsValidIndex(Index)
+            ? _PresentedAgents[Index] : FCk_Handle();
+    }
+
+    UFUNCTION(BlueprintPure) FTransform Get_PresentedAgentTransform(int32 Index) const
+    {
+        return !_LocalFailed && !_Ending && _PresentedTransforms.IsValidIndex(Index)
+            ? _PresentedTransforms[Index] : FTransform::Identity;
+    }
+
+    UFUNCTION(BlueprintPure) FString Get_DiagnosticState() const
+    {
+        return f"admitted={_Admitted} localFailed={_LocalFailed} " +
+            f"pawnCaptured={_PawnCaptured} stateCaptured={_StateCaptured} " +
+            f"stationBound={_StationBound} projectedGen={_ProjectedSourceGeneration} " +
+            f"projectedSeq={_ProjectedSequence} reason={_LocalFailureReason}";
+    }
+
+    UFUNCTION(Server) void Server_RequestVoxelControl(
+        int32 Serial, int64 SourceGeneration, int64 Generation, int32 Action)
+    {
+        if (!HasAuthority() || !_Admitted || _Ending || _ServerPending ||
+            Serial <= 0 || LastControlAck.Serial >= 2147483647 ||
+            Serial != LastControlAck.Serial + 1 || Action < 0 || Action > 1)
+        { return; }
+        FCkVoxelNavGym_ControlAck Rejected;
+        Rejected.Serial = Serial;
+        Rejected.Action = Action;
+        Rejected.RequestedGeneration = Generation;
+        Rejected.Result = 2;
+        auto State = Get_ExactState();
+        if (ck::Is_NOT_Valid(State) || !HasExactPawn() ||
+            !State.Get_HasConsumableFrame())
+        { LastControlAck = Rejected; ForceNetUpdate(); return; }
+        auto Frame = State.Get_ConsumedFrame();
+        if (!CkVoxelNavGym::IsValidFrame(Frame) || Frame.Phase != 2 ||
+            SourceGeneration <= 0 || Generation <= 0 ||
+            SourceGeneration != Frame.SourceGeneration ||
+            Generation != Frame.ControlGeneration)
+        { LastControlAck = Rejected; ForceNetUpdate(); return; }
+        _ServerPending = true;
+        _PendingSerial = Serial;
+        _PendingAction = Action;
+        _PendingSourceGeneration = SourceGeneration;
+        _PendingGeneration = Generation;
+        if (!State.Request_Control(this, Serial, SourceGeneration, Generation, Action))
+        {
+            if (_ServerPending && _PendingSerial == Serial)
+            {
+                _ServerPending = false;
+                _PendingSerial = 0;
+                _PendingAction = -1;
+                LastControlAck = Rejected;
+                ForceNetUpdate();
+            }
+        }
+    }
+
+    void Complete_VoxelControl(int32 Serial, int64 RequestedGeneration,
+        int32 Action, bool Success, int64 CompletedGeneration,
+        int64 CompletedSequence)
+    {
+        auto State = Get_ExactState();
+        if (!HasAuthority() || !_Admitted || _Ending || !_ServerPending ||
+            Serial != _PendingSerial || Action != _PendingAction ||
+            RequestedGeneration != _PendingGeneration ||
+            LastControlAck.Serial + 1 != Serial ||
+            ck::Is_NOT_Valid(State)) { return; }
+        if (Success)
+        {
+            if (!HasExactPawn() || State.Get_HasSessionFailure() ||
+                !State.Get_HasConsumableFrame())
+            { State.Request_Fail("Completed VoxelNav control lost its owner or frame"); return; }
+            auto Frame = State.Get_ConsumedFrame();
+            if (CompletedGeneration <= RequestedGeneration ||
+                CompletedSequence <= 0 || Frame.Phase != 2 ||
+                Frame.SourceGeneration != _PendingSourceGeneration ||
+                Frame.ControlGeneration != CompletedGeneration ||
+                Frame.Sequence != CompletedSequence ||
+                !CkVoxelNavGym::IsValidFrame(Frame))
+            { State.Request_Fail("Completed VoxelNav control lost its frame"); return; }
+        }
+        _ServerPending = false;
+        _PendingSerial = 0;
+        _PendingAction = -1;
+        FCkVoxelNavGym_ControlAck Completed;
+        Completed.Serial = Serial;
+        Completed.Action = Action;
+        Completed.RequestedGeneration = RequestedGeneration;
+        Completed.Result = Success ? 1 : 2;
+        if (Success)
+        {
+            Completed.CompletedGeneration = CompletedGeneration;
+            Completed.CompletedSequence = CompletedSequence;
+        }
+        LastControlAck = Completed;
+        ForceNetUpdate();
+    }
+
+    private void Request_SharedControl(int32 Action)
+    {
+        FCkVoxelNavGym_WireSnapshot Frame;
+        if (Action < 0 || Action > 1 || !TryReadyFrame(Frame) ||
+            LastControlAck.Serial >= 2147483647) { return; }
+        _RequestedSerial = LastControlAck.Serial + 1;
+        Server_RequestVoxelControl(_RequestedSerial,
+            Frame.SourceGeneration, Frame.ControlGeneration, Action);
+    }
 
     FString Get_ControlPanelTitle() override
-    {
-        return "VOXELNAV: FLYING vs GROUNDED";
-    }
+    { return "VOXELNAV: FLYING vs GROUNDED"; }
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override
     {
@@ -373,33 +501,15 @@ class ACk_VoxelNavGym_FlyingVsGrounded_PlayerController : ACk_Gym_Base_PlayerCon
         return Rows;
     }
 
-    void Request_ControlActivated(int32 InRowIndex) override
+    UFUNCTION() void Request_ControlActivated(int32 RowIndex) override
     {
-        if (InRowIndex == 0) { DoRestartAgents(); }
-        else if (InRowIndex == 1) { DoReturnTrip(); }
+        if (RowIndex == 0) { Request_SharedControl(0); }
+        else if (RowIndex == 1) { Request_SharedControl(1); }
     }
 
-    private void DoRestartAgents()
+    UFUNCTION(BlueprintOverride) void EndPlay(EEndPlayReason InReason)
     {
-        if (HasAuthority() == false)
-        { return; }
-
-        DoDestroyAgents();
-        DoSpawnAgentsAndMove();
-        ck::voxelnav::Log("VoxelNav gym: agents restarted against the existing volume");
-    }
-
-    private void DoReturnTrip()
-    {
-        if (HasAuthority() == false)
-        { return; }
-
-        _GoalsAreOutbound = !_GoalsAreOutbound;
-        _FlyerGoal = _GoalsAreOutbound ? k_FlyerGoal : k_FlyerSpawn;
-        _GroundedGoal = _GoalsAreOutbound ? k_GroundedGoal : k_GroundedSpawn;
-
-        DoMoveTo(_FlyerAgent, _FlyerGoal);
-        DoMoveTo(_GroundedAgent, _GroundedGoal);
-        ck::voxelnav::Log("VoxelNav gym: both agents re-targeted to the opposite end");
+        _Ending = true;
+        Super::EndPlay(InReason);
     }
 }
