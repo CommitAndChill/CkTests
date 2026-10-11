@@ -146,17 +146,17 @@ class UCk_EntityScript_GoapGym_SharedStation : UCk_GenericEntityScript_UE
             utils_goap_planner::Get_EnableToggle(Result) == ECk_EnableDisable::Disable;
     }
     protected bool TryAddAction(int32 ParentPlanner,
-        TSubclassOf<UCk_GoapAction_EntityScript> Class,
+        TSubclassOf<UCk_GoapAction_EntityScript> ActionClass,
         FCk_Handle_Goap_Action&out Action)
     {
         if (_Closed || ParentPlanner < 0 || ParentPlanner >= _Planners.Num() ||
-            !IsPlannerLive(_Planners[ParentPlanner]) || Class == nullptr)
+            !IsPlannerLive(_Planners[ParentPlanner]) || ActionClass == nullptr)
         { return false; }
         auto Result = utils_goap_planner::AddAction(
-            _Planners[ParentPlanner], FCk_Goap_Action_Spec(Class));
+            _Planners[ParentPlanner], FCk_Goap_Action_Spec(ActionClass));
         _Actions.Add(Result);
         _ActionParentPlanners.Add(ParentPlanner);
-        _ActionClasses.Add(Class);
+        _ActionClasses.Add(ActionClass);
         Action = Result;
         return IsActionLive(Result) &&
             IsDirectChild(FCk_Handle(Result), FCk_Handle(_Planners[ParentPlanner]));
@@ -488,6 +488,7 @@ class UCk_EntityScript_GoapGym_SharedStation : UCk_GenericEntityScript_UE
             FCkGoapGym_PlannerFrame Value;
             Value.Index = I;
             Value.ParentAction = _PlannerParentActions[I];
+            Value.AttemptCount = utils_goap_planner::Get_PlanAttemptCount(_Planners[I]);
             Value.PlanCount = _SuccessCounts[I];
             Value.FailureCount = _FailureCounts[I];
             auto Status = utils_goap_planner::Get_PlanStatus(_Planners[I]);
