@@ -21,87 +21,50 @@ struct FCk_GoapGym_CrossRiver_Station_SpawnParams
     FTransform InitialTransform = FTransform::Identity;
 }
 
-class UCk_EntityScript_GoapGym_CrossRiver_Station : UCk_GenericEntityScript_UE
+class UCk_EntityScript_GoapGym_CrossRiver_Station : UCk_EntityScript_GoapGym_SharedStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
     private FCk_Handle_Goap_Planner _Planner;
-    private FCk_Handle_Goap_WorldState _WS;
     private TArray<TSubclassOf<UCk_GoapAction_EntityScript>> _KnownClasses;
     private TArray<FString> _KnownLabels;
 
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow
-    DoConstruct(FCk_Handle& InHandle)
+    int32 Get_StationIndex() const override { return 2; }
+
+    protected bool PrepareStation() override
     {
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-
-        _WS = utils_goap_world_state::Create(InHandle,
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CrossRiver"),
-            FCk_Goap_WorldState_Spec());
-        Set(n"Gym.Goap.WS.CrossRiver.BridgeIsOpen", true);
-        Set(n"Gym.Goap.WS.CrossRiver.HasCoin", true);
-        Set(n"Gym.Goap.WS.CrossRiver.Crossed", false);
-
-        // U11.1: Planner goal on PlannerParams.
+        if (!TryCreateWS(utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CrossRiver"))) { return false; }
         auto Goal = TArray<FCk_GoapWS_Condition_Authored>();
         Goal.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CrossRiver.Crossed"),
-            true));
-
-        auto ActionSetParams = FCk_Goap_Planner_Spec(
-            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.ActionSet.CrossRiver"));
-        ActionSetParams.Set_Goal(Goal);
-        ActionSetParams.Set_WorldStateSource(_WS);
-        ActionSetParams.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::OnWorldStateDirty);
-        _Planner = utils_goap_planner::Add(InHandle, ActionSetParams);
-
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CrossRiver_UseBridge));
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CrossRiver_UseFerry));
-        utils_goap_planner::AddAction(_Planner,
-            FCk_Goap_Action_Spec(UCk_GoapGym_CrossRiver_SwimAcross));
-
+            utils_gameplay_tag::ResolveGameplayTag(n"Gym.Goap.WS.CrossRiver.Crossed"), true));
+        if (!TryCreateTopPlanner(utils_gameplay_tag::ResolveGameplayTag(
+                n"Gym.Goap.ActionSet.CrossRiver"), Goal, false, _Planner))
+        { return false; }
+        FCk_Handle_Goap_Action Action;
+        if (!TryAddAction(0, UCk_GoapGym_CrossRiver_UseBridge, Action) ||
+            !TryAddAction(0, UCk_GoapGym_CrossRiver_UseFerry, Action) ||
+            !TryAddAction(0, UCk_GoapGym_CrossRiver_SwimAcross, Action))
+        { return false; }
         _KnownClasses.Add(UCk_GoapGym_CrossRiver_UseBridge);  _KnownLabels.Add("UseBridge");
         _KnownClasses.Add(UCk_GoapGym_CrossRiver_UseFerry);   _KnownLabels.Add("UseFerry");
         _KnownClasses.Add(UCk_GoapGym_CrossRiver_SwimAcross); _KnownLabels.Add("SwimAcross");
-
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
+        return true;
     }
-
-    private void Set(FName InKey, bool InValue)
+    private bool ReadKey(FName Name) const
     {
-        if (ck::Is_NOT_Valid(_WS)) { return; }
-        utils_goap_world_state::Set_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey), InValue);
+        return utils_goap_world_state::Get_Value(
+            _WS, utils_gameplay_tag::ResolveGameplayTag(Name));
     }
-
-    private bool Get(FName InKey)
+    protected bool FillStationText(FCkGoapGym_StationFrame&out Frame) const override
     {
-        return utils_goap_world_state::Get_Value(_WS,
-            utils_gameplay_tag::ResolveGameplayTag(InKey));
-    }
 
-    UFUNCTION()
-    private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        if (ck::Is_NOT_Valid(_Planner)) { return; }
-
-        auto BridgeOpen = Get(n"Gym.Goap.WS.CrossRiver.BridgeIsOpen");
-        auto HasCoin = Get(n"Gym.Goap.WS.CrossRiver.HasCoin");
-        auto Crossed = Get(n"Gym.Goap.WS.CrossRiver.Crossed");
+        auto BridgeOpen = ReadKey(n"Gym.Goap.WS.CrossRiver.BridgeIsOpen");
+        auto HasCoin = ReadKey(n"Gym.Goap.WS.CrossRiver.HasCoin");
+        auto Crossed = ReadKey(n"Gym.Goap.WS.CrossRiver.Crossed");
 
         auto Status = utils_goap_planner::Get_PlanStatus(_Planner);
         auto Plan = utils_goap_planner::Get_PlanClasses(_Planner);
         auto Cost = utils_goap_planner::Get_PlanCost(_Planner);
 
-        auto Body = "World State\n"
+        Frame.Detail = "World State\n"
             + f"  BridgeIsOpen   {CkGoapGym_Common::Render_Bool(BridgeOpen)}\n"
             + f"  HasCoin        {CkGoapGym_Common::Render_Bool(HasCoin)}\n"
             + f"  Crossed        {CkGoapGym_Common::Render_Bool(Crossed)}\n\n"
@@ -118,8 +81,9 @@ class UCk_EntityScript_GoapGym_CrossRiver_Station : UCk_GenericEntityScript_UE
             + "  panel [F]  Lose the coin (one-way)\n"
             + "  panel [2]  Restore initial WS";
 
-        CkGym_Common::Update_StationDisplay(ck::ToEntity(this),
-            "STATION 3 / CROSS RIVER", Body,
-            "Branching: 3 operators, same effect, different costs.\nLowest-cost branch wins; replans on WS flips.");
+
+        Frame.Title = "STATION 3 / CROSS RIVER";
+        Frame.Footer = "Branching: 3 operators, same effect, different costs.\nLowest-cost branch wins; replans on WS flips.";
+        return true;
     }
 }
