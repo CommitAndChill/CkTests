@@ -26,6 +26,8 @@ public class CkTests : CkModuleRules
 
         // Direct C API integration coverage lives in this module's private unit-test source.
         PrivateDependencyModuleNames.Add("CkYoga");
+        // Dialog gym runtime guards are also compiled outside editor targets.
+        PrivateDependencyModuleNames.Add("CkDialog");
         PrivateDependencyModuleNames.Add("CkSlateLayout");
         PrivateDependencyModuleNames.Add("AppFramework"); // Exercise native color-picker behavior through authored controls.
         PrivateDependencyModuleNames.Add("ImageCore");

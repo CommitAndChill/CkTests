@@ -1,114 +1,111 @@
-//============================================================================
-// DIALOG GYM - COOLDOWNS STATION
-// 1s query cadence vs a 3s cooldown. When a line plays it goes on cooldown and
-// reports Fail(cooldown) until it expires. A second emitter never cools it,
-// proving per-emitter isolation. Doubles as the debugger live-overlay bed.
-//============================================================================
-
-class UCk_EntityScript_DialogGym_Cooldowns : UCk_GenericEntityScript_UE
+// Language=angelscript
+class UCk_EntityScript_DialogGym_Cooldowns : UCk_EntityScript_DialogGym_Source
 {
-	default _Replication = ECk_Replication::DoesNotReplicate;
-
-	UPROPERTY(ExposeOnSpawn)
-	FTransform InitialTransform = FTransform::Identity;
-
-	private FCk_Handle_DialogEmitter _Emitter;
-	private FCk_Handle_DialogEmitter _OtherEmitter;
-	private FCk_Handle_DialogLine _Line;
-	private FGameplayTag _EventTag;
-	private ECk_DialogLine_QueryResult _LastState;
-	private ECk_DialogLine_QueryResult _OtherState;
-	private bool _HasState = false;
-
-	UFUNCTION(BlueprintOverride)
-	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
-	{
-		auto _CkPerfScope = ck::ScopedStat();
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
-		utils_entity_tag::Add(InHandle, n"TAG_DialogGym_Cooldowns");
-
-		_EventTag = utils_gameplay_tag::ResolveGameplayTag(n"DialogGym.Cooldowns.Enter");
-		auto Registry = UCk_DialogRegistry_Subsystem_UE::Get_DialogRegistry();
-
-		auto LineData = FCk_DialogBank_LineData(n"DialogGym.Cooldowns.Line", _EventTag);
-		LineData.Set_Text(FText::FromString("Watch me go on cooldown."));
-		_Line = Registry.Request_RegisterLine(LineData, FGameplayTagContainer());
-
-		_Emitter = UCk_Utils_DialogEmitter_UE::Add(InHandle, FCk_DialogEmitter_Spec(FGameplayTagContainer()));
-		_Emitter.BindTo_OnQueryCompleted(FCk_Delegate_DialogEmitter_OnQueryCompleted(this, n"OnResult"));
-
-		auto OtherChild = utils_entity_lifetime::Request_CreateEntity(InHandle);
-		_OtherEmitter = UCk_Utils_DialogEmitter_UE::Add(OtherChild, FCk_DialogEmitter_Spec(FGameplayTagContainer()));
-		_OtherEmitter.BindTo_OnQueryCompleted(FCk_Delegate_DialogEmitter_OnQueryCompleted(this, n"OnOtherResult"));
-
-		auto CadenceParams = FCk_Timer_Spec(FCk_Time(1.0));
-		CadenceParams.Set_StartingState(ECk_Timer_State::Running);
-		CadenceParams.Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-		auto Cadence = utils_timer::Add(InHandle, CadenceParams);
-		Cadence.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnQueryTick"));
-
-		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
-
-		return ECk_EntityScript_ConstructionFlow::Finished;
-	}
-
-	UFUNCTION()
-	private void OnQueryTick(FCk_Handle_Timer InTimer, FCk_Chrono InChrono, FCk_Time InDeltaT)
-	{
-		_Emitter.Request_Query(FCk_Request_DialogEmitter_Query(_EventTag));
-		_OtherEmitter.Request_Query(FCk_Request_DialogEmitter_Query(_EventTag));
-	}
-
-	private ECk_DialogLine_QueryResult DoFirstResult(FCk_DialogEmitter_QueryResult InResult)
-	{
-		auto Entries = InResult.Get_Entries();
-		if (Entries.Num() == 0) { return ECk_DialogLine_QueryResult::Fail_EmitterCondition; }
-		return Entries[0].Get_Result();
-	}
-
-	UFUNCTION()
-	private void OnResult(FCk_Handle_DialogEmitter InEmitter, FCk_DialogEmitter_QueryResult InResult)
-	{
-		_LastState = DoFirstResult(InResult);
-		_HasState = true;
-
-		// "Play" the line when it Passes: put it on a 3s cooldown.
-		if (_LastState == ECk_DialogLine_QueryResult::Passed)
-		{
-			_Emitter.Request_StartCooldown(FCk_Request_DialogEmitter_StartCooldown(_Line, FCk_Time(3.0)));
-		}
-	}
-
-	UFUNCTION()
-	private void OnOtherResult(FCk_Handle_DialogEmitter InEmitter, FCk_DialogEmitter_QueryResult InResult)
-	{
-		_OtherState = DoFirstResult(InResult);
-	}
-
-	UFUNCTION()
-	private void OnDisplayTick(FCk_Handle_Timer InTimer, FCk_Chrono InChrono, FCk_Time InDeltaT)
-	{
-		auto SelfEntity = ck::ToEntity(this);
-		auto Remaining = _Emitter.Get_CooldownRemaining(_Line);
-
-		auto Body = "";
-		if (_HasState)
-		{
-			auto Mine = "Passed";
-			if (_LastState == ECk_DialogLine_QueryResult::Fail_EmitterCondition) { Mine = "FAIL(cooldown)"; }
-			else if (_LastState == ECk_DialogLine_QueryResult::Fail_LineCondition) { Mine = "FAIL(line)"; }
-
-			auto Other = "Passed";
-			if (_OtherState == ECk_DialogLine_QueryResult::Fail_EmitterCondition) { Other = "FAIL(cooldown)"; }
-
-			Body += f"Emitter A: {Mine}   (cooldown {Remaining.Get_Seconds()}s)\n";
-			Body += f"Emitter B: {Other}   (never cooled)\n";
-		}
-		else
-		{
-			Body += "(waiting for first query...)";
-		}
-
-		CkGym_Common::Update_StationDisplay(SelfEntity, "DIALOG COOLDOWNS", Body, "Query 1s / cooldown 3s");
-	}
+    private FCk_Handle_DialogEmitter _Emitter;
+    private FCk_Handle_DialogEmitter _OtherEmitter;
+    private FCk_Handle _OtherChild;
+    private FCk_Handle_DialogLine _Line;
+    private FGameplayTag _EventTag;
+    private TArray<FCkDialogGym_LineResult> _Results;
+    private TArray<FCkDialogGym_LineResult> _OtherResults;
+    private int64 _QueryCount = 0;
+    private bool _HasState = false;
+    protected bool PrepareStation() override
+    {
+        _EventTag = utils_gameplay_tag::ResolveGameplayTag(n"DialogGym.Cooldowns.Enter");
+        _Line = _Bank.Get_Line(n"DialogGym.Cooldowns.Line");
+        if (!_EventTag.IsValid() || !UCk_DialogGym_Runtime_UE::Get_IsLiveLine(FCk_Handle(_Line), _World))
+        { return false; }
+        _Emitter = UCk_Utils_DialogEmitter_UE::Add(_Root, FCk_DialogEmitter_Spec(FGameplayTagContainer()));
+        if (!IsEmitterLive(_Emitter)) { return false; }
+        _OtherChild = utils_entity_lifetime::Request_CreateEntity(_Root);
+        if (!IsDirectChild(_OtherChild, _Root)) { return false; }
+        _OtherEmitter = UCk_Utils_DialogEmitter_UE::Add(_OtherChild,
+            FCk_DialogEmitter_Spec(FGameplayTagContainer()));
+        if (!IsEmitterLive(_OtherEmitter)) { return false; }
+        _Emitter.BindTo_OnQueryCompleted(FCk_Delegate_DialogEmitter_OnQueryCompleted(this, n"OnResult"));
+        _OtherEmitter.BindTo_OnQueryCompleted(FCk_Delegate_DialogEmitter_OnQueryCompleted(this, n"OnOtherResult"));
+        _Cadence = CreateCadence(1.0f, n"OnQueryTick");
+        return IsTimerLive(_Cadence);
+    }
+    protected bool Get_StationIsHealthy() const override
+    {
+        return _EventTag.IsValid() &&
+            UCk_DialogGym_Runtime_UE::Get_IsLiveLine(FCk_Handle(_Line), _World) &&
+            IsEmitterLive(_Emitter) && FCk_Handle(_Emitter) == _Root &&
+            IsEmitterLive(_OtherEmitter) &&
+            FCk_Handle(_OtherEmitter) == _OtherChild &&
+            IsDirectChild(_OtherChild, _Root);
+    }
+    UFUNCTION()
+    private void OnQueryTick(FCk_Handle_Timer Timer, FCk_Chrono Chrono, FCk_Time Dt)
+    {
+        if (!IsRunningCallback(Timer)) { if (_Started && !_Closed) { Request_Block(); } return; }
+        if (_QueryCount >= 2147483647) { Request_Block(); return; }
+        _QueryCount++;
+        if (_Emitter.Request_Query(FCk_Request_DialogEmitter_Query(_EventTag)) != _Emitter ||
+            _OtherEmitter.Request_Query(FCk_Request_DialogEmitter_Query(_EventTag)) != _OtherEmitter)
+        { Request_Block(); }
+    }
+    private bool Capture(FCk_DialogEmitter_QueryResult Result, TArray<FCkDialogGym_LineResult>&out Out)
+    {
+        auto Entries = Result.Get_Entries();
+        if (Entries.Num() != 1) { return false; }
+        auto Line = Entries[0].Get_Line();
+        if (!UCk_DialogGym_Runtime_UE::Get_IsLiveLine(FCk_Handle(Line), _World) ||
+            Line != _Line || Line.Get_LineID() != n"DialogGym.Cooldowns.Line" ||
+            _Bank.Get_Line(n"DialogGym.Cooldowns.Line") != Line ||
+            Line.Get_EventTag() != _EventTag ||
+            Entries[0].Get_LineID() != n"DialogGym.Cooldowns.Line")
+        { return false; }
+        FCkDialogGym_LineResult Value;
+        Value.LineID = n"DialogGym.Cooldowns.Line";
+        Value.Text = Entries[0].Get_Text().ToString();
+        Value.Result = int32(Entries[0].Get_Result());
+        Out.Reset();
+        Out.Add(Value);
+        return true;
+    }
+    UFUNCTION()
+    private void OnResult(FCk_Handle_DialogEmitter Emitter, FCk_DialogEmitter_QueryResult Result)
+    {
+        if (!IsRunningResult(Emitter) || Emitter != _Emitter) { if (_Started && !_Closed) { Request_Block(); } return; }
+        if (!Capture(Result, _Results)) { Request_Block(); return; }
+        _HasState = true;
+        if (_Results[0].Result == int32(ECk_DialogLine_QueryResult::Passed) &&
+            _Emitter.Request_StartCooldown(
+                FCk_Request_DialogEmitter_StartCooldown(_Line, FCk_Time(3.0))) != _Emitter)
+        { Request_Block(); }
+    }
+    UFUNCTION()
+    private void OnOtherResult(FCk_Handle_DialogEmitter Emitter, FCk_DialogEmitter_QueryResult Result)
+    {
+        if (!IsRunningResult(Emitter) || Emitter != _OtherEmitter) { if (_Started && !_Closed) { Request_Block(); } return; }
+        if (!Capture(Result, _OtherResults)) { Request_Block(); }
+    }
+    protected bool FillStationFrame(FCkDialogGym_StationFrame&out Frame) const override
+    {
+        auto Remaining = _Emitter.Get_CooldownRemaining(_Line).Get_Seconds();
+        if (!Math::IsFinite(Remaining) || Remaining < 0.0 || Remaining > 3.1)
+        { return false; }
+        Frame.Title = "DIALOG COOLDOWNS";
+        Frame.Footer = "Query 1s / cooldown 3s";
+        Frame.QueryCount = _QueryCount;
+        Frame.Results = _Results;
+        Frame.OtherResults = _OtherResults;
+        Frame.CooldownRemaining = float32(Remaining);
+        if (_HasState)
+        {
+            auto Mine = _Results[0].Result == int32(ECk_DialogLine_QueryResult::Fail_EmitterCondition)
+                ? "FAIL(cooldown)" : _Results[0].Result == int32(ECk_DialogLine_QueryResult::Fail_LineCondition)
+                ? "FAIL(line)" : "Passed";
+            auto Other = _OtherResults.Num() == 1 &&
+                _OtherResults[0].Result == int32(ECk_DialogLine_QueryResult::Fail_EmitterCondition)
+                ? "FAIL(cooldown)" : "Passed";
+            Frame.Detail = f"Emitter A: {Mine}   (cooldown {Remaining}s)\n" +
+                f"Emitter B: {Other}   (never cooled)\n";
+        }
+        else { Frame.Detail = "(waiting for first query...)"; }
+        return true;
+    }
 }
