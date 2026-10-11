@@ -21,4 +21,5 @@ class ACk_VoxelNavGym_FlyingVsGrounded_GameMode : ACkTests_Gym_Base_GameMode
 {
     default PlayerControllerClass = ACk_VoxelNavGym_FlyingVsGrounded_PlayerController;
     default DefaultPawnClass = ACk_Gym_Base_Pawn;
+    default GameStateClass = ACk_VoxelNavGym_FlyingVsGrounded_GameState;
 }
