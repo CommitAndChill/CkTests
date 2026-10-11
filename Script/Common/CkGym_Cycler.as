@@ -13,9 +13,9 @@ namespace CkGym_Cycler
     // GameMode's BeginPlay. Dedupes by DisplayName so duplicate registrations on hot-reload or
     // level re-entry are idempotent. InCategory groups the gym on the switchboard (conventionally
     // the owning module's name, e.g. "CkCrowd"); empty lands in the fallback bucket.
-    void RegisterProjectGym(FString InDisplayName, TSubclassOf<AGameModeBase> InGameModeClass, FString InLevelName = "", FString InCategory = "")
+    void RegisterProjectGym(FString InDisplayName, TSubclassOf<AGameModeBase> InGameModeClass, FString InLevelName = "", FString InCategory = "", bool InHasMultiplayerComponent = false)
     {
-        UCk_Utils_GymRegistry_UE::Request_RegisterGym(InDisplayName, InGameModeClass, InLevelName, InCategory);
+        UCk_Utils_GymRegistry_UE::Request_RegisterGym(InDisplayName, InGameModeClass, InLevelName, InCategory, InHasMultiplayerComponent);
     }
 
     TArray<FCkGym_Entry> Get_GymRegistry()

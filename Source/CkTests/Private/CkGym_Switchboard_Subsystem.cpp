@@ -399,6 +399,7 @@ auto
         Row.RegistryIndex = Index;
         Row.DisplayName = Entry.DisplayName;
         Row.Category = Category;
+        Row.HasMultiplayerComponent = Entry.HasMultiplayerComponent;
     }
 
     Groups.Sort([](const FCkGym_Switchboard_Group& InA, const FCkGym_Switchboard_Group& InB)

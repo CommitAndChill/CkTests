@@ -43,6 +43,7 @@ struct FCkGym_Switchboard_Row
     int32 RegistryIndex = INDEX_NONE;
     FString DisplayName;
     FString Category;
+    bool HasMultiplayerComponent = false;
 };
 
 struct FCkGym_Switchboard_Group

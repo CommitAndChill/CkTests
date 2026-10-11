@@ -59,6 +59,10 @@ struct CKTESTS_API FCkGym_Entry
     // Optional stable hint-code override for hint-select mode. Empty = derived from DisplayName.
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     FString HintCode;
+
+    // Authored selector annotation; this does not certify multiplayer readiness.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool HasMultiplayerComponent = false;
 };
 
 // --------------------------------------------------------------------------------------------------------------------
