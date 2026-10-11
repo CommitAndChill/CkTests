@@ -1,10 +1,10 @@
 //============================================================================
 // REPLICATION GYM - REPLICATED ACTOR (Scenario A driver)
 //============================================================================
-// Direct mirror of ABB_Store. Placed in the world by the PlayerController at
-// the station transform. In BeginPlay it spawns a replicated entity script
+// Direct mirror of ABB_Store. Owned by the gym GameState at a world-stable
+// transform. In BeginPlay it spawns a replicated entity script
 // with ck::TransientEntity() as the lifetime owner, passing itself as the
-// WithActor owner. This is the exact shape that currently ensures.
+// WithActor owner. This preserves the historical container-registration regression scenario.
 //============================================================================
 
 class ACk_ReplicationGym_ReplicatedActor : AActor
