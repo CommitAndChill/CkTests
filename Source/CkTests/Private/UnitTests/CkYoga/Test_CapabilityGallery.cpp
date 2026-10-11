@@ -1,4 +1,6 @@
 #include "CkResourceInspector/CkCapabilityGalleryModel.h"
+
+#include "Input/HittestGrid.h"
 #include "CkSlateLayout/CkFlexText.h"
 #include "CkSlateLayout/SCkUiRepeat.h"
 #include "CkSlateLayout/SCkUiMenuButton.h"

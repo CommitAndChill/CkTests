@@ -1,6 +1,10 @@
 #include "CkRuntimeMesh_CookProbe.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
+#include "MaterialDomain.h"
+#endif
+
+#if WITH_DEV_AUTOMATION_TESTS
 
 #include "CkRuntimeMesh/CkRuntimeMesh_Utils.h"
 #include "CkRuntimeMesh/Display/CkRuntimeMeshDisplay_Utils.h"

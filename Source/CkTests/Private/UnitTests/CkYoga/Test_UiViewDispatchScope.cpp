@@ -9,6 +9,7 @@
 #include "Widgets/Text/STextBlock.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
+#include "CkCore/Macros/CkMacros.h"
 
 namespace ck_tests_ui_view_dispatch_scope
 {

@@ -1,6 +1,8 @@
 #include "Misc/AutomationTest.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
+#include "CkCore/Macros/CkMacros.h"
+#include "MaterialDomain.h"
 
 #include "Misc/App.h"
 #include "Engine/SkeletalMesh.h"

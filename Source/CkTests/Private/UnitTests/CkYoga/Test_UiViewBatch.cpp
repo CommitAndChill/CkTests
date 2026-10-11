@@ -1,4 +1,6 @@
 #include "CkSlateLayout/CkUiWidgetRegistry.h"
+
+#include "CkCore/Macros/CkMacros.h"
 #include "CkSlateLayout/SCkUiSurface.h"
 
 #include "Framework/Application/SlateApplication.h"

@@ -1,5 +1,10 @@
 #pragma once
 
+#if WITH_EDITOR
+#include "Modules/ModuleManager.h"
+#endif
+
+
 #include "CkCore/Log/CkLog.h"
 #include "CkCore/Format/CkFormat.h"
 #include "CkCore/Ensure/CkEnsure.h"

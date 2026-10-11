@@ -1,6 +1,11 @@
 #include "Misc/AutomationTest.h"
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
+#include "MaterialDomain.h"
+#endif
+
+
+#if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
 #include "CkCore/Validation/CkIsValid.h"
 

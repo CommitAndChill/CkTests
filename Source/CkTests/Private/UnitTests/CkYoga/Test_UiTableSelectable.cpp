@@ -1,4 +1,6 @@
 #include "CkSlateLayout/CkUiCollection.h"
+
+#include "CkCore/Macros/CkMacros.h"
 #include "CkSlateLayout/SCkUiSurface.h"
 #include "CkSlateLayout/SCkUiTable.h"
 

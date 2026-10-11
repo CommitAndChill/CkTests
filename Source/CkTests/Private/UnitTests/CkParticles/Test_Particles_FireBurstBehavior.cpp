@@ -12,6 +12,7 @@
 // assertion here proves the switch actually reached case 20.
 
 #include "Misc/AutomationTest.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #include "CkParticles/DataInterface/CkParticles_DataInterface.h"
 #include "CkParticles/ScriptDefinition/CkParticles_ScriptDefinition_Naming.h"

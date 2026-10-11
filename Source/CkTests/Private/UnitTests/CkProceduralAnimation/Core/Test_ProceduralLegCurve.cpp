@@ -1,5 +1,7 @@
 #include "CkProceduralAnimation/Core/CkProceduralLegCurve.h"
 
+#include "CkCore/Macros/CkMacros.h"
+
 #include "../../CkUnitTest_Common.h"
 
 #include <limits>

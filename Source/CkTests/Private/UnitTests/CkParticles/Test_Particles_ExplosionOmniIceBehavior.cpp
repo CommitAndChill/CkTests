@@ -18,6 +18,7 @@
 // Cannot pass vacuously: behavior 43 draws on VisTags 198..209 and the pre-switch default is 0.
 
 #include "Misc/AutomationTest.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #include "CkParticles/DataInterface/CkParticles_DataInterface.h"
 #include "CkParticles/ScriptDefinition/CkParticles_ScriptDefinition_Naming.h"

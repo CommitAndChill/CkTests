@@ -1,6 +1,10 @@
 #include "Misc/AutomationTest.h"
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
+#include "UserDefinedStructure/UserDefinedStructEditorData.h"
+#endif
+
+#if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
 #include "CkEcs/EntityScript/CkEntityScript.h"
 #include "CkEcs/Subsystem/CkEntityScript_Subsystem.h"
