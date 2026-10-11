@@ -1,239 +1,419 @@
 // Language=angelscript
 
+USTRUCT()
+struct FCkSwayGym_ControlAck
+{
+    UPROPERTY() int32 RequestSerial = 0;
+    UPROPERTY() int32 Generation = 0;
+    // 1 admitted, 2 requester context lost, 3 rejected; not completion.
+    UPROPERTY() int32 Result = 0;
+}
+
+// Each local PC owns its three Common station shells and camera/HUD only.
+// The replicated production entity trees belong to GS.
 class ACk_SwayGym_PlayerController : ACk_Gym_Base_PlayerController
 {
-    private TArray<FCkSwayGym_Fixture> _Fixtures;
-    private bool _Started = false;
-    private bool _ResetPending = false;
-    private bool _DrawOverridden = false;
-    private FString _CreateError;
+    UPROPERTY(Replicated) FCkSwayGym_ControlAck LastControlAck;
 
-    FString Get_StationTag(int32 InIndex) const
-    {
-        if (InIndex == 0)
-        {
-            return "Gym.CkSway.Turntable";
-        }
-        if (InIndex == 1)
-        {
-            return "Gym.CkSway.Shuttle";
-        }
-        return "Gym.CkSway.Compare";
-    }
+    private bool _ControllerAdmitted = false;
+    private bool _Ending = false;
+    private bool _OwnerSessionBound = false;
+    private bool _OwnerSessionLost = false;
+    private bool _LocalBound = false;
+    private bool _LocalTickPrerequisiteBound = false;
+    private bool _LocalLost = false;
+    private bool _StationsReadyOnce = false;
+    private bool _DrawLocalOffsets = false;
+    private int32 _RequestedSerial = 0;
+    private int32 _ReservedSerial = 0;
+    private int32 _ReservedGeneration = 0;
+    private APawn _ReservedPawn;
+    private ACk_SwayGym_GameState _ReservedState;
+    private APawn _SessionPawn;
+    private ACk_SwayGym_GameState _SessionState;
+    private APawn _LocalPawn;
+    private ACk_SwayGym_GameState _LocalState;
+    private FCkSwayGym_Snapshot _Installed;
+    private TArray<FCk_Handle> _FrozenStations;
+    private FCk_Handle _StationCohortOwner;
 
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
-        auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
-        for (auto Index = 0; Index < 3; Index++)
+        TArray<FCkGym_Station_SpawnParams_Payload> Stations;
+        if (!IsLocalController() || ck::Is_NOT_Valid(ck::ToEntity(this)))
+        { return Stations; }
+        for (int32 I = 0; I < CkSwayGymCatalog::StationCount; ++I)
         {
-            auto Station = FCkGym_Station_SpawnParams_Payload();
-            Station.Tags.Add(FName(Get_StationTag(Index)));
-            Station.Transform = FTransform(FVector(100.0 + 3600.0 * (Index % 2), 3000.0 * Math::IntegerDivisionTrunc(Index, 2), 0.0));
-            Station.AutoSize = true;
-            if (Index == 0)
-            {
-                Station.Title = FText::FromString("TURNTABLE - YAW SWAY");
-                Station.Description.Add(FText::FromString("The orange head yaws -90..+90 deg every 2 s. The large cube hangs on a default sway; the small cube is its rigid twin."));
-                Station.Description.Add(FText::FromString("Watch the large cube lag opposite the turn, overshoot slightly, and settle on the twin at each end."));
-            }
-            else if (Index == 1)
-            {
-                Station.Title = FText::FromString("SHUTTLE - LINEAR SWAY");
-                Station.Description.Add(FText::FromString("The head shuttles +-400 cm on X every 2 s. The large cube trails the move and catches up at each end."));
-            }
-            else
-            {
-                Station.Title = FText::FromString("COMPARE - DEFAULT / HEAVY / DISABLED");
-                Station.Description.Add(FText::FromString("Turn and shuttle together. Left: default spec. Middle: heavy (slower springs, less damping, double gains). Right: disabled."));
-                Station.Description.Add(FText::FromString("The disabled cube must stay rigid on the head. O draws each sway's offset readout (red = disabled)."));
-            }
-            Stations.Add(Station);
+            FCkGym_Station_SpawnParams_Payload Recipe;
+            if (!CkSwayGymCatalog::TryGet_Station(I, Recipe))
+            { return TArray<FCkGym_Station_SpawnParams_Payload>(); }
+            Recipe.Tags.Reset();
+            Recipe.Tags.Add(FName(Get_StationTag(CkSwayGymCatalog::Get_Tag(I))));
+            Stations.Add(Recipe);
         }
         return Stations;
     }
 
+    FCk_Handle Get_StationLifetimeOwner() override
+    {
+        if (!IsLocalController()) { return FCk_Handle(); }
+        return ck::ToEntity(this);
+    }
+
+    FString Get_StationTag(FString Tag) override
+    { return f"{Tag}_{GetName()}"; }
+
+    private bool Get_HasState(ACk_SwayGym_GameState State) const
+    {
+        auto CurrentWorld = GetWorld();
+        return !_Ending && !IsActorBeingDestroyed() && ck::IsValid(CurrentWorld) &&
+            ck::IsValid(State) && State.GetWorld() == CurrentWorld &&
+            State.GetClass() == ACk_SwayGym_GameState &&
+            CurrentWorld.GetGameState() == State && State.Get_HasPublishedCatalog();
+    }
+
     void Request_StartGym() override
     {
-        _Started = true;
-        Request_ResetAll();
+        // Base PC calls this after its actual controller ECS admission.
+        _ControllerAdmitted = true;
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld)) { return; }
+        auto State = Cast<ACk_SwayGym_GameState>(CurrentWorld.GetGameState());
+        if (HasAuthority() && Get_HasState(State))
+        { State.Request_EnsureSharedDemo(); }
     }
 
-    void Request_ResetAll()
+    FString Get_ControlPanelTitle() override { return "SWAY"; }
+
+    private void MonitorOwnerContext()
     {
-        for (auto Index = 0; Index < _Fixtures.Num(); Index++)
+        if (!_ControllerAdmitted || !HasAuthority() || !_OwnerSessionBound ||
+            _OwnerSessionLost) { return; }
+        auto CurrentWorld = GetWorld();
+        bool Exact = ck::IsValid(CurrentWorld) && Get_HasState(_SessionState) &&
+            ck::IsValid(_SessionPawn);
+        if (Exact)
         {
-            _Fixtures[Index].Request_Destroy();
+            Exact = _SessionPawn.GetWorld() == CurrentWorld &&
+                _SessionPawn.GetController() == this &&
+                GetControlledPawn() == _SessionPawn;
         }
-        _ResetPending = true;
-        _CreateError = "";
+        if (Exact) { return; }
+        _OwnerSessionLost = true;
+        if (_ReservedSerial > 0)
+        {
+            FCkSwayGym_ControlAck Ack;
+            Ack.RequestSerial = _ReservedSerial;
+            Ack.Generation = _ReservedGeneration;
+            Ack.Result = 2;
+            LastControlAck = Ack;
+        }
+        _ReservedSerial = 0; _ReservedGeneration = 0;
+        _ReservedPawn = nullptr; _ReservedState = nullptr;
+        if (!_Ending && ck::IsValid(this)) { ForceNetUpdate(); }
     }
 
-    FVector Get_Origin(int32 InIndex)
+    private bool Get_HasLocalIdentity()
     {
-        return Get_StationAnchorLocation(Get_StationTag(InIndex), ECk_GymStation_Anchor::FootprintCenter)
-            + FVector(1300.0, 0.0, 150.0);
+        if (!_ControllerAdmitted || !IsLocalController() || _Ending ||
+            _LocalLost || !_LocalBound || _OwnerSessionLost) { return false; }
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld) || !Get_HasState(_LocalState) ||
+            ck::Is_NOT_Valid(_LocalPawn) || _LocalPawn.GetWorld() != CurrentWorld ||
+            _LocalPawn.GetController() != this ||
+            GetControlledPawn() != _LocalPawn) { return false; }
+        return true;
     }
 
-    UFUNCTION(BlueprintOverride)
-    void Tick(float InDeltaSeconds)
+    private bool Get_HasStations()
     {
-        if (_Started == false)
+        if (!Get_HasLocalIdentity()) { return false; }
+        auto Parent = ck::ToEntity(this);
+        auto WorldRoot = ck::TransientEntity();
+        FCk_Handle CommonOwner;
+        if (ck::Is_NOT_Valid(Parent) || ck::Is_NOT_Valid(WorldRoot))
+        { return false; }
+        for (int32 I = 0; I < CkSwayGymCatalog::StationCount; ++I)
         {
-            return;
+            auto Matches = utils_entity_tag::ForEach_Entity(WorldRoot,
+                FName(Get_StationTag(CkSwayGymCatalog::Get_Tag(I))));
+            if (Matches.Num() != 1 || ck::Is_NOT_Valid(Matches[0]))
+            { return false; }
+            auto H = Matches[0];
+            if (!H.Has_Fragment(FCkGym_Station_Anchors) ||
+                !H.Has_Fragment(FCkGym_Station_TitleAndDescription) ||
+                !utils_entity_lifetime::Has_LifetimeOwner(H))
+            { return false; }
+            auto CohortOwner = utils_entity_lifetime::Get_LifetimeOwner(H);
+            if (ck::Is_NOT_Valid(CohortOwner) ||
+                !utils_entity_lifetime::Has_LifetimeOwner(CohortOwner) ||
+                utils_entity_lifetime::Get_LifetimeOwner(CohortOwner) != Parent ||
+                (I > 0 && CohortOwner != CommonOwner) ||
+                (_StationsReadyOnce && CohortOwner != _StationCohortOwner) ||
+                (_StationsReadyOnce &&
+                    (_FrozenStations.Num() != 3 || _FrozenStations[I] != H)))
+            { return false; }
+            if (I == 0) { CommonOwner = CohortOwner; }
         }
-        if (_ResetPending)
-        {
-            for (auto Fixture : _Fixtures)
-            {
-                if (ck::IsValid(Fixture.Root))
-                {
-                    return;
-                }
-            }
-            auto EntityOwner = ck::ToEntity(this);
-            if (ck::Is_NOT_Valid(EntityOwner) || ck::Is_NOT_Valid(GetControlledPawn()))
-            {
-                return;
-            }
-            _Fixtures.Reset();
-            for (auto Index = 0; Index < 3; Index++)
-            {
-                _Fixtures.Add(FCkSwayGym_Fixture());
-                if (_Fixtures[Index].Create(EntityOwner, this, Get_Origin(Index), Index) == false)
-                {
-                    _CreateError = "A station failed composition; inspect the ensure log.";
-                }
-            }
-            _ResetPending = false;
-            Request_Frame(0);
-        }
-        for (auto Index = 0; Index < _Fixtures.Num(); Index++)
-        {
-            _Fixtures[Index].Draw();
-        }
+        return true;
     }
 
-    UFUNCTION()
-    private void OnSwayGymCubeAdded(FCk_Handle_UnrealComponent InHandle)
+    UFUNCTION(BlueprintPure)
+    bool Get_SwayPresentationReady()
     {
-        auto MeshComponent = Cast<UStaticMeshComponent>(utils_unreal_component::Get_Component(InHandle));
-        if (ck::Is_NOT_Valid(MeshComponent))
-        {
-            return;
-        }
-        MeshComponent.SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        MeshComponent.SetStaticMesh(Cast<UStaticMesh>(LoadObject(this, "/Engine/BasicShapes/Cube.Cube")));
+        if (!Get_HasStations() || !_StationsReadyOnce ||
+            !CkSwayGymShared::Get_IsValidSnapshot(_Installed) ||
+            _Installed.Lifecycle != ECkSwayGym_Lifecycle::Active)
+        { return false; }
+        FCkSwayGym_Snapshot Current;
+        return _LocalState.TryGet_PresentationSample(Current) &&
+            CkSwayGymShared::Get_IsValidSnapshot(Current) &&
+            Current.Lifecycle == ECkSwayGym_Lifecycle::Active &&
+            Current.Generation == _Installed.Generation &&
+            Current.Sequence == _Installed.Sequence;
+    }
+
+    UFUNCTION(BlueprintPure)
+    FCkSwayGym_Snapshot Get_InstalledSwaySample() const
+    { return _Installed; }
+
+    UFUNCTION(BlueprintPure)
+    TArray<FCk_Handle> Get_CapturedSwayStations() const
+    { return _FrozenStations; }
+
+    UFUNCTION(BlueprintPure)
+    FCk_Handle Get_CapturedSwayStationOwner() const
+    { return _StationCohortOwner; }
+
+    UFUNCTION(BlueprintPure)
+    FCkSwayGym_ControlAck Get_SwayControlAck() const
+    { return LastControlAck; }
+
+    private bool Get_CanControl()
+    {
+        return Get_SwayPresentationReady() && _ReservedSerial == 0 &&
+            LastControlAck.Result != 2;
     }
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override
     {
-        auto Rows = TArray<FCkGym_ControlRow>();
+        TArray<FCkGym_ControlRow> Rows;
         Rows.Add(CkGym_Control::Header("SWAY"));
-        Rows.Add(CkGym_Control::Status("State", _CreateError.IsEmpty() ? "Watch each cube against the head" : _CreateError, _ResetPending));
-        if (_Fixtures.Num() == 3 && _ResetPending == false)
+        if (Get_SwayPresentationReady())
         {
-            for (auto Index = 0; Index < 3; Index++)
+            for (int32 I = 0; I < 3; ++I)
             {
-                if (_Fixtures[Index].Sways.Num() > 0 && ck::IsValid(_Fixtures[Index].Sways[0]))
+                auto Yaw = _Installed.SwayYawDegrees[I];
+                auto X = _Installed.SwayXCm[I];
+                auto Settled = _Installed.SwaySettled[I] ? "settled" : "moving";
+                Rows.Add(CkGym_Control::Status(CkSwayGymCatalog::Get_Tag(I),
+                    f"yaw {Yaw :.2} deg, x {X :.2} cm, {Settled}"));
+            }
+            if (_DrawLocalOffsets)
+            {
+                for (int32 I = 0; I < 5; ++I)
                 {
-                    const auto Sway = _Fixtures[Index].Sways[0];
-                    const auto Yaw = utils_sway::Get_RotationOffset(Sway).Yaw;
-                    const auto X = utils_sway::Get_LocationOffset(Sway).X;
-                    const auto Settled = utils_sway::Get_IsSettled(Sway) ? "settled" : "moving";
-                    Rows.Add(CkGym_Control::Status(Get_StationTag(Index), f"yaw {Yaw :.2} deg, x {X :.2} cm, {Settled}"));
+                    FString SpecLabel = I == 0 ? "Turntable default" :
+                        I == 1 ? "Shuttle default" :
+                        I == 2 ? "Compare default" :
+                        I == 3 ? "Compare heavy" : "Compare disabled";
+                    auto Yaw = _Installed.SwayYawDegrees[I];
+                    auto X = _Installed.SwayXCm[I];
+                    auto Settled = _Installed.SwaySettled[I] ? "settled" : "moving";
+                    Rows.Add(CkGym_Control::Status(SpecLabel,
+                        f"yaw {Yaw :.2} deg, x {X :.2} cm, {Settled}", I == 4));
                 }
             }
         }
-        Rows.Add(CkGym_Control::Action(EKeys::One, "1", "View Turntable"));
-        Rows.Add(CkGym_Control::Action(EKeys::Two, "2", "View Shuttle"));
-        Rows.Add(CkGym_Control::Action(EKeys::Three, "3", "View Compare"));
-        Rows.Add(CkGym_Control::Action(EKeys::X, "X", "Reset all stations"));
-        Rows.Add(CkGym_Control::Toggle(EKeys::O, "O", "Draw sway offsets (ck.Sway.DrawOffsets)", UCk_Utils_Sway_DebugSettings_UE::Get_DrawOffsets()));
+        else
+        {
+            FString Failure = "";
+            auto CurrentWorld = GetWorld();
+            if (ck::IsValid(CurrentWorld))
+            {
+                auto State = Cast<ACk_SwayGym_GameState>(CurrentWorld.GetGameState());
+                if (Get_HasState(State))
+                { Failure = State.Get_CurrentFailureReason(); }
+            }
+            Rows.Add(CkGym_Control::Status("State",
+                Failure.IsEmpty() ? "Waiting for shared Sway source" : Failure,
+                !Failure.IsEmpty()));
+        }
+        Rows.Add(CkGym_Control::Action(EKeys::One, "1", "View Turntable", Get_CanControl()));
+        Rows.Add(CkGym_Control::Action(EKeys::Two, "2", "View Shuttle", Get_CanControl()));
+        Rows.Add(CkGym_Control::Action(EKeys::Three, "3", "View Compare", Get_CanControl()));
+        Rows.Add(CkGym_Control::Action(EKeys::X, "X", "Reset shared Sway", Get_CanControl()));
+        Rows.Add(CkGym_Control::Toggle(EKeys::O, "O", "Draw local sway offsets",
+            _DrawLocalOffsets, false, Get_CanControl()));
         return Rows;
     }
 
-    void Request_ControlActivated(int32 InRowIndex) override
-    {
-        auto Rows = Get_ControlRows();
-        if (Rows.IsValidIndex(InRowIndex) == false)
-        {
-            return;
-        }
-        auto Key = Rows[InRowIndex].Key;
-        if (Key == EKeys::X)
-        {
-            Request_ResetAll();
-            return;
-        }
-        if (Key == EKeys::O)
-        {
-            Request_ToggleDraw();
-            return;
-        }
-        if (_ResetPending || _Fixtures.Num() != 3)
-        {
-            return;
-        }
-        if (Key == EKeys::One)
-        {
-            Request_Frame(0);
-        }
-        else if (Key == EKeys::Two)
-        {
-            Request_Frame(1);
-        }
-        else if (Key == EKeys::Three)
-        {
-            Request_Frame(2);
-        }
-    }
+    UFUNCTION(BlueprintPure)
+    TArray<FCkGym_ControlRow> Get_SwayControlRows()
+    { return Get_ControlRows(); }
 
-    void Request_ToggleDraw()
+    private void Request_Frame(int32 Index)
     {
-        auto DrawCVarName = n"ck.Sway.DrawOffsets";
-        if (UCk_Utils_AutoTest_UE::Get_CVarExists(DrawCVarName) == false)
-        {
-            ck::Error("Sway gym diagnostics are unavailable; the debug settings must be loaded.");
-            return;
-        }
-        auto Enabled = !UCk_Utils_Sway_DebugSettings_UE::Get_DrawOffsets();
-        if (_DrawOverridden)
-        {
-            UCk_Utils_AutoTest_UE::Request_PopCVarOverride(DrawCVarName);
-        }
-        UCk_Utils_AutoTest_UE::Request_PushCVarOverride(DrawCVarName, Enabled ? "1" : "0");
-        _DrawOverridden = true;
-    }
-
-    void Request_Frame(int32 InIndex)
-    {
+        if (!Get_CanControl() || Index < 0 || Index >= 3) { return; }
         auto Pawn = GetControlledPawn();
-        if (ck::Is_NOT_Valid(Pawn) || _Fixtures.IsValidIndex(InIndex) == false)
-        {
-            return;
-        }
-        auto Target = _Fixtures[InIndex].Origin;
-        auto Eye = Target + FVector(-700.0, -900.0, 450.0);
+        if (ck::Is_NOT_Valid(Pawn)) { return; }
+        auto Head = _LocalState.Get_ReplicatedHead(Index);
+        if (ck::Is_NOT_Valid(Head) || !utils_transform::Has(Head)) { return; }
+        const auto Target = utils_transform::Get_EntityCurrentTransform(Head).GetLocation();
+        const auto Eye = Target + FVector(-700.0, -900.0, 450.0);
         Pawn.SetActorLocation(Eye);
         SetControlRotation((Target - Eye).Rotation());
     }
 
-    UFUNCTION(Exec)
-    void Ck_Sway_Control(int32 InRowIndex)
+    void Request_ControlActivated(int32 RowIndex) override
     {
-        Request_ControlActivated(InRowIndex);
+        auto Rows = Get_ControlRows();
+        if (!Rows.IsValidIndex(RowIndex) || !Get_CanControl()) { return; }
+        auto Key = Rows[RowIndex].Key;
+        if (Key == EKeys::One) { Request_Frame(0); return; }
+        if (Key == EKeys::Two) { Request_Frame(1); return; }
+        if (Key == EKeys::Three) { Request_Frame(2); return; }
+        if (Key == EKeys::O)
+        { _DrawLocalOffsets = !_DrawLocalOffsets; return; }
+        if (Key != EKeys::X) { return; }
+        auto High = Math::Max(_RequestedSerial, LastControlAck.RequestSerial);
+        if (High >= 2147483647) { return; }
+        _RequestedSerial = High + 1;
+        Server_RequestSwayRebuild(_RequestedSerial, _Installed.Generation);
+    }
+
+    UFUNCTION(BlueprintPure)
+    bool Get_HasReservedSwayControl(int32 Serial, int32 Generation,
+        APawn Pawn) const
+    {
+        return _ControllerAdmitted && HasAuthority() && !_Ending &&
+            !_OwnerSessionLost && Serial > 0 && Generation > 0 &&
+            _ReservedSerial == Serial && _ReservedGeneration == Generation &&
+            _ReservedPawn == Pawn && _ReservedState == _SessionState &&
+            _SessionPawn == Pawn && Get_HasState(_ReservedState) &&
+            ck::IsValid(Pawn) && Pawn.GetWorld() == GetWorld() &&
+            Pawn.GetController() == this && GetControlledPawn() == Pawn;
+    }
+
+    UFUNCTION(Server)
+    void Server_RequestSwayRebuild(int32 Serial, int32 Generation)
+    {
+        MonitorOwnerContext();
+        if (!_ControllerAdmitted || !HasAuthority() || _Ending ||
+            _OwnerSessionLost || _ReservedSerial != 0 || Serial <= 0 ||
+            Serial <= LastControlAck.RequestSerial) { return; }
+        FCkSwayGym_ControlAck Ack;
+        Ack.RequestSerial = Serial; Ack.Generation = Generation;
+        LastControlAck = Ack;
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld))
+        { Ack.Result = 3; LastControlAck = Ack; ForceNetUpdate(); return; }
+        auto State = Cast<ACk_SwayGym_GameState>(CurrentWorld.GetGameState());
+        auto Pawn = GetControlledPawn();
+        if (!Get_HasState(State) || ck::Is_NOT_Valid(Pawn) ||
+            Pawn.GetWorld() != CurrentWorld || Pawn.GetController() != this ||
+            Generation <= 0 || State.Snapshot.Generation != Generation ||
+            State.Snapshot.Lifecycle != ECkSwayGym_Lifecycle::Active ||
+            (_OwnerSessionBound && (_SessionPawn != Pawn || _SessionState != State)))
+        { Ack.Result = 3; LastControlAck = Ack; ForceNetUpdate(); return; }
+        _OwnerSessionBound = true; _SessionPawn = Pawn; _SessionState = State;
+        _ReservedSerial = Serial; _ReservedGeneration = Generation;
+        _ReservedPawn = Pawn; _ReservedState = State;
+        bool Accepted = State.Request_Rebuild(this, Pawn, Serial, Generation);
+        MonitorOwnerContext();
+        bool Exact = !_Ending && !_OwnerSessionLost &&
+            Get_HasReservedSwayControl(Serial, Generation, Pawn);
+        _ReservedSerial = 0; _ReservedGeneration = 0;
+        _ReservedPawn = nullptr; _ReservedState = nullptr;
+        Ack.Result = Exact ? (Accepted ? 1 : 3) : 2;
+        if (!_Ending && ck::IsValid(this))
+        { LastControlAck = Ack; ForceNetUpdate(); }
     }
 
     UFUNCTION(BlueprintOverride)
-    void EndPlay(EEndPlayReason InReason)
+    void Tick(float DeltaSeconds)
     {
-        for (auto Index = 0; Index < _Fixtures.Num(); Index++)
+        MonitorOwnerContext();
+        if (!_ControllerAdmitted || _Ending || !IsLocalController()) { return; }
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld))
+        { if (_LocalBound) { _LocalLost = true; } return; }
+        auto State = Cast<ACk_SwayGym_GameState>(CurrentWorld.GetGameState());
+        auto Pawn = GetControlledPawn();
+        if (!_LocalBound)
         {
-            _Fixtures[Index].Request_Destroy();
+            if (!Get_HasState(State) || ck::Is_NOT_Valid(Pawn) ||
+                Pawn.GetWorld() != CurrentWorld || Pawn.GetController() != this)
+            { return; }
+            _LocalBound = true; _LocalState = State; _LocalPawn = Pawn;
+            AddTickPrerequisiteActor(_LocalState);
+            _LocalTickPrerequisiteBound = true;
         }
-        if (_DrawOverridden)
+        if (_LocalLost || !Get_HasLocalIdentity())
+        { _LocalLost = true; _Installed = FCkSwayGym_Snapshot(); return; }
+        if (!Get_HasStations())
         {
-            UCk_Utils_AutoTest_UE::Request_PopCVarOverride(n"ck.Sway.DrawOffsets");
+            if (_StationsReadyOnce)
+            { _LocalLost = true; _Installed = FCkSwayGym_Snapshot(); }
+            return;
         }
+        if (!_StationsReadyOnce)
+        {
+            for (int32 I = 0; I < CkSwayGymCatalog::StationCount; ++I)
+            {
+                auto Matches = utils_entity_tag::ForEach_Entity(ck::TransientEntity(),
+                    FName(Get_StationTag(CkSwayGymCatalog::Get_Tag(I))));
+                if (Matches.Num() != 1 || ck::Is_NOT_Valid(Matches[0]))
+                { _LocalLost = true; return; }
+                _FrozenStations.Add(Matches[0]);
+            }
+            _StationCohortOwner =
+                utils_entity_lifetime::Get_LifetimeOwner(_FrozenStations[0]);
+            _StationsReadyOnce = true;
+        }
+        FCkSwayGym_Snapshot Sample;
+        if (!State.TryGet_PresentationSample(Sample))
+        {
+            if (CkSwayGymShared::Get_IsValidSnapshot(State.Snapshot) &&
+                State.Snapshot.Lifecycle != ECkSwayGym_Lifecycle::Active)
+            { _Installed = FCkSwayGym_Snapshot(); }
+            return; // Active telemetry may arrive before the replicated visual entities.
+        }
+        if (Sample.Sequence > _Installed.Sequence)
+        { _Installed = Sample; }
+        if (Get_SwayPresentationReady())
+        {
+            for (int32 I = 0; I < 3; ++I)
+            {
+                auto Head = _LocalState.Get_ReplicatedHead(I);
+                if (ck::Is_NOT_Valid(Head) || !utils_transform::Has(Head)) { continue; }
+                const auto Pose = utils_transform::Get_EntityCurrentTransform(Head);
+                utils_debug_draw::DrawDebugSolidBox(
+                    Pose.GetLocation(),
+                    FVector(25.0, 20.0, 20.0),
+                    FLinearColor(1.0f, 0.4f, 0.05f, 1.0f),
+                    Pose.Rotator());
+            }
+        }
+    }
+
+    UFUNCTION(Exec)
+    void Ck_Sway_Control(int32 Index)
+    { Request_ControlActivated(Index); }
+
+    UFUNCTION(BlueprintOverride)
+    void EndPlay(EEndPlayReason Reason)
+    {
+        _Ending = true;
+        if (_LocalTickPrerequisiteBound && ck::IsValid(_LocalState) &&
+            !_LocalState.IsActorBeingDestroyed())
+        {
+            auto CurrentWorld = GetWorld();
+            if (ck::IsValid(CurrentWorld) && _LocalState.GetWorld() == CurrentWorld)
+            { RemoveTickPrerequisiteActor(_LocalState); }
+        }
+        _LocalTickPrerequisiteBound = false;
+        _Installed = FCkSwayGym_Snapshot();
+        Super::EndPlay(Reason);
     }
 }
