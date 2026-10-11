@@ -254,19 +254,32 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : ACk_SmTest_GymSourceActor
         DetailText.SetText(ck::Text("Pass A starting..."));
 
         if (HasAuthority() == false)
-        { return; }
+        { Request_RefreshSourcePresentation(); return; }
 
-        Request_PrimarySource(n"OnPrimaryConstructed");
+        Request_PrepareSource();
     }
 
-    UFUNCTION()
-    private void OnPrimaryConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    bool Validate_SourceConfiguration() override
+    { return Math::IsFinite(PerPassSettleSeconds) && PerPassSettleSeconds > 0.0f; }
+
+    void DoStart_Source() override
+    { StartPassA(); }
+
+    void Apply_SourcePresentation(const FCkStateMachineGym_StationFrame&in Frame) override
     {
-        if (Get_SourceClosed() || !TryAccept_PrimarySource(InEntityScriptHandle))
-        { return; }
-        if (Get_SourcePrimary() != FCk_Handle(InEntityScriptHandle))
-        { Request_CloseSource(); return; }
-        StartPassA();
+        ResultText.SetText(FText::FromString(Frame.Title));
+        DetailText.SetText(FText::FromString(Frame.Detail));
+        ResultText.SetTextRenderColor(Frame.Color);
+    }
+
+    bool TryGet_SourcePresentation(FString&out Title, FString&out Detail, FColor&out Color) override
+    {
+        Title = ""; Detail = ""; Color = FColor::White;
+        if (!Get_SourceStarted() || !Get_HasCurrentSourceContext()) { return false; }
+        Title = ResultText.Text.ToString();
+        Detail = DetailText.Text.ToString();
+        Color = ResultText.TextRenderColor;
+        return true;
     }
 
     UFUNCTION()

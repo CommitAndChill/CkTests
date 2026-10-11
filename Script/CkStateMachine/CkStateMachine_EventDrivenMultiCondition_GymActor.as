@@ -90,29 +90,67 @@ class ACk_SmTest_EventDrivenMultiCondition_GymActor : ACk_SmTest_GymSourceActor
         DetailText.SetText(ck::Text("Waiting for both events..."));
 
         if (HasAuthority() == false)
-        { return; }
+        { Request_RefreshSourcePresentation(); return; }
 
-        Request_SourceEntity(n"OnEntityConstructed");
+        Request_PrepareSource();
+    }
+
+    bool Validate_SourceConfiguration() override
+    {
+        return Math::IsFinite(FastDelaySeconds) && FastDelaySeconds > 0.0f &&
+            Math::IsFinite(SlowDelaySeconds) && SlowDelaySeconds > FastDelaySeconds &&
+            Math::IsFinite(SettleSeconds) && SettleSeconds > SlowDelaySeconds;
+    }
+
+    void DoStart_Source() override
+    { Request_PassSource(n"OnEntityConstructed"); }
+
+    bool TryGet_SourcePresentation(FString&out OutTitle, FString&out OutDetail,
+        FColor&out OutColor) override
+    {
+        OutTitle = "";
+        OutDetail = "";
+        OutColor = FColor::White;
+        if (!Get_HasCurrentSourceContext() || !Get_SourceStarted())
+        { return false; }
+        OutTitle = ResultText.Text.ToString();
+        OutDetail = DetailText.Text.ToString();
+        OutColor = ResultText.TextRenderColor;
+        return true;
+    }
+
+    void Apply_SourcePresentation(const FCkStateMachineGym_StationFrame&in Frame) override
+    {
+        ResultText.SetText(FText::FromString(Frame.Title));
+        ResultText.SetTextRenderColor(Frame.Color);
+        DetailText.SetText(FText::FromString(Frame.Detail));
+        DetailText.SetTextRenderColor(Frame.Color);
     }
 
     UFUNCTION()
     private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        if (!TryAccept_SourceEntity(InEntityScriptHandle)) { return; }
+        if (!TryAccept_PassSource(InEntityScriptHandle)) { return; }
 
         SmEntity = FCk_Handle(InEntityScriptHandle);
-        if (!Math::IsFinite(FastDelaySeconds) || FastDelaySeconds <= 0.0f ||
-            !Math::IsFinite(SlowDelaySeconds) || SlowDelaySeconds <= FastDelaySeconds ||
-            !Math::IsFinite(SettleSeconds) || SettleSeconds <= SlowDelaySeconds)
+        auto Roots = Get_SourceRoots();
+        if (!Get_HasCurrentSourceContext() || Roots.Num() != 1 ||
+            Roots[0] != SmEntity || Get_SourceConstructedCount() != 1 ||
+            !Validate_SourceConfiguration())
         { Request_CloseSource(); return; }
         SmEntity.Set_DebugName(n"StateMachine");
+        if (!Get_HasCurrentSourceContext()) { return; }
+        auto Spec = FCk_StateMachine_Spec(UCk_SmTest_EventDrivenMultiCondition_State_Idle);
+        Spec.Set_AutoStart(ECk_SmAutoStart::Disabled);
         SmHandle = UCk_Utils_StateMachine_UE::Add(
-            SmEntity, FCk_StateMachine_Spec(UCk_SmTest_EventDrivenMultiCondition_State_Idle));
+            SmEntity, Spec);
         if (ck::Is_NOT_Valid(SmHandle) ||
             !Get_HasCurrentSourceContext() ||
             !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(FCk_Handle(SmHandle)) ||
             !utils_state_machine::Has(FCk_Handle(SmHandle)))
         { Request_CloseSource(); return; }
+        SmHandle.Request_Start();
+        if (!Get_HasCurrentSourceContext()) { return; }
         // Async WithActor construction may begin after BeginPlay. Settle only
         // after the actual SM and both authored timer delays are admitted.
         System::SetTimer(this, n"OnSettled", SettleSeconds, false);

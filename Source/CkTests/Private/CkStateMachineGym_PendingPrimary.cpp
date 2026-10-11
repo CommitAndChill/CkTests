@@ -76,7 +76,11 @@ namespace ck_divergence_pending_primary
                 RF_BeginDestroyed | RF_FinishDestroyed)) { return false; }
         const auto Path = Actor->GetClass()->GetPathName();
         if (Path != TEXT("/Script/Angelscript.Ck_SmTest_DivergenceFirstBranch_GymActor") &&
-            Path != TEXT("/Script/Angelscript.Ck_SmTest_DivergenceTimed_GymActor"))
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_DivergenceTimed_GymActor") &&
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_GymActor") &&
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_GraphWalkRegression_GymActor") &&
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_RacingEventDriven_GymActor") &&
+            Path != TEXT("/Script/Angelscript.Ck_SmTest_EventDrivenMultiCondition_GymActor"))
         { return false; }
         auto* Function = Actor->FindFunction(TEXT("Get_SourceClosed"));
         const auto* Return = IsValid(Function) ?

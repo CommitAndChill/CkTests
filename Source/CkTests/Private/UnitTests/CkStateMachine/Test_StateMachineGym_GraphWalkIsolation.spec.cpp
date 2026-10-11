@@ -3,6 +3,7 @@
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
 #include "CkEntityScriptGym_Runtime.h"
+#include "CkStateMachineGym_Runtime.h"
 #include "CkSelectionGym_BankCensus.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
@@ -47,6 +48,7 @@ namespace ck_sm_graphwalk_isolation_test
     struct FPair
     {
         TWeakObjectPtr<AActor> Actor;
+        FCk_Handle Primary;
         TArray<FCk_Handle> Roots;
         TArray<FCk_Handle> Forest;
     };
@@ -130,6 +132,35 @@ namespace ck_sm_graphwalk_isolation_test
         for (int32 I = 0; I < Array.Num(); ++I)
         { Out.Add(*reinterpret_cast<FCk_Handle*>(Array.GetRawPtr(I))); }
         return true;
+    }
+
+    bool Primary(AActor* Actor, const TCHAR* Name, FCk_Handle& Out)
+    {
+        Out = {};
+        FCall C(Actor, Name);
+        auto* P = Field<FStructProperty>(C.Function, TEXT("ReturnValue"));
+        if (!P || P->Struct != FCk_Handle::StaticStruct() ||
+            C.Function->NumParms != 1 || !C.Send()) { return false; }
+        Out = *P->ContainerPtrToValuePtr<FCk_Handle>(
+            C.Args->GetStructMemory());
+        return true;
+    }
+
+    bool Allocated(const FCk_Handle& H);
+
+    bool PendingPrimary(AActor* Actor, UWorld* World, FCk_Handle& Out)
+    {
+        Out = {};
+        if (!IsValid(Actor) || !IsValid(World) ||
+            Actor->GetWorld() != World ||
+            !Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Out) ||
+            !Allocated(Out) || !ck::IsValid(Out)) { return false; }
+        const auto Root = UCk_Utils_EcsWorld_Subsystem_UE::
+            TryGet_TransientEntityForWorld(*World);
+        return Allocated(Root) &&
+            UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Out) &&
+            UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Out) == Root &&
+            UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(Out) == World;
     }
 
     bool Close(AActor* Actor)
@@ -231,19 +262,23 @@ namespace ck_sm_graphwalk_isolation_test
     bool ReadPair(AActor* Actor, UWorld* World, TArray<FCk_Handle>& Out)
     {
         Out.Reset();
+        FCk_Handle Target, Accepted;
         if (!IsValid(Actor) || !IsValid(World) ||
             Actor->GetWorld() != World || !Roots(Actor, Out) ||
-            Out.Num() != 2 || Out[0] == Out[1])
-        { Out.Reset(); return false; }
-        const auto WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
-            TryGet_TransientEntityForWorld(*World);
-        if (!Allocated(WorldRoot) || !ck::IsValid(WorldRoot))
+            Out.Num() != 2 || Out[0] == Out[1] ||
+            !Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Target) ||
+            !Primary(Actor, TEXT("Get_SourcePrimary"), Accepted) ||
+            Target != Accepted ||
+            !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(
+                Accepted, Actor))
         { Out.Reset(); return false; }
         for (const auto& H : Out)
         {
             if (!Allocated(H) || !ck::IsValid(H) ||
+                !UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePass(
+                    H, Accepted) ||
                 !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(H) ||
-                UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(H) != WorldRoot ||
+                UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(H) != Accepted ||
                 UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(H) != World)
             { Out.Reset(); return false; }
         }
@@ -259,12 +294,14 @@ namespace ck_sm_graphwalk_isolation_test
         int32 Constructed = INDEX_NONE;
         return Pair.Roots.Num() == 2 &&
             ReadPair(Actor, World, Current) && Current == Pair.Roots &&
+            Primary(Actor, TEXT("Get_SourcePrimary"), Top) &&
+            Top == Pair.Primary &&
+            UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor) ==
+                Pair.Primary &&
             Int(Actor, TEXT("Get_SourceConstructedCount"), Constructed) &&
             Constructed == 2 &&
             ReadHandle(Actor, TEXT("TopEntity"), Top) && Top == Current[0] &&
             ReadHandle(Actor, TEXT("SubEntity"), Sub) && Sub == Current[1] &&
-            UCk_Utils_OwningActor_UE::TryGet_EntityOwningActor(Top) == Actor &&
-            UCk_Utils_OwningActor_UE::TryGet_EntityOwningActor(Sub) == Actor &&
             ReadSm(Actor, TEXT("TopSmHandle"), TopSm) &&
             ReadSm(Actor, TEXT("SubSmParentHandle"), SubSm) &&
             FCk_Handle(TopSm) == Top && FCk_Handle(SubSm) == Sub &&
@@ -369,8 +406,13 @@ namespace ck_sm_graphwalk_isolation_test
         bool Closed = false;
         FCk_Handle Top, Sub;
         FString Text;
+        FCk_Handle Target, Accepted;
         if (!IsValid(Actor) || !Roots(Actor, Current) ||
-            Current != R.Pending.Roots || Current.Num() != 2 ||
+            !Current.IsEmpty() || !R.Pending.Roots.IsEmpty() ||
+            !Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Target) ||
+            Target != R.Pending.Primary ||
+            !Primary(Actor, TEXT("Get_SourcePrimary"), Accepted) ||
+            Accepted != FCk_Handle{} || Allocated(Target) ||
             !Int(Actor, TEXT("Get_SourceConstructedCount"), Constructed) ||
             Constructed != 0 ||
             !Bool(Actor, TEXT("Get_SourceClosed"), Closed) || !Closed ||
@@ -380,7 +422,6 @@ namespace ck_sm_graphwalk_isolation_test
             !ReadCounters(Actor, Counters) || !ReadText(Actor, Text) ||
             Text != R.PendingText)
         { return false; }
-        for (const auto& H : Current) { if (Allocated(H)) { return false; } }
         for (const int32 Counter : Counters)
         { if (Counter != 0) { return false; } }
         return true;
@@ -389,22 +430,14 @@ namespace ck_sm_graphwalk_isolation_test
     bool CapturePairForest(UWorld* World, FPair& Pair)
     {
         Pair.Forest.Reset();
-        if (Pair.Roots.Num() != 2) { return false; }
+        if (Pair.Roots.Num() != 2 || !Allocated(Pair.Primary))
+        { return false; }
         FString Why;
-        for (const auto& Root : Pair.Roots)
-        {
-            TArray<FCk_Handle> One;
-            if (!ck_selection_gym_census::TryCensusAllocatedBank(
-                World, Root, {}, One, Why) || !One.Contains(Root))
-            { Pair.Forest.Reset(); return false; }
-            for (const auto& H : One)
-            {
-                if (Pair.Forest.Contains(H))
-                { Pair.Forest.Reset(); return false; }
-                Pair.Forest.Add(H);
-            }
-        }
-        return !Pair.Forest.IsEmpty();
+        return ck_selection_gym_census::TryCensusAllocatedBank(
+            World, Pair.Primary, {}, Pair.Forest, Why) &&
+            Pair.Forest.Contains(Pair.Primary) &&
+            Pair.Forest.Contains(Pair.Roots[0]) &&
+            Pair.Forest.Contains(Pair.Roots[1]);
     }
 
     bool ForestGone(const FPair& Pair)
@@ -548,14 +581,11 @@ namespace ck_sm_graphwalk_isolation_test
                     auto* Actor = Pair->Actor.Get();
                     if (!IsValid(Actor) || Actor->GetWorld() != World ||
                         Actor->GetClass() != Run->Class) { continue; }
-                    TArray<FCk_Handle> Current;
-                    if (Roots(Actor, Current) && Current == Pair->Roots &&
-                        Current.Num() == 2)
-                    {
-                        Close(Actor);
-                        if (IsValid(Actor) && Actor->GetWorld() == World)
-                        { Actor->Destroy(); }
-                    }
+                    // These are the exact actors spawned by this test. Close
+                    // even a partially constructed primary after a failed gate.
+                    Close(Actor);
+                    if (IsValid(Actor) && Actor->GetWorld() == World)
+                    { Actor->Destroy(); }
                 }
             }
             if (Run->CaptureOverridden)
@@ -598,6 +628,8 @@ bool FCkStateMachineGym_GraphWalkIsolation::RunTest(const FString& Parameters)
         IsValid(Run->InvalidTaskClass) &&
         Field<FStructProperty>(Run->Class, TEXT("StationHandle")) &&
         Run->Class->FindFunctionByName(TEXT("Get_SourceRoots")) &&
+        Run->Class->FindFunctionByName(TEXT("Get_SourcePrimary")) &&
+        Run->Class->FindFunctionByName(TEXT("Get_SourcePrimaryTarget")) &&
         Run->Class->FindFunctionByName(TEXT("Request_CloseSource")) &&
         Run->Class->FindFunctionByName(TEXT("Get_SourceConstructedCount"))))
     { return false; }
@@ -631,9 +663,9 @@ bool FCkStateMachineGym_GraphWalkIsolation::RunTest(const FString& Parameters)
             Run->Pending.Actor = Pending;
             Pending->FinishSpawning(FTransform(FVector(-300, 0, 0)));
             const bool PendingReceipt =
-                ReadPair(Pending, World, Run->Pending.Roots) &&
+                PendingPrimary(Pending, World, Run->Pending.Primary) &&
                 ReadText(Pending, Run->PendingText) && Close(Pending);
-            TestTrue(TEXT("two pending GraphWalk sources close before construction"),
+            TestTrue(TEXT("pending GraphWalk primary closes before construction"),
                 PendingReceipt);
             if (!PendingReceipt) { Close(Pending); return; }
 
@@ -659,18 +691,17 @@ bool FCkStateMachineGym_GraphWalkIsolation::RunTest(const FString& Parameters)
                 { if (IsValid(Actor)) { Actor->Destroy(); } return false; }
                 Out.Actor = Actor;
                 Actor->FinishSpawning(FTransform(At));
-                return ReadPair(Actor, World, Out.Roots);
+                return PendingPrimary(Actor, World, Out.Primary);
             };
             const bool A = Spawn(FVector(0, 0, 0), 2.0f, 4.0f,
                 Run->A, false);
             const bool B = Spawn(FVector(300, 0, 0), 2.5f, 4.5f,
                 Run->B, true);
             Run->Spawned = A && B &&
-                Run->A.Roots[0] != Run->B.Roots[0] &&
-                Run->A.Roots[0] != Run->B.Roots[1] &&
-                Run->A.Roots[1] != Run->B.Roots[0] &&
-                Run->A.Roots[1] != Run->B.Roots[1];
-            TestTrue(TEXT("two simultaneous GraphWalk actors have four distinct retained roots"),
+                Run->A.Primary != Run->B.Primary &&
+                Run->A.Primary != Run->Pending.Primary &&
+                Run->B.Primary != Run->Pending.Primary;
+            TestTrue(TEXT("two simultaneous GraphWalk actors have distinct retained primaries"),
                 Run->Spawned);
         })));
 
@@ -690,15 +721,22 @@ bool FCkStateMachineGym_GraphWalkIsolation::RunTest(const FString& Parameters)
             const bool Four =
                 ReadPair(Run->A.Actor.Get(), World, ARoots) &&
                 ReadPair(Run->B.Actor.Get(), World, BRoots) &&
-                ARoots == Run->A.Roots && BRoots == Run->B.Roots &&
+                ARoots[0] != BRoots[0] && ARoots[0] != BRoots[1] &&
+                ARoots[1] != BRoots[0] && ARoots[1] != BRoots[1] &&
                 Int(Run->A.Actor.Get(), TEXT("Get_SourceConstructedCount"), ACount) &&
                 Int(Run->B.Actor.Get(), TEXT("Get_SourceConstructedCount"), BCount) &&
-                ACount == 2 && BCount == 2 &&
+                ACount == 2 && BCount == 2;
+            if (Four)
+            {
+                Run->A.Roots = ARoots;
+                Run->B.Roots = BRoots;
+            }
+            const bool FourMachines = Four &&
                 PairSm(Run->A, Run->A.Actor.Get(), ATop, ASub) &&
                 PairSm(Run->B, Run->B.Actor.Get(), BTop, BSub);
             TestTrue(TEXT("four exact live Top/Sub machines ready for capture"),
-                Four);
-            if (!Four) { return; }
+                FourMachines);
+            if (!FourMachines) { return; }
             UCk_Utils_StateMachineDebug_UE::BeginDebuggerCapture(ATop);
             UCk_Utils_StateMachineDebug_UE::BeginDebuggerCapture(ASub);
             UCk_Utils_StateMachineDebug_UE::BeginDebuggerCapture(BTop);
@@ -895,9 +933,8 @@ bool FCkStateMachineGym_GraphWalkIsolation::RunTest(const FString& Parameters)
                 CountActors(ck::auto_test::net::Get_ClientWorld(1),
                     Run->Class) != 0 || !ForestGone(Run->A) ||
                 !ForestGone(Run->B)) { return false; }
-            for (const auto& H : Run->Pending.Roots)
-            { if (Allocated(H)) { return false; } }
-            return Run->Pending.Roots.Num() == 2;
+            return Run->Pending.Roots.IsEmpty() &&
+                !Allocated(Run->Pending.Primary);
         }), 15.0, TEXT("all GraphWalk actors, replicas and source receipts gone")));
     // Runs even after a failed wait skips ordinary server actions.
     ADD_LATENT_AUTOMATION_COMMAND(FCleanup(Run));

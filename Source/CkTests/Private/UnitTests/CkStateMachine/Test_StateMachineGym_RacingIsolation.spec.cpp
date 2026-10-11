@@ -101,6 +101,18 @@ namespace ck_sm_racing_isolation_test
         return true;
     }
 
+    bool Primary(AActor* Actor, const TCHAR* Name, FCk_Handle& Out)
+    {
+        Out = {};
+        FCall C(Actor, Name);
+        auto* P = Field<FStructProperty>(C.Function, TEXT("ReturnValue"));
+        if (!P || P->Struct != FCk_Handle::StaticStruct() ||
+            C.Function->NumParms != 1 || !C.Send()) { return false; }
+        Out = *P->ContainerPtrToValuePtr<FCk_Handle>(
+            C.Args->GetStructMemory());
+        return true;
+    }
+
     bool Close(AActor* Actor)
     {
         FCall C(Actor, TEXT("Request_CloseSource"));
@@ -162,18 +174,17 @@ namespace ck_sm_racing_isolation_test
     bool OneRoot(AActor* Actor, UWorld* World, FCk_Handle& Out)
     {
         Out = {};
-        TArray<FCk_Handle> Found;
         if (!IsValid(Actor) || !IsValid(World) || Actor->GetWorld() != World ||
-            !Roots(Actor, Found) || Found.Num() != 1 || !Allocated(Found[0]))
+            !Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Out) ||
+            !Allocated(Out) || !ck::IsValid(Out))
         { return false; }
         const auto WorldRoot = UCk_Utils_EcsWorld_Subsystem_UE::
             TryGet_TransientEntityForWorld(*World);
         if (!Allocated(WorldRoot) ||
-            !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Found[0]) ||
-            UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Found[0]) != WorldRoot ||
-            UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(Found[0]) != World)
+            !UCk_Utils_EntityLifetime_UE::Has_LifetimeOwner(Out) ||
+            UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(Out) != WorldRoot ||
+            UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(Out) != World)
         { return false; }
-        Out = Found[0];
         return true;
     }
 
@@ -184,8 +195,13 @@ namespace ck_sm_racing_isolation_test
         bool Closed;
         FString Text;
         TArray<FCk_Handle> RootsNow;
+        FCk_Handle Target, Accepted;
         return IsValid(Actor) && Roots(Actor, RootsNow) &&
-            RootsNow.Num() == 1 && RootsNow[0] == R.PendingRoot &&
+            RootsNow.IsEmpty() &&
+            Primary(Actor, TEXT("Get_SourcePrimaryTarget"), Target) &&
+            Target == R.PendingRoot &&
+            Primary(Actor, TEXT("Get_SourcePrimary"), Accepted) &&
+            Accepted == FCk_Handle{} &&
             !Allocated(R.PendingRoot) &&
             Bool(Actor, TEXT("Get_SourceClosed"), Closed) && Closed &&
             Int(Actor, TEXT("Get_SourceConstructedCount"), Count) && Count == 0 &&
@@ -201,8 +217,17 @@ namespace ck_sm_racing_isolation_test
         int32 A, B, Count;
         bool Closed;
         FString Text;
+        TArray<FCk_Handle> Passes;
+        FCk_Handle Accepted;
         return OneRoot(Actor, World, Root) && Root == Expected &&
-            UCk_Utils_StateMachine_UE::Has(Root) &&
+            Primary(Actor, TEXT("Get_SourcePrimary"), Accepted) &&
+            Accepted == Root &&
+            UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePrimary(
+                Root, Actor) &&
+            Roots(Actor, Passes) && Passes.Num() == 1 &&
+            UCk_StateMachineGym_Runtime_UE::TryValidate_DivergencePass(
+                Passes[0], Root) &&
+            UCk_Utils_StateMachine_UE::Has(Passes[0]) &&
             UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor) == Root &&
             Bool(Actor, TEXT("Get_SourceClosed"), Closed) && !Closed &&
             Int(Actor, TEXT("Get_SourceConstructedCount"), Count) && Count == 1 &&
@@ -352,7 +377,9 @@ bool FCkStateMachineGym_RacingIsolation::RunTest(const FString& Parameters)
     Run->Class = FSoftClassPath(RacingPath).TryLoadClass<AActor>();
     if (!TestTrue(TEXT("real Racing actor and source API resolve"),
         Run->Class && Run->Class->FindFunctionByName(TEXT("Request_CloseSource")) &&
-        Run->Class->FindFunctionByName(TEXT("Get_SourceRoots"))))
+        Run->Class->FindFunctionByName(TEXT("Get_SourceRoots")) &&
+        Run->Class->FindFunctionByName(TEXT("Get_SourcePrimary")) &&
+        Run->Class->FindFunctionByName(TEXT("Get_SourcePrimaryTarget"))))
     { return false; }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
