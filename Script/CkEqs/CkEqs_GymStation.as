@@ -75,6 +75,15 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
     private int32            _RunCount = 0;
     private float            _TimeSinceLast = 0.0f;
     private bool             _IsImmediate = false;
+    private bool             _Prepared = false;
+    private bool             _Started = false;
+    private bool             _Closed = false;
+    private bool             _QueryPending = false;
+    private FCk_Handle       _Root;
+    private FCk_Handle       _WorldRoot;
+    private UWorld           _World;
+    private FCk_Handle_Timer _Tick;
+    private TArray<FCk_Handle> _Helpers;
 
     // Most-recent query handle (deferred path: filled in OnQueryComplete; immediate path: filled
     // in Capture_Result). Set_AutoDestroy(false) on the deferred request keeps the query entity
@@ -86,38 +95,174 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
     ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
     {
         auto _CkPerfScope = ck::ScopedStat();
+        _Root = InHandle;
+        _World = GetWorld();
+        if (ck::Is_NOT_Valid(_World) ||
+            Cast<ACk_EqsGym_GameState>(_World.GetGameState()) == nullptr ||
+            !_World.GetGameState().HasAuthority() ||
+            !InitialTransform.IsValid() || InitialTransform.ContainsNaN() ||
+            !Math::IsFinite(RestartIntervalSeconds) || RestartIntervalSeconds <= 0.0f ||
+            int32(Scenario) < int32(ECkEqsGym_Scenario::SimpleGrid_Distance) ||
+            int32(Scenario) > int32(ECkEqsGym_Scenario::Overlap))
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        auto Ecs = Subsystem::GetWorldSubsystem(UCk_EcsWorld_Subsystem_UE);
+        if (ck::Is_NOT_Valid(Ecs))
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        _WorldRoot = Ecs.Get_TransientEntity();
+        if (!IsDirectChild(_Root, _WorldRoot))
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
         InHandle.Set_DebugName(n"EqsStation");
-        utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-        utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
+        auto RootTransform = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
+        if (ck::Is_NOT_Valid(RootTransform) || !IsRootLive())
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
 
         // Per-scenario one-shot world setup. Targets / probes live as child entities
         // owned by this station so they're cleaned up when the station entity goes away.
         if (Scenario == ECkEqsGym_Scenario::EntitiesWithTag)
         {
-            Spawn_TargetEntities(InHandle);
+            if (!Spawn_TargetEntities(InHandle))
+            { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
         }
         else if (Scenario == ECkEqsGym_Scenario::Overlap)
         {
-            Spawn_OverlapMarkers(InHandle);
+            if (!Spawn_OverlapMarkers(InHandle))
+            { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
         }
         else if (Scenario == ECkEqsGym_Scenario::Trace)
         {
-            Spawn_TraceBlocker(InHandle);
+            if (!Spawn_TraceBlocker(InHandle))
+            { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
         }
-
-        Request_StartScenario();
+        _Tick = utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
+        if (!IsTimerLive(_Tick) || utils_timer::Request_Pause(_Tick) != _Tick ||
+            !Get_StationIsHealthy(false))
+        { Request_Block(); return ECk_EntityScript_ConstructionFlow::Finished; }
+        _Prepared = true;
         return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void DoEndPlay(FCk_Handle InHandle)
+    { Request_Block(); }
+
+    private bool IsRootLive() const
+    {
+        return ck::IsValid(_World) && !_Closed &&
+            UCk_EqsGym_Runtime_UE::Get_IsLiveInWorld(_Root, _World) &&
+            utils_transform::Has(_Root);
+    }
+
+    private bool IsDirectChild(FCk_Handle Child, FCk_Handle Parent) const
+    {
+        return ck::IsValid(_World) &&
+            UCk_EqsGym_Runtime_UE::Get_IsLiveInWorld(Child, _World) &&
+            UCk_EqsGym_Runtime_UE::Get_IsLiveInWorld(Parent, _World) &&
+            utils_entity_lifetime::Has_LifetimeOwner(Child) &&
+            utils_entity_lifetime::Get_LifetimeOwner(Child) == Parent;
+    }
+
+    private bool IsTimerLive(FCk_Handle_Timer Timer) const
+    {
+        return ck::IsValid(_World) &&
+            UCk_EqsGym_Runtime_UE::Get_IsLiveTimer(FCk_Handle(Timer), _World);
+    }
+
+    private bool Get_StationIsHealthy(bool RequireSettledTags = true) const
+    {
+        if (!IsRootLive() || !IsDirectChild(_Root, _WorldRoot)) { return false; }
+        const int32 Expected = Scenario == ECkEqsGym_Scenario::EntitiesWithTag ? 5 :
+            (Scenario == ECkEqsGym_Scenario::Overlap ? 3 :
+            (Scenario == ECkEqsGym_Scenario::Trace ? 1 : 0));
+        if (_Helpers.Num() != Expected) { return false; }
+        for (int32 I = 0; I < _Helpers.Num(); I++)
+        {
+            if (!IsDirectChild(_Helpers[I], _Root) || !utils_transform::Has(_Helpers[I]))
+            { return false; }
+            if (RequireSettledTags && Scenario == ECkEqsGym_Scenario::EntitiesWithTag &&
+                !utils_entity_tag::Has(_Helpers[I], n"Gym.Eqs.Target"))
+            { return false; }
+            if ((Scenario == ECkEqsGym_Scenario::Overlap || Scenario == ECkEqsGym_Scenario::Trace) &&
+                !utils_probe::Has(_Helpers[I]))
+            { return false; }
+        }
+        return true;
+    }
+
+    bool Get_IsPrepared() const
+    {
+        return _Prepared && !_Closed && Get_StationIsHealthy() &&
+            IsTimerLive(_Tick) && IsDirectChild(FCk_Handle(_Tick), _Root);
+    }
+
+    bool Get_IsStarted() const { return _Started && !_Closed; }
+    bool Get_IsClosed() const { return _Closed; }
+    FCk_Handle Get_SourceRoot() const { return _Root; }
+
+    bool Request_StartPrepared()
+    {
+        if (_Started) { return Get_IsPrepared(); }
+        if (!Get_IsPrepared()) { Request_Block(); return false; }
+        _Started = true;
+        if (!Request_StartScenario() || utils_timer::Request_Resume(_Tick) != _Tick)
+        { Request_Block(); return false; }
+        return true;
+    }
+
+    void Request_Block()
+    {
+        if (_Closed) { return; }
+        _Closed = true;
+        _Prepared = false;
+        _Started = false;
+        _QueryPending = false;
+        if (IsTimerLive(_Tick)) { utils_timer::Request_Stop(_Tick); }
+        if (ck::IsValid(_World) && UCk_EqsGym_Runtime_UE::Get_IsLiveInWorld(_Root, _World))
+        { utils_eqs::Request_CancelAllQueries(_Root); }
+    }
+
+    bool TryGet_Frame(FCkEqsGym_StationFrame&out Out) const
+    {
+        if (!Get_IsPrepared() || _RunCount < 0 || _CandidateCount < 0 ||
+            !Math::IsFinite(_TimeSinceLast) || !Math::IsFinite(RestartIntervalSeconds) ||
+            (_HasResult && (!Math::IsFinite(_BestLocation.X) ||
+                !Math::IsFinite(_BestLocation.Y) || !Math::IsFinite(_BestLocation.Z))))
+        { return false; }
+        FCkEqsGym_StationFrame Frame;
+        Frame.Title = StationTitle;
+        Frame.Footer = StationDescription;
+        Frame.RunCount = int64(_RunCount);
+        Frame.CandidateCount = _CandidateCount;
+        Frame.HasResult = _HasResult;
+        Frame.Failed = _Failed;
+        Frame.IsImmediate = _IsImmediate;
+        Frame.BestLocation = _BestLocation;
+        Frame.SecondsLeft = Math::Max(0.0f, RestartIntervalSeconds - _TimeSinceLast);
+        const auto Mode = _IsImmediate ? "IMMEDIATE" : "DEFERRED";
+        const auto Status = _Failed ? "FAILED" : (_HasResult ? "READY" : "PENDING");
+        const auto SecondsLeft = int(Frame.SecondsLeft) + 1;
+        auto Detail = f"Scenario: {Get_ScenarioName()}\n";
+        Detail = f"{Detail}Mode: {Mode}    Run #{_RunCount}\n";
+        Detail = f"{Detail}Status: {Status}\n";
+        Detail = f"{Detail}Candidates: {_CandidateCount}\n";
+        if (_HasResult)
+        {
+            Detail = f"{Detail}Best: ({int(_BestLocation.X)}, {int(_BestLocation.Y)}, {int(_BestLocation.Z)})\n";
+        }
+        Frame.Detail = f"{Detail}\nRestarting in {SecondsLeft}s...";
+        Out = Frame;
+        return true;
     }
 
     // Spawn 5 tagged child entities arranged on a 250uu ring around the station so the
     // EntitiesWithTag generator has something to find. The Distance test then orders them
     // by closeness to the querier (the station entity itself).
-    private void Spawn_TargetEntities(FCk_Handle& InStation)
+    private bool Spawn_TargetEntities(FCk_Handle& InStation)
     {
         const auto Radius = 250.0f;
         const auto NumTargets = 5;
         const auto BaseLocation = InitialTransform.GetLocation();
         const auto TargetTag = utils_gameplay_tag::ResolveGameplayTag(n"Gym.Eqs.Target");
+        if (!TargetTag.IsValid()) { return false; }
 
         for (int32 i = 0; i < NumTargets; i++)
         {
@@ -127,46 +272,60 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
             const auto TargetTransform = FTransform(FRotator::ZeroRotator, TargetLocation);
 
             auto Target = utils_entity_lifetime::Request_CreateEntity(InStation);
+            if (!IsDirectChild(Target, InStation)) { return false; }
+            _Helpers.Add(Target);
             auto TargetName = FName(f"Target_{i}");
             Target.Set_DebugName(TargetName);
             Target.Request_OverrideToSelf();
-            utils_transform::Add(Target, TargetTransform, ECk_Replication::DoesNotReplicate);
-            utils_entity_tag::Add_UsingGameplayTag(Target, TargetTag);
+            auto TargetXform = utils_transform::Add(Target, TargetTransform, ECk_Replication::DoesNotReplicate);
+            if (ck::Is_NOT_Valid(TargetXform) || !utils_transform::Has(Target)) { return false; }
+            // Tags are queued; Get_IsPrepared waits for all five to settle.
+            if (utils_entity_tag::Add_UsingGameplayTag(Target, TargetTag) != Target) { return false; }
         }
+        return true;
     }
 
-    // Spawn 1 box probe co-located with the visible wall the player controller spawned.
+    // Spawn 1 box probe co-located with the GameState's shared visible wall.
     // The probe is what the CkSpatialQuery line-trace actually intersects (actor collision
     // alone isn't visible to the probe-trace system), so this is what makes the Trace
     // test's filter eliminate candidates whose LOS is blocked.
     //
-    // Wall offset/scale must match SpawnTraceWall in CkEqs_GymPlayerController.as.
-    private void Spawn_TraceBlocker(FCk_Handle& InStation)
+    // Wall offset/scale must match the shared fixture in CkEqs_GymGameState.as.
+    private bool Spawn_TraceBlocker(FCk_Handle& InStation)
     {
         const auto BlockerProbeName = utils_gameplay_tag::ResolveGameplayTag(n"Gym.Eqs.TraceBlocker");
+        if (!BlockerProbeName.IsValid()) { return false; }
         const auto BaseLocation = InitialTransform.GetLocation();
-        const auto BlockerOffset = FVector(150.0f, 0.0f, 100.0f);   // matches SpawnTraceWall
+        const auto BlockerOffset = FVector(150.0f, 0.0f, 100.0f);   // matches shared wall
         const auto BlockerHalfExtent = FVector(25.0f, 250.0f, 150.0f); // 50 x 500 x 300 cm
 
         const auto BlockerTransform = FTransform(FRotator::ZeroRotator, BaseLocation + BlockerOffset);
 
         auto Blocker = utils_entity_lifetime::Request_CreateEntity(InStation);
+        if (!IsDirectChild(Blocker, InStation)) { return false; }
+        _Helpers.Add(Blocker);
         Blocker.Set_DebugName(n"TraceBlocker");
         Blocker.Request_OverrideToSelf();
         auto BlockerXform = utils_transform::Add(Blocker, BlockerTransform, ECk_Replication::DoesNotReplicate);
+        if (ck::Is_NOT_Valid(BlockerXform) || !utils_transform::Has(Blocker)) { return false; }
 
         auto ProbeParams = FCk_Probe_Spec(BlockerProbeName);
         ProbeParams.Set_MotionType(ECk_MotionType::Static);
         ProbeParams.Set_ResponsePolicy(ECk_ProbeResponse_Policy::Silent);
         auto DebugInfo = FCk_Probe_DebugInfo();
-        utils_probe::Add_Box(BlockerXform, BlockerHalfExtent, ProbeParams, DebugInfo);
+        auto Probe = utils_probe::Add_Box(BlockerXform, BlockerHalfExtent, ProbeParams, DebugInfo);
+        if (ck::Is_NOT_Valid(Probe)) { return false; }
+        if (FCk_Handle(Probe) != Blocker || !utils_probe::Has(Blocker))
+        { return false; }
+        return true;
     }
 
     // Spawn 3 sphere probes carrying the Gym.Eqs.OverlapMarker probe-name. The Overlap test's
     // _OverlapFilter matches that name so candidates near a marker score higher.
-    private void Spawn_OverlapMarkers(FCk_Handle& InStation)
+    private bool Spawn_OverlapMarkers(FCk_Handle& InStation)
     {
         const auto MarkerProbeName = utils_gameplay_tag::ResolveGameplayTag(n"Gym.Eqs.OverlapMarker");
+        if (!MarkerProbeName.IsValid()) { return false; }
         const auto Radius = 60.0f;
         const auto BaseLocation = InitialTransform.GetLocation();
         // Three offsets near the SimpleGrid footprint (which is 5x5 @ 100uu spacing).
@@ -180,32 +339,45 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
             const auto MarkerTransform = FTransform(FRotator::ZeroRotator, BaseLocation + Offsets[i]);
 
             auto Marker = utils_entity_lifetime::Request_CreateEntity(InStation);
+            if (!IsDirectChild(Marker, InStation)) { return false; }
+            _Helpers.Add(Marker);
             auto MarkerName = FName(f"OverlapMarker_{i}");
             Marker.Set_DebugName(MarkerName);
             Marker.Request_OverrideToSelf();
             auto MarkerXform = utils_transform::Add(Marker, MarkerTransform, ECk_Replication::DoesNotReplicate);
+            if (ck::Is_NOT_Valid(MarkerXform) || !utils_transform::Has(Marker)) { return false; }
 
             auto ProbeParams = FCk_Probe_Spec(MarkerProbeName);
             ProbeParams.Set_MotionType(ECk_MotionType::Static);
             ProbeParams.Set_ResponsePolicy(ECk_ProbeResponse_Policy::Silent);
             auto DebugInfo = FCk_Probe_DebugInfo();
-            utils_probe::Add_Sphere(MarkerXform, Radius, ProbeParams, DebugInfo);
+            auto Probe = utils_probe::Add_Sphere(MarkerXform, Radius, ProbeParams, DebugInfo);
+            if (ck::Is_NOT_Valid(Probe)) { return false; }
+            if (FCk_Handle(Probe) != Marker || !utils_probe::Has(Marker))
+            { return false; }
         }
+        return true;
     }
 
-    private void Request_StartScenario()
+    private bool Request_StartScenario()
     {
-        auto SelfEntity = ck::ToEntity(this);
+        if (!_Started || !Get_IsPrepared() || _QueryPending || _RunCount == 2147483647)
+        { return false; }
+        auto SelfEntity = _Root;
         _RunCount++;
         _TimeSinceLast = 0.0f;
         _IsImmediate = (Scenario == ECkEqsGym_Scenario::Immediate_Sync);
+        _HasResult = false;
+        _Failed = false;
+        _CandidateCount = 0;
+        _BestLocation = FVector::ZeroVector;
 
         // Destroy the previous query before issuing a new one. Without this, deferred queries
         // (with Set_AutoDestroy(false)) and Immediate queries would pile up on the station entity
         // every 5 seconds. Doing it here also fixes the original "queries flicker" UX problem in
         // the debugger - the debugger now sees one stable query per station instead of a brief
         // 1-2 frame flash followed by 5 seconds of nothing.
-        if (ck::IsValid(_LastQueryHandle))
+        if (UCk_EqsGym_Runtime_UE::Get_IsLiveQuery(FCk_Handle(_LastQueryHandle), _World))
         {
             auto OldQuery = FCk_Handle(_LastQueryHandle);
             utils_entity_lifetime::Request_DestroyEntity(OldQuery);
@@ -219,8 +391,12 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
             // Synchronous path: returns a typed query handle with results already written.
             // Does NOT broadcast OnComplete (P3-E5) - read accessors directly.
             auto QueryHandle = utils_eqs::Request_RunQuery_Immediate(SelfEntity, QueryParams);
+            if (!UCk_EqsGym_Runtime_UE::Get_IsQueryOwnedBy(FCk_Handle(QueryHandle), _Root, _World) ||
+                !utils_eqs::Get_IsComplete(QueryHandle))
+            { return false; }
             _LastQueryHandle = QueryHandle;
             Capture_Result(QueryHandle);
+            if (_Closed) { return false; }
         }
         else
         {
@@ -230,8 +406,11 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
             auto Request = FCk_Request_Eqs_RunQuery(QueryParams);
             Request.Set_OnComplete(FCk_Delegate_EqsQuery_OnComplete(this, n"OnQueryComplete"));
             Request.Set_AutoDestroy(false);
-            utils_eqs::Request_RunQuery(SelfEntity, Request);
+            _QueryPending = true;
+            if (utils_eqs::Request_RunQuery(SelfEntity, Request) != SelfEntity)
+            { _QueryPending = false; return false; }
         }
+        return true;
     }
 
     private FCk_Eqs_QueryParams Build_QueryParams(const FCk_Handle& InQuerier)
@@ -320,7 +499,8 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
             Generator.Set_SpaceBetween(100.0f);
             Generator.Set_GridHalfSize(200.0f);
             Generator.Set_ProjectOntoNav(true);
-            Generator.Set_NavProjectionSearchHalfExtentUu(200.0f);
+            // PanelCenter is 250uu above the floor; 300uu reaches its baked surface.
+            Generator.Set_NavProjectionSearchHalfExtentUu(300.0f);
 
             auto Distance = FCk_Eqs_TestParams();
             Distance.Set_Purpose(ECk_Eqs_TestPurpose::Score);
@@ -409,7 +589,7 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
 
         if (Scenario == ECkEqsGym_Scenario::Trace)
         {
-            // SimpleGrid + LineTrace LOS test. The player controller spawns an obstacle wall
+            // SimpleGrid + LineTrace LOS test. The GameState spawns a shared obstacle wall
             // alongside this station; candidates whose line-of-sight from the querier is blocked
             // by the wall fail the trace and are dropped.
             auto Generator = FCk_Eqs_GeneratorParams();
@@ -482,18 +662,22 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
     UFUNCTION()
     private void OnQueryComplete(FCk_Handle_EqsQuery InQueryHandle, FCk_Eqs_QueryResults InResults)
     {
+        if (!_Started || _Closed || !_QueryPending || !Get_IsPrepared()) { return; }
+        if (!UCk_EqsGym_Runtime_UE::Get_IsQueryOwnedBy(
+            FCk_Handle(InQueryHandle), _Root, _World))
+        { return; }
+        if (!utils_eqs::Get_IsComplete(InQueryHandle))
+        { Request_Block(); return; }
+        _QueryPending = false;
+        _LastQueryHandle = InQueryHandle;
         _HasResult = InResults.Get_HasResults();
         _CandidateCount = InResults.Get_Candidates().Num();
         _BestLocation = InResults.Get_BestLocation();
-
-        // Cast typed handle to generic to inspect tags safely.
-        auto AsGeneric = FCk_Handle(InQueryHandle);
         _Failed = utils_eqs::Get_IsFailed(InQueryHandle);
-
-        // Stash the handle so we can destroy this query at the start of the next cycle (see
-        // Request_StartScenario). With AutoDestroy=false on the request, the query entity
-        // survives past Cleanup; we own its destruction.
-        _LastQueryHandle = InQueryHandle;
+        if (_Failed || !_HasResult || _CandidateCount <= 0 ||
+            !Math::IsFinite(_BestLocation.X) || !Math::IsFinite(_BestLocation.Y) ||
+            !Math::IsFinite(_BestLocation.Z))
+        { Request_Block(); }
     }
 
     private void Capture_Result(FCk_Handle_EqsQuery InQueryHandle)
@@ -504,46 +688,31 @@ class UCk_EntityScript_EqsGym_Station : UCk_GenericEntityScript_UE
         _CandidateCount = Candidates.Num();
         _BestLocation = utils_eqs::Get_BestLocation(InQueryHandle);
         _Failed = utils_eqs::Get_IsFailed(InQueryHandle);
+        if (_Failed || !_HasResult || _CandidateCount <= 0 ||
+            !Math::IsFinite(_BestLocation.X) || !Math::IsFinite(_BestLocation.Y) ||
+            !Math::IsFinite(_BestLocation.Z))
+        { Request_Block(); }
     }
 
     UFUNCTION()
     private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
     {
-        auto DeltaSeconds = float(InDeltaT.Get_Seconds());
+        if (!_Started || _Closed || InHandle != _Tick || !Get_IsPrepared() ||
+            !IsTimerLive(InHandle))
+        { return; }
+        const float DeltaSeconds = float(InDeltaT.Get_Seconds());
+        if (!Math::IsFinite(DeltaSeconds) || DeltaSeconds < 0.0f)
+        { Request_Block(); return; }
         _TimeSinceLast += DeltaSeconds;
-
-        if (_TimeSinceLast >= RestartIntervalSeconds)
-        {
-            Request_StartScenario();
-        }
-
-        Update_Display();
+        if (!Math::IsFinite(_TimeSinceLast)) { Request_Block(); return; }
+        if (_QueryPending && _TimeSinceLast > 15.0f)
+        { Request_Block(); return; }
+        if (_TimeSinceLast >= RestartIntervalSeconds && !_QueryPending &&
+            !Request_StartScenario())
+        { Request_Block(); }
     }
 
-    private void Update_Display()
-    {
-        auto SelfEntity = ck::ToEntity(this);
-
-        auto Mode = _IsImmediate ? "IMMEDIATE" : "DEFERRED";
-        auto Status = _Failed ? "FAILED" : (_HasResult ? "READY" : "PENDING");
-        auto SecondsLeft = int(RestartIntervalSeconds - _TimeSinceLast) + 1;
-
-        auto Display = f"Scenario: {Get_ScenarioName()}\n";
-        Display = f"{Display}Mode: {Mode}    Run #{_RunCount}\n";
-        Display = f"{Display}Status: {Status}\n";
-        Display = f"{Display}Candidates: {_CandidateCount}\n";
-
-        if (_HasResult)
-        {
-            Display = f"{Display}Best: ({int(_BestLocation.X)}, {int(_BestLocation.Y)}, {int(_BestLocation.Z)})\n";
-        }
-
-        Display = f"{Display}\nRestarting in {SecondsLeft}s...";
-
-        CkGym_Common::Update_StationDisplay(SelfEntity, StationTitle, Display, StationDescription);
-    }
-
-    private FString Get_ScenarioName()
+    private FString Get_ScenarioName() const
     {
         if (Scenario == ECkEqsGym_Scenario::SimpleGrid_Distance) { return "SimpleGrid + Distance"; }
         if (Scenario == ECkEqsGym_Scenario::Donut_Dot)           { return "Donut + Dot"; }
