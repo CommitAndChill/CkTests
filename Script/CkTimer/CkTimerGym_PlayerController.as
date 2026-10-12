@@ -1,213 +1,89 @@
-//============================================================================
-// TIMER GYM - PLAYER CONTROLLER
-//============================================================================
+// Language=angelscript
 
 class ACk_TimerGym_PlayerController : ACk_Gym_Base_PlayerController
 {
-	TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
-	{
-		auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
+    UPROPERTY(Replicated) int32 LastControlSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlAttemptSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlResult = 0;
+    private int32 _RequestedSerial = 0;
+    private int32 _StateWaitAttempts = 0;
+    private int32 _PendingControlSerial = 0;
 
-		// Station 1: Basics
-		{
-			auto Station = FCkGym_Station_SpawnParams_Payload();
-			Station.Tags.Add(n"Gym.Timer.Basics");
-			Station.Title = FText::FromString("TIMER BASICS");
-			auto Description = TArray<FText>();
-			Description.Add(FText::FromString("Demonstrates timer creation and chrono querying."));
-			Description.Add(FText::FromString("Shows state, elapsed/remaining, progress bar, and IsDone flag."));
-			Station.Description = Description;
-			Stations.Add(Station);
-		}
+    TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
+    {
+        if (HasAuthority()) { return TArray<FCkGym_Station_SpawnParams_Payload>(); }
+        return CkTimerGym::Get_Stations();
+    }
 
-		// Station 2: Behaviors
-		{
-			auto Station = FCkGym_Station_SpawnParams_Payload();
-			Station.Tags.Add(n"Gym.Timer.Behaviors");
-			Station.Title = FText::FromString("TIMER BEHAVIORS");
-			auto Description = TArray<FText>();
-			Description.Add(FText::FromString("Compares ResetOnDone, PauseOnDone, and StopOnDone behaviors."));
-			Description.Add(FText::FromString("Three timers run side-by-side showing different completion behavior."));
-			Station.Description = Description;
-			Stations.Add(Station);
-		}
+    void Request_StartGym() override
+    {
+        auto State = CkTimerGym::Get_State();
+        if (ck::Is_NOT_Valid(State))
+        {
+            if (IsLocalController() && _StateWaitAttempts++ < 200)
+            { System::SetTimer(this, n"OnStateWait", 0.1, false); }
+            return;
+        }
+        if (HasAuthority() && State.Get_HasPublishedCatalog())
+        { State.Request_EnsureSharedDemo(); }
+        if (IsLocalController()) { State.Request_EnsureLocalProjection(); }
+    }
+    UFUNCTION() private void OnStateWait() { Request_StartGym(); }
 
-		// Station 3: Signals
-		{
-			auto Station = FCkGym_Station_SpawnParams_Payload();
-			Station.Tags.Add(n"Gym.Timer.Signals");
-			Station.Title = FText::FromString("TIMER SIGNALS");
-			auto Description = TArray<FText>();
-			Description.Add(FText::FromString("Tests all 8 timer signals: OnUpdate, OnDone, OnPause, OnResume,"));
-			Description.Add(FText::FromString("OnReset, OnStop, OnJump, OnDepleted."));
-			Station.Description = Description;
-			Stations.Add(Station);
-		}
+    FString Get_ControlPanelTitle() override { return "TIMER"; }
+    TArray<FCkGym_ControlRow> Get_ControlRows() override
+    {
+        TArray<FCkGym_ControlRow> Rows;
+        Rows.Add(CkGym_Control::Header("RE-RUN A STATION"));
+        Rows.Add(CkGym_Control::Numbered(0, "Basics", false));
+        Rows.Add(CkGym_Control::Numbered(1, "Behaviors", false));
+        Rows.Add(CkGym_Control::Numbered(2, "Signals", false));
+        Rows.Add(CkGym_Control::Numbered(3, "Control", false));
+        Rows.Add(CkGym_Control::Numbered(4, "Countdown", false));
+        Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Re-run every station"));
+        return Rows;
+    }
+    void Request_ControlActivated(int32 InRowIndex) override
+    {
+        if (!IsLocalController() || InRowIndex < 1 || InRowIndex > 6) { return; }
+        _RequestedSerial = Math::Max(_RequestedSerial, LastControlSerial) + 1;
+        Server_RequestTimerControl(_RequestedSerial, InRowIndex - 1);
+    }
 
-		// Station 4: Control
-		{
-			auto Station = FCkGym_Station_SpawnParams_Payload();
-			Station.Tags.Add(n"Gym.Timer.Control");
-			Station.Title = FText::FromString("TIMER RUNTIME CONTROL");
-			auto Description = TArray<FText>();
-			Description.Add(FText::FromString("Tests Pause, Resume, Stop, Reset, Complete, Jump, and ReverseDirection."));
-			Description.Add(FText::FromString("Watch the progress bar respond to each control action."));
-			Station.Description = Description;
-			Stations.Add(Station);
-		}
-
-		// Station 5: Countdown
-		{
-			auto Station = FCkGym_Station_SpawnParams_Payload();
-			Station.Tags.Add(n"Gym.Timer.Countdown");
-			Station.Title = FText::FromString("TIMER COUNTDOWN");
-			auto Description = TArray<FText>();
-			Description.Add(FText::FromString("Tests CountDown direction with different behaviors."));
-			Description.Add(FText::FromString("Includes a consume demo that subtracts time until OnDepleted fires."));
-			Station.Description = Description;
-			Stations.Add(Station);
-		}
-
-		return Stations;
-	}
-
-	void Request_StartGym() override
-	{
-		Request_StartBasics();
-		Request_StartBehaviors();
-		Request_StartSignals();
-		Request_StartControl();
-		Request_StartCountdown();
-		ck::Trace("[OK] Timer Gym - All stations started");
-	}
-
-	//------------------------------------------------------------------------
-	// STATION STARTUP
-	//------------------------------------------------------------------------
-
-	void Request_StartBasics()
-	{
-		auto SpawnParams = FCk_Gym_TransformSpawnParams(Get_StationAnchorTransform("Gym.Timer.Basics", ECk_GymStation_Anchor::PanelCenter));
-		utils_entity_script::Request_SpawnEntity(
-			Get_StationHandle("Gym.Timer.Basics"),
-			UCk_EntityScript_TimerGym_Basics,
-			FInstancedStruct::Make(SpawnParams));
-	}
-
-	void Request_StartBehaviors()
-	{
-		auto SpawnParams = FCk_Gym_TransformSpawnParams(Get_StationAnchorTransform("Gym.Timer.Behaviors", ECk_GymStation_Anchor::PanelCenter));
-		utils_entity_script::Request_SpawnEntity(
-			Get_StationHandle("Gym.Timer.Behaviors"),
-			UCk_EntityScript_TimerGym_Behaviors,
-			FInstancedStruct::Make(SpawnParams));
-	}
-
-	void Request_StartSignals()
-	{
-		auto SpawnParams = FCk_Gym_TransformSpawnParams(Get_StationAnchorTransform("Gym.Timer.Signals", ECk_GymStation_Anchor::PanelCenter));
-		utils_entity_script::Request_SpawnEntity(
-			Get_StationHandle("Gym.Timer.Signals"),
-			UCk_EntityScript_TimerGym_Signals,
-			FInstancedStruct::Make(SpawnParams));
-	}
-
-	void Request_StartControl()
-	{
-		auto SpawnParams = FCk_Gym_TransformSpawnParams(Get_StationAnchorTransform("Gym.Timer.Control", ECk_GymStation_Anchor::PanelCenter));
-		utils_entity_script::Request_SpawnEntity(
-			Get_StationHandle("Gym.Timer.Control"),
-			UCk_EntityScript_TimerGym_Control,
-			FInstancedStruct::Make(SpawnParams));
-	}
-
-	void Request_StartCountdown()
-	{
-		auto SpawnParams = FCk_Gym_TransformSpawnParams(Get_StationAnchorTransform("Gym.Timer.Countdown", ECk_GymStation_Anchor::PanelCenter));
-		utils_entity_script::Request_SpawnEntity(
-			Get_StationHandle("Gym.Timer.Countdown"),
-			UCk_EntityScript_TimerGym_Countdown,
-			FInstancedStruct::Make(SpawnParams));
-	}
-
-	//--------------------------------------------------------------------------------------------------------------------------
-	// CONTROL PANEL (Script/Common/CkGym_ControlPanel.as)
-	//
-	// Every station in this gym has to be RE-RUN to be watched - a timer that already finished shows
-	// nothing. Restarting was console-only, which made the gym look inert to anyone who arrived after the
-	// first pass had completed.
-	//--------------------------------------------------------------------------------------------------------------------------
-
-	FString Get_ControlPanelTitle() override
-	{
-		return "TIMER";
-	}
-
-	TArray<FCkGym_ControlRow> Get_ControlRows() override
-	{
-		auto Rows = TArray<FCkGym_ControlRow>();
-
-		Rows.Add(CkGym_Control::Header("RE-RUN A STATION"));
-		Rows.Add(CkGym_Control::Numbered(0, "Basics", false));
-		Rows.Add(CkGym_Control::Numbered(1, "Behaviors", false));
-		Rows.Add(CkGym_Control::Numbered(2, "Signals", false));
-		Rows.Add(CkGym_Control::Numbered(3, "Control", false));
-		Rows.Add(CkGym_Control::Numbered(4, "Countdown", false));
-		Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Re-run every station"));
-
-		return Rows;
-	}
-
-	void Request_ControlActivated(int32 InRowIndex) override
-	{
-		// Row 0 is the header, which holds no key and never arrives here.
-		if (InRowIndex == 1)
-		{
-			Request_DestroyStationEntities(n"TAG_TimerGym_Basics");
-			Request_StartBasics();
-		}
-		else if (InRowIndex == 2)
-		{
-			Request_DestroyStationEntities(n"TAG_TimerGym_Behaviors");
-			Request_StartBehaviors();
-		}
-		else if (InRowIndex == 3)
-		{
-			Request_DestroyStationEntities(n"TAG_TimerGym_Signals");
-			Request_StartSignals();
-		}
-		else if (InRowIndex == 4)
-		{
-			Request_DestroyStationEntities(n"TAG_TimerGym_Control");
-			Request_StartControl();
-		}
-		else if (InRowIndex == 5)
-		{
-			Request_DestroyStationEntities(n"TAG_TimerGym_Countdown");
-			Request_StartCountdown();
-		}
-		else if (InRowIndex == 6)
-		{
-			Request_DestroyStationEntities(n"TAG_TimerGym_Basics");
-			Request_DestroyStationEntities(n"TAG_TimerGym_Behaviors");
-			Request_DestroyStationEntities(n"TAG_TimerGym_Signals");
-			Request_DestroyStationEntities(n"TAG_TimerGym_Control");
-			Request_DestroyStationEntities(n"TAG_TimerGym_Countdown");
-
-			Request_StartGym();
-		}
-	}
-
-	//------------------------------------------------------------------------
-	// UTILITY
-	//------------------------------------------------------------------------
-
-	void Request_DestroyStationEntities(FName InTag)
-	{
-		auto Entities = utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag);
-		for (auto Entity : Entities)
-		{
-			utils_entity_lifetime::Request_DestroyEntity(Entity);
-		}
-	}
+    UFUNCTION(Server)
+    void Server_RequestTimerControl(int32 InSerial, int32 InAction)
+    {
+        if (!HasAuthority()) { return; }
+        if (InSerial <= 0 || InSerial <= LastControlSerial ||
+            InSerial <= LastControlAttemptSerial || InSerial <= _PendingControlSerial ||
+            InAction < 0 || InAction > 5)
+        { LastControlAttemptSerial = InSerial; LastControlResult = 4; return; }
+        LastControlAttemptSerial = InSerial;
+        LastControlResult = 0;
+        auto Pawn = Cast<ACk_Gym_Base_Pawn>(GetControlledPawn());
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetController() != this)
+        { LastControlResult = 2; return; }
+        auto State = CkTimerGym::Get_State();
+        TArray<ACk_TimerGym_GameMode> Modes;
+        GetAllActorsOfClass(ACk_TimerGym_GameMode, Modes);
+        auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto CurrentGym = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (ck::Is_NOT_Valid(State) || Modes.Num() != 1 || !State.Get_HasPublishedCatalog() ||
+            CurrentGym < 0 || CurrentGym >= Registry.Num() ||
+            Registry[CurrentGym].DisplayName != "Timer" || !State.Get_HasReadyServerQuintet())
+        { LastControlResult = 3; return; }
+        _PendingControlSerial = InSerial;
+        if (!(InAction == 5 ? State.Request_ResetSharedDemo(this, InSerial) :
+                              State.Request_RerunStation(InAction, this, InSerial)))
+        { _PendingControlSerial = 0; LastControlResult = 4; return; }
+    }
+    void Request_CompleteTimerControl(int32 InSerial, int32 InResult)
+    {
+        if (!HasAuthority() || InSerial <= 0 || InSerial != _PendingControlSerial ||
+            (InResult != 1 && InResult != 3 && InResult != 4)) { return; }
+        _PendingControlSerial = 0;
+        LastControlAttemptSerial = InSerial;
+        if (InResult == 1) { LastControlSerial = InSerial; }
+        LastControlResult = InResult;
+    }
 }
