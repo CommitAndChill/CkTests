@@ -14,6 +14,9 @@ struct FMessagingGymSpawnParams
     UPROPERTY()
     FTransform InitialTransform = FTransform::Identity;
 
+    UPROPERTY()
+    bool SharedAuthority = false;
+
     FMessagingGymSpawnParams(FTransform InTransform)
     {
         InitialTransform = InTransform;
@@ -31,6 +34,9 @@ class UCk_EntityScript_MessagingGym_Basic : UCk_GenericEntityScript_UE
     UPROPERTY(ExposeOnSpawn)
     FTransform InitialTransform = FTransform::Identity;
 
+    UPROPERTY(ExposeOnSpawn)
+    bool SharedAuthority = false;
+
     int32 PingCount = 0;
     int32 LastSequence = -1;
     FString LastSender = "N/A";
@@ -42,11 +48,15 @@ class UCk_EntityScript_MessagingGym_Basic : UCk_GenericEntityScript_UE
         utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
         utils_entity_tag::Add(InHandle, n"TAG_MessagingGym_Basic");
 
-        // Display timer
-        auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
-        DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
-        DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        // Legacy/standalone mode retains its authored display timer. Shared authority
+        // publishes typed state; local player controllers own only text projection.
+        if (!SharedAuthority)
+        {
+            auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
+            DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
+            auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
+            DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        }
 
         // Bind to messages
         utils_messaging::BindTo_OnBroadcast(InHandle, FCk_Message_MessagingGym_Ping, FCk_Delegate_Messaging_OnBroadcast(this, n"OnPing"));
@@ -107,6 +117,9 @@ class UCk_EntityScript_MessagingGym_MultiListener : UCk_GenericEntityScript_UE
     UPROPERTY(ExposeOnSpawn)
     FTransform InitialTransform = FTransform::Identity;
 
+    UPROPERTY(ExposeOnSpawn)
+    bool SharedAuthority = false;
+
     int32 ListenerA_Count = 0;
     int32 ListenerB_Count = 0;
     int32 ListenerC_Count = 0;
@@ -118,11 +131,15 @@ class UCk_EntityScript_MessagingGym_MultiListener : UCk_GenericEntityScript_UE
         utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
         utils_entity_tag::Add(InHandle, n"TAG_MessagingGym_MultiListener");
 
-        // Display timer
-        auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
-        DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
-        DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        // Legacy/standalone mode retains its authored display timer. Shared authority
+        // publishes typed state; local player controllers own only text projection.
+        if (!SharedAuthority)
+        {
+            auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
+            DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
+            auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
+            DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        }
 
         // Bind 3 separate delegates to the SAME message type
         utils_messaging::BindTo_OnBroadcast(InHandle, FCk_Message_MessagingGym_Ping, FCk_Delegate_Messaging_OnBroadcast(this, n"OnPing_ListenerA"));
@@ -195,7 +212,12 @@ class UCk_EntityScript_MessagingGym_OneShot : UCk_GenericEntityScript_UE
     UPROPERTY(ExposeOnSpawn)
     FTransform InitialTransform = FTransform::Identity;
 
+    UPROPERTY(ExposeOnSpawn)
+    bool SharedAuthority = false;
+
+    UPROPERTY(Transient, BlueprintReadOnly)
     int32 PingCount = 0;
+    UPROPERTY(Transient, BlueprintReadOnly)
     bool IsListening = true;
 
     UFUNCTION(BlueprintOverride)
@@ -205,11 +227,15 @@ class UCk_EntityScript_MessagingGym_OneShot : UCk_GenericEntityScript_UE
         utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
         utils_entity_tag::Add(InHandle, n"TAG_MessagingGym_OneShot");
 
-        // Display timer
-        auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
-        DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
-        DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        // Legacy/standalone mode retains its authored display timer. Shared authority
+        // publishes typed state; local player controllers own only text projection.
+        if (!SharedAuthority)
+        {
+            auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
+            DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
+            auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
+            DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        }
 
         // One-shot: auto-unbinds after first fire
         Request_BindOneShot(InHandle);
@@ -261,11 +287,88 @@ class UCk_EntityScript_MessagingGym_OneShot : UCk_GenericEntityScript_UE
         ck::Trace(f"* OneShot: Ping received (count: {PingCount}), listener now unbound");
     }
 
+    // Exact, read-only census. A missing endpoint cannot be repaired by binding
+    // here because that would silently create a new messenger after cohort loss.
+    private bool Get_HasExactResetEndpoint(FCk_Handle InSelf)
+    {
+        auto Endpoint = utils_messaging::TryGet_MessengerEntity(
+            InSelf, FCk_Message_MessagingGym_Reset);
+        return CkMessagingGym::IsDirectChild(Endpoint, InSelf) &&
+            utils_messaging::Get_NumBoundTo_OnBroadcast(InSelf,
+                FCk_Message_MessagingGym_Reset,
+                ECk_Signal_PostFireBehavior::DoNothing) == 1 &&
+            utils_messaging::Get_NumBoundTo_OnBroadcast(InSelf,
+                FCk_Message_MessagingGym_Reset,
+                ECk_Signal_PostFireBehavior::Unbind) == 0 &&
+            utils_messaging::Get_NumUnconditionalBindingsTo_OnBroadcast(InSelf,
+                FCk_Message_MessagingGym_Reset,
+                FCk_Delegate_Messaging_OnBroadcast(this, n"OnReset"),
+                ECk_Signal_PostFireBehavior::DoNothing) == 1;
+    }
+
+    private bool Get_HasExactPingEndpoint(FCk_Handle InSelf, int32 InExpected)
+    {
+        auto Endpoint = utils_messaging::TryGet_MessengerEntity(
+            InSelf, FCk_Message_MessagingGym_Ping);
+        return (InExpected == 0 || InExpected == 1) &&
+            CkMessagingGym::IsDirectChild(Endpoint, InSelf) &&
+            utils_messaging::Get_NumBoundTo_OnBroadcast(InSelf,
+                FCk_Message_MessagingGym_Ping,
+                ECk_Signal_PostFireBehavior::DoNothing) == 0 &&
+            utils_messaging::Get_NumBoundTo_OnBroadcast(InSelf,
+                FCk_Message_MessagingGym_Ping,
+                ECk_Signal_PostFireBehavior::Unbind) == InExpected &&
+            utils_messaging::Get_NumUnconditionalBindingsTo_OnBroadcast(InSelf,
+                FCk_Message_MessagingGym_Ping,
+                FCk_Delegate_Messaging_OnBroadcast(this, n"OnPing"),
+                ECk_Signal_PostFireBehavior::Unbind) == InExpected;
+    }
+
     UFUNCTION()
     private void OnReset(FCk_Handle InHandle, FGameplayTag InMessageName, FInstancedStruct InPayload)
     {
+        auto SelfEntity = ck::ToEntity(this);
+        if (!CkMessagingGym::IsLive(SelfEntity) || InHandle != SelfEntity ||
+            !InPayload.IsValid() || InPayload.GetScriptStruct() != FCk_Message_MessagingGym_Reset) { return; }
+        auto ResetEndpoint = utils_messaging::TryGet_MessengerEntity(
+            SelfEntity, FCk_Message_MessagingGym_Reset);
+        auto DeliveredEndpoint = utils_messaging::TryGet_MessengerEntity(
+            SelfEntity, InMessageName);
+        if (!CkMessagingGym::IsDirectChild(ResetEndpoint, SelfEntity) ||
+            DeliveredEndpoint != ResetEndpoint ||
+            !Get_HasExactResetEndpoint(SelfEntity)) { return; }
+
+        // PostFireBehavior::Unbind removes OnPing only after OnPing returns.
+        // The binding census, plus the flag/counter agreement, distinguishes an
+        // already-armed reset from a consumed one-shot and rejects in-flight or
+        // malformed state without touching counters or attempting a duplicate bind.
+        auto Armed = Get_HasExactPingEndpoint(SelfEntity, 1);
+        auto Consumed = Get_HasExactPingEndpoint(SelfEntity, 0);
+        if (Armed && IsListening && PingCount == 0)
+        {
+            ck::Trace("[OK] OneShot: Reset and re-armed");
+            return;
+        }
+        if (!Consumed || IsListening || PingCount != 1) { return; }
+
+        // Reset arms for the next fresh Ping; replaying the consumed frame's
+        // retained payload here would invoke OnPing again and consume the new bind.
+        utils_messaging::BindTo_OnBroadcast(
+            SelfEntity,
+            FCk_Message_MessagingGym_Ping,
+            FCk_Delegate_Messaging_OnBroadcast(this, n"OnPing"),
+            ECk_Signal_BindingPolicy::IgnorePayloadInFlight,
+            ECk_Signal_PostFireBehavior::Unbind);
+        if (!Get_HasExactPingEndpoint(SelfEntity, 1) ||
+            !Get_HasExactResetEndpoint(SelfEntity))
+        {
+            // Bind is void. If it did not establish the exact one-shot listener,
+            // retire the child so no partially rebound station remains runnable.
+            utils_entity_lifetime::Request_DestroyEntity(SelfEntity);
+            return;
+        }
+        IsListening = true;
         PingCount = 0;
-        Request_BindOneShot(ck::ToEntity(this));
         ck::Trace("[OK] OneShot: Reset and re-armed");
     }
 }
@@ -281,6 +384,9 @@ class UCk_EntityScript_MessagingGym_DynamicBind : UCk_GenericEntityScript_UE
     UPROPERTY(ExposeOnSpawn)
     FTransform InitialTransform = FTransform::Identity;
 
+    UPROPERTY(ExposeOnSpawn)
+    bool SharedAuthority = false;
+
     int32 PingCount = 0;
     bool IsBound = true;
     int32 BindCount = 1;
@@ -293,11 +399,15 @@ class UCk_EntityScript_MessagingGym_DynamicBind : UCk_GenericEntityScript_UE
         utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
         utils_entity_tag::Add(InHandle, n"TAG_MessagingGym_DynamicBind");
 
-        // Display timer
-        auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
-        DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
-        DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        // Legacy/standalone mode retains its authored display timer. Shared authority
+        // publishes typed state; local player controllers own only text projection.
+        if (!SharedAuthority)
+        {
+            auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
+            DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
+            auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
+            DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        }
 
         // Start bound to Ping
         utils_messaging::BindTo_OnBroadcast(InHandle, FCk_Message_MessagingGym_Ping, FCk_Delegate_Messaging_OnBroadcast(this, n"OnPing"));
@@ -391,6 +501,9 @@ class UCk_EntityScript_MessagingGym_MultiType : UCk_GenericEntityScript_UE
     UPROPERTY(ExposeOnSpawn)
     FTransform InitialTransform = FTransform::Identity;
 
+    UPROPERTY(ExposeOnSpawn)
+    bool SharedAuthority = false;
+
     int32 PingCount = 0;
     int32 PongCount = 0;
     int32 AlertCount = 0;
@@ -407,11 +520,15 @@ class UCk_EntityScript_MessagingGym_MultiType : UCk_GenericEntityScript_UE
         utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
         utils_entity_tag::Add(InHandle, n"TAG_MessagingGym_MultiType");
 
-        // Display timer
-        auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
-        DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
-        DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        // Legacy/standalone mode retains its authored display timer. Shared authority
+        // publishes typed state; local player controllers own only text projection.
+        if (!SharedAuthority)
+        {
+            auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
+            DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
+            auto DisplayTimer = utils_timer::Add(InHandle, DisplayTimerParams);
+            DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"DisplayTick"));
+        }
 
         // Bind to 3 different message types
         utils_messaging::BindTo_OnBroadcast(InHandle, FCk_Message_MessagingGym_Ping, FCk_Delegate_Messaging_OnBroadcast(this, n"OnPing"));

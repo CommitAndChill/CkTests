@@ -1,341 +1,308 @@
 // Language=angelscript
 
-//============================================================================
-// MESSAGING GYM - PLAYER CONTROLLER
-//============================================================================
-
 class ACk_MessagingGym_PlayerController : ACk_Gym_Base_PlayerController
 {
-    int32 SequenceCounter = 0;
+    UPROPERTY(Replicated) int32 LastControlSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlAttemptSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlResult = 0;
+    UPROPERTY(Replicated) FCkMessagingGym_ControlCommit LastControlCommit;
+    UPROPERTY(Replicated) int32 LastAcknowledgedDeliverySerial = 0;
 
-    // Ring position for the alert row. -1 means nothing has been sent yet, so the row advertises the
-    // ring instead of claiming a priority that was never broadcast.
     private int32 _AlertPresetIndex = -1;
+    private int32 _RequestedSerial = 0;
+    private int32 _NextDeliverySerial = 0;
+    private int32 _ServerAlertPresetIndex = -1;
+    private int32 _SubmittingSerial = 0;
+    private int32 _ReservedSerial = 0;
+    private int32 _ReservedRow = -1;
+    private int32 _ReservedPriority = 0;
+    private int32 _ReservedGeneration = 0;
+    private int32 _PendingSerial = 0;
+    private int32 _ShownGeneration = 0;
+    private int32 _ShownSequence = 0;
+    private int32 _AppliedDeliverySerial = 0;
+    private int32 _WaitAttempts = 0;
+    private bool _PresentationArmed = false;
 
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
-        auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
-
-        // Station 1: Basic Broadcast & Listen
-        {
-            auto Station = FCkGym_Station_SpawnParams_Payload();
-            Station.Tags.Add(n"Gym.Messaging.BasicBroadcast");
-            Station.Title = FText::FromString("BASIC BROADCAST & LISTEN");
-            auto Description = TArray<FText>();
-            Description.Add(FText::FromString("Demonstrates basic message broadcast and listener binding."));
-            Description.Add(FText::FromString("Tests payload extraction with sender and sequence data."));
-            Station.Description = Description;
-            Stations.Add(Station);
-        }
-
-        // Station 2: Multi-Listener Fan-Out
-        {
-            auto Station = FCkGym_Station_SpawnParams_Payload();
-            Station.Tags.Add(n"Gym.Messaging.MultiListener");
-            Station.Title = FText::FromString("MULTI-LISTENER FAN-OUT");
-            auto Description = TArray<FText>();
-            Description.Add(FText::FromString("Three delegates bound to the same message type on one entity."));
-            Description.Add(FText::FromString("A single broadcast fires all three listeners simultaneously."));
-            Station.Description = Description;
-            Stations.Add(Station);
-        }
-
-        // Station 3: One-Shot Listener
-        {
-            auto Station = FCkGym_Station_SpawnParams_Payload();
-            Station.Tags.Add(n"Gym.Messaging.OneShot");
-            Station.Title = FText::FromString("ONE-SHOT LISTENER");
-            auto Description = TArray<FText>();
-            Description.Add(FText::FromString("Listener auto-unbinds after first fire using PostFireBehavior::Unbind."));
-            Description.Add(FText::FromString("Subsequent broadcasts are ignored until reset re-arms the listener."));
-            Station.Description = Description;
-            Stations.Add(Station);
-        }
-
-        // Station 4: Dynamic Bind / Unbind
-        {
-            auto Station = FCkGym_Station_SpawnParams_Payload();
-            Station.Tags.Add(n"Gym.Messaging.DynamicBind");
-            Station.Title = FText::FromString("DYNAMIC BIND / UNBIND");
-            auto Description = TArray<FText>();
-            Description.Add(FText::FromString("Runtime bind and unbind of message listeners via the [B] panel row."));
-            Description.Add(FText::FromString("Tests UnbindFrom_OnBroadcast and re-binding at runtime."));
-            Station.Description = Description;
-            Stations.Add(Station);
-        }
-
-        // Station 5: Multiple Message Types
-        {
-            auto Station = FCkGym_Station_SpawnParams_Payload();
-            Station.Tags.Add(n"Gym.Messaging.MultiType");
-            Station.Title = FText::FromString("MULTIPLE MESSAGE TYPES");
-            auto Description = TArray<FText>();
-            Description.Add(FText::FromString("Single entity listening to three different message types."));
-            Description.Add(FText::FromString("Ping, Pong, and Alert messages tracked independently."));
-            Station.Description = Description;
-            Stations.Add(Station);
-        }
-
-        return Stations;
+        if (HasAuthority()) { return TArray<FCkGym_Station_SpawnParams_Payload>(); }
+        return CkMessagingGym::Get_Stations();
     }
 
     void Request_StartGym() override
     {
-        Request_StartBasicStation();
-        Request_StartMultiListenerStation();
-        Request_StartOneShotStation();
-        Request_StartDynamicBindStation();
-        Request_StartMultiTypeStation();
-        ck::Trace("[OK] Messaging Gym - All stations started");
+        auto State = CkMessagingGym::Get_State();
+        if (ck::Is_NOT_Valid(State))
+        {
+            if ((HasAuthority() || IsLocalController()) && _WaitAttempts++ < 450)
+            { System::SetTimer(this, n"OnStateWait", 0.1, false); }
+            return;
+        }
+        if (HasAuthority())
+        {
+            if (State.Get_HasPublishedCatalog()) { State.Request_EnsureSharedDemo(); }
+            else if (_WaitAttempts++ < 450)
+            { System::SetTimer(this, n"OnStateWait", 0.1, false); }
+        }
+        if (IsLocalController() && !_PresentationArmed)
+        {
+            _PresentationArmed = true;
+            System::SetTimer(this, n"OnPresentationTick", 0.1, true);
+        }
     }
 
-    //------------------------------------------------------------------------
-    // STATION STARTUP FUNCTIONS
-    //------------------------------------------------------------------------
+    UFUNCTION() private void OnStateWait() { Request_StartGym(); }
 
-    void Request_StartBasicStation()
+    private bool Request_PreflightLocalStations()
     {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Messaging.BasicBroadcast", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FMessagingGymSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Messaging.BasicBroadcast"),
-            UCk_EntityScript_MessagingGym_Basic,
-            FInstancedStruct::Make(SpawnParams)
-        );
-
-        if (ck::IsValid(SpawnRequest))
+        auto State = CkMessagingGym::Get_State();
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != GetWorld()) { return false; }
+        for (int32 i = 0; i < 5; i++)
         {
-            ck::Trace("[OK] Basic Broadcast & Listen station started");
+            auto Tag = CkMessagingGym::Get_StationTag(i);
+            auto Matches = utils_entity_tag::ForEach_Entity(ck::TransientEntity(), Tag);
+            if (Matches.Num() != 1 || !CkMessagingGym::IsLive(Matches[0]) ||
+                !Matches[0].Has_Fragment(FCkGym_Station_Anchors)) { return false; }
+            if (!HasAuthority() &&
+                utils_entity_tag::ForEach_Entity(Matches[0],
+                    CkMessagingGym::Get_ChildTag(i)).Num() != 0) { return false; }
         }
-        else
-        {
-            ck::Error("[FAIL] Failed to spawn Basic Broadcast entity");
-        }
+        return true;
     }
 
-    void Request_StartMultiListenerStation()
+    private bool Request_ApplySnapshot(FCkMessagingGym_Snapshot InSnapshot)
     {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Messaging.MultiListener", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FMessagingGymSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Messaging.MultiListener"),
-            UCk_EntityScript_MessagingGym_MultiListener,
-            FInstancedStruct::Make(SpawnParams)
-        );
-
-        if (ck::IsValid(SpawnRequest))
+        auto State = CkMessagingGym::Get_State();
+        if (ck::Is_NOT_Valid(State) || !State.Get_IsCompleteSnapshot(InSnapshot) ||
+            !Request_PreflightLocalStations()) { return false; }
+        for (int32 i = 0; i < 5; i++)
         {
-            ck::Trace("[OK] Multi-Listener Fan-Out station started");
+            auto Sample = InSnapshot.Stations[i];
+            auto Display = FCkGym_Station_TitleAndDescription();
+            Display.Title = FText::FromString(Sample.Title);
+            Display.Description = FText::FromString(Sample.Body);
+            Display.Instructions = FText::FromString(Sample.Instructions);
+            Set_StationTitleAndDescription(
+                CkMessagingGym::Get_StationTag(i).ToString(), Display);
         }
-        else
-        {
-            ck::Error("[FAIL] Failed to spawn Multi-Listener entity");
-        }
+        _ShownGeneration = InSnapshot.Generation;
+        _ShownSequence = InSnapshot.Sequence;
+        return true;
     }
 
-    void Request_StartOneShotStation()
+    UFUNCTION() private void OnPresentationTick()
     {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Messaging.OneShot", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FMessagingGymSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Messaging.OneShot"),
-            UCk_EntityScript_MessagingGym_OneShot,
-            FInstancedStruct::Make(SpawnParams)
-        );
-
-        if (ck::IsValid(SpawnRequest))
+        if (!IsLocalController()) { return; }
+        auto State = CkMessagingGym::Get_State();
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != GetWorld()) { return; }
+        if (State.Snapshot.Failed)
+        { _PendingSerial = 0; return; }
+        if (_PendingSerial > 0 && LastControlAttemptSerial == _PendingSerial &&
+            LastControlResult > 1)
+        { _PendingSerial = 0; }
+        // The complete owner commit is the source for acknowledged feedback even
+        // when a later actor property has skipped the committed Snapshot sequence.
+        auto Commit = LastControlCommit;
+        if (Commit.DeliverySerial > _AppliedDeliverySerial &&
+            Commit.DeliverySerial > LastAcknowledgedDeliverySerial &&
+            Commit.RequestSerial > 0 && Commit.Snapshot.Ready &&
+            Commit.Snapshot.Generation == State.Snapshot.Generation &&
+            State.Get_IsCompleteSnapshot(Commit.Snapshot))
         {
-            ck::Trace("[OK] One-Shot Listener station started");
+            if (!Request_ApplySnapshot(Commit.Snapshot)) { return; }
+            _AppliedDeliverySerial = Commit.DeliverySerial;
+            if (Commit.Row == 6)
+            {
+                if (Commit.AlertPriority == 1) { _AlertPresetIndex = 0; }
+                if (Commit.AlertPriority == 5) { _AlertPresetIndex = 1; }
+                if (Commit.AlertPriority == 9) { _AlertPresetIndex = 2; }
+            }
+            _PendingSerial = 0;
+            Server_AcknowledgeMessagingCommit(Commit.DeliverySerial, Commit.RequestSerial);
+            return;
         }
-        else
-        {
-            ck::Error("[FAIL] Failed to spawn One-Shot entity");
-        }
+        if (Commit.DeliverySerial > 0 &&
+            Commit.DeliverySerial == _AppliedDeliverySerial &&
+            Commit.DeliverySerial > LastAcknowledgedDeliverySerial)
+        { Server_AcknowledgeMessagingCommit(Commit.DeliverySerial, Commit.RequestSerial); }
+        auto Latest = State.Snapshot;
+        if (Latest.Ready && !Latest.Failed &&
+            (Latest.Generation != _ShownGeneration || Latest.Sequence > _ShownSequence))
+        { Request_ApplySnapshot(Latest); }
     }
 
-    void Request_StartDynamicBindStation()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Messaging.DynamicBind", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FMessagingGymSpawnParams(StationTransform);
+    FString Get_ControlPanelTitle() override { return "MESSAGING"; }
 
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Messaging.DynamicBind"),
-            UCk_EntityScript_MessagingGym_DynamicBind,
-            FInstancedStruct::Make(SpawnParams)
-        );
-
-        if (ck::IsValid(SpawnRequest))
-        {
-            ck::Trace("[OK] Dynamic Bind / Unbind station started");
-        }
-        else
-        {
-            ck::Error("[FAIL] Failed to spawn Dynamic Bind entity");
-        }
-    }
-
-    void Request_StartMultiTypeStation()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Messaging.MultiType", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FMessagingGymSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Messaging.MultiType"),
-            UCk_EntityScript_MessagingGym_MultiType,
-            FInstancedStruct::Make(SpawnParams)
-        );
-
-        if (ck::IsValid(SpawnRequest))
-        {
-            ck::Trace("[OK] Multiple Message Types station started");
-        }
-        else
-        {
-            ck::Error("[FAIL] Failed to spawn Multi-Type entity");
-        }
-    }
-
-    //--------------------------------------------------------------------------------------------------------------------------
-    // CONTROL PANEL (Script/Common/CkGym_ControlPanel.as)
-    //
-    // A message gym shows nothing until a message is SENT, so every station here is dead on arrival until
-    // a row fires. The sends are Actions rather than Toggles: broadcasting has no readback, so there is
-    // no state to report and a two-state row would be inventing one.
-    //
-    // The alert row is the one exception - it carries a priority, so each press walks a 1/5/9 ring and
-    // sends at the value it lands on. Its value column reports the priority LAST SENT, which is the only
-    // thing about it that can be known.
-    //--------------------------------------------------------------------------------------------------------------------------
-
-    FString Get_ControlPanelTitle() override
-    {
-        return "MESSAGING";
-    }
+    private int32 Get_AlertPriority(int32 InIndex) const
+    { return InIndex == 0 ? 1 : InIndex == 1 ? 5 : 9; }
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override
     {
-        auto Rows = TArray<FCkGym_ControlRow>();
-
+        TArray<FCkGym_ControlRow> Rows;
         Rows.Add(CkGym_Control::Header("SEND"));
         Rows.Add(CkGym_Control::Numbered(0, "Ping", false));
         Rows.Add(CkGym_Control::Numbered(1, "Fan-out ping", false));
         Rows.Add(CkGym_Control::Numbered(2, "One-shot", false));
         Rows.Add(CkGym_Control::Numbered(3, "Ping to dynamic", false));
         Rows.Add(CkGym_Control::Numbered(4, "Pong", false));
-        Rows.Add(DoMake_AlertRow());
+        auto Alert = CkGym_Control::Numbered(5, "Alert", false);
+        Alert.Value = _AlertPresetIndex < 0 ? "(1 / 5 / 9)" :
+            f"priority {Get_AlertPriority(_AlertPresetIndex)}";
+        Rows.Add(Alert);
         Rows.Add(CkGym_Control::Numbered(6, "All types at once", false));
-
         Rows.Add(CkGym_Control::Header("BINDINGS"));
         Rows.Add(CkGym_Control::Action(EKeys::B, "B", "Flip the dynamic bind"));
         Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Reset every station"));
-
         return Rows;
-    }
-
-    private FCkGym_ControlRow DoMake_AlertRow() const
-    {
-        auto Row = CkGym_Control::Numbered(5, "Alert", false);
-        Row.Value = _AlertPresetIndex < 0 ? "(1 / 5 / 9)" : f"priority {DoGet_AlertPriority(_AlertPresetIndex)}";
-        return Row;
-    }
-
-    private int32 DoGet_AlertPriority(int32 InIndex) const
-    {
-        return InIndex == 0 ? 1 : InIndex == 1 ? 5 : 9;
-    }
-
-    // Each press walks the ring and sends at the value it lands on - the shape the attribute gym's
-    // preset rings already use. 5 is the priority the multi-type station's placard talks about; 1 and 9
-    // bracket it so the station's priority formatting is exercised at both ends.
-    private void DoCycleAlertPriority()
-    {
-        _AlertPresetIndex = (_AlertPresetIndex + 1) % 3;
-
-        auto Priority = DoGet_AlertPriority(_AlertPresetIndex);
-        auto Entities = utils_entity_tag::ForEach_Entity(ck::ToEntity(this), n"TAG_MessagingGym_MultiType");
-        for (auto Entity : Entities)
-        {
-            utils_messaging::Broadcast(Entity, FCk_Message_MessagingGym_Alert("Warning!", Priority));
-        }
     }
 
     void Request_ControlActivated(int32 InRowIndex) override
     {
-        // Rows 0 and 8 are headers, which hold no key and never arrive here.
-        if (InRowIndex == 1) { DoBroadcastPing(n"TAG_MessagingGym_Basic", "Console"); }
-        else if (InRowIndex == 2) { DoBroadcastPing(n"TAG_MessagingGym_MultiListener", "FanOut"); }
-        else if (InRowIndex == 3) { DoBroadcastPing(n"TAG_MessagingGym_OneShot", "OneShot"); }
-        else if (InRowIndex == 4) { DoBroadcastPing(n"TAG_MessagingGym_DynamicBind", "Dynamic"); }
-        else if (InRowIndex == 5) { DoBroadcastPong(); }
-        else if (InRowIndex == 6) { DoCycleAlertPriority(); }
-        else if (InRowIndex == 7) { DoBroadcastAllTypes(); }
-        else if (InRowIndex == 9) { DoToggleBind(); }
-        else if (InRowIndex == 10) { DoResetAll(); }
+        if (!IsLocalController() || _PendingSerial > 0 ||
+            (InRowIndex != 1 && InRowIndex != 2 && InRowIndex != 3 &&
+             InRowIndex != 4 && InRowIndex != 5 && InRowIndex != 6 &&
+             InRowIndex != 7 && InRowIndex != 9 && InRowIndex != 10)) { return; }
+        auto High = Math::Max(_RequestedSerial,
+            Math::Max(LastControlAttemptSerial, LastControlSerial));
+        if (High >= 2147483647) { return; }
+        _RequestedSerial = High + 1;
+        _PendingSerial = _RequestedSerial;
+        int32 Priority = 0;
+        if (InRowIndex == 6)
+        {
+            auto Index = (_AlertPresetIndex + 1) % 3;
+            Priority = Get_AlertPriority(Index);
+        }
+        Server_RequestMessagingControl(_RequestedSerial, InRowIndex, Priority);
     }
 
-    private void DoBroadcastPing(FName InTag, FString InSender)
+    UFUNCTION(Server)
+    void Server_RequestMessagingControl(int32 InSerial, int32 InRow, int32 InPriority)
     {
-        auto Entities = utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag);
-        for (auto Entity : Entities)
-        {
-            utils_messaging::Broadcast(Entity, FCk_Message_MessagingGym_Ping(InSender, SequenceCounter));
-        }
-        SequenceCounter++;
+        if (!HasAuthority()) { return; }
+        if (InSerial <= 0 || InSerial <= LastControlAttemptSerial ||
+            InSerial <= LastControlSerial) { return; }
+        LastControlAttemptSerial = InSerial;
+        LastControlResult = 0;
+        if ((InRow != 1 && InRow != 2 && InRow != 3 && InRow != 4 &&
+             InRow != 5 && InRow != 6 && InRow != 7 && InRow != 9 && InRow != 10) ||
+            (InRow != 6 && InPriority != 0) ||
+            (InRow == 6 && InPriority != 1 && InPriority != 5 && InPriority != 9))
+        { LastControlResult = 4; return; }
+        if (InRow == 6 && InPriority != Get_AlertPriority((_ServerAlertPresetIndex + 1) % 3))
+        { LastControlResult = 4; return; }
+        auto Pawn = Cast<ACk_Gym_Base_Pawn>(GetControlledPawn());
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetController() != this ||
+            Pawn.GetWorld() != GetWorld())
+        { LastControlResult = 2; return; }
+        auto State = CkMessagingGym::Get_State();
+        TArray<ACk_MessagingGym_GameMode> Modes;
+        GetAllActorsOfClass(ACk_MessagingGym_GameMode, Modes);
+        auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto Current = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != GetWorld() ||
+            Modes.Num() != 1 || ck::Is_NOT_Valid(Modes[0]) ||
+            Modes[0].GetWorld() != GetWorld() ||
+            !State.Get_HasPublishedCatalog() || !State.Get_HasReadyServerCohort() ||
+            Current < 0 || Current >= Registry.Num() ||
+            Registry[Current].DisplayName != "Messaging")
+        { LastControlResult = 3; return; }
+        if (!Get_CanAcceptOwnerCommit() || _ReservedSerial > 0)
+        { LastControlResult = 3; return; }
+        _ReservedSerial = InSerial;
+        _ReservedRow = InRow;
+        _ReservedPriority = InPriority;
+        _ReservedGeneration = State.Snapshot.Generation;
+        _SubmittingSerial = InSerial;
+        auto Admission = State.Request_QueueControl(this, InSerial, InRow, InPriority);
+        _SubmittingSerial = 0;
+        if (Admission != 1)
+        { Request_ClearReservation(InSerial); LastControlResult = Admission; }
     }
 
-    private void DoBroadcastPong()
+    bool Get_IsSubmittingMessagingControl(int32 InSerial) const
+    { return HasAuthority() && InSerial > 0 && _SubmittingSerial == InSerial; }
+
+    bool Get_HasReservedMessagingControl(int32 InSerial, int32 InRow,
+        int32 InPriority, int32 InGeneration) const
     {
-        auto Entities = utils_entity_tag::ForEach_Entity(ck::ToEntity(this), n"TAG_MessagingGym_MultiType");
-        for (auto Entity : Entities)
-        {
-            utils_messaging::Broadcast(Entity, FCk_Message_MessagingGym_Pong("Console", SequenceCounter));
-        }
-        SequenceCounter++;
+        return HasAuthority() && InSerial > 0 && _ReservedSerial == InSerial &&
+            _ReservedRow == InRow && _ReservedPriority == InPriority &&
+            _ReservedGeneration == InGeneration && InGeneration > 0;
     }
 
-    private void DoBroadcastAllTypes()
+    private void Request_ClearReservation(int32 InSerial)
     {
-        auto Entities = utils_entity_tag::ForEach_Entity(ck::ToEntity(this), n"TAG_MessagingGym_MultiType");
-        for (auto Entity : Entities)
-        {
-            utils_messaging::Broadcast(Entity, FCk_Message_MessagingGym_Ping("AllTypes", SequenceCounter));
-            utils_messaging::Broadcast(Entity, FCk_Message_MessagingGym_Pong("AllTypes", SequenceCounter));
-            utils_messaging::Broadcast(Entity, FCk_Message_MessagingGym_Alert("Batch Alert", 5));
-        }
-        SequenceCounter++;
+        if (_ReservedSerial != InSerial) { return; }
+        _ReservedSerial = 0;
+        _ReservedRow = -1;
+        _ReservedPriority = 0;
+        _ReservedGeneration = 0;
     }
 
-    private void DoToggleBind()
+    void Request_RejectQueuedMessagingControl(int32 InSerial, int32 InResult)
     {
-        auto Entities = utils_entity_tag::ForEach_Entity(ck::ToEntity(this), n"TAG_MessagingGym_DynamicBind");
-        for (auto Entity : Entities)
-        {
-            utils_messaging::Broadcast(Entity, FCk_Message_MessagingGym_ToggleBind());
-        }
+        if (!HasAuthority() || InResult < 2 || InResult > 4 ||
+            InSerial <= LastControlSerial) { return; }
+        Request_ClearReservation(InSerial);
+        if (LastControlAttemptSerial == InSerial)
+        { LastControlResult = InResult; ForceNetUpdate(); }
     }
 
-    private void DoResetAll()
+    int32 Get_NextDeliverySerial() const
     {
-        auto AllTags = TArray<FName>();
-        AllTags.Add(n"TAG_MessagingGym_Basic");
-        AllTags.Add(n"TAG_MessagingGym_MultiListener");
-        AllTags.Add(n"TAG_MessagingGym_OneShot");
-        AllTags.Add(n"TAG_MessagingGym_DynamicBind");
-        AllTags.Add(n"TAG_MessagingGym_MultiType");
+        if (!HasAuthority() || _NextDeliverySerial >= 2147483646) { return 0; }
+        return _NextDeliverySerial + 1;
+    }
 
-        for (auto Tag : AllTags)
-        {
-            auto Entities = utils_entity_tag::ForEach_Entity(ck::ToEntity(this), Tag);
-            for (auto Entity : Entities)
-            {
-                utils_messaging::Broadcast(Entity, FCk_Message_MessagingGym_Reset());
-            }
-        }
+    bool Get_CanAcceptOwnerCommit()
+    {
+        return HasAuthority() && _NextDeliverySerial < 2147483646 &&
+            (LastControlCommit.DeliverySerial == 0 ||
+             LastAcknowledgedDeliverySerial == LastControlCommit.DeliverySerial);
+    }
 
-        SequenceCounter = 0;
-        ck::Trace("[OK] All Messaging Gym stations reset");
+    bool Request_TryRecordCommit(ACk_MessagingGym_GameState InState, int32 InSerial)
+    {
+        if (!HasAuthority() || ck::Is_NOT_Valid(InState) || InSerial <= 0 ||
+            InSerial <= LastControlSerial || !Get_CanAcceptOwnerCommit() ||
+            InState.GetWorld() != GetWorld()) { return false; }
+        auto World = GetWorld();
+        if (ck::Is_NOT_Valid(World) || World.GetGameState() != InState ||
+            InState.GetClass() != ACk_MessagingGym_GameState) { return false; }
+        auto InCommit = FCkMessagingGym_ControlCommit();
+        if (!InState.Request_TryGetPreparedOwnerCommit(this, InSerial, InCommit) ||
+            InCommit.RequestSerial != InSerial ||
+            InCommit.DeliverySerial != Get_NextDeliverySerial() ||
+            !Get_HasReservedMessagingControl(InSerial, InCommit.Row,
+                InCommit.AlertPriority, InCommit.Snapshot.Generation) ||
+            !InState.Get_IsCompleteSnapshot(InCommit.Snapshot) ||
+            (InCommit.Row != 1 && InCommit.Row != 2 && InCommit.Row != 3 &&
+             InCommit.Row != 4 && InCommit.Row != 5 && InCommit.Row != 6 &&
+             InCommit.Row != 7 && InCommit.Row != 9 && InCommit.Row != 10) ||
+            (InCommit.Row != 6 && InCommit.AlertPriority != 0) ||
+            (InCommit.Row == 6 && InCommit.AlertPriority !=
+                Get_AlertPriority((_ServerAlertPresetIndex + 1) % 3))) { return false; }
+        _NextDeliverySerial = InCommit.DeliverySerial;
+        LastControlCommit = InCommit;
+        LastControlSerial = InCommit.RequestSerial;
+        if (InCommit.Row == 6) { _ServerAlertPresetIndex = (_ServerAlertPresetIndex + 1) % 3; }
+        Request_ClearReservation(InSerial);
+        if (LastControlAttemptSerial == InCommit.RequestSerial)
+        { LastControlResult = 1; }
+        ForceNetUpdate();
+        return true;
+    }
+
+    UFUNCTION(Server)
+    void Server_AcknowledgeMessagingCommit(int32 InDeliverySerial, int32 InRequestSerial)
+    {
+        if (!HasAuthority() || InDeliverySerial <= LastAcknowledgedDeliverySerial ||
+            InDeliverySerial != LastControlCommit.DeliverySerial ||
+            InRequestSerial != LastControlCommit.RequestSerial ||
+            InRequestSerial != LastControlSerial) { return; }
+        LastAcknowledgedDeliverySerial = InDeliverySerial;
+        ForceNetUpdate();
     }
 }
