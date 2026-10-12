@@ -40,6 +40,7 @@ public class CkTestsEditor : CkModuleRules
             "BlueprintGraph",
             "CkEcsExt",
             "CkJolt",
+            "CkPixelSprite",
             "CkRuntimeMesh",
             "GeometryFramework",
             "MaterialEditor",

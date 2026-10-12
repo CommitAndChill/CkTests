@@ -86,6 +86,7 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Station Showcase",   ACk_StationShowcaseGym_GameMode,         "", "CkTests");
         CkGym_Cycler::RegisterProjectGym("State Machine",      ACk_SmTest_GymGameMode,                  "", "CkStateMachine");
         CkGym_Cycler::RegisterProjectGym("Pixel Art",          ACk_PixelArtGym_GameMode,                "", "CkPixelArt");
+        CkGym_Cycler::RegisterProjectGym("Pixel Sprite",       ACk_PixelSpriteGym_GameMode,             "", "CkPixelSprite");
         CkGym_Cycler::RegisterProjectGym("Stylize: Cel Shade", ACk_UsfStylizeCelGym_GameMode,           "", "CkUsf");
         CkGym_Cycler::RegisterProjectGym("Stylize: Cross Hatch", ACk_UsfStylizeCrossHatchGym_GameMode,  "", "CkUsf");
         CkGym_Cycler::RegisterProjectGym("Stylize: Hand-Drawn", ACk_UsfStylizeHandDrawnGym_GameMode,    "", "CkUsf");
