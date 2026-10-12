@@ -98,7 +98,7 @@ namespace ck_test_crowd_debug_draw_outer_gate
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_Crowd_DebugDrawOuterGate_TogglesLive,
     "CkTests.UnitTests.CkCrowd.DebugDraw.OuterGateTogglesLive",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -136,8 +136,8 @@ bool FCkTest_Crowd_DebugDrawOuterGate_TogglesLive::RunTest(const FString& Parame
     Settings->Set_DrawSeparation(false);
     Settings->Set_DrawPathTrouble(false);
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, EntryMapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, ReadyTimeoutSeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, EntryMapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
