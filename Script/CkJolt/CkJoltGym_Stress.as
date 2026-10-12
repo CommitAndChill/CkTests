@@ -338,6 +338,7 @@ class ACk_JoltGym_Stress_PlayerController : ACk_Gym_Base_PlayerController
         // the gym is never stomped by a gym they never touched the toggle in.
         if (_JoltDrawTouched)
         { System::ExecuteConsoleCommand("ck.Jolt.DebugDraw.Enabled 0"); }
+        Super::EndPlay(EndPlayReason);
     }
 
     private void DoReset()

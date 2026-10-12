@@ -234,6 +234,7 @@ class ACk_JoltGym_DebugDrawOverlay_PlayerController : ACk_Gym_Base_PlayerControl
 
         if (_JoltSleepColoringTouched)
         { System::ExecuteConsoleCommand("ck.Jolt.DebugDraw.SleepColoring 0"); }
+        Super::EndPlay(EndPlayReason);
     }
 
     private void DoWakeSleeper()

@@ -425,7 +425,7 @@ namespace ck_test_jolt_parity
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_Jolt_GeometryParitySampler_ChaosVsJolt,
     "Ck.Jolt.Query.GeometryParitySampler.ChaosVsJolt",
     ck_test_jolt_parity::kTestFlags)
@@ -444,11 +444,11 @@ bool FCkTest_Jolt_GeometryParitySampler_ChaosVsJolt::RunTest(const FString& Para
     GBakedBodies = 0;
 
     constexpr auto ReadyTimeoutSeconds = 30.0f;
-    constexpr int32 NumClients = 1;
-    constexpr int32 ExpectedWorlds = 1;
+    constexpr int32 NumClients = 2;
+    constexpr int32 ExpectedWorlds = 2;
     constexpr int32 Seed = 0x0C0FFEE7;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedWorlds, ReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleFrames));
 
