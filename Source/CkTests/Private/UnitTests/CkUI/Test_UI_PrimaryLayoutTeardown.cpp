@@ -34,7 +34,7 @@ namespace
     };
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_UI_PrimaryLayoutTeardown_DeactivatesRootBeforeChildren,
     "CkTests.UnitTests.CkUI.PrimaryLayoutTeardown.DeactivatesRootBeforeChildren",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -43,7 +43,7 @@ bool FCkTest_UI_PrimaryLayoutTeardown_DeactivatesRootBeforeChildren::RunTest(con
 {
     auto State = MakeShared<FPrimaryLayoutTeardownState>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(kNumPIEClients, kEntryMapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(kNumPIEClients, kEntryMapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(kExpectedPIEWorlds, kReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InWorld) -> void
