@@ -69,12 +69,13 @@ namespace ck_voice_mute_spec
         { GConfig->RemoveKey(TEXT("Voice"), TEXT("bEnabled"), GEngineIni); }
     }
 
-    auto Find_Subject(UWorld* InWorld, bool InServerOwned) -> ACk_AutoTest_NetSubject_VoiceChat_UE*
+    auto Find_Subject(UWorld* InWorld, bool InSpeaker) -> ACk_AutoTest_NetSubject_VoiceChat_UE*
     {
         for (TActorIterator<ACk_AutoTest_NetSubject_VoiceChat_UE> It{InWorld}; It; ++It)
         {
-            const auto IsServerOwned = It->GetOwner() == nullptr;
-            if (IsServerOwned == InServerOwned)
+            const auto IsSpeaker = ck::auto_test::net::Get_NumClientWorlds() > 1
+                ? It->GetActorLocation().X < 500.0 : It->GetOwner() == nullptr;
+            if (IsSpeaker == InSpeaker)
             { return *It; }
         }
 
@@ -82,24 +83,21 @@ namespace ck_voice_mute_spec
     }
 
     auto Find_RemotePlayerController(UWorld* InServer) -> APlayerController*
-    {
-        for (auto It = InServer->GetPlayerControllerIterator(); It; ++It)
-        {
-            if (auto* Controller = It->Get();
-                Controller != nullptr && NOT Controller->IsLocalController())
-            { return Controller; }
-        }
+    { return ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 0); }
 
-        return nullptr;
-    }
-
-    auto Transmit_Spurt(FAutomationTestBase* InTest, UWorld* InServer) -> void
+    auto Transmit_Spurt(FAutomationTestBase* InTest, UWorld* InWorld) -> void
     {
-        auto* SubjectA = Find_Subject(InServer, true);
+        auto* SubjectA = Find_Subject(InWorld, true);
         if (SubjectA == nullptr || ck::Is_NOT_Valid(SubjectA->_TestTalker))
         {
-            InTest->AddError(TEXT("server-side subject A missing at transmit time"));
+            InTest->AddError(TEXT("speaker missing at transmit time"));
             return;
+        }
+        if (InWorld->GetNetMode() == NM_Client)
+        {
+            const auto* Owner = Cast<APlayerController>(SubjectA->GetOwner());
+            if (Owner == nullptr || NOT Owner->IsLocalController())
+            { InTest->AddError(TEXT("speaker is not owned by the transmitting client")); return; }
         }
 
         const auto FakeSource = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
@@ -111,9 +109,9 @@ namespace ck_voice_mute_spec
         UCk_Utils_VoiceTalker_UE::Request_StartTransmit(SubjectA->_TestTalker, {}, {});
     }
 
-    auto Stop_Transmit(UWorld* InServer) -> void
+    auto Stop_Transmit(UWorld* InWorld) -> void
     {
-        if (auto* SubjectA = Find_Subject(InServer, true); SubjectA != nullptr)
+        if (auto* SubjectA = Find_Subject(InWorld, true); SubjectA != nullptr)
         {
             UCk_Utils_VoiceTalker_UE::Request_StopTransmit(SubjectA->_TestTalker, {});
         }
@@ -152,7 +150,7 @@ namespace ck_voice_mute_spec
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatNet_ListenerMuteStopsForwarding,
     "Ck.VoiceChat.Net.ListenerMute_StopsForwarding",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -170,20 +168,36 @@ bool FCkVoiceChatNet_ListenerMuteStopsForwarding::RunTest(const FString& Paramet
     constexpr auto SpurtTicks = 140;
     constexpr auto SettleTicks = 60;
 
+    const auto DedicatedServer = Parameters == TEXT("ClientServer");
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FMuteSpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients + (DedicatedServer ? 1 : 0), MapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds + (DedicatedServer ? 1 : 0), ReadyTimeoutSeconds));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([DedicatedServer]() -> bool
+        {
+            auto* Server = ck::auto_test::net::Get_ServerWorld();
+            return ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 0) != nullptr &&
+                (NOT DedicatedServer ||
+                    ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 1) != nullptr);
+        }), 45.0, TEXT("listener and speaker server controllers ready")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State, DedicatedServer](UWorld* InServer) -> void
         {
             EnableEngineVoice(*State);
 
             auto SpawnInfo = FActorSpawnParameters{};
             SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+            if (DedicatedServer)
+            {
+                SpawnInfo.Owner = ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 1);
+                if (SpawnInfo.Owner == nullptr)
+                { AddError(TEXT("speaker client 1 has no server controller")); return; }
+            }
             if (InServer->SpawnActor<ACk_AutoTest_NetSubject_VoiceChat_UE>(
                     ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(), FTransform::Identity, SpawnInfo) == nullptr)
             { AddError(TEXT("server-side SpawnActor of subject A returned null")); }
@@ -197,14 +211,15 @@ bool FCkVoiceChatNet_ListenerMuteStopsForwarding::RunTest(const FString& Paramet
 
             SpawnInfo.Owner = RemoteController;
             if (InServer->SpawnActor<ACk_AutoTest_NetSubject_VoiceChat_UE>(
-                    ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(), FTransform::Identity, SpawnInfo) == nullptr)
+                    ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(),
+                    DedicatedServer ? FTransform{FVector{1000.0, 0.0, 0.0}} : FTransform::Identity, SpawnInfo) == nullptr)
             { AddError(TEXT("server-side SpawnActor of subject B returned null")); }
         })));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(40));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, DedicatedServer](UWorld* InServer) -> void
         {
             auto* SubjectA = Find_Subject(InServer, true);
             auto* SubjectB = Find_Subject(InServer, false);
@@ -219,12 +234,42 @@ bool FCkVoiceChatNet_ListenerMuteStopsForwarding::RunTest(const FString& Paramet
             UCk_Utils_VoiceChannel_UE::Request_Join(SubjectA->_TestChannel,
                 FCk_Request_VoiceChannel_Join{SubjectB->_TestTalker}, {});
 
-            Transmit_Spurt(this, InServer);
+            if (NOT DedicatedServer)
+            { Transmit_Spurt(this, InServer); }
         })));
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
+            {
+                auto* World = ck::auto_test::net::Get_ClientWorld(1);
+                auto* Speaker = World != nullptr ? Find_Subject(World, true) : nullptr;
+                return Speaker != nullptr && ck::IsValid(Speaker->_TestChannel) &&
+                    ck::IsValid(Speaker->_TestTalker) &&
+                    UCk_Utils_VoiceChannel_UE::Get_IsMember(Speaker->_TestChannel, Speaker->_TestTalker);
+            }), 10.0, TEXT("speaker channel membership replicated to capture client")));
+    }
+
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InClient) -> void
+            { Transmit_Spurt(this, InClient); })));
+    }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SpurtTicks));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InServer) -> void { Stop_Transmit(InServer); })));
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InClient) -> void
+            { Stop_Transmit(InClient); })));
+    }
+    else
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InServer) -> void
+            { Stop_Transmit(InServer); })));
+    }
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleTicks));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
@@ -263,14 +308,31 @@ bool FCkVoiceChatNet_ListenerMuteStopsForwarding::RunTest(const FString& Paramet
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, DedicatedServer](UWorld* InServer) -> void
         {
-            Transmit_Spurt(this, InServer);
+            if (NOT DedicatedServer)
+            { Transmit_Spurt(this, InServer); }
         })));
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InClient) -> void
+            { Transmit_Spurt(this, InClient); })));
+    }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SpurtTicks));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InServer) -> void { Stop_Transmit(InServer); })));
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InClient) -> void
+            { Stop_Transmit(InClient); })));
+    }
+    else
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InServer) -> void
+            { Stop_Transmit(InServer); })));
+    }
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleTicks));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
@@ -305,14 +367,31 @@ bool FCkVoiceChatNet_ListenerMuteStopsForwarding::RunTest(const FString& Paramet
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, DedicatedServer](UWorld* InServer) -> void
         {
-            Transmit_Spurt(this, InServer);
+            if (NOT DedicatedServer)
+            { Transmit_Spurt(this, InServer); }
         })));
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InClient) -> void
+            { Transmit_Spurt(this, InClient); })));
+    }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SpurtTicks));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InServer) -> void { Stop_Transmit(InServer); })));
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InClient) -> void
+            { Stop_Transmit(InClient); })));
+    }
+    else
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([](UWorld* InServer) -> void
+            { Stop_Transmit(InServer); })));
+    }
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleTicks));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,

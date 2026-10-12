@@ -259,7 +259,7 @@ bool FCkVoiceChatNet_HostHearsClient::RunTest(const FString& Parameters)
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatNet_ClientToClient,
     "Ck.VoiceChat.Net.ClientToClient",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -274,12 +274,18 @@ bool FCkVoiceChatNet_ClientToClient::RunTest(const FString& Parameters)
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FAsymmetrySpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(3, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(3, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 30.0f));
 
-    // A client's LOCAL PlayerState arrives with the initial replication after login - it is not
-    // guaranteed to exist the moment PIE-ready fires.
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
+        {
+            auto* Server = ck::auto_test::net::Get_ServerWorld();
+            if (Server == nullptr) { return false; }
+            auto* Client0 = ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 0);
+            auto* Client1 = ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 1);
+            return Client0 != nullptr && Client1 != nullptr && Client0 != Client1;
+        }), 30.0, TEXT("both remote controllers have distinct replicated client identities")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InClient) -> void
