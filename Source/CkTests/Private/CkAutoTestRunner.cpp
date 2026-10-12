@@ -842,6 +842,9 @@ auto
         // BEFORE Destroy_RunnerEntity, deliberately: the ownership walk excludes the runner's subtree
         // either way, but reading the graph while it is whole keeps the answer independent of how far
         // a deferred cascade happens to have got.
+        // The harness field has a separate world-owned root. Retire that known fixture first so the
+        // existing pending-destroy filter still distinguishes genuine untracked test roots.
+        Release_OriginField();
         const auto Leaked = Get_EntityLeaks();
 
         if (NOT Leaked.IsEmpty())

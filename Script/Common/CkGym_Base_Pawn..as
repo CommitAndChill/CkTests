@@ -82,6 +82,21 @@ class ACk_Gym_Base_Pawn : ADefaultPawn
     // (call it from your Tick); a pawn replacing movement wholesale simply doesn't.
     void Tick_StandardMovement()
     {
+        auto PC = Cast<APlayerController>(GetController());
+        if (ck::Is_NOT_Valid(PC) || PC.IsLocalController() == false)
+        {
+            if (ck::IsValid(_LayerOwner))
+            { utils_entity_lifetime::Request_DestroyEntity(_LayerOwner); }
+            _LayerOwner = FCk_Handle();
+            _MoveLayer = FCk_Handle_InputLayer();
+            _HeldForward = false;
+            _HeldBack = false;
+            _HeldRight = false;
+            _HeldLeft = false;
+            _HeldUp = false;
+            _HeldDown = false;
+            return;
+        }
         DoEnsureMoveLayer();
         DoApplyMovement();
     }
@@ -98,7 +113,7 @@ class ACk_Gym_Base_Pawn : ADefaultPawn
         { return; }
 
         auto PC = Cast<APlayerController>(GetController());
-        if (ck::Is_NOT_Valid(PC))
+        if (ck::Is_NOT_Valid(PC) || PC.IsLocalController() == false)
         { return; }
 
         auto SourceSubsystem = UCk_InputSource_Subsystem::Get(PC);
@@ -152,6 +167,10 @@ class ACk_Gym_Base_Pawn : ADefaultPawn
     UFUNCTION()
     private void OnMoveCaptured(FCk_Handle_InputLayer InLayer, FCk_InputSource_RawEvent InEvent, FCk_InputLayer_Capture InCapture)
     {
+        auto PC = Cast<APlayerController>(GetController());
+        if (ck::Is_NOT_Valid(PC) || PC.IsLocalController() == false ||
+            ck::Is_NOT_Valid(_MoveLayer) || InLayer != _MoveLayer)
+        { return; }
         auto Key = InEvent.Get_Key();
 
         if (InEvent.Get_EventType() == ECk_InputSource_EventType::AnalogAxis)

@@ -14,10 +14,9 @@
 // which no automated test would catch. This test exercises exactly that link
 // from a real world.
 //
-// The synthetic entry stays in this GameInstance's registry for the session
-// (there is deliberately no unregister - the real registry never removes).
-// That is harmless here: no menu opens in the AutoTests world, nothing else
-// reads the registry, and the dedupe keeps re-runs idempotent.
+// The server round-trips a synthetic entry through its own GameInstance.
+// This ordinary AutoTests map does not publish a gym catalog to clients, so
+// client reads must stay closed and must not register a hidden local entry.
 //============================================================================
 
 class UCk_AutoTest_GymRegistry_FacadeRegisterRoundTrip : UCk_AutoTest_Base
@@ -28,6 +27,25 @@ class UCk_AutoTest_GymRegistry_FacadeRegisterRoundTrip : UCk_AutoTest_Base
     void DoBeginPlay(FCk_Handle InHandle)
     {
         auto ProbeName = "ZZZ AutoTest Registry Probe";
+        auto World = GetWorld();
+        Assert_True(ck::IsValid(World), "the registry probe runs in a real world");
+        if (ck::Is_NOT_Valid(World))
+        { FinishSuccess(); return; }
+
+        if (World.GetNetMode() == ENetMode::NM_Client)
+        {
+            auto State = Cast<ACkGym_GameState_UE>(World.GetGameState());
+            Assert_True(ck::Is_NOT_Valid(State) || !State.Get_HasPublishedCatalog(),
+                "the ordinary AutoTests client world has no accepted published gym catalog");
+            Assert_True(CkGym_Cycler::Get_GymRegistry().Num() == 0,
+                "an unpublished client cannot read a private local registry");
+            Assert_True(CkGym_Cycler::Find_GymIndexByName(ProbeName) == -1,
+                "an unpublished client cannot resolve a gym name");
+            Assert_True(UCk_Utils_GymRegistry_UE::Get_SuppressHUDDuringStartup(),
+                "the gym HUD stays suppressed until the catalog is accepted");
+            FinishSuccess();
+            return;
+        }
 
         auto CountBefore = CountEntriesNamed(ProbeName);
 

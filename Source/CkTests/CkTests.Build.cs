@@ -59,7 +59,7 @@ public class CkTests : CkModuleRules
             "NavigationSystem",
             "Projects",
             "GameplayTags",
-            "StructUtils", // Production Cue request payloads.
+            "StructUtils", // Empty production messenger broadcast payload.
             "FunctionalTesting",
             "Gauntlet",
             "EnhancedInput",
@@ -133,6 +133,7 @@ public class CkTests : CkModuleRules
             "CkParticles",
             "CkPathNetwork",
             "CkMinimap",
+            "CkMessaging", // Integer fixture exercises the production messenger lookup.
             "CkPerception",
             "CkPixelArtRenderer",
             "CkPmg",
@@ -206,6 +207,8 @@ public class CkTests : CkModuleRules
                 "CkAggroDebugger",
                 // The AI roster PIE fixture mounts the real authored roster over public Crowd-agent state.
                 "CkAiDebugger",
+                // Real remote Crowd ViewModel fixture; diagnostic consumer stays editor-only.
+                "CkCrowdDebugger",
                 // The GOAP Squad PIE fixture mounts the production authored table over a real planner roster.
                 "CkGoapDebugger",
                 // Procedural debugger tests mount the real window over the shared crawler gym fixture.

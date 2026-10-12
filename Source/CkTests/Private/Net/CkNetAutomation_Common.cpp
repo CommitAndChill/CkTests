@@ -7,10 +7,14 @@
 #include "Engine/Engine.h"
 #include "Engine/NetConnection.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "FileHelpers.h"
 #include "GameFramework/PlayerController.h"
-#include "GameFramework/WorldSettings.h"
+#include "GameFramework/Pawn.h"
+#include "Engine/GameInstance.h"
+#include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerState.h" // PlayerState identity (UniqueId/PlayerId) — remote-client<->world correlation
+#include "GameFramework/WorldSettings.h"
 #include "PlayInEditorDataTypes.h"
 #include "Settings/LevelEditorPlaySettings.h"
 #include "UnrealEdGlobals.h"
@@ -20,13 +24,17 @@
 
 #include "CkEcs/EntityScript/CkEntityScript_Fragment_Data.h"
 #include "CkEcs/EntityScript/CkEntityScript_Utils.h"
+#include "CkEcs/EntityScript/CkEntityScript.h"
+#include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 
 #include "CkAutoTest_Bridge.h"
 #include "CkAutoTest_Utils.h"
 #include "CkTests/Net/CkAutoTest_NetSubject_Utils.h"
+#include "CkTests/Net/CkAutoTest_NetSubject.h"
 
 #include "UObject/SoftObjectPath.h"
+#include "UObject/UnrealType.h"
 #include <StructUtils/InstancedStruct.h>
 
 DEFINE_LOG_CATEGORY_STATIC(LogCkNetAutomation, Log, All);
@@ -61,16 +69,18 @@ namespace ck_net_automation_common
 {
     bool GSessionFailed = false;
     bool GOwnsSession = false;
+    bool GLateJoinPending = false;
     bool GRequireExactTopology = false;
     ENetMode GExpectedServerMode = NM_ListenServer;
     int32 GExpectedTotalWorlds = 0;
 
-    auto FailSession(const FString& Message) -> void
+    auto FailSession(const FString& InMessage) -> void
     {
         GSessionFailed = true;
         if (auto* Test = FAutomationTestFramework::Get().GetCurrentTest())
-        { Test->AddError(Message); }
-        else { Log_Error(TEXT("{}"), Message); }
+        { Test->AddError(InMessage); }
+        else
+        { Log_Error(TEXT("{}"), InMessage); }
     }
 
     // ULevelEditorPlaySettings is a config-backed CDO that UEditorEngine::EndPlayMap writes straight to
@@ -98,6 +108,7 @@ namespace ck_net_automation_common
         Restore_PlaySettings()
         -> void
     {
+        GLateJoinPending = false;
         if (GHasGameModeOverride)
         {
             if (auto* WorldSettings = GGameMode_WorldSettings.Get(); ck::IsValid(WorldSettings))
@@ -138,6 +149,7 @@ namespace ck_net_automation_common
             const bool /*InIsSimulating*/)
         -> void
     {
+        GLateJoinPending = false;
         Restore_PlaySettings();
     }
 
@@ -178,10 +190,14 @@ namespace ck_net_automation_common
 namespace ck::auto_test::net
 {
     auto Get_HasSessionFailed() -> bool
-    { return ck_net_automation_common::GSessionFailed; }
+    {
+        return ck_net_automation_common::GSessionFailed;
+    }
 
     auto FailSession(const FString& InMessage) -> void
-    { ck_net_automation_common::FailSession(InMessage); }
+    {
+        ck_net_automation_common::FailSession(InMessage);
+    }
 
     auto Get_TopologyTestCases(TArray<FString>& OutNames, TArray<FString>& OutCommands) -> void
     {
@@ -416,20 +432,35 @@ bool
 {
     using namespace ck_net_automation_common;
     GSessionFailed = false;
-    bool DedicatedServer = false;
-    if (!ck::auto_test::net::TryGet_DedicatedServer(_Topology, DedicatedServer))
-    { FailSession(ck::Format_UE(TEXT("Unsupported network topology [{}]"), _Topology)); return true; }
+    auto DedicatedServer = false;
+    if (NOT ck::auto_test::net::TryGet_DedicatedServer(_Topology, DedicatedServer))
+    {
+        FailSession(ck::Format_UE(TEXT("Unsupported network topology [{}]"), _Topology));
+        return true;
+    }
     if (_NumClients < 1 || _NumClients > 64 || (DedicatedServer && _NumClients < 2))
-    { FailSession(TEXT("Network test requires 1..64 total worlds; ClientServer requires at least 2")); return true; }
+    {
+        FailSession(TEXT("Network test requires 1..64 total worlds, and ClientServer requires at least 2"));
+        return true;
+    }
     if (GUnrealEd == nullptr)
-    { FailSession(TEXT("Cannot start network test without GUnrealEd")); return true; }
+    {
+        FailSession(TEXT("Cannot start a network test without GUnrealEd"));
+        return true;
+    }
     if (GOwnsSession || GUnrealEd->IsPlaySessionInProgress() ||
         GUnrealEd->IsPlaySessionRequestQueued() ||
-        !ck::auto_test::net::Get_AllPIEWorlds().IsEmpty())
-    { FailSession(TEXT("Cannot start network test while PIE is active")); return true; }
+        NOT ck::auto_test::net::Get_AllPIEWorlds().IsEmpty())
+    {
+        FailSession(TEXT("Cannot start a network test while a PIE session is already active"));
+        return true;
+    }
     auto* Settings = GetMutableDefault<ULevelEditorPlaySettings>();
     if (Settings == nullptr)
-    { FailSession(TEXT("Cannot resolve editor play settings")); return true; }
+    {
+        FailSession(TEXT("Cannot resolve editor play settings for the network test"));
+        return true;
+    }
     if (_GameModeClass.Get() != nullptr)
     {
         const auto ClassIsValid = ck::IsValid(_GameModeClass.Get()) &&
@@ -440,8 +471,12 @@ bool
             return true;
         }
     }
-    if (!_MapPath.IsEmpty() && !FEditorFileUtils::LoadMap(_MapPath, false, false))
-    { FailSession(ck::Format_UE(TEXT("Failed to load network test map [{}]"), _MapPath)); return true; }
+    if (NOT _MapPath.IsEmpty() && NOT FEditorFileUtils::LoadMap(_MapPath, false, false))
+    {
+        FailSession(ck::Format_UE(TEXT("Network test failed to load map [{}]"), _MapPath));
+        return true;
+    }
+
     auto* EditorWorldSettings = static_cast<AWorldSettings*>(nullptr);
     if (_GameModeClass.Get() != nullptr)
     {
@@ -458,7 +493,8 @@ bool
             return true;
         }
     }
-    GRequireExactTopology = !_Topology.IsEmpty();
+
+    GRequireExactTopology = NOT _Topology.IsEmpty();
     GExpectedServerMode = DedicatedServer ? NM_DedicatedServer : NM_ListenServer;
     GExpectedTotalWorlds = _NumClients;
     Override_PlaySettings(Settings, _NumClients, DedicatedServer);
@@ -469,11 +505,192 @@ bool
         GHasGameModeOverride = true;
         EditorWorldSettings->DefaultGameMode = _GameModeClass.Get();
     }
-    FRequestPlaySessionParams Params{};
+
+    auto Params = FRequestPlaySessionParams{};
     Params.WorldType = EPlaySessionWorldType::PlayInEditor;
+    Log_Display(TEXT("Starting [{}] with [{}] total PIE worlds on [{}]"),
+        DedicatedServer ? TEXT("ClientServer") : TEXT("ListenServer"), _NumClients, _MapPath);
     GOwnsSession = true;
     GUnrealEd->RequestPlaySession(Params);
     return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+bool FCk_Latent_RequestLateJoin::Update()
+{
+    using namespace ck_net_automation_common;
+    using namespace ck::auto_test::net;
+    const auto Fail = [](const TCHAR* Message) -> bool
+    { ck::auto_test::net::FailSession(Message); return true; };
+    if (GSessionFailed)
+    { return true; }
+    if (!FMath::IsFinite(_TimeoutSeconds) || _TimeoutSeconds <= 0.0)
+    { return Fail(TEXT("Late join requires a finite positive timeout")); }
+    if (!IsValid(GUnrealEd) || !IsValid(GEngine) || !GOwnsSession || !GRequireExactTopology ||
+        !GPlaySettings_Snapshot.IsSet() || !GPlaySettings_RestoreHandle.IsValid() ||
+        !GUnrealEd->IsPlayingSessionInEditor() || GUnrealEd->IsSimulatingInEditor() ||
+        GUnrealEd->IsPlaySessionRequestQueued())
+    { return Fail(TEXT("Late join requires the harness-owned active exact PIE session")); }
+    const auto Worlds = Get_AllPIEWorlds();
+    auto* Server = Get_ServerWorld();
+    if (!IsValid(Server) || Server->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+        Server->GetNetMode() != GExpectedServerMode)
+    { return Fail(TEXT("Late join lost the admitted server topology")); }
+    const auto PIEInstance = [](UWorld* World) -> int32
+    {
+        for (const auto& Context : GEngine->GetWorldContexts())
+        {
+            if (Context.WorldType == EWorldType::PIE && Context.World() == World)
+            { return Context.PIEInstance; }
+        }
+        return INDEX_NONE;
+    };
+    const auto PlayerReady = [](APlayerController* PC, UWorld* World) -> bool
+    {
+        if (!IsValid(PC) || PC->IsActorBeingDestroyed() || PC->GetWorld() != World || !PC->HasActorBegunPlay())
+        { return false; }
+        APawn* Pawn = PC->GetPawn();
+        auto* PS = PC->PlayerState.Get();
+        return IsValid(Pawn) && !Pawn->IsActorBeingDestroyed() && Pawn->GetWorld() == World &&
+            Pawn->HasActorBegunPlay() && Pawn->GetController() == PC &&
+            IsValid(PS) && !PS->IsActorBeingDestroyed() && PS->GetWorld() == World && PS->HasActorBegunPlay() &&
+            Pawn->GetPlayerState() == PS;
+    };
+    if (!_Requested)
+    {
+        if (GLateJoinPending || GExpectedTotalWorlds < 2 || GExpectedTotalWorlds >= 64 ||
+            Worlds.Num() != GExpectedTotalWorlds || Get_NumClientWorlds() != GExpectedTotalWorlds - 1)
+        { return Fail(TEXT("Late join admission requires the exact original world count and no pending join")); }
+        TArray<FWorldIdentity> Candidate;
+        TArray<TWeakObjectPtr<APlayerController>> Remote;
+        int32 LastInstance = INDEX_NONE;
+        for (int32 I = 0; I < Worlds.Num(); ++I)
+        {
+            auto* World = Worlds[I];
+            if (!IsValid(World) || World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+                !World->HasBegunPlay() || (I > 0 && World->GetNetMode() != NM_Client))
+            { return Fail(TEXT("Late join admission found an invalid original world")); }
+            FWorldIdentity Identity;
+            Identity.World = World; Identity.Mode = World->GetNetMode(); Identity.PIEInstance = PIEInstance(World);
+            if (Identity.PIEInstance < 0)
+            { return Fail(TEXT("Late join admission has no original PIE instance identity")); }
+            LastInstance = FMath::Max(LastInstance, Identity.PIEInstance);
+            for (auto It = World->GetPlayerControllerIterator(); It; ++It)
+            {
+                auto* PC = It->Get();
+                if (!PlayerReady(PC, World))
+                { return Fail(TEXT("Late join admission requires ready original controllers, pawns and PlayerStates")); }
+                Identity.Players.Add({PC, PC->GetPawn(), PC->PlayerState.Get()});
+            }
+            const auto ExpectedPlayers = I == 0 ? Worlds.Num() - (GExpectedServerMode == NM_DedicatedServer ? 1 : 0) : 1;
+            if (Identity.Players.Num() != ExpectedPlayers)
+            { return Fail(TEXT("Late join admission found an unexpected original player census")); }
+            if (I > 0)
+            {
+                auto* PC = World->GetFirstPlayerController();
+                auto* GI = World->GetGameInstance();
+                auto* LP = IsValid(PC) ? PC->GetLocalPlayer() : nullptr;
+                if (!IsValid(PC) || !PC->IsLocalController() || !IsValid(GI) || GI->GetWorld() != World ||
+                    GI->GetLocalPlayers().Num() != 1 || !IsValid(LP) || GI->GetLocalPlayers()[0] != LP ||
+                    LP->GetPlayerController(World) != PC)
+                { return Fail(TEXT("Late join admission requires exact original local player ownership")); }
+            }
+            Candidate.Add(MoveTemp(Identity));
+            if (I > 0)
+            {
+                auto* PC = TryGet_RemoteClientPlayerController(Server, I - 1);
+                if (!PlayerReady(PC, Server) || Remote.Contains(PC))
+                { return Fail(TEXT("Late join admission requires uniquely correlated original remote players")); }
+                Remote.Add(PC);
+            }
+        }
+        auto* Mode = Server->GetAuthGameMode();
+        if (!IsValid(Mode))
+        { return Fail(TEXT("Late join admission requires the original authority GameMode")); }
+        _Worlds = MoveTemp(Candidate); _RemoteControllers = MoveTemp(Remote);
+        _OldCount = Worlds.Num(); _LastPIEInstance = LastInstance;
+        _Editor = GUnrealEd; _GameMode = Mode; _StartTime = FPlatformTime::Seconds();
+        // All admission prerequisites passed. Publish exactly one extra expected client before
+        // requesting the engine's deferred production creation. No settings or controllers are forged.
+        GExpectedTotalWorlds = _OldCount + 1;
+        GLateJoinPending = true; _Requested = true;
+        GUnrealEd->RequestLateJoin();
+        return false;
+    }
+    if (!GLateJoinPending || _Editor.Get() != GUnrealEd || GExpectedTotalWorlds != _OldCount + 1 ||
+        _Worlds.Num() != _OldCount || _Worlds[0].World.Get() != Server ||
+        !_GameMode.IsValid() || Server->GetAuthGameMode() != _GameMode.Get())
+    { return Fail(TEXT("Late join lost its captured session or authority identity")); }
+    if (Worlds.Num() < _OldCount || Worlds.Num() > _OldCount + 1)
+    { return Fail(TEXT("Late join observed an unexpected world census")); }
+    for (int32 I = 0; I < _Worlds.Num(); ++I)
+    {
+        const auto& Original = _Worlds[I];
+        auto* World = Original.World.Get();
+        if (!IsValid(World) || World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) || !World->HasBegunPlay() ||
+            Worlds[I] != World || World->GetNetMode() != Original.Mode || PIEInstance(World) != Original.PIEInstance)
+        { return Fail(TEXT("Late join replaced or reordered an original world")); }
+        int32 Count = 0;
+        for (auto It = World->GetPlayerControllerIterator(); It; ++It)
+        { ++Count; }
+        if ((I > 0 && Count != Original.Players.Num()) ||
+            (I == 0 && (Count < Original.Players.Num() || Count > Original.Players.Num() + 1)))
+        { return Fail(TEXT("Late join changed an original controller cohort")); }
+        for (const auto& Player : Original.Players)
+        {
+            auto* PC = Player.Controller.Get();
+            if (!PlayerReady(PC, World) || !Player.Pawn.IsValid() || !Player.PlayerState.IsValid() ||
+                PC->GetPawn() != Player.Pawn.Get() || PC->PlayerState.Get() != Player.PlayerState.Get())
+            { return Fail(TEXT("Late join replaced an original controller, pawn or PlayerState")); }
+        }
+        if (I > 0)
+        {
+            auto* PC = World->GetFirstPlayerController();
+            auto* GI = World->GetGameInstance();
+            auto* LP = IsValid(PC) ? PC->GetLocalPlayer() : nullptr;
+            if (!IsValid(PC) || !PC->IsLocalController() || !IsValid(GI) || GI->GetWorld() != World ||
+                GI->GetLocalPlayers().Num() != 1 || !IsValid(LP) || GI->GetLocalPlayers()[0] != LP ||
+                LP->GetPlayerController(World) != PC)
+            { return Fail(TEXT("Late join lost original local player ownership")); }
+        }
+    }
+    bool Ready = Worlds.Num() == _OldCount + 1 && Get_NumClientWorlds() == _OldCount;
+    if (Ready)
+    {
+        auto* Added = Worlds.Last();
+        if (!IsValid(Added) || Added->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+            PIEInstance(Added) <= _LastPIEInstance || (Added->HasBegunPlay() && Added->GetNetMode() != NM_Client))
+        { return Fail(TEXT("Late join did not add exactly one later PIE client")); }
+        auto* PC = Added->GetFirstPlayerController();
+        auto* GI = Added->GetGameInstance();
+        auto* LP = IsValid(PC) ? PC->GetLocalPlayer() : nullptr;
+        int32 AddedPCs = 0;
+        for (auto It = Added->GetPlayerControllerIterator(); It; ++It)
+        { ++AddedPCs; }
+        if (AddedPCs > 1)
+        { return Fail(TEXT("Late join added an unexpected local player cohort")); }
+        Ready = Added->HasBegunPlay() && Added->GetNetMode() == NM_Client && AddedPCs == 1 &&
+            PlayerReady(PC, Added) && PC->IsLocalController() &&
+            IsValid(GI) && GI->GetWorld() == Added && GI->GetLocalPlayers().Num() == 1 &&
+            IsValid(LP) && GI->GetLocalPlayers()[0] == LP && LP->GetPlayerController(Added) == PC;
+        TArray<APlayerController*> Correlated;
+        for (int32 I = 0; Ready && I < _OldCount; ++I)
+        {
+            auto* Remote = TryGet_RemoteClientPlayerController(Server, I);
+            Ready = PlayerReady(Remote, Server) && Remote->GetNetConnection() != nullptr &&
+                !Remote->IsLocalController() && !Correlated.Contains(Remote);
+            if (Ready && I < _RemoteControllers.Num() && _RemoteControllers[I].Get() != Remote)
+            { return Fail(TEXT("Late join changed an original remote player correlation")); }
+            if (Ready)
+            { Correlated.Add(Remote); }
+        }
+    }
+    if (Ready)
+    { GLateJoinPending = false; return true; }
+    if (FPlatformTime::Seconds() - _StartTime > _TimeoutSeconds)
+    { return Fail(TEXT("Late join timed out waiting for normal client possession and unique server correlation")); }
+    return false;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -552,6 +769,8 @@ bool
     FCk_Latent_WaitForCondition::
     Update()
 {
+    if (ck_net_automation_common::GLateJoinPending && !ck_net_automation_common::GSessionFailed)
+    { return false; }
     if (ck_net_automation_common::GSessionFailed)
     { return true; }
 
@@ -600,6 +819,8 @@ bool
     FCk_Latent_RunOnServer::
     Update()
 {
+    if (ck_net_automation_common::GLateJoinPending && !ck_net_automation_common::GSessionFailed)
+    { return false; }
     if (ck_net_automation_common::GSessionFailed)
     { return true; }
 
@@ -623,6 +844,8 @@ bool
     FCk_Latent_RunOnClient::
     Update()
 {
+    if (ck_net_automation_common::GLateJoinPending && !ck_net_automation_common::GSessionFailed)
+    { return false; }
     if (ck_net_automation_common::GSessionFailed)
     { return true; }
 
@@ -648,6 +871,8 @@ bool
 {
     if (ck_net_automation_common::GSessionFailed && NOT _RunAfterSessionFailure)
     { return true; }
+    if (ck_net_automation_common::GLateJoinPending && !ck_net_automation_common::GSessionFailed)
+    { return false; }
     if (_Test == nullptr)
     { return true; }
 
@@ -670,6 +895,8 @@ bool
     FCk_Latent_WaitUntil::
     Update()
 {
+    if (ck_net_automation_common::GLateJoinPending && !ck_net_automation_common::GSessionFailed)
+    { return false; }
     if (ck_net_automation_common::GSessionFailed)
     { return true; }
 
@@ -757,9 +984,31 @@ bool
     FCk_Latent_RunAsTestOnAllWorlds::
     Update()
 {
-    if (ck_net_automation_common::GSessionFailed) { return true; }
+    const auto Cleanup = [this]() -> void
+    {
+        for (auto& Body : _SpawnedBodies)
+        {
+            if (ck::IsValid(Body))
+            { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Body); }
+        }
+        _SpawnedBodies.Reset();
+        _BodyCapturers.Reset();
+        _Worlds.Reset();
+    };
+    const auto Fail = [&Cleanup](const FString& InMessage) -> bool
+    {
+        ck_net_automation_common::FailSession(InMessage);
+        Cleanup();
+        return true;
+    };
+
+    if (ck_net_automation_common::GSessionFailed)
+    { Cleanup(); return true; }
     if (_Test == nullptr)
-    { return true; }
+    { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: test context was lost.")); }
+
+    if (ck_net_automation_common::GLateJoinPending)
+    { return false; }
 
     // ---- Phase 1: spawn (first call only) -----------------------------------------------------------------------
 
@@ -770,77 +1019,237 @@ bool
 
         const auto AsClassPath = FSoftClassPath{_ClassPath};
         auto* AsClass = AsClassPath.TryLoadClass<UCk_EntityScript_UE>();
-        if (AsClass == nullptr)
+        if (NOT ck::IsValid(AsClass) ||
+            AsClass->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists))
         {
-            _Test->AddError(ck::Format_UE(
-                TEXT("FCk_Latent_RunAsTestOnAllWorlds: could not load AS class at [{}] — check the path string."),
+            return Fail(ck::Format_UE(
+                TEXT("FCk_Latent_RunAsTestOnAllWorlds: missing, stale, or non-instantiable AS class at [{}]."),
                 _ClassPath));
-            return true;
+        }
+        const auto TestBasePath = FSoftClassPath{TEXT("/Script/Angelscript.Ck_AutoTest_Base")};
+        auto* TestBase = TestBasePath.TryLoadClass<UCk_EntityScript_UE>();
+        if (NOT ck::IsValid(TestBase) || AsClass == TestBase || NOT AsClass->IsChildOf(TestBase))
+        {
+            return Fail(ck::Format_UE(
+                TEXT("FCk_Latent_RunAsTestOnAllWorlds: class [{}] must derive from UCk_AutoTest_Base."),
+                _ClassPath));
+        }
+        auto* AsCdo = AsClass->GetDefaultObject<UCk_EntityScript_UE>();
+        if (NOT ck::IsValid(AsCdo))
+        {
+            return Fail(ck::Format_UE(
+                TEXT("FCk_Latent_RunAsTestOnAllWorlds: AS class [{}] has no valid default object."),
+                _ClassPath));
+        }
+        if (AsCdo->Get_EffectiveReplication() != ECk_Replication::DoesNotReplicate)
+        {
+            return Fail(ck::Format_UE(
+                TEXT("FCk_Latent_RunAsTestOnAllWorlds: per-world AS test body [{}] must not replicate."),
+                _ClassPath));
         }
 
         const auto PieWorlds = ck::auto_test::net::Get_AllPIEWorlds();
         if (PieWorlds.IsEmpty())
+        { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: no PIE worlds available — PIE not started?")); }
+
+        if (NOT ck_net_automation_common::GOwnsSession ||
+            NOT ck_net_automation_common::GRequireExactTopology ||
+            ck_net_automation_common::GExpectedTotalWorlds < 2 ||
+            PieWorlds.Num() != ck_net_automation_common::GExpectedTotalWorlds ||
+            ck::auto_test::net::Get_NumClientWorlds() != ck_net_automation_common::GExpectedTotalWorlds - 1)
+        { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: exact active PIE session census is unavailable.")); }
+        auto* Server = ck::auto_test::net::Get_ServerWorld();
+        if (NOT IsValid(Server) || PieWorlds[0] != Server ||
+            (ck_net_automation_common::GExpectedServerMode != NM_ListenServer &&
+             ck_net_automation_common::GExpectedServerMode != NM_DedicatedServer) ||
+            Server->GetNetMode() != ck_net_automation_common::GExpectedServerMode)
+        { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: exact authority world or mode is invalid.")); }
+        auto SeenWorlds = TSet<UWorld*>{};
+        for (auto Index = 0; Index < PieWorlds.Num(); ++Index)
         {
-            _Test->AddError(TEXT("FCk_Latent_RunAsTestOnAllWorlds: no PIE worlds available — PIE not started?"));
-            return true;
+            auto* World = PieWorlds[Index];
+            if (NOT IsValid(World) || World->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
+                NOT World->HasBegunPlay() || SeenWorlds.Contains(World) ||
+                (Index == 0 ? World != Server : World->GetNetMode() != NM_Client))
+            { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: exact PIE world role, lifetime or identity is invalid.")); }
+            SeenWorlds.Add(World);
         }
 
-        _BodyCapturer = TStrongObjectPtr{NewObject<UCk_AutoTest_BodyCapturer_UE>()};
-        _ExpectedBodyCount = PieWorlds.Num();
-
-        for (auto* World : PieWorlds)
+        // Preflight every owner before requesting the first body. A missing later world must not
+        // leave an earlier world's test running as a successful subset.
+        auto Owners = TArray<FCk_Handle>{};
+        Owners.Reserve(PieWorlds.Num());
+        for (auto Index = 0; Index < PieWorlds.Num(); ++Index)
         {
-            auto TransientEntity = UCk_Utils_EcsWorld_Subsystem_UE::Get_TransientEntity(World);
-            if (ck::Is_NOT_Valid(TransientEntity))
+            auto* World = PieWorlds[Index];
+            if (NOT IsValid(World))
             {
-                _Test->AddError(ck::Format_UE(
-                    TEXT("FCk_Latent_RunAsTestOnAllWorlds: world [{}] has no valid TransientEntity."),
-                    World->GetName()));
-                continue;
+                return Fail(ck::Format_UE(
+                    TEXT("FCk_Latent_RunAsTestOnAllWorlds: PIE world [{}] is missing or stale."), Index));
             }
 
-            auto Pending = UCk_Utils_EntityScript_UE::Request_SpawnEntity(
-                TransientEntity, AsClass, FInstancedStruct{}, {});
-
-            auto OnConstructed = FCk_Delegate_EntityScript_Constructed{};
-            OnConstructed.BindDynamic(_BodyCapturer.Get(), &UCk_AutoTest_BodyCapturer_UE::OnBodyConstructed);
-            UCk_Utils_PendingEntityScript_UE::Promise_OnConstructed(Pending, OnConstructed);
+            auto Owner = UCk_Utils_EcsWorld_Subsystem_UE::TryGet_TransientEntityForWorld(*World);
+            if (NOT ck::IsValid(Owner) || NOT UCk_Utils_EntityLifetime_UE::Get_CanCreateEntity(Owner))
+            {
+                return Fail(ck::Format_UE(
+                    TEXT("FCk_Latent_RunAsTestOnAllWorlds: world [{}] has no admissible TransientEntity."),
+                    World->GetName()));
+            }
+            Owners.Add(Owner);
         }
 
-        return false; // wait for construction + result-fragment writes
-    }
+        const auto* ModeEnum = StaticEnum<ECk_AutoTest_NetMode>();
+        const auto* ModeProperty = AsClass->FindPropertyByName(TEXT("_NetMode"));
+        if (ModeEnum == nullptr || ModeProperty == nullptr)
+        { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: body network mode schema is missing.")); }
+        uint8 RawMode = 255;
+        if (const auto* ByteProperty = CastField<FByteProperty>(ModeProperty))
+        {
+            if (ByteProperty->Enum != ModeEnum)
+            { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: body network mode has the wrong enum.")); }
+            RawMode = ByteProperty->GetPropertyValue_InContainer(AsCdo);
+        }
+        else if (const auto* EnumProperty = CastField<FEnumProperty>(ModeProperty))
+        {
+            const auto* Underlying = CastField<FByteProperty>(EnumProperty->GetUnderlyingProperty());
+            if (EnumProperty->GetEnum() != ModeEnum || Underlying == nullptr)
+            { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: body network mode enum schema is invalid.")); }
+            RawMode = Underlying->GetPropertyValue_InContainer(
+                EnumProperty->ContainerPtrToValuePtr<void>(AsCdo));
+        }
+        else
+        { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: body network mode property is not a byte enum.")); }
+        if (RawMode > static_cast<uint8>(ECk_AutoTest_NetMode::Replicated))
+        { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: body network mode value is unknown.")); }
+        const auto ActualMode = static_cast<ECk_AutoTest_NetMode>(RawMode);
+        if (_RequireNoNetSubject != (ActualMode == ECk_AutoTest_NetMode::ServerAndClientsIndependent))
+        { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: stub no-subject policy disagrees with actual body mode.")); }
 
-    // ---- Phase 2: poll each captured body's result fragment ------------------------------------------------------
+        if (_RequireNoNetSubject)
+        {
+            for (auto Index = 0; Index < PieWorlds.Num(); ++Index)
+            {
+                for (TActorIterator<ACk_AutoTest_NetSubject> It(PieWorlds[Index]); It; ++It)
+                {
+                    return Fail(ck::Format_UE(
+                        TEXT("FCk_Latent_RunAsTestOnAllWorlds: independent world [{}] has a NetSubject before body admission."),
+                        PieWorlds[Index]->GetName()));
+                }
+            }
+            auto WorldNames = FString{};
+            for (auto* World : PieWorlds)
+            {
+                if (NOT WorldNames.IsEmpty())
+                { WorldNames += TEXT(", "); }
+                WorldNames += World->GetName();
+            }
+            Log_Display(TEXT("FCk_Latent_RunAsTestOnAllWorlds: Independent mode preflight passed; [{}] exact PIE worlds [{}] have zero NetSubject actors before body admission."), PieWorlds.Num(), WorldNames);
+        }
+
+        _ExpectedBodyCount = PieWorlds.Num();
+        _Worlds.Reserve(_ExpectedBodyCount);
+        _BodyCapturers.Reserve(_ExpectedBodyCount);
+        _SpawnedBodies.Reserve(_ExpectedBodyCount);
+        for (auto Index = 0; Index < _ExpectedBodyCount; ++Index)
+        {
+            _Worlds.Add(TWeakObjectPtr<UWorld>{PieWorlds[Index]});
+            auto Capturer = TStrongObjectPtr<UCk_AutoTest_BodyCapturer_UE>{NewObject<UCk_AutoTest_BodyCapturer_UE>()};
+            if (NOT Capturer.IsValid())
+            { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: could not create body capturer.")); }
+
+            _BodyCapturers.Add(MoveTemp(Capturer));
+        }
+
+        for (auto Index = 0; Index < _ExpectedBodyCount; ++Index)
+        {
+            auto Pending = UCk_Utils_EntityScript_UE::Request_SpawnEntity(
+                Owners[Index], AsClass, FInstancedStruct{}, {});
+            if (NOT UCk_Utils_PendingEntityScript_UE::Get_IsValid(Pending))
+            {
+                return Fail(ck::Format_UE(
+                    TEXT("FCk_Latent_RunAsTestOnAllWorlds: spawn request rejected for world [{}]."),
+                    PieWorlds[Index]->GetName()));
+            }
+            _SpawnedBodies.Add(Pending.Get_EntityUnderConstruction());
+
+            auto OnConstructed = FCk_Delegate_EntityScript_Constructed{};
+            OnConstructed.BindDynamic(_BodyCapturers[Index].Get(), &UCk_AutoTest_BodyCapturer_UE::OnBodyConstructed);
+            UCk_Utils_PendingEntityScript_UE::Promise_OnConstructed(Pending, OnConstructed);
+        }
+        return false;
+    }
 
     const auto Elapsed = FPlatformTime::Seconds() - _StartTime;
     if (Elapsed > _TimeoutSeconds)
     {
-        _Test->AddError(ck::Format_UE(
+        auto CapturedCount = 0;
+        for (const auto& Capturer : _BodyCapturers)
+        { CapturedCount += Capturer.IsValid() ? Capturer->_CapturedBodies.Num() : 0; }
+        return Fail(ck::Format_UE(
             TEXT("FCk_Latent_RunAsTestOnAllWorlds: timed out after [{}]s. Captured [{}/{}] bodies."),
-            _TimeoutSeconds,
-            _BodyCapturer.IsValid() ? _BodyCapturer->_CapturedBodies.Num() : 0,
-            _ExpectedBodyCount));
-        return true;
+            _TimeoutSeconds, CapturedCount, _ExpectedBodyCount));
     }
 
-    if (NOT _BodyCapturer.IsValid())
-    { return true; }
+    const auto CurrentWorlds = ck::auto_test::net::Get_AllPIEWorlds();
+    if (CurrentWorlds.Num() != _ExpectedBodyCount || _BodyCapturers.Num() != _ExpectedBodyCount ||
+        _Worlds.Num() != _ExpectedBodyCount || _SpawnedBodies.Num() != _ExpectedBodyCount)
+    { return Fail(TEXT("FCk_Latent_RunAsTestOnAllWorlds: PIE worlds changed before all bodies finished.")); }
 
-    if (_BodyCapturer->_CapturedBodies.Num() < _ExpectedBodyCount)
-    { return false; } // not all worlds have constructed yet
+    for (auto Index = 0; Index < _ExpectedBodyCount; ++Index)
+    {
+        if (NOT _Worlds[Index].IsValid() || NOT IsValid(CurrentWorlds[Index]) ||
+            CurrentWorlds[Index] != _Worlds[Index].Get())
+        {
+            return Fail(ck::Format_UE(
+                TEXT("FCk_Latent_RunAsTestOnAllWorlds: PIE world [{}] disappeared or changed."), Index));
+        }
+    }
+    if (_RequireNoNetSubject)
+    {
+        for (auto Index = 0; Index < _ExpectedBodyCount; ++Index)
+        {
+            for (TActorIterator<ACk_AutoTest_NetSubject> It(CurrentWorlds[Index]); It; ++It)
+            {
+                return Fail(ck::Format_UE(
+                    TEXT("FCk_Latent_RunAsTestOnAllWorlds: independent world [{}] gained a NetSubject while bodies ran."),
+                    CurrentWorlds[Index]->GetName()));
+            }
+        }
+    }
 
     auto AllTerminal = true;
-    auto AnyFailed   = false;
-    auto FailureMessages = TArray<FString>{};
-
-    for (auto Index = 0; Index < _BodyCapturer->_CapturedBodies.Num(); ++Index)
+    for (auto Index = 0; Index < _ExpectedBodyCount; ++Index)
     {
-        const auto& Body = _BodyCapturer->_CapturedBodies[Index];
-        if (NOT UCk_Utils_AutoTest_UE::Has_Result(Body))
+        const auto& Capturer = _BodyCapturers[Index];
+        if (NOT Capturer.IsValid() || Capturer->_CapturedBodies.Num() > 1)
         {
-            AllTerminal = false;
-            break;
+            return Fail(ck::Format_UE(
+                TEXT("FCk_Latent_RunAsTestOnAllWorlds: world [{}] has invalid body-capture state."), Index));
         }
+        const auto& PendingBody = _SpawnedBodies[Index];
+        const auto BodyReady = ck::IsValid(PendingBody) &&
+            NOT UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(
+                PendingBody, ECk_EntityLifetime_DestructionPhase::BeginDestroy) &&
+            NOT UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(
+                PendingBody, ECk_EntityLifetime_DestructionPhase::Teardown) &&
+            NOT UCk_Utils_EntityLifetime_UE::Get_IsPendingDestroy(
+                PendingBody, ECk_EntityLifetime_DestructionPhase::Destroyed);
+        if (NOT BodyReady)
+        {
+            return Fail(ck::Format_UE(
+                TEXT("FCk_Latent_RunAsTestOnAllWorlds: world [{}] lost its admitted body."), Index));
+        }
+        if (Capturer->_CapturedBodies.IsEmpty())
+        { AllTerminal = false; continue; }
+
+        const auto& Body = Capturer->_CapturedBodies[0];
+        if (NOT ck::IsValid(Body) || Body != PendingBody)
+        {
+            return Fail(ck::Format_UE(
+                TEXT("FCk_Latent_RunAsTestOnAllWorlds: world [{}] constructed a stale or foreign body."), Index));
+        }
+        if (NOT UCk_Utils_AutoTest_UE::Has_Result(Body))
+        { AllTerminal = false; continue; }
 
         const auto Result = UCk_Utils_AutoTest_UE::Get_Result(Body);
         switch (Result.Status)
@@ -854,35 +1263,35 @@ bool
             case ECk_AutoTest_Status::Failed:
             case ECk_AutoTest_Status::TimedOut:
             {
-                AnyFailed = true;
-                // Build the world label as an FString first — feeding ck::Format_UE's result
-                // directly through `*` would dereference a temporary, garbling the label.
                 const auto WorldLabel = (Index == 0)
                     ? FString{TEXT("Server")}
                     : ck::Format_UE(TEXT("Client[{}]"), Index - 1);
-                FailureMessages.Add(ck::Format_UE(
+                return Fail(ck::Format_UE(
                     TEXT("[{}] {} ({}/{} assertions failed)"),
-                    WorldLabel,
-                    Result.FailureMessage,
-                    Result.AssertionsFailed,
-                    Result.AssertionsRun));
-                break;
+                    WorldLabel, Result.FailureMessage, Result.AssertionsFailed, Result.AssertionsRun));
             }
+            default:
+                return Fail(ck::Format_UE(
+                    TEXT("FCk_Latent_RunAsTestOnAllWorlds: world [{}] reported an invalid result status."), Index));
         }
     }
 
     if (NOT AllTerminal)
     { return false; }
 
-    for (const auto& Msg : FailureMessages)
-    { _Test->AddError(Msg); }
-
-    if (NOT AnyFailed)
+    if (_RequireNoNetSubject)
     {
-        Log_Display(TEXT("FCk_Latent_RunAsTestOnAllWorlds: all [{}] worlds passed in [{}]s."),
-            _ExpectedBodyCount, Elapsed);
+        auto WorldNames = FString{};
+        for (auto* World : CurrentWorlds)
+        {
+            if (NOT WorldNames.IsEmpty())
+            { WorldNames += TEXT(", "); }
+            WorldNames += World->GetName();
+        }
+        Log_Display(TEXT("FCk_Latent_RunAsTestOnAllWorlds: Independent mode final census passed; [{}] exact PIE worlds [{}] have zero NetSubject actors after all bodies passed."), _ExpectedBodyCount, WorldNames);
     }
-
+    Log_Display(TEXT("FCk_Latent_RunAsTestOnAllWorlds: all [{}] worlds passed in [{}]s."),
+        _ExpectedBodyCount, Elapsed);
     return true;
 }
 
