@@ -249,17 +249,17 @@ namespace ck_tests_inventories_authored_inspector
     };
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_Inventories_AuthoredInspectorComposition,
     "Ck.UiAuthoring.EcsDebugger.InventoriesInspector.AuthoredComposition",
     ck_tests_inventories_authored_inspector::kFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkTest_Inventories_AuthoredInspectorComposition::RunTest(const FString&)
+bool FCkTest_Inventories_AuthoredInspectorComposition::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_inventories_authored_inspector;
     const auto Scenario = MakeShared<FScenario>();
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Scenario](UWorld* InWorld)
         {

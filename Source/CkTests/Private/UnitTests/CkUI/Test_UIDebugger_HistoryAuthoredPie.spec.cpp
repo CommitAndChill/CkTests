@@ -20,6 +20,8 @@
 #include "CommonActivatableWidget.h"
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Application/SlateUser.h"
 #include "HAL/FileManager.h"
@@ -401,9 +403,13 @@ namespace ck_tests_ui_debugger_history_authored_pie
 
     auto GetLayoutSubsystem(UWorld* InWorld) -> UCk_UI_Layout_Subsystem_UE*
     {
-        if (InWorld == nullptr || InWorld->GetGameInstance() == nullptr) { return nullptr; }
-        ULocalPlayer* LocalPlayer = InWorld->GetGameInstance()->GetFirstGamePlayer();
-        return LocalPlayer != nullptr ? LocalPlayer->GetSubsystem<UCk_UI_Layout_Subsystem_UE>() : nullptr;
+        if (NOT IsValid(InWorld)) { return nullptr; }
+        UGameInstance* GameInstance = InWorld->GetGameInstance();
+        if (NOT IsValid(GameInstance)) { return nullptr; }
+        ULocalPlayer* LocalPlayer = GameInstance->GetFirstGamePlayer();
+        if (NOT IsValid(LocalPlayer)) { return nullptr; }
+        auto* Layout = LocalPlayer->GetSubsystem<UCk_UI_Layout_Subsystem_UE>();
+        return IsValid(Layout) ? Layout : nullptr;
     }
 
     auto GetInputSubsystem(UWorld* InWorld) -> UCk_UI_Input_Subsystem_UE*
@@ -418,16 +424,82 @@ namespace ck_tests_ui_debugger_history_authored_pie
         const TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("CkDebugger"));
         return Plugin.IsValid() ? FPaths::Combine(Plugin->GetBaseDir(), TEXT("Resources/UI")) : FString{};
     }
+
+    auto GetSelectedWorld(const bool bHost) -> UWorld*
+    {
+        return bHost ? ck::auto_test::net::Get_ServerWorld()
+            : ck::auto_test::net::Get_ClientWorld(0);
+    }
+
+    auto HasReadyLocalPlayer(const bool bHost) -> bool
+    {
+        UWorld* World = GetSelectedWorld(bHost);
+        if (NOT IsValid(World) || NOT World->HasBegunPlay()) { return false; }
+        UGameInstance* Instance = World->GetGameInstance();
+        ULocalPlayer* Player = IsValid(Instance) ? Instance->GetLocalPlayerByIndex(0) : nullptr;
+        return IsValid(Player) && IsValid(Player->GetPlayerController(World));
+    }
+
+    auto GetLocalPlayerCases(TArray<FString>& OutNames, TArray<FString>& OutCommands) -> void
+    {
+        for (const FString& Case : {FString{TEXT("ListenServer.Host")},
+            FString{TEXT("ListenServer.Client")}, FString{TEXT("ClientServer.Client")}})
+        {
+            OutNames.Add(Case);
+            OutCommands.Add(Case);
+        }
+    }
+
+    class FRunOnSelectedLocalWorld final : public IAutomationLatentCommand
+    {
+    public:
+        FRunOnSelectedLocalWorld(
+            FAutomationTestBase* InTest, const bool bInHost, const FCk_NetAutoTest_ServerAction& InAction)
+            : Test(InTest), bHost(bInHost), Action(InAction) {}
+
+        virtual bool Update() override
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+            if (Test == nullptr || NOT HasReadyLocalPlayer(bHost) || NOT Action.IsBound())
+            {
+                ck::auto_test::net::FailSession(
+                    TEXT("Selected PIE world, local player, test context, or action was lost before execution."));
+                return true;
+            }
+            Action.Execute(GetSelectedWorld(bHost));
+            return true;
+        }
+
+    private:
+        FAutomationTestBase* Test = nullptr;
+        bool bHost = false;
+        FCk_NetAutoTest_ServerAction Action;
+    };
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(
     FCkUIDebugger_HistoryAuthoredPie,
     "Ck.UIDebugger.History.PIE",
     ck_tests_ui_debugger_history_authored_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
+void FCkUIDebugger_HistoryAuthoredPie::GetTests(TArray<FString>& OutNames, TArray<FString>& OutCommands) const
+{
+    ck_tests_ui_debugger_history_authored_pie::GetLocalPlayerCases(OutNames, OutCommands);
+}
+
+bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_ui_debugger_history_authored_pie;
+
+    const bool bHost = Parameters == TEXT("ListenServer.Host");
+    const bool bListenClient = Parameters == TEXT("ListenServer.Client");
+    const bool bDedicatedClient = Parameters == TEXT("ClientServer.Client");
+    if (NOT bHost && NOT bListenClient && NOT bDedicatedClient)
+    {
+        AddError(FString::Printf(TEXT("Unknown local-player PIE case: %s"), *Parameters));
+        return false;
+    }
+    const FString Topology = bDedicatedClient ? TEXT("ClientServer") : TEXT("ListenServer");
 
     const TSharedRef<FState> State = MakeShared<FState>();
     State->LayoutConfig = ResolveLayoutLiteral();
@@ -445,7 +517,9 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
     }
 
     FSlateApplication& Slate = FSlateApplication::Get();
-    State->Panel = SNew(SCkUIDebuggerWindow);
+    State->Panel = SNew(SCkUIDebuggerWindow)
+        .TargetWorld(FCkUIDebugger_WorldSelector::CreateLambda([bHost]() -> TWeakObjectPtr<UWorld>
+        { return GetSelectedWorld(bHost); }));
     State->WeakPanel = State->Panel;
     State->Window = SNew(SWindow).AutoCenter(EAutoCenter::None).ClientSize(FVector2D{1200.0f, 760.0f})
         .CreateTitleBar(false).HasCloseButton(false)[State->Panel.ToSharedRef()];
@@ -504,9 +578,15 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
         return false;
     }
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Topology));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 45.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(
+        this,
+        FCk_NetAutoTest_Condition::CreateLambda([bHost]() -> bool
+        { return HasReadyLocalPlayer(bHost); }),
+        45.0,
+        TEXT("selected PIE role has begun play with a local player and controller")));
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
     {
         if (UCk_UI_Layout_Subsystem_UE* Subsystem = GetLayoutSubsystem(InWorld))
         {
@@ -532,7 +612,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
             && Layers->GetRoots().Num() == 2 && Tree->GetVisibleNodeCount() == 2;
     }), 15.0f));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
     {
         if (UCk_UI_Layout_Subsystem_UE* Subsystem = GetLayoutSubsystem(InWorld))
         { Subsystem->PushWidgetToLayer(State->LayerTag, State->WidgetClass); }
@@ -554,7 +634,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
         }
         return State->bSummaryPrimaryState && State->bPushPublished;
     }), 15.0f));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
     {
         if (UCk_UI_Layout_Subsystem_UE* Subsystem = GetLayoutSubsystem(InWorld))
         { Subsystem->PushWidgetToLayer(State->SecondaryLayerTag, State->WidgetClass); }
@@ -566,7 +646,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
             && ContainsSummaryText(Summary, TEXT("UIOnly")) && ContainsSummaryText(Summary, TEXT("2"));
         return State->bSummarySecondaryState;
     }), 15.0f));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
     {
         if (UCk_UI_Layout_Subsystem_UE* Subsystem = GetLayoutSubsystem(InWorld))
         { Subsystem->PopWidgetFromLayer(State->SecondaryLayerTag); }
@@ -578,7 +658,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
             && ContainsSummaryText(Summary, TEXT("GameAndUI")) && ContainsSummaryText(Summary, TEXT("2"));
         return State->bSummaryPrimaryRestored;
     }), 15.0f));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
     {
         if (!State->Panel.IsValid() || !State->Window.IsValid()) { return; }
         FSlateApplication& Slate = FSlateApplication::Get();
@@ -610,7 +690,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
         return State->bPostCaptureHistoryRepeatTreeSettled;
     }), 15.0f));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
     {
         if (!State->Panel.IsValid()) { return; }
         FSlateApplication& Slate = FSlateApplication::Get();
@@ -659,7 +739,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
         const TSharedPtr<SCkUiTree> Tree = State->WeakLayerTree.Pin();
         return State->bActiveOnlyOnRouted && Tree.IsValid() && Tree->GetVisibleNodeCount() == 2;
     }), 15.0f));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
     {
         if (!State->Panel.IsValid()) { return; }
         const TSharedPtr<FCkUiView> CommandView = State->WeakCommandView.Pin();
@@ -674,7 +754,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
         const TSharedPtr<SCkUiTree> Tree = State->WeakLayerTree.Pin();
         return State->bActiveOnlyOffRouted && Tree.IsValid() && Tree->GetVisibleNodeCount() == 3;
     }), 15.0f));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
     {
         if (!State->Panel.IsValid()) { return; }
         FSlateApplication& Slate = FSlateApplication::Get();
@@ -767,7 +847,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
             && Tree->GetExpandedKeys().Contains(State->LayerTag.ToString());
     })));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
     {
         if (UCk_UI_Layout_Subsystem_UE* Subsystem = GetLayoutSubsystem(InWorld))
         { Subsystem->PopWidgetFromLayer(State->LayerTag); }
@@ -778,7 +858,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
         return HasDescription(Collection, TEXT("[Pop]"));
     }), 15.0f));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
     {
         const TSharedPtr<FCkUiView> View = State->Panel.IsValid() ? State->Panel->Get_HistoryView() : nullptr;
         const TSharedPtr<const FCkUiCollection> Collection = State->Panel.IsValid() ? State->Panel->Get_HistoryCollection() : nullptr;
@@ -823,7 +903,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
         return InputSubsystem != nullptr && !InputSubsystem->IsInputSuspended();
     }), 2.0f));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
     {
         const TSharedPtr<const FCkUiCollection> Collection = State->Panel.IsValid() ? State->Panel->Get_HistoryCollection() : nullptr;
         State->ClearRecordsAfter = Collection.IsValid() ? Collection->GetRecords().Num() : 0;
@@ -865,7 +945,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
             });
     })));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
     {
         if (UCk_UI_Layout_Subsystem_UE* Subsystem = GetLayoutSubsystem(InWorld))
         {
@@ -873,7 +953,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
             { Subsystem->PushWidgetToLayer(State->LayerTag, State->WidgetClass); }
         }
     })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost, FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
     {
         if (!State->Panel.IsValid() || !State->Window.IsValid()) { return; }
         const TSharedPtr<const FCkUiCollection> Collection = State->Panel->Get_HistoryCollection();
@@ -898,8 +978,9 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
         State->bCapHeldAfter101Pushes = NewestFirst;
     })));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
+    ADD_LATENT_AUTOMATION_COMMAND(FDelayedFunctionLatentCommand([State, bHost]() -> void
     {
+        UWorld* InWorld = GetSelectedWorld(bHost);
         if (UCk_UI_Layout_Subsystem_UE* Subsystem = GetLayoutSubsystem(InWorld))
         {
             Subsystem->DestroyLayout();
@@ -941,7 +1022,7 @@ bool FCkUIDebugger_HistoryAuthoredPie::RunTest(const FString&)
             && State->HeldLayerCollection->GetNodes().Num() == State->LayerNodesBeforeRelease
             && State->HeldLayerCollection->GetRevision() == State->LayerRevisionBeforeRelease
             && State->HeldLayerCollection->FindNode(State->LayerTag.ToString()) == State->StableLayerRoot;
-    })));
+    }));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this, FCk_NetAutoTest_Assertion::CreateLambda([this, State]() -> bool
     {
         TestTrue(TEXT("AS-authored History layout literal and concrete AS widget class resolve"), State->bAssetsResolved);
