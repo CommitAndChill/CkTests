@@ -3,7 +3,7 @@
 // FFragment_Pmg_DebugShape_Lines (the wireframe tier — the most accessible end-to-end signal).
 //
 // Uses the PIE latent-command harness from CkNetAutomation_Common.h (same pattern as
-// Test_Snapshot_FloatAttribute_Gate.spec.cpp). NumClients=1 == 1 server window, no extra clients.
+// Test_Snapshot_FloatAttribute_Gate.spec.cpp). Two PIE worlds provide one server and one client.
 //
 // Surface in Session Frontend: Ck.Pmg.TextShape.RendersWireframe
 
@@ -25,17 +25,17 @@
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkPmg_TextShape_RendersWireframe,
     "Ck.Pmg.TextShape.RendersWireframe",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkPmg_WorldTeardown_UnregistersDebugShapeMeshBeforeWorldCleanup,
     "Ck.PackagedEnsure.Pmg.WorldTeardown.UnregistersDebugShapeMeshBeforeWorldCleanup",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkEcs_WorldTeardown_RejectsLateEntityCreation,
     "Ck.PackagedEnsure.Ecs.WorldTeardown.RejectsLateEntityCreation",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -44,8 +44,8 @@ bool FCkPmg_TextShape_RendersWireframe::RunTest(const FString& Parameters)
 {
     auto Handle = MakeShared<FCk_Handle_Pmg_DebugShape>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Handle](UWorld* InWorld) -> void
@@ -114,8 +114,8 @@ bool FCkPmg_WorldTeardown_UnregistersDebugShapeMeshBeforeWorldCleanup::RunTest(c
     auto Shape = MakeShared<FCk_Handle_Pmg_DebugShape>();
     auto Observation = MakeShared<FTeardownObservation>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Shape, Observation](UWorld* InWorld) -> void
@@ -197,8 +197,8 @@ bool FCkEcs_WorldTeardown_RejectsLateEntityCreation::RunTest(const FString& Para
     AddExpectedError(TEXT("Request_CreateEntity rejected new world population after ECS world teardown began"),
         EAutomationExpectedErrorFlags::Contains, 0);
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InWorld) -> void
