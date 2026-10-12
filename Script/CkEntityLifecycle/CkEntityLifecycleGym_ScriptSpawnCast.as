@@ -19,7 +19,7 @@ class UCk_EntityScript_EntityLifecycleGym_SpawnTarget : UCk_GenericEntityScript_
 	{
 	    auto _CkPerfScope = ck::ScopedStat();
 		InHandle.Set_DebugName(n"SpawnTarget");
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
+		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
 		utils_entity_tag::Add(InHandle, n"TAG_LifecycleGym_SpawnTarget");
 
 		return ECk_EntityScript_ConstructionFlow::Finished;
@@ -30,37 +30,40 @@ class UCk_EntityScript_EntityLifecycleGym_SpawnTarget : UCk_GenericEntityScript_
 // Main station entity script
 //----------------------------------------------------------------------------
 
-class UCk_EntityScript_EntityLifecycleGym_ScriptSpawnCast : UCk_GenericEntityScript_UE
+class UCk_EntityScript_EntityLifecycleGym_ScriptSpawnCast : UCkLifecycleGym_DemoBase
 {
 	default _Replication = ECk_Replication::DoesNotReplicate;
 
 	UPROPERTY(ExposeOnSpawn)
 	FTransform InitialTransform = FTransform::Identity;
 
+	UPROPERTY() FCk_Handle_PendingEntityScript PendingTarget;
+    UPROPERTY() FCk_Handle SpawnTarget;
 	// Test results
-	bool Pass_SpawnRequest = false;
-	bool Pass_PendingIsValid = false;
-	bool Pass_ConstructedCallback = false;
-	bool Pass_Has = false;
-	bool Pass_GetScriptClass = false;
-	bool Pass_DoCast = false;
-	bool Pass_DoCastChecked = false;
-	bool Pass_ScriptInChain = false;
+	UPROPERTY() bool Pass_SpawnRequest = false;
+	UPROPERTY() bool Pass_PendingIsValid = false;
+	UPROPERTY() bool Pass_ConstructedCallback = false;
+	UPROPERTY() bool Pass_Has = false;
+	UPROPERTY() bool Pass_GetScriptClass = false;
+	UPROPERTY() bool Pass_DoCast = false;
+	UPROPERTY() bool Pass_DoCastChecked = false;
+	UPROPERTY() bool Pass_ScriptInChain = false;
 
 	// Display values
 	FString ScriptClassName = "";
-	bool TestsComplete = false;
+	UPROPERTY() bool TestsComplete = false;
 
 	UFUNCTION(BlueprintOverride)
 	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
 	{
 	    auto _CkPerfScope = ck::ScopedStat();
+        if (!CheckConstruct(InHandle)) { return ECk_EntityScript_ConstructionFlow::Finished; }
 		InHandle.Set_DebugName(n"ScriptSpawnCast");
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
+		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
 		utils_entity_tag::Add(InHandle, n"TAG_LifecycleGym_ScriptSpawnCast");
 
 		// Display tick
-		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick"));
+		if (!SharedAuthority) { utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick")); }
 
 		// Spawn helper entity script
 		auto SpawnParams = FCk_Gym_TransformSpawnParams(InitialTransform);
@@ -69,7 +72,10 @@ class UCk_EntityScript_EntityLifecycleGym_ScriptSpawnCast : UCk_GenericEntityScr
 			UCk_EntityScript_EntityLifecycleGym_SpawnTarget,
 			FInstancedStruct::Make(SpawnParams));
 
+		PendingTarget = PendingHandle;
 		Pass_SpawnRequest = utils_pending_entity_script::Get_IsValid(PendingHandle);
+        if (!Pass_SpawnRequest) { FailDemo("SpawnTarget request failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
+        Remember(PendingTarget.Get_EntityUnderConstruction());
 		Pass_PendingIsValid = Pass_SpawnRequest;
 
 		if (Pass_SpawnRequest)
@@ -86,7 +92,13 @@ class UCk_EntityScript_EntityLifecycleGym_ScriptSpawnCast : UCk_GenericEntityScr
 	UFUNCTION()
 	private void OnSpawnTargetConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
 	{
-		Pass_ConstructedCallback = true;
+		auto Self = ck::ToEntity(this);
+        auto Child = FCk_Handle(InEntityScriptHandle);
+        if (!CanRun(Self)) { return; }
+        if (!utils_pending_entity_script::Get_IsValid(PendingTarget) || PendingTarget.Get_EntityUnderConstruction() != Child || !CkLifecycleGym::IsDirect(Child, Self) || !utils_entity_script::Has(Child)) { FailDemo("SpawnTarget callback identity rejected"); return; }
+        auto Actual = UCk_Utils_EntityScript_UE::TryGet_EntityScript(Child);
+        if (ck::Is_NOT_Valid(Actual) || Actual.GetClass() != UCk_EntityScript_EntityLifecycleGym_SpawnTarget || TestsComplete) { FailDemo("SpawnTarget class or callback mismatch"); return; }
+        SpawnTarget = Child; Pass_ConstructedCallback = true; ActualCallbackCount++; LastCompletedCycle = 0; LastCycleCallbackCount = 1;
 
 		auto EntityHandle = FCk_Handle(InEntityScriptHandle);
 
@@ -103,6 +115,7 @@ class UCk_EntityScript_EntityLifecycleGym_ScriptSpawnCast : UCk_GenericEntityScr
 		Pass_DoCast = CastResult.IsSet();
 
 		// Test: DoCastChecked
+		if (!CastResult.IsSet()) { FailDemo("SpawnTarget cast rejected"); return; }
 		auto CastCheckedResult = utils_entity_script::DoCastChecked(EntityHandle);
 		Pass_DoCastChecked = utils_handle::Get_IsValid(FCk_Handle(CastCheckedResult));
 
@@ -116,11 +129,13 @@ class UCk_EntityScript_EntityLifecycleGym_ScriptSpawnCast : UCk_GenericEntityScr
 	UFUNCTION()
 	private void DisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+        if (SharedAuthority || !CkLifecycleGym::IsLive(FCk_Handle(InHandle)) || !utils_timer::DoCast(FCk_Handle(InHandle)).IsSet()) { return; }
 		Request_UpdateDisplay();
 	}
 
 	void Request_UpdateDisplay()
 	{
+        if (!CanRun(ck::ToEntity(this))) { return; }
 		auto SelfEntity = ck::ToEntity(this);
 		auto TitleText = "SCRIPT SPAWN & CAST (" + CkGym_Common::Get_NetworkRoleTitle(SelfEntity) + ")";
 
@@ -154,6 +169,20 @@ class UCk_EntityScript_EntityLifecycleGym_ScriptSpawnCast : UCk_GenericEntityScr
 		auto Instructions = "Tests entity script spawning, construction callbacks,\n"
 			+ "type queries, and handle casting.";
 
-		CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, D, Instructions);
+		        Sample = FCkLifecycleGym_RowSample();
+        Sample.BranchGeneration = BranchGeneration;
+        Sample.Title = TitleText; Sample.Body = D; Sample.Instructions = Instructions;
+        Sample.ActualCallbackCount = ActualCallbackCount;
+        Sample.LastCompletedCycle = LastCompletedCycle;
+        Sample.LastCycleCallbackCount = LastCycleCallbackCount;
+        Sample.Results.Add(Pass_SpawnRequest);
+        Sample.Results.Add(Pass_PendingIsValid);
+        Sample.Results.Add(Pass_ConstructedCallback);
+        Sample.Results.Add(Pass_Has);
+        Sample.Results.Add(Pass_GetScriptClass);
+        Sample.Results.Add(Pass_DoCast);
+        Sample.Results.Add(Pass_DoCastChecked);
+        Sample.Results.Add(Pass_ScriptInChain);
+        if (!SharedAuthority) { CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, D, Instructions); }
 	}
 }

@@ -3,7 +3,7 @@
 // Tests: utils_handle, utils_entity
 //============================================================================
 
-class UCk_EntityScript_EntityLifecycleGym_HandleAndEntity : UCk_GenericEntityScript_UE
+class UCk_EntityScript_EntityLifecycleGym_HandleAndEntity : UCkLifecycleGym_DemoBase
 {
 	default _Replication = ECk_Replication::DoesNotReplicate;
 
@@ -11,34 +11,35 @@ class UCk_EntityScript_EntityLifecycleGym_HandleAndEntity : UCk_GenericEntityScr
 	FTransform InitialTransform = FTransform::Identity;
 
 	// Test results
-	bool Pass_SetGetDebugName = false;
-	bool Pass_IsValid_Self = false;
-	bool Pass_IsValid_Invalid = false;
-	bool Pass_HandleEqual_Self = false;
-	bool Pass_HandleNotEqual_Invalid = false;
-	bool Pass_BreakHandle = false;
-	bool Pass_BreakEntity = false;
-	bool Pass_TombstoneNotEqualSelf = false;
-	bool Pass_EntityEqual_Self = false;
-	bool Pass_EntityNotEqual_Tombstone = false;
+	UPROPERTY() bool Pass_SetGetDebugName = false;
+	UPROPERTY() bool Pass_IsValid_Self = false;
+	UPROPERTY() bool Pass_IsValid_Invalid = false;
+	UPROPERTY() bool Pass_HandleEqual_Self = false;
+	UPROPERTY() bool Pass_HandleNotEqual_Invalid = false;
+	UPROPERTY() bool Pass_BreakHandle = false;
+	UPROPERTY() bool Pass_BreakEntity = false;
+	UPROPERTY() bool Pass_TombstoneNotEqualSelf = false;
+	UPROPERTY() bool Pass_EntityEqual_Self = false;
+	UPROPERTY() bool Pass_EntityNotEqual_Tombstone = false;
 
 	// Display values
 	FString HandleString = "";
 	FString EntityString = "";
 	FString DebugNameResult = "";
-	int32 EntityID = 0;
-	int32 EntityNumber = 0;
-	int32 EntityVersion = 0;
+	UPROPERTY() int32 EntityID = 0;
+	UPROPERTY() int32 EntityNumber = 0;
+	UPROPERTY() int32 EntityVersion = 0;
 
 	UFUNCTION(BlueprintOverride)
 	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
 	{
 	    auto _CkPerfScope = ck::ScopedStat();
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
+        if (!CheckConstruct(InHandle)) { return ECk_EntityScript_ConstructionFlow::Finished; }
+		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
 		utils_entity_tag::Add(InHandle, n"TAG_LifecycleGym_HandleAndEntity");
 
 		// Display tick
-		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick"));
+		if (!SharedAuthority) { utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick")); }
 
 		// --- Run all tests ---
 
@@ -86,11 +87,13 @@ class UCk_EntityScript_EntityLifecycleGym_HandleAndEntity : UCk_GenericEntityScr
 	UFUNCTION()
 	private void DisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+        if (SharedAuthority || !CkLifecycleGym::IsLive(FCk_Handle(InHandle)) || !utils_timer::DoCast(FCk_Handle(InHandle)).IsSet()) { return; }
 		Request_UpdateDisplay();
 	}
 
 	void Request_UpdateDisplay()
 	{
+        if (!CanRun(ck::ToEntity(this))) { return; }
 		auto SelfEntity = ck::ToEntity(this);
 		auto TitleText = "HANDLE & ENTITY BASICS (" + CkGym_Common::Get_NetworkRoleTitle(SelfEntity) + ")";
 
@@ -122,6 +125,25 @@ class UCk_EntityScript_EntityLifecycleGym_HandleAndEntity : UCk_GenericEntityScr
 		auto Instructions = "Tests handle validity, debug names, entity decomposition,\n"
 			+ "comparison, and string conversion.";
 
-		CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, D, Instructions);
+		        Sample = FCkLifecycleGym_RowSample();
+        Sample.BranchGeneration = BranchGeneration;
+        Sample.Title = TitleText; Sample.Body = D; Sample.Instructions = Instructions;
+        Sample.ActualCallbackCount = ActualCallbackCount;
+        Sample.LastCompletedCycle = LastCompletedCycle;
+        Sample.LastCycleCallbackCount = LastCycleCallbackCount;
+        Sample.Results.Add(Pass_SetGetDebugName);
+        Sample.Results.Add(Pass_IsValid_Self);
+        Sample.Results.Add(Pass_IsValid_Invalid);
+        Sample.Results.Add(Pass_HandleEqual_Self);
+        Sample.Results.Add(Pass_HandleNotEqual_Invalid);
+        Sample.Results.Add(Pass_BreakHandle);
+        Sample.Results.Add(Pass_BreakEntity);
+        Sample.Results.Add(Pass_TombstoneNotEqualSelf);
+        Sample.Results.Add(Pass_EntityEqual_Self);
+        Sample.Results.Add(Pass_EntityNotEqual_Tombstone);
+        Sample.Counters.Add(EntityID);
+        Sample.Counters.Add(EntityNumber);
+        Sample.Counters.Add(EntityVersion);
+        if (!SharedAuthority) { CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, D, Instructions); }
 	}
 }

@@ -3,56 +3,63 @@
 // Tests: utils_entity_lifetime (creation & ownership queries)
 //============================================================================
 
-class UCk_EntityScript_EntityLifecycleGym_OwnershipTree : UCk_GenericEntityScript_UE
+class UCk_EntityScript_EntityLifecycleGym_OwnershipTree : UCkLifecycleGym_DemoBase
 {
 	default _Replication = ECk_Replication::DoesNotReplicate;
 
 	UPROPERTY(ExposeOnSpawn)
 	FTransform InitialTransform = FTransform::Identity;
 
+	UPROPERTY() FCk_Handle ChildA;
+    UPROPERTY() FCk_Handle ChildB;
 	// Test results
-	bool Pass_CreateChildA = false;
-	bool Pass_CreateChildB = false;
-	bool Pass_CreateTransient = false;
-	bool Pass_OwnerOfChildA = false;
-	bool Pass_OwnerOfChildB = false;
-	bool Pass_DependentsCount = false;
-	bool Pass_IsTransient_Transient = false;
-	bool Pass_IsTransient_Self = false;
-	bool Pass_WorldForEntity = false;
+	UPROPERTY() bool Pass_CreateChildA = false;
+	UPROPERTY() bool Pass_CreateChildB = false;
+	UPROPERTY() bool Pass_CreateTransient = false;
+	UPROPERTY() bool Pass_OwnerOfChildA = false;
+	UPROPERTY() bool Pass_OwnerOfChildB = false;
+	UPROPERTY() bool Pass_DependentsCount = false;
+	UPROPERTY() bool Pass_IsTransient_Transient = false;
+	UPROPERTY() bool Pass_IsTransient_Self = false;
+	UPROPERTY() bool Pass_WorldForEntity = false;
 
 	// Display values
 	FString ChildAString = "";
 	FString ChildBString = "";
 	FString TransientString = "";
-	int32 DependentsCount = 0;
+	UPROPERTY() int32 DependentsCount = 0;
 
 	UFUNCTION(BlueprintOverride)
 	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
 	{
 	    auto _CkPerfScope = ck::ScopedStat();
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
+        if (!CheckConstruct(InHandle)) { return ECk_EntityScript_ConstructionFlow::Finished; }
+		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
 		utils_entity_tag::Add(InHandle, n"TAG_LifecycleGym_OwnershipTree");
 
 		// Display tick
-		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick"));
+		if (!SharedAuthority) { utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick")); }
 
 		// --- Create child entities ---
 
 		// Child A
-		auto ChildA = utils_entity_lifetime::Request_CreateEntity(InHandle);
+		ChildA = utils_entity_lifetime::Request_CreateEntity(InHandle);
+        if (!CkLifecycleGym::IsLive(ChildA)) { FailDemo("ChildA allocation failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
 		Pass_CreateChildA = utils_handle::Get_IsValid(ChildA);
 		ChildAString = utils_handle::Conv_HandleToString(ChildA);
 		utils_handle::Set_DebugName(ChildA, n"ChildA");
 
 		// Child B
-		auto ChildB = utils_entity_lifetime::Request_CreateEntity(InHandle);
+		ChildB = utils_entity_lifetime::Request_CreateEntity(InHandle);
+        if (!CkLifecycleGym::IsLive(ChildB)) { FailDemo("ChildB allocation failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
 		Pass_CreateChildB = utils_handle::Get_IsValid(ChildB);
 		ChildBString = utils_handle::Conv_HandleToString(ChildB);
 		utils_handle::Set_DebugName(ChildB, n"ChildB");
 
 		// Transient entity
 		auto TransientEntity = utils_entity_lifetime::Request_CreateEntity_TransientOwner();
+        if (!CkLifecycleGym::IsLive(TransientEntity)) { FailDemo("TransientEntity allocation failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
+		Remember(TransientEntity);
 		Pass_CreateTransient = utils_handle::Get_IsValid(TransientEntity);
 		TransientString = utils_handle::Conv_HandleToString(TransientEntity);
 		utils_handle::Set_DebugName(TransientEntity, n"OwnershipTree.Transient");
@@ -89,11 +96,13 @@ class UCk_EntityScript_EntityLifecycleGym_OwnershipTree : UCk_GenericEntityScrip
 	UFUNCTION()
 	private void DisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+        if (SharedAuthority || !CkLifecycleGym::IsLive(FCk_Handle(InHandle)) || !utils_timer::DoCast(FCk_Handle(InHandle)).IsSet()) { return; }
 		Request_UpdateDisplay();
 	}
 
 	void Request_UpdateDisplay()
 	{
+        if (!CanRun(ck::ToEntity(this))) { return; }
 		auto SelfEntity = ck::ToEntity(this);
 		auto TitleText = "OWNERSHIP TREE (" + CkGym_Common::Get_NetworkRoleTitle(SelfEntity) + ")";
 
@@ -123,6 +132,22 @@ class UCk_EntityScript_EntityLifecycleGym_OwnershipTree : UCk_GenericEntityScrip
 		auto Instructions = "Creates parent-child entity hierarchy and queries\n"
 			+ "ownership relationships, dependents, and transient state.";
 
-		CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, D, Instructions);
+		        Sample = FCkLifecycleGym_RowSample();
+        Sample.BranchGeneration = BranchGeneration;
+        Sample.Title = TitleText; Sample.Body = D; Sample.Instructions = Instructions;
+        Sample.ActualCallbackCount = ActualCallbackCount;
+        Sample.LastCompletedCycle = LastCompletedCycle;
+        Sample.LastCycleCallbackCount = LastCycleCallbackCount;
+        Sample.Results.Add(Pass_CreateChildA);
+        Sample.Results.Add(Pass_CreateChildB);
+        Sample.Results.Add(Pass_CreateTransient);
+        Sample.Results.Add(Pass_OwnerOfChildA);
+        Sample.Results.Add(Pass_OwnerOfChildB);
+        Sample.Results.Add(Pass_DependentsCount);
+        Sample.Results.Add(Pass_IsTransient_Transient);
+        Sample.Results.Add(Pass_IsTransient_Self);
+        Sample.Results.Add(Pass_WorldForEntity);
+        Sample.Counters.Add(DependentsCount);
+        if (!SharedAuthority) { CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, D, Instructions); }
 	}
 }

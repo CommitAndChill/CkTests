@@ -3,7 +3,7 @@
 // Tests: utils_entity_lifetime (destroy, batch destroy, OnBeginDestroy)
 //============================================================================
 
-class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCk_GenericEntityScript_UE
+class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCkLifecycleGym_DemoBase
 {
 	default _Replication = ECk_Replication::DoesNotReplicate;
 
@@ -11,42 +11,44 @@ class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCk_GenericEntitySc
 	FTransform InitialTransform = FTransform::Identity;
 
 	// Phase tracking
-	int32 CurrentPhase = 0;
-	int32 CycleCount = 0;
+	UPROPERTY() int32 CurrentPhase = 0;
+	UPROPERTY() int32 CycleCount = 0;
 
 	// Counters
-	int32 TotalCreated = 0;
-	int32 TotalDestroyed = 0;
-	int32 DestroyCallbackCount = 0;
+	UPROPERTY() int32 TotalCreated = 0;
+	UPROPERTY() int32 TotalDestroyed = 0;
+	UPROPERTY() int32 DestroyCallbackCount = 0;
 
 	// Child handles for current cycle
-	FCk_Handle ChildA;
-	FCk_Handle ChildB;
-	FCk_Handle ChildC;
+	UPROPERTY() FCk_Handle ChildA;
+	UPROPERTY() FCk_Handle ChildB;
+	UPROPERTY() FCk_Handle ChildC;
 
 	// Phase timer
-	FCk_Handle_Timer PhaseTimer;
+	UPROPERTY() FCk_Handle_Timer PhaseTimer;
 
 	// Self handle stored for use in callbacks
-	FCk_Handle SelfHandle;
+	UPROPERTY() FCk_Handle SelfHandle;
 
 	UFUNCTION(BlueprintOverride)
 	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
 	{
 	    auto _CkPerfScope = ck::ScopedStat();
-		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::Replicates);
+        if (!CheckConstruct(InHandle)) { return ECk_EntityScript_ConstructionFlow::Finished; }
+		utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
 		utils_entity_tag::Add(InHandle, n"TAG_LifecycleGym_DestroyCallbacks");
 
 		SelfHandle = InHandle;
 
 		// Display tick
-		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick"));
+		if (!SharedAuthority) { utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"DisplayTick")); }
 
 		// Phase timer: 1.5 seconds per phase
 		auto TimerParams = FCk_Timer_Spec(FCk_Time(1.5f));
 		TimerParams.Set_StartingState(ECk_Timer_State::Running);
 		TimerParams.Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
 		PhaseTimer = utils_timer::Add(InHandle, TimerParams);
+		if ((!CkLifecycleGym::IsLive(FCk_Handle(PhaseTimer)) || !utils_timer::DoCast(FCk_Handle(PhaseTimer)).IsSet())) { FailDemo("Phase timer allocation failed"); return ECk_EntityScript_ConstructionFlow::Finished; }
 		PhaseTimer.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnPhaseTimerDone"));
 
 		// Start first phase immediately
@@ -58,12 +60,14 @@ class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCk_GenericEntitySc
 	UFUNCTION()
 	private void DisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+        if (SharedAuthority || !CkLifecycleGym::IsLive(FCk_Handle(InHandle)) || !utils_timer::DoCast(FCk_Handle(InHandle)).IsSet()) { return; }
 		Request_UpdateDisplay();
 	}
 
 	UFUNCTION()
 	private void OnPhaseTimerDone(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
 	{
+		if (!CanRun(SelfHandle) || !CkLifecycleGym::IsLive(FCk_Handle(InHandle)) || !utils_timer::DoCast(FCk_Handle(InHandle)).IsSet() || FCk_Handle(InHandle) != FCk_Handle(PhaseTimer)) { return; }
 		CurrentPhase = (CurrentPhase + 1) % 4;
 
 		if (CurrentPhase == 0)
@@ -76,14 +80,21 @@ class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCk_GenericEntitySc
 
 	void Request_ExecutePhase()
 	{
+        if (!CanRun(SelfHandle)) { return; }
 		if (CurrentPhase == 0)
 		{
 			// Phase 0: Create 3 children, bind destroy callback to first
 			ChildA = utils_entity_lifetime::Request_CreateEntity(SelfHandle);
+            Remember(ChildA);
+            if (!CkLifecycleGym::IsLive(ChildA)) { FailDemo("Destroy child allocation failed"); return; }
 			utils_handle::Set_DebugName(ChildA, n"DestroyTest_A");
 			ChildB = utils_entity_lifetime::Request_CreateEntity(SelfHandle);
+            Remember(ChildB);
+            if (!CkLifecycleGym::IsLive(ChildB)) { FailDemo("Destroy child allocation failed"); return; }
 			utils_handle::Set_DebugName(ChildB, n"DestroyTest_B");
 			ChildC = utils_entity_lifetime::Request_CreateEntity(SelfHandle);
+            Remember(ChildC);
+            if (!CkLifecycleGym::IsLive(ChildC)) { FailDemo("Destroy child allocation failed"); return; }
 			utils_handle::Set_DebugName(ChildC, n"DestroyTest_C");
 			TotalCreated = TotalCreated + 3;
 
@@ -122,6 +133,9 @@ class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCk_GenericEntitySc
 		else if (CurrentPhase == 3)
 		{
 			// Phase 3: Reset - clear handles for next cycle
+            if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(ChildA) || UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(ChildB) || UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(ChildC)) { FailDemo("Destroy cycle did not retire all children"); return; }
+            LastCompletedCycle = CycleCount; LastCycleCallbackCount = 1;
+            if (DestroyCallbackCount != CycleCount + 1) { FailDemo("Destroy callback missing or duplicated"); return; }
 			ChildA = utils_handle::Get_InvalidHandle();
 			ChildB = utils_handle::Get_InvalidHandle();
 			ChildC = utils_handle::Get_InvalidHandle();
@@ -131,11 +145,13 @@ class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCk_GenericEntitySc
 	UFUNCTION()
 	private void OnChildBeginDestroy(FCk_Handle InHandle)
 	{
-		DestroyCallbackCount++;
+		if (!CanRun(SelfHandle) || !UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(InHandle) || InHandle != ChildA) { return; }
+        DestroyCallbackCount++; ActualCallbackCount++;
 	}
 
 	void Request_UpdateDisplay()
 	{
+        if (!CanRun(ck::ToEntity(this))) { return; }
 		auto SelfEntity = ck::ToEntity(this);
 		auto TitleText = "DESTROY & CALLBACKS (" + CkGym_Common::Get_NetworkRoleTitle(SelfEntity) + ")";
 
@@ -144,6 +160,7 @@ class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCk_GenericEntitySc
 		PhaseNames.Add("SINGLE DESTROY");
 		PhaseNames.Add("BATCH DESTROY");
 		PhaseNames.Add("RESET");
+		if (CurrentPhase < 0 || CurrentPhase >= PhaseNames.Num() || (!CkLifecycleGym::IsLive(FCk_Handle(PhaseTimer)) || !utils_timer::DoCast(FCk_Handle(PhaseTimer)).IsSet())) { FailDemo("Invalid phase or lost timer"); return; }
 		auto PhaseName = PhaseNames[CurrentPhase];
 
 		auto D = "";
@@ -175,6 +192,19 @@ class UCk_EntityScript_EntityLifecycleGym_DestroyCallbacks : UCk_GenericEntitySc
 		auto Instructions = "Tests entity destruction, batch destruction,\n"
 			+ "and OnBeginDestroy callbacks in automated cycles.";
 
-		CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, D, Instructions);
+		        Sample = FCkLifecycleGym_RowSample();
+        Sample.BranchGeneration = BranchGeneration;
+        Sample.Title = TitleText; Sample.Body = D; Sample.Instructions = Instructions;
+        Sample.ActualCallbackCount = ActualCallbackCount;
+        Sample.LastCompletedCycle = LastCompletedCycle;
+        Sample.LastCycleCallbackCount = LastCycleCallbackCount;
+        Sample.Counters.Add(CurrentPhase);
+        Sample.Counters.Add(CycleCount);
+        Sample.Counters.Add(TotalCreated);
+        Sample.Counters.Add(TotalDestroyed);
+        Sample.Counters.Add(DestroyCallbackCount);
+        Sample.Phase = CurrentPhase; Sample.Cycle = CycleCount;
+        Sample.ElapsedMilliseconds = float32(ElapsedMs); Sample.GoalMilliseconds = float32(GoalMs);
+        if (!SharedAuthority) { CkGym_Common::Update_StationDisplay(SelfEntity, TitleText, D, Instructions); }
 	}
 }
