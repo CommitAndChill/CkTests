@@ -81,7 +81,7 @@ namespace ck_render_target_net_spec
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRenderTargetNet_Instructions_DrawReplicates,
     "Ck.RenderTarget.Net.Instructions_DrawReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -99,7 +99,7 @@ bool FCkRenderTargetNet_Instructions_DrawReplicates::RunTest(const FString& Para
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -146,7 +146,7 @@ bool FCkRenderTargetNet_Instructions_DrawReplicates::RunTest(const FString& Para
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRenderTargetNet_Instructions_EarlyDraw_AppliesAfterComposition,
     "Ck.RenderTarget.Net.Instructions_EarlyDraw_AppliesAfterComposition",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -165,7 +165,7 @@ bool FCkRenderTargetNet_Instructions_EarlyDraw_AppliesAfterComposition::RunTest(
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
