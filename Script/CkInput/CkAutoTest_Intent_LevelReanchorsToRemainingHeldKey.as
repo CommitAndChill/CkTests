@@ -38,6 +38,7 @@
 
 class UCk_AutoTest_Intent_LevelReanchorsToRemainingHeldKey : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
     default _TimeoutSeconds = 30.0f;
 
     private FCk_Handle                _Owner;

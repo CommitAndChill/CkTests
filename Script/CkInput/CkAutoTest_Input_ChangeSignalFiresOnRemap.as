@@ -35,6 +35,7 @@
 
 class UCk_AutoTest_Input_ChangeSignalFiresOnRemap : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
     private int32 _ChangeCount = 0;
     private FName _ObservedMappingName;
     private FKey _ObservedOldKey;

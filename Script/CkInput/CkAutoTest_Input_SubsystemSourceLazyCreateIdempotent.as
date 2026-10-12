@@ -26,9 +26,11 @@
 
 class UCk_AutoTest_Input_SubsystemSourceLazyCreateIdempotent : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
     default _TimeoutSeconds = 10.0f;
 
     private UCk_InputSource_Subsystem _Subsystem;
+    private APlayerController _PlayerController;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
@@ -40,6 +42,7 @@ class UCk_AutoTest_Input_SubsystemSourceLazyCreateIdempotent : UCk_AutoTest_Base
             return;
         }
 
+        _PlayerController = PlayerController;
         _Subsystem = UCk_InputSource_Subsystem::Get(PlayerController);
         if (ck::Is_NOT_Valid(_Subsystem))
         {
@@ -72,6 +75,36 @@ class UCk_AutoTest_Input_SubsystemSourceLazyCreateIdempotent : UCk_AutoTest_Base
 
         Assert_True(Second == First,
             "and it is the SAME source - a lazy creator that minted a second one would leave the Slate writer feeding the first while a later caller held an entity no real event ever reaches");
+
+        Assert_True(playground_gym::TryGet_PlayerSource(_PlayerController, this) == First,
+            "the playground reads the explicitly supplied local player's actual subsystem source");
+        Assert_True(ck::Is_NOT_Valid(playground_gym::TryGet_PlayerSource(nullptr, this)),
+            "a missing owner cannot fall back to another player's source");
+        Assert_True(ck::Is_NOT_Valid(playground_gym::TryGet_PlayerSource(_PlayerController, nullptr)),
+            "a missing world context cannot resolve a source");
+
+        // A real controller without a ULocalPlayer is a partially initialized owner,
+        // not a reason to compose features onto the world's first player's source.
+        auto Unowned = SpawnActor(APlayerController, FVector::ZeroVector, FRotator::ZeroRotator);
+        if (ck::Is_NOT_Valid(Unowned))
+        { FinishFailure("could not stage the unowned controller rejection probe"); return; }
+        FCk_Handle SourceEntity = First;
+        const bool HadBias = utils_input_bias::DoCast(SourceEntity).IsSet();
+        const bool HadMap = utils_input_button_map::DoCast(SourceEntity).IsSet();
+        const bool HadSampler = utils_intent_sampler::DoCast(SourceEntity).IsSet();
+        const bool HadHistory = utils_intent_debug_history::DoCast(SourceEntity).IsSet();
+        auto RejectedSource = playground_gym::TryGet_PlayerSource(Unowned, this);
+        bool Composed = playground_gym::Request_EnsureSourceComposed(Unowned, this);
+        Unowned.DestroyActor();
+        Assert_True(ck::Is_NOT_Valid(RejectedSource) && !Composed,
+            "an unowned controller is rejected before downstream source composition");
+        Assert_True(utils_input_bias::DoCast(SourceEntity).IsSet() == HadBias &&
+            utils_input_button_map::DoCast(SourceEntity).IsSet() == HadMap &&
+            utils_intent_sampler::DoCast(SourceEntity).IsSet() == HadSampler &&
+            utils_intent_debug_history::DoCast(SourceEntity).IsSet() == HadHistory,
+            "rejected composition leaves the real local player's features unchanged");
+        Assert_True(_Subsystem.Get_InputSource() == First,
+            "rejected composition does not replace the real player's source");
     }
 
     //------------------------------------------------------------------------

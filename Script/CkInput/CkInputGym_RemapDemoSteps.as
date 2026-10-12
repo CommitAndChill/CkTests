@@ -40,7 +40,15 @@ namespace input_gym_demo
     // Every step publishes to the same station.
     void Publish(FCk_Handle InAnyEntity, FString InStepLabel, TArray<FCkGym_ColoredLine>& InLines)
     {
-        input_gym::Write_StepVerdict(InAnyEntity, input_gym::k_Tag_RemapConflict, InStepLabel, InLines);
+        input_gym::Write_StepVerdict(InAnyEntity, InStepLabel, InLines);
+    }
+
+    APlayerController Get_Owner(FCk_Handle InStation, UObject InContext)
+    {
+        if (ck::Is_NOT_Valid(InStation))
+        { return nullptr; }
+        const auto& Owner = InStation.Get_Fragment(FCkInputGym_StationOwner);
+        return input_gym::Get_LocalPlayerController(Owner.PlayerController, InContext);
     }
 
     FKey Get_Key(APlayerController InPlayerController, FName InMappingName)
@@ -82,7 +90,7 @@ class UCk_InputGym_Step_ResetBaseline : UCk_Gym_StepState
         auto _CkPerfScope = ck::ScopedStat();
 
         auto Station = Get_StationEntity();
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym_demo::Get_Owner(Station, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 
@@ -122,7 +130,7 @@ class UCk_InputGym_Step_RemapFree : UCk_Gym_StepState
         auto _CkPerfScope = ck::ScopedStat();
 
         auto Station = Get_StationEntity();
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym_demo::Get_Owner(Station, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 
@@ -167,7 +175,7 @@ class UCk_InputGym_Step_RemapOntoCrouch : UCk_Gym_StepState
         auto _CkPerfScope = ck::ScopedStat();
 
         auto Station = Get_StationEntity();
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym_demo::Get_Owner(Station, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 
@@ -217,7 +225,7 @@ class UCk_InputGym_Step_RemapOntoInteract : UCk_Gym_StepState
         auto _CkPerfScope = ck::ScopedStat();
 
         auto Station = Get_StationEntity();
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym_demo::Get_Owner(Station, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 
@@ -268,7 +276,7 @@ class UCk_InputGym_Step_SwapJumpCrouch : UCk_Gym_StepState
         auto _CkPerfScope = ck::ScopedStat();
 
         auto Station = Get_StationEntity();
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym_demo::Get_Owner(Station, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 
@@ -319,7 +327,7 @@ class UCk_InputGym_Step_UnbindConflict : UCk_Gym_StepState
         auto _CkPerfScope = ck::ScopedStat();
 
         auto Station = Get_StationEntity();
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym_demo::Get_Owner(Station, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 
@@ -366,7 +374,7 @@ class UCk_InputGym_Step_BatchRemap : UCk_Gym_StepState
         auto _CkPerfScope = ck::ScopedStat();
 
         auto Station = Get_StationEntity();
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym_demo::Get_Owner(Station, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 
@@ -425,7 +433,7 @@ class UCk_InputGym_Step_ResetAndSave : UCk_Gym_StepState
         auto _CkPerfScope = ck::ScopedStat();
 
         auto Station = Get_StationEntity();
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym_demo::Get_Owner(Station, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 

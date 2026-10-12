@@ -25,7 +25,7 @@ class ACk_PlaygroundGym_PlayerController : ACk_Gym_Base_PlayerController
         Super::BeginPlay();
 
         // The cursor is the aim pointer - it stays visible for the whole session.
-        bShowMouseCursor = true;
+        if (IsLocalController()) { bShowMouseCursor = true; }
     }
 
     // The base spawns the PC's own WithActor entity and starts the gym from here;
@@ -35,6 +35,7 @@ class ACk_PlaygroundGym_PlayerController : ACk_Gym_Base_PlayerController
     {
         Super::OnEntityConstructed(InEntityScriptHandle);
 
+        if (!IsLocalController() || ck::Is_NOT_Valid(InEntityScriptHandle)) { return; }
         _PlaygroundEntity = FCk_Handle(InEntityScriptHandle);
         utils_timer::Create_Tick(_PlaygroundEntity, FCk_Delegate_Timer(this, n"OnPlaygroundTick"));
     }
@@ -42,6 +43,7 @@ class ACk_PlaygroundGym_PlayerController : ACk_Gym_Base_PlayerController
     // Skip the base gym-selector menu - the playground is drivable from the first frame (Tab still toggles the menu).
     void Request_StartGym() override
     {
+        if (!IsLocalController()) { return; }
         Print("Input Playground | WASD: move, SHIFT: sprint | mouse: aim | LMB: light chain x3 (hold = light special) | RMB: heavy chain x3 (hold = heavy special) | LMB then RMB: combo L-H | RMB then LMB: combo H-L | sprint (W+SHIFT) + LMB/RMB: sprint AoE attack | Q: block (hold; press just before the hit = PARRY, which returns the shot) | the dummy shoots every 3s inside 1600cm - walk out of it, block it, or parry it back | Tab: gym menu", 12.0f);
     }
 
@@ -53,7 +55,7 @@ class ACk_PlaygroundGym_PlayerController : ACk_Gym_Base_PlayerController
         // Idempotent, and from a tick rather than a construct because the player's
         // input source does not exist until the local player has a controller and
         // the subsystem gives up quietly until it does.
-        playground_gym::Request_EnsureSourceComposed();
+        playground_gym::Request_EnsureSourceComposed(this, this);
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -83,6 +85,7 @@ class ACk_PlaygroundGym_PlayerController : ACk_Gym_Base_PlayerController
 
     void Request_ControlActivated(int32 InRowIndex) override
     {
+        if (!IsLocalController()) { return; }
         if (InRowIndex == 0) { Request_SetScanDiagnostics(utils_intent_matcher::Get_ScanDiagnosticsEnabled() == false); }
         else if (InRowIndex == 1) { Request_ReportStatus(); }
     }
@@ -107,22 +110,22 @@ class ACk_PlaygroundGym_PlayerController : ACk_Gym_Base_PlayerController
     // the first sampled row.
     private void Request_ReportStatus()
     {
-        auto Source = playground_gym::TryGet_PlayerSource();
+        auto Source = playground_gym::TryGet_PlayerSource(this, this);
 
         if (ck::Is_NOT_Valid(Source))
         {
-            Print("[Playground] no input source for local player 0 yet", 8.0f);
+            Print("[Playground] no input source for this local player yet", 8.0f);
             return;
         }
 
-        auto ButtonMap = playground_gym::TryGet_ButtonMap();
+        auto ButtonMap = playground_gym::TryGet_ButtonMap(this, this);
         if (ck::Is_NOT_Valid(ButtonMap))
         {
             Print("[Playground] source is up, button map not composed yet", 8.0f);
             return;
         }
 
-        auto Sampler = playground_gym::TryGet_Sampler();
+        auto Sampler = playground_gym::TryGet_Sampler(this, this);
         if (ck::Is_NOT_Valid(Sampler))
         {
             Print("[Playground] source and map are up, sampler not composed yet", 8.0f);

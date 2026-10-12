@@ -13,6 +13,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
 #include "Framework/Application/SlateApplication.h"
 #include "HAL/IConsoleManager.h"
 #include "Input/Events.h"
@@ -218,28 +219,100 @@ namespace ck_tests_intent_input_hud_controls_pie
         CVar->Set(InValue, ECVF_SetByConsole);
         return CVar->GetInt() == InValue;
     }
+
+    auto GetSelectedWorld(const bool bHost) -> UWorld*
+    {
+        return bHost ? ck::auto_test::net::Get_ServerWorld()
+            : ck::auto_test::net::Get_ClientWorld(0);
+    }
+
+    auto HasReadyLocalPlayer(const bool bHost) -> bool
+    {
+        UWorld* World = GetSelectedWorld(bHost);
+        if (NOT IsValid(World) || NOT World->HasBegunPlay()) { return false; }
+        UGameInstance* Instance = World->GetGameInstance();
+        ULocalPlayer* Player = IsValid(Instance) ? Instance->GetLocalPlayerByIndex(0) : nullptr;
+        return IsValid(Player) && IsValid(Player->GetPlayerController(World));
+    }
+
+    auto GetLocalPlayerCases(TArray<FString>& OutNames, TArray<FString>& OutCommands) -> void
+    {
+        for (const FString& Case : {FString{TEXT("ListenServer.Host")},
+            FString{TEXT("ListenServer.Client")}, FString{TEXT("ClientServer.Client")}})
+        {
+            OutNames.Add(Case);
+            OutCommands.Add(Case);
+        }
+    }
+
+    class FRunOnSelectedLocalWorld final : public IAutomationLatentCommand
+    {
+    public:
+        FRunOnSelectedLocalWorld(
+            FAutomationTestBase* InTest, const bool bInHost, const FCk_NetAutoTest_ServerAction& InAction)
+            : Test(InTest), bHost(bInHost), Action(InAction) {}
+
+        virtual bool Update() override
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+            if (Test == nullptr || NOT HasReadyLocalPlayer(bHost) || NOT Action.IsBound())
+            {
+                ck::auto_test::net::FailSession(
+                    TEXT("Selected PIE world, local player, test context, or action was lost before execution."));
+                return true;
+            }
+            Action.Execute(GetSelectedWorld(bHost));
+            return true;
+        }
+
+    private:
+        FAutomationTestBase* Test = nullptr;
+        bool bHost = false;
+        FCk_NetAutoTest_ServerAction Action;
+    };
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(
     FCkIntentInputHud_ControlsPie,
     "Ck.IntentDebugger.InputHudControls.PIE",
     ck_tests_intent_input_hud_controls_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkIntentInputHud_ControlsPie::RunTest(const FString&)
+void FCkIntentInputHud_ControlsPie::GetTests(TArray<FString>& OutNames, TArray<FString>& OutCommands) const
+{
+    ck_tests_intent_input_hud_controls_pie::GetLocalPlayerCases(OutNames, OutCommands);
+}
+
+bool FCkIntentInputHud_ControlsPie::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_intent_input_hud_controls_pie;
 
+    const bool bHost = Parameters == TEXT("ListenServer.Host");
+    const bool bListenClient = Parameters == TEXT("ListenServer.Client");
+    const bool bDedicatedClient = Parameters == TEXT("ClientServer.Client");
+    if (NOT bHost && NOT bListenClient && NOT bDedicatedClient)
+    {
+        AddError(FString::Printf(TEXT("Unknown local-player PIE case: %s"), *Parameters));
+        return false;
+    }
+    const FString Topology = bDedicatedClient ? TEXT("ClientServer") : TEXT("ListenServer");
+
     const TSharedRef<FState> State = MakeShared<FState>();
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Topology));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 45.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(
+        this,
+        FCk_NetAutoTest_Condition::CreateLambda([bHost]() -> bool
+        { return HasReadyLocalPlayer(bHost); }),
+        45.0,
+        TEXT("selected PIE role has begun play with a local player and controller")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(
-        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
+        FCk_NetAutoTest_Condition::CreateLambda([bHost]() -> bool
         {
-            ULocalPlayer* Player = GetPlayer(ck::auto_test::net::Get_ServerWorld());
+            ULocalPlayer* Player = GetPlayer(GetSelectedWorld(bHost));
             return IsValid(Player) && IsValid(Player->GetSubsystem<UCk_InputHud_Subsystem>());
         }),
         10.0f));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+    ADD_LATENT_AUTOMATION_COMMAND(FRunOnSelectedLocalWorld(this, bHost,
         FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
         {
             ULocalPlayer* Player = GetPlayer(InWorld);

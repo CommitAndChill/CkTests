@@ -220,20 +220,30 @@ namespace playground_gym
     const int32 k_LatchDecayFrames = 600;
 
     //------------------------------------------------------------------------
-    // The player's input source, and the features every consumer reads off it
+    // The owning local player's input source and its consumer features
     //------------------------------------------------------------------------
 
-    APlayerController Get_LocalPlayerController()
+    APlayerController Get_LocalPlayerController(APlayerController InOwner, UObject InContext)
     {
-        return Gameplay::GetPlayerController(0);
+        if (ck::Is_NOT_Valid(InOwner) || ck::Is_NOT_Valid(InContext))
+        { return nullptr; }
+        if (ck::Is_NOT_Valid(InOwner.GetWorld()) || ck::Is_NOT_Valid(InContext.GetWorld()))
+        { return nullptr; }
+        if (!InOwner.IsLocalController() || InOwner.GetWorld() != InContext.GetWorld())
+        { return nullptr; }
+        auto LocalPlayer = InOwner.GetLocalPlayer();
+        if (ck::Is_NOT_Valid(LocalPlayer)) { return nullptr; }
+        UObject LocalPlayerContext = LocalPlayer;
+        if (LocalPlayerContext.GetWorld() != InOwner.GetWorld()) { return nullptr; }
+        return InOwner;
     }
 
     // Invalid until the local player has a PlayerController - the subsystem
     // creates the source lazily and gives up quietly until then, which is the
     // normal startup order rather than a failure.
-    FCk_Handle_InputSource TryGet_PlayerSource()
+    FCk_Handle_InputSource TryGet_PlayerSource(APlayerController InOwner, UObject InContext)
     {
-        auto PlayerController = Get_LocalPlayerController();
+        auto PlayerController = Get_LocalPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(PlayerController))
         { return utils_input_source::Get_InvalidHandle(); }
 
@@ -241,7 +251,13 @@ namespace playground_gym
         if (ck::Is_NOT_Valid(SourceSubsystem))
         { return utils_input_source::Get_InvalidHandle(); }
 
-        return SourceSubsystem.Get_InputSource();
+        auto Source = SourceSubsystem.Get_InputSource();
+        if (ck::Is_NOT_Valid(Source))
+        { return utils_input_source::Get_InvalidHandle(); }
+        FCk_Handle SourceEntity = Source;
+        if (utils_entity_lifetime::Get_IsPendingDestroy(SourceEntity, ECk_EntityLifetime_DestructionPhase::BeginDestroy))
+        { return utils_input_source::Get_InvalidHandle(); }
+        return Source;
     }
 
     // Every key any move in this gym terminates on, PLUS the one key that is read
@@ -271,9 +287,9 @@ namespace playground_gym
     // unset state: both cleaned slots stay Neutral and no SOCD work runs. Nothing
     // in this gym matches a direction, so a quad would only mint four keys the
     // record carried rows for and nobody read.
-    bool Request_EnsureSourceComposed()
+    bool Request_EnsureSourceComposed(APlayerController InOwner, UObject InContext)
     {
-        auto Source = TryGet_PlayerSource();
+        auto Source = TryGet_PlayerSource(InOwner, InContext);
         if (ck::Is_NOT_Valid(Source))
         { return false; }
 
@@ -294,9 +310,9 @@ namespace playground_gym
         return true;
     }
 
-    FCk_Handle_IntentSampler TryGet_Sampler()
+    FCk_Handle_IntentSampler TryGet_Sampler(APlayerController InOwner, UObject InContext)
     {
-        auto Source = TryGet_PlayerSource();
+        auto Source = TryGet_PlayerSource(InOwner, InContext);
         if (ck::Is_NOT_Valid(Source))
         { return utils_intent_sampler::Get_InvalidHandle(); }
 
@@ -308,9 +324,9 @@ namespace playground_gym
         return CastResult.GetValue();
     }
 
-    FCk_Handle_InputButtonMap TryGet_ButtonMap()
+    FCk_Handle_InputButtonMap TryGet_ButtonMap(APlayerController InOwner, UObject InContext)
     {
-        auto Source = TryGet_PlayerSource();
+        auto Source = TryGet_PlayerSource(InOwner, InContext);
         if (ck::Is_NOT_Valid(Source))
         { return utils_input_button_map::Get_InvalidHandle(); }
 

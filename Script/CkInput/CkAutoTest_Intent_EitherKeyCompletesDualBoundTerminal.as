@@ -22,6 +22,7 @@
 
 class UCk_AutoTest_Intent_EitherKeyCompletesDualBoundTerminal : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
     default _TimeoutSeconds = 20.0f;
 
     private FCk_Handle                _Owner;
