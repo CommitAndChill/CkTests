@@ -1,39 +1,10 @@
 //============================================================================
-// FLOAT ATTRIBUTE GYM - PLAYER CONTROLLER & GAME MODE
+// FLOAT ATTRIBUTE GYM - WORLD-OWNED CATALOG AND CONTROL IDENTITIES
 //============================================================================
 
-class ACk_FloatAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
+namespace CkAttributeFloat
 {
-    // Preset-ring positions for the panel rows; each press applies the NEXT value, chosen to
-    // exercise the auto-clamping (over-max, below-min) each station demonstrates.
-    private int32 _MinPresetIndex = -1;
-    private int32 _MaxPresetIndex = -1;
-    private int32 _CurrentPresetIndex = -1;
-    private int32 _SignalPresetIndex = -1;
-
-    // Action rings - the eight stations carry more knobs than there are legal keys, so the
-    // per-station actions share one key each and step through their list.
-    private int32 _ValuesActionIndex = -1;
-    private int32 _ModifiersActionIndex = -1;
-    private int32 _RefillActionIndex = -1;
-    private int32 _IncDecActionIndex = -1;
-    private int32 _MultipleActionIndex = -1;
-    private int32 _ResetActionIndex = -1;
-
-    // Mirrors of each station's auto-cycle state - it lives in the entity scripts behind a
-    // broadcast message with no readback, so the panel mirrors it here (all start true: every
-    // station auto-runs).
-    private bool _AutoAllEnabled = true;
-    private bool _AutoValues = true;
-    private bool _AutoClamping = true;
-    private bool _AutoModifiers = true;
-    private bool _AutoMinMaxCurrent = true;
-    private bool _AutoSignals = true;
-    private bool _AutoRefill = true;
-    private bool _AutoIncDec = true;
-    private bool _AutoMultiple = true;
-
-    TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
+    TArray<FCkGym_Station_SpawnParams_Payload> Get_Stations()
     {
         auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
 
@@ -152,121 +123,146 @@ class ACk_FloatAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
 
         return Stations;
     }
+    FName Get_StationTag(int32 InIndex)
+    {
+        auto Stations = Get_Stations();
+        if (InIndex < 0 || InIndex >= Stations.Num() || Stations[InIndex].Tags.Num() != 1)
+        { return NAME_None; }
+        return Stations[InIndex].Tags[0];
+    }
+    FName Get_ChildTag(int32 InIndex)
+    {
+        if (InIndex == 0) { return n"TAG_AttributeGym_FloatValues"; }
+        if (InIndex == 1) { return n"TAG_AttributeGym_FloatClamping"; }
+        if (InIndex == 2) { return n"TAG_AttributeGym_FloatModifiers"; }
+        if (InIndex == 3) { return n"TAG_AttributeGym_FloatMinMaxCurrent"; }
+        if (InIndex == 4) { return n"TAG_AttributeGym_FloatSignals"; }
+        if (InIndex == 5) { return n"TAG_AttributeGym_FloatRefill"; }
+        if (InIndex == 6) { return n"TAG_AttributeGym_FloatIncrementDecrement"; }
+        if (InIndex == 7) { return n"TAG_AttributeGym_FloatMultiple"; }
+        return NAME_None;
+    }
+    FCk_Handle FindStation(int32 InIndex)
+    {
+        auto World = ck::TransientEntity();
+        if (!IsLiveEntity(World)) { return FCk_Handle(); }
+        auto Tag = Get_StationTag(InIndex);
+        if (Tag == NAME_None) { return FCk_Handle(); }
+        auto Matches = utils_entity_tag::ForEach_Entity(World, Tag);
+        if (Matches.Num() != 1 || !IsLiveEntity(Matches[0]) ||
+            !Matches[0].Has_Fragment(FCkGym_Station_Anchors))
+        { return FCk_Handle(); }
+        return Matches[0];
+    }
+    bool IsAction(int32 InAction)
+    {
+        return InAction == 1 || (InAction >= 3 && InAction <= 10) ||
+            (InAction >= 12 && InAction <= 16) ||
+            (InAction >= 18 && InAction <= 21) ||
+            InAction == 23 || InAction == 24;
+    }
+    int32 PresetCount(int32 InAction)
+    {
+        if (InAction == 12 || InAction == 16 || InAction == 24) { return 2; }
+        if (InAction == 13 || InAction == 14 || InAction == 15) { return 3; }
+        if (InAction >= 18 && InAction <= 21) { return 4; }
+        return 0;
+    }
+    int32 Get_NextPreset(int32 InAction, int32 Min, int32 Max, int32 Cur,
+        int32 Signal, int32 Values, int32 Modifiers, int32 Refill, int32 IncDec,
+        int32 Multiple, int32 Reset)
+    {
+        int32 Count = PresetCount(InAction);
+        int32 Cursor = -1;
+        if (InAction == 12) { Cursor = Values; }
+        if (InAction == 13) { Cursor = Modifiers; }
+        if (InAction == 14) { Cursor = Refill; }
+        if (InAction == 15) { Cursor = IncDec; }
+        if (InAction == 16) { Cursor = Multiple; }
+        if (InAction == 18) { Cursor = Min; }
+        if (InAction == 19) { Cursor = Max; }
+        if (InAction == 20) { Cursor = Cur; }
+        if (InAction == 21) { Cursor = Signal; }
+        if (InAction == 24) { Cursor = Reset; }
+        if (Count > 0 && (Cursor < -1 || Cursor >= Count)) { return -1; }
+        if (InAction == 12) { return (Values + 1) % 2; }
+        if (InAction == 13) { return (Modifiers + 1) % 3; }
+        if (InAction == 14) { return (Refill + 1) % 3; }
+        if (InAction == 15) { return (IncDec + 1) % 3; }
+        if (InAction == 16) { return (Multiple + 1) % 2; }
+        if (InAction == 18) { return (Min + 1) % 4; }
+        if (InAction == 19) { return (Max + 1) % 4; }
+        if (InAction == 20) { return (Cur + 1) % 4; }
+        if (InAction == 21) { return (Signal + 1) % 4; }
+        if (InAction == 24) { return (Reset + 1) % 2; }
+        return -1;
+    }
+    ACk_FloatAttributeGym_GameState Get_State()
+    {
+        TArray<ACk_FloatAttributeGym_GameState> States;
+        GetAllActorsOfClass(ACk_FloatAttributeGym_GameState, States);
+        if (States.Num() != 1 || ck::Is_NOT_Valid(States[0])) { return nullptr; }
+        return States[0];
+    }
+}
 
+class ACk_FloatAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
+{
+    UPROPERTY(Replicated) int32 MinPresetIndex = -1;
+    UPROPERTY(Replicated) int32 MaxPresetIndex = -1;
+    UPROPERTY(Replicated) int32 CurrentPresetIndex = -1;
+    UPROPERTY(Replicated) int32 SignalPresetIndex = -1;
+    UPROPERTY(Replicated) int32 ValuesActionIndex = -1;
+    UPROPERTY(Replicated) int32 ModifiersActionIndex = -1;
+    UPROPERTY(Replicated) int32 RefillActionIndex = -1;
+    UPROPERTY(Replicated) int32 IncDecActionIndex = -1;
+    UPROPERTY(Replicated) int32 MultipleActionIndex = -1;
+    UPROPERTY(Replicated) int32 ResetActionIndex = -1;
+    UPROPERTY(Replicated) int32 LastControlSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlAttemptSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlResult = 0;
+    private int32 _RequestedSerial = 0, _PendingSerial = 0;
+    private float _PendingSeconds = 0.0;
+    private int32 _ServerPendingSerial = 0, _ServerPendingGeneration = 0;
+    private int32 _ServerPendingAction = -1, _ServerPendingPreset = -1;
+    private int32 _AttemptEpoch = 0, _ServerPendingAttemptEpoch = 0;
+    private int32 _StateWaitAttempts = 0;
+
+    TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
+    {
+        if (HasAuthority()) { return TArray<FCkGym_Station_SpawnParams_Payload>(); }
+        return CkAttributeFloat::Get_Stations();
+    }
     void Request_StartGym() override
     {
-        Request_StartFloatValues();
-        Request_StartFloatClamping();
-        Request_StartFloatModifiers();
-        Request_StartFloatMinMaxCurrent();
-        Request_StartFloatSignals();
-        Request_StartFloatRefill();
-        Request_StartFloatIncrementDecrement();
-        Request_StartFloatMultiple();
+        auto State = CkAttributeFloat::Get_State();
+        if (ck::Is_NOT_Valid(State))
+        {
+            if (IsLocalController() && _StateWaitAttempts++ < 200)
+            { System::SetTimer(this, n"OnStateWait", 0.1, false); }
+            return;
+        }
+        if (HasAuthority()) { State.Request_EnsureSharedDemo(); }
+        if (IsLocalController()) { State.Request_EnsureLocalProjection(); }
     }
-
-    void Request_StartFloatValues()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.FloatValues", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.FloatValues"),
-            UCk_EntityScript_AttributeGym_FloatValues,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartFloatClamping()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.FloatClamping", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.FloatClamping"),
-            UCk_EntityScript_AttributeGym_FloatClamping,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartFloatModifiers()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.FloatModifiers", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.FloatModifiers"),
-            UCk_EntityScript_AttributeGym_FloatModifiers,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartFloatMinMaxCurrent()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.FloatMinMaxCurrent", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.FloatMinMaxCurrent"),
-            UCk_EntityScript_AttributeGym_FloatMinMaxCurrent,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartFloatSignals()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.FloatSignals", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.FloatSignals"),
-            UCk_EntityScript_AttributeGym_FloatSignals,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartFloatRefill()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.FloatRefill", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.FloatRefill"),
-            UCk_EntityScript_AttributeGym_FloatRefill,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartFloatIncrementDecrement()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.FloatIncrementDecrement", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.FloatIncrementDecrement"),
-            UCk_EntityScript_AttributeGym_FloatIncrementDecrement,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartFloatMultiple()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.FloatMultiple", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.FloatMultiple"),
-            UCk_EntityScript_AttributeGym_FloatMultiple,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    //------------------------------------------------------------------------
-    // Control panel
-    //------------------------------------------------------------------------
+    UFUNCTION() private void OnStateWait() { Request_StartGym(); }
+    UFUNCTION(BlueprintOverride) void Tick(float DeltaSeconds)
+    { if (IsLocalController()) { Request_ReconcileControlAck(); } }
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override
     {
+        Request_ReconcileControlAck();
+        auto State = CkAttributeFloat::Get_State();
+        bool _AutoValues = ck::IsValid(State) && State.Get_AutoRunning(0);
+        bool _AutoClamping = ck::IsValid(State) && State.Get_AutoRunning(1);
+        bool _AutoModifiers = ck::IsValid(State) && State.Get_AutoRunning(2);
+        bool _AutoMinMaxCurrent = ck::IsValid(State) && State.Get_AutoRunning(3);
+        bool _AutoSignals = ck::IsValid(State) && State.Get_AutoRunning(4);
+        bool _AutoRefill = ck::IsValid(State) && State.Get_AutoRunning(5);
+        bool _AutoIncDec = ck::IsValid(State) && State.Get_AutoRunning(6);
+        bool _AutoMultiple = ck::IsValid(State) && State.Get_AutoRunning(7);
+        bool _AutoAllEnabled = _AutoValues && _AutoClamping && _AutoModifiers &&
+            _AutoMinMaxCurrent && _AutoSignals && _AutoRefill && _AutoIncDec && _AutoMultiple;
         auto Rows = TArray<FCkGym_ControlRow>();
         Rows.Add(CkGym_Control::Header("FLOAT ATTRIBUTE GYM"));
         Rows.Add(CkGym_Control::Toggle(EKeys::T, "T", "Auto-cycle all stations", _AutoAllEnabled));
@@ -282,321 +278,139 @@ class ACk_FloatAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
         Rows.Add(CkGym_Control::Numbered(7, "Multiple", _AutoMultiple));
 
         Rows.Add(CkGym_Control::Header("STATION ACTIONS"));
-        Rows.Add(CkGym_Control::Cycle(EKeys::J, "J", "Values modifiers",  DoGet_PresetLabel(_ValuesActionIndex,    "add modifier / clear modifiers")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::K, "K", "Modifiers station", DoGet_PresetLabel(_ModifiersActionIndex, "add weapon / revoke weapon / clear all")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::G, "G", "Refill station",    DoGet_PresetLabel(_RefillActionIndex,    "toggle refill / drain energy / drain mana")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::N, "N", "Inc/Dec station",   DoGet_PresetLabel(_IncDecActionIndex,    "increment / decrement / revoke all")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::M, "M", "Multiple station",  DoGet_PresetLabel(_MultipleActionIndex,  "add batch / clear batch")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::J, "J", "Values modifiers",  DoGet_PresetLabel(ValuesActionIndex,    "add modifier / clear modifiers")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::K, "K", "Modifiers station", DoGet_PresetLabel(ModifiersActionIndex, "add weapon / revoke weapon / clear all")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::G, "G", "Refill station",    DoGet_PresetLabel(RefillActionIndex,    "toggle refill / drain energy / drain mana")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::N, "N", "Inc/Dec station",   DoGet_PresetLabel(IncDecActionIndex,    "increment / decrement / revoke all")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::M, "M", "Multiple station",  DoGet_PresetLabel(MultipleActionIndex,  "add batch / clear batch")));
 
         Rows.Add(CkGym_Control::Header("PRESETS"));
-        Rows.Add(CkGym_Control::Cycle(EKeys::U, "U", "Min preset (Min/Max/Current)",     DoGet_PresetLabel(_MinPresetIndex,     "10 / 25.5 / 60 / 220")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::I, "I", "Max preset (Min/Max/Current)",     DoGet_PresetLabel(_MaxPresetIndex,     "200 / 175.75 / 90 / 5")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::O, "O", "Current preset (Min/Max/Current)", DoGet_PresetLabel(_CurrentPresetIndex, "100 / 142.3 / 250 / -40")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::P, "P", "Signal value preset (Signals)",    DoGet_PresetLabel(_SignalPresetIndex,  "150 / 0 / 300 / -50")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::U, "U", "Min preset (Min/Max/Current)",     DoGet_PresetLabel(MinPresetIndex,     "10 / 25.5 / 60 / 220")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::I, "I", "Max preset (Min/Max/Current)",     DoGet_PresetLabel(MaxPresetIndex,     "200 / 175.75 / 90 / 5")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::O, "O", "Current preset (Min/Max/Current)", DoGet_PresetLabel(CurrentPresetIndex, "100 / 142.3 / 250 / -40")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::P, "P", "Signal value preset (Signals)",    DoGet_PresetLabel(SignalPresetIndex,  "150 / 0 / 300 / -50")));
 
         Rows.Add(CkGym_Control::Header("GLOBAL"));
         Rows.Add(CkGym_Control::Action(EKeys::B, "B", "Test boundaries (Clamping)"));
-        Rows.Add(CkGym_Control::Cycle(EKeys::R, "R", "Reset", DoGet_PresetLabel(_ResetActionIndex, "clamping station / all stations")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::R, "R", "Reset", DoGet_PresetLabel(ResetActionIndex, "clamping station / all stations")));
         return Rows;
     }
-
     void Request_ControlActivated(int32 InRowIndex) override
     {
-        if (InRowIndex == 1)
+        Request_ReconcileControlAck();
+        if (!IsLocalController() || _PendingSerial != 0 ||
+            _RequestedSerial >= 2147483647 || LastControlSerial >= 2147483647)
+        { return; }
+        auto State = CkAttributeFloat::Get_State();
+        if (ck::Is_NOT_Valid(State) || !State.Get_HasCompleteSnapshot() ||
+            !CkAttributeFloat::IsAction(InRowIndex)) { return; }
+        int32 Preset = CkAttributeFloat::Get_NextPreset(InRowIndex,
+            MinPresetIndex, MaxPresetIndex, CurrentPresetIndex, SignalPresetIndex,
+            ValuesActionIndex, ModifiersActionIndex, RefillActionIndex, IncDecActionIndex,
+            MultipleActionIndex, ResetActionIndex);
+        if (CkAttributeFloat::PresetCount(InRowIndex) > 0 && Preset < 0) { return; }
+        _RequestedSerial = Math::Max(_RequestedSerial, LastControlSerial) + 1;
+        _PendingSerial = _RequestedSerial;
+        _PendingSeconds = float(System::GetGameTimeInSeconds());
+        System::SetTimer(this, n"OnControlDeadline", 25.0, false);
+        Server_RequestFloatControl(_PendingSerial, InRowIndex, Preset);
+    }
+    UFUNCTION() private void OnControlDeadline()
+    {
+        if (_PendingSerial == 0) { return; }
+        Request_ReconcileControlAck();
+        if (_PendingSerial == 0) { return; }
+        if (float(System::GetGameTimeInSeconds()) - _PendingSeconds >= 25.0)
+        { ck::Error("[AttributeFloat] Control acknowledgement timed out"); _PendingSerial = 0; }
+    }
+    private void Request_ReconcileControlAck()
+    {
+        if (_PendingSerial > 0 && (LastControlSerial >= _PendingSerial ||
+            (LastControlAttemptSerial == _PendingSerial && LastControlResult != 0)))
+        { _PendingSerial = 0; }
+    }
+    void Request_CompleteFloatControl(int32 InSerial, int32 InAction,
+        int32 InPreset, int32 InGeneration, bool InSuccess)
+    {
+        if (!HasAuthority() || InSerial <= 0 || InSerial <= LastControlSerial ||
+            _ServerPendingSerial != InSerial || _ServerPendingGeneration != InGeneration ||
+            _ServerPendingAction != InAction || _ServerPendingPreset != InPreset) { return; }
+        bool Latest = _AttemptEpoch == _ServerPendingAttemptEpoch;
+        _ServerPendingSerial = 0; _ServerPendingGeneration = 0;
+        _ServerPendingAction = -1; _ServerPendingPreset = -1; _ServerPendingAttemptEpoch = 0;
+        if (!InSuccess) { if (Latest) { LastControlResult = 3; } return; }
+        if (InAction == 12) { ValuesActionIndex = InPreset; }
+        if (InAction == 13) { ModifiersActionIndex = InPreset; }
+        if (InAction == 14) { RefillActionIndex = InPreset; }
+        if (InAction == 15) { IncDecActionIndex = InPreset; }
+        if (InAction == 16) { MultipleActionIndex = InPreset; }
+        if (InAction == 18) { MinPresetIndex = InPreset; }
+        if (InAction == 19) { MaxPresetIndex = InPreset; }
+        if (InAction == 20) { CurrentPresetIndex = InPreset; }
+        if (InAction == 21) { SignalPresetIndex = InPreset; }
+        if (InAction == 24)
         {
-            _AutoAllEnabled = !_AutoAllEnabled;
-            _AutoValues = _AutoAllEnabled;
-            _AutoClamping = _AutoAllEnabled;
-            _AutoModifiers = _AutoAllEnabled;
-            _AutoMinMaxCurrent = _AutoAllEnabled;
-            _AutoSignals = _AutoAllEnabled;
-            _AutoRefill = _AutoAllEnabled;
-            _AutoIncDec = _AutoAllEnabled;
-            _AutoMultiple = _AutoAllEnabled;
-
-            for (auto Tag : Get_AllStationTags())
-            {
-                DoBroadcastToStation(Tag, FCk_Message_Gym_AutoSet(_AutoAllEnabled));
-            }
+            ResetActionIndex = InPreset;
+            if (InPreset == 1)
+            { MinPresetIndex = -1; MaxPresetIndex = -1;
+              CurrentPresetIndex = -1; SignalPresetIndex = -1; }
         }
-        else if (InRowIndex == 3)
+        LastControlSerial = InSerial;
+        if (Latest) { LastControlResult = 1; }
+    }
+    UFUNCTION(Server) void Server_RequestFloatControl(int32 InSerial, int32 InAction, int32 InPreset)
+    {
+        if (!HasAuthority()) { return; }
+        _AttemptEpoch++; LastControlAttemptSerial = InSerial; LastControlResult = 0;
+        if (InSerial <= 0 || InSerial <= LastControlSerial ||
+            !CkAttributeFloat::IsAction(InAction) ||
+            (CkAttributeFloat::PresetCount(InAction) > 0 &&
+                (InPreset < 0 || InPreset >= CkAttributeFloat::PresetCount(InAction))) ||
+            (CkAttributeFloat::PresetCount(InAction) == 0 && InPreset != -1) ||
+            InPreset != CkAttributeFloat::Get_NextPreset(InAction,
+                MinPresetIndex, MaxPresetIndex, CurrentPresetIndex, SignalPresetIndex,
+                ValuesActionIndex, ModifiersActionIndex, RefillActionIndex, IncDecActionIndex,
+                MultipleActionIndex, ResetActionIndex))
+        { LastControlResult = 4; return; }
+        if (_ServerPendingSerial > 0) { LastControlResult = 3; return; }
+        auto Pawn = Cast<ACk_Gym_Base_Pawn>(GetControlledPawn());
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetController() != this ||
+            Pawn.GetWorld() != GetWorld()) { LastControlResult = 2; return; }
+        auto State = CkAttributeFloat::Get_State();
+        TArray<ACk_FloatAttributeGym_GameMode> Modes;
+        GetAllActorsOfClass(ACk_FloatAttributeGym_GameMode, Modes);
+        auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto Gym = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != GetWorld() ||
+            Modes.Num() != 1 || ck::Is_NOT_Valid(Modes[0]) || Modes[0].GetWorld() != GetWorld() ||
+            !State.Get_HasCompleteSnapshot() || Gym < 0 || Gym >= Registry.Num() ||
+            Registry[Gym].DisplayName != "Attribute Float" || !State.Get_HasReadyServerChildren())
+        { LastControlResult = 3; return; }
+        _ServerPendingSerial = InSerial; _ServerPendingGeneration = State.Snapshot.Generation;
+        _ServerPendingAction = InAction; _ServerPendingPreset = InPreset;
+        _ServerPendingAttemptEpoch = _AttemptEpoch;
+        if (!State.Request_ApplyControl(this, InSerial, InAction, InPreset))
         {
-            _AutoValues = !_AutoValues;
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatValues", FCk_Message_Gym_AutoSet(_AutoValues));
-        }
-        else if (InRowIndex == 4)
-        {
-            _AutoClamping = !_AutoClamping;
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatClamping", FCk_Message_Gym_AutoSet(_AutoClamping));
-        }
-        else if (InRowIndex == 5)
-        {
-            _AutoModifiers = !_AutoModifiers;
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatModifiers", FCk_Message_Gym_AutoSet(_AutoModifiers));
-        }
-        else if (InRowIndex == 6)
-        {
-            _AutoMinMaxCurrent = !_AutoMinMaxCurrent;
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatMinMaxCurrent", FCk_Message_Gym_AutoSet(_AutoMinMaxCurrent));
-        }
-        else if (InRowIndex == 7)
-        {
-            _AutoSignals = !_AutoSignals;
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatSignals", FCk_Message_Gym_AutoSet(_AutoSignals));
-        }
-        else if (InRowIndex == 8)
-        {
-            _AutoRefill = !_AutoRefill;
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatRefill", FCk_Message_Gym_AutoSet(_AutoRefill));
-        }
-        else if (InRowIndex == 9)
-        {
-            _AutoIncDec = !_AutoIncDec;
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatIncrementDecrement", FCk_Message_Gym_AutoSet(_AutoIncDec));
-        }
-        else if (InRowIndex == 10)
-        {
-            _AutoMultiple = !_AutoMultiple;
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatMultiple", FCk_Message_Gym_AutoSet(_AutoMultiple));
-        }
-        else if (InRowIndex == 12)
-        {
-            _ValuesActionIndex = (_ValuesActionIndex + 1) % 2;
-            if (_ValuesActionIndex == 0)
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatValues", FCk_Message_FloatGym_AddModifier()); }
-            else
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatValues", FCk_Message_FloatGym_ClearModifiers()); }
-        }
-        else if (InRowIndex == 13)
-        {
-            _ModifiersActionIndex = (_ModifiersActionIndex + 1) % 3;
-            if (_ModifiersActionIndex == 0)
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatModifiers", FCk_Message_FloatGym_AddModifier()); }
-            else if (_ModifiersActionIndex == 1)
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatModifiers", FCk_Message_FloatGym_RevokeAll()); }
-            else
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatModifiers", FCk_Message_FloatGym_ClearModifiers()); }
-        }
-        else if (InRowIndex == 14)
-        {
-            _RefillActionIndex = (_RefillActionIndex + 1) % 3;
-            if (_RefillActionIndex == 0)
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatRefill", FCk_Message_FloatGym_ToggleRefill()); }
-            else if (_RefillActionIndex == 1)
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatRefill", FCk_Message_FloatGym_DrainEnergy()); }
-            else
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatRefill", FCk_Message_FloatGym_DrainMana()); }
-        }
-        else if (InRowIndex == 15)
-        {
-            _IncDecActionIndex = (_IncDecActionIndex + 1) % 3;
-            if (_IncDecActionIndex == 0)
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatIncrementDecrement", FCk_Message_FloatGym_Increment()); }
-            else if (_IncDecActionIndex == 1)
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatIncrementDecrement", FCk_Message_FloatGym_Decrement()); }
-            else
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatIncrementDecrement", FCk_Message_FloatGym_RevokeAll()); }
-        }
-        else if (InRowIndex == 16)
-        {
-            _MultipleActionIndex = (_MultipleActionIndex + 1) % 2;
-            if (_MultipleActionIndex == 0)
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatMultiple", FCk_Message_FloatGym_AddBatch()); }
-            else
-            { DoBroadcastToStation(n"TAG_AttributeGym_FloatMultiple", FCk_Message_FloatGym_ClearBatch()); }
-        }
-        else if (InRowIndex == 18)
-        {
-            _MinPresetIndex = (_MinPresetIndex + 1) % 4;
-            auto Values = TArray<float32>();
-            Values.Add(10.0f); Values.Add(25.5f); Values.Add(60.0f); Values.Add(220.0f);
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatMinMaxCurrent", FCk_Message_FloatGym_SetValue(Values[_MinPresetIndex], ECk_MinMaxCurrent::Min));
-        }
-        else if (InRowIndex == 19)
-        {
-            _MaxPresetIndex = (_MaxPresetIndex + 1) % 4;
-            auto Values = TArray<float32>();
-            Values.Add(200.0f); Values.Add(175.75f); Values.Add(90.0f); Values.Add(5.0f);
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatMinMaxCurrent", FCk_Message_FloatGym_SetValue(Values[_MaxPresetIndex], ECk_MinMaxCurrent::Max));
-        }
-        else if (InRowIndex == 20)
-        {
-            _CurrentPresetIndex = (_CurrentPresetIndex + 1) % 4;
-            auto Values = TArray<float32>();
-            Values.Add(100.0f); Values.Add(142.3f); Values.Add(250.0f); Values.Add(-40.0f);
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatMinMaxCurrent", FCk_Message_FloatGym_SetValue(Values[_CurrentPresetIndex], ECk_MinMaxCurrent::Current));
-        }
-        else if (InRowIndex == 21)
-        {
-            _SignalPresetIndex = (_SignalPresetIndex + 1) % 4;
-            auto Values = TArray<float32>();
-            Values.Add(150.0f); Values.Add(0.0f); Values.Add(300.0f); Values.Add(-50.0f);
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatSignals", FCk_Message_FloatGym_SetValue(Values[_SignalPresetIndex], ECk_MinMaxCurrent::Current));
-        }
-        else if (InRowIndex == 23)
-        {
-            DoBroadcastToStation(n"TAG_AttributeGym_FloatClamping", FCk_Message_AttributeGym_TestBoundaries());
-        }
-        else if (InRowIndex == 24)
-        {
-            _ResetActionIndex = (_ResetActionIndex + 1) % 2;
-            if (_ResetActionIndex == 0)
-            {
-                DoBroadcastToStation(n"TAG_AttributeGym_FloatClamping", FCk_Message_AttributeGym_ResetAttributes());
-            }
-            else
-            {
-                for (auto Tag : Get_AllStationTags())
-                {
-                    DoBroadcastToStation(Tag, FCk_Message_AttributeGym_ResetAttributes());
-                }
-
-                _MinPresetIndex = -1;
-                _MaxPresetIndex = -1;
-                _CurrentPresetIndex = -1;
-                _SignalPresetIndex = -1;
-            }
+            if (_ServerPendingSerial == InSerial)
+            { _ServerPendingSerial = 0; _ServerPendingGeneration = 0;
+              _ServerPendingAction = -1; _ServerPendingPreset = -1;
+              _ServerPendingAttemptEpoch = 0; }
+            if (LastControlAttemptSerial == InSerial) { LastControlResult = 3; }
         }
     }
-
     private FString DoGet_PresetLabel(int32 InIndex, FString InRing)
-    {
-        return InIndex < 0 ? f"({InRing})" : f"step {InIndex + 1}";
-    }
-
-    private TArray<FName> Get_AllStationTags()
-    {
-        auto StationTags = TArray<FName>();
-        StationTags.Add(n"TAG_AttributeGym_FloatValues");
-        StationTags.Add(n"TAG_AttributeGym_FloatClamping");
-        StationTags.Add(n"TAG_AttributeGym_FloatModifiers");
-        StationTags.Add(n"TAG_AttributeGym_FloatMinMaxCurrent");
-        StationTags.Add(n"TAG_AttributeGym_FloatSignals");
-        StationTags.Add(n"TAG_AttributeGym_FloatRefill");
-        StationTags.Add(n"TAG_AttributeGym_FloatIncrementDecrement");
-        StationTags.Add(n"TAG_AttributeGym_FloatMultiple");
-        return StationTags;
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_Gym_AutoSet InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_AddModifier InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_ClearModifiers InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_RevokeAll InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_SetValue InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_ToggleRefill InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_DrainEnergy InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_DrainMana InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_Increment InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_Decrement InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_AddBatch InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_FloatGym_ClearBatch InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_AttributeGym_TestBoundaries InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_AttributeGym_ResetAttributes InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
+    { return InIndex < 0 ? f"({InRing})" : f"step {InIndex + 1}"; }
 }
-
-//============================================================================
-// GAME MODE
-//============================================================================
 
 class ACk_FloatAttributeGym_GameMode : ACkTests_Gym_Base_GameMode
 {
     default PlayerControllerClass = ACk_FloatAttributeGym_PlayerController;
     default DefaultPawnClass = ACk_Gym_Base_Pawn;
+    default GameStateClass = ACk_FloatAttributeGym_GameState;
+    UFUNCTION(BlueprintOverride) void BeginPlay()
+    {
+        Super::BeginPlay();
+        auto State = CkAttributeFloat::Get_State();
+        if (ck::IsValid(State)) { State.Request_EnsureSharedDemo(); }
+    }
 }

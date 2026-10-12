@@ -1,28 +1,10 @@
 //============================================================================
-// BYTE ATTRIBUTE GYM - PLAYER CONTROLLER & GAME MODE
+// BYTE ATTRIBUTE GYM - WORLD DECLARATIONS AND CONTROLLER
 //============================================================================
 
-class ACk_ByteAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
+namespace CkAttributeByte
 {
-    // Preset-ring positions for the panel rows; each press applies the NEXT value, chosen to
-    // exercise the auto-clamping (over-max, below-min) each station demonstrates.
-    private int32 _MinPresetIndex = -1;
-    private int32 _MaxPresetIndex = -1;
-    private int32 _CurrentPresetIndex = -1;
-    private int32 _SignalPresetIndex = -1;
-
-    // Mirrors of each station's auto-cycle state - it lives in the entity scripts behind a
-    // broadcast message with no readback, so the panel mirrors it here (all start true: every
-    // station auto-runs).
-    private bool _AutoAllEnabled = true;
-    private bool _AutoClamping = true;
-    private bool _AutoModifiers = true;
-    private bool _AutoValues = true;
-    private bool _AutoMinMaxCurrent = true;
-    private bool _AutoMultiple = true;
-    private bool _AutoSignals = true;
-
-    TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
+    TArray<FCkGym_Station_SpawnParams_Payload> Get_Stations()
     {
         auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
 
@@ -114,95 +96,116 @@ class ACk_ByteAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
         return Stations;
     }
 
+    bool IsLiveEntity(FCk_Handle InHandle)
+    {
+        return ck::IsValid(InHandle) && !utils_entity_lifetime::Get_IsPendingDestroy(
+            InHandle, ECk_EntityLifetime_DestructionPhase::BeginDestroy);
+    }
+
+    FName Get_StationTag(int32 InIndex)
+    {
+        auto Stations = Get_Stations();
+        if (InIndex < 0 || InIndex >= Stations.Num() || Stations[InIndex].Tags.Num() != 1)
+        { return NAME_None; }
+        return Stations[InIndex].Tags[0];
+    }
+
+    FName Get_ChildTag(int32 InIndex)
+    {
+        if (InIndex == 0) { return n"TAG_AttributeGym_ByteClamping"; }
+        if (InIndex == 1) { return n"TAG_AttributeGym_ByteModifiers"; }
+        if (InIndex == 2) { return n"TAG_AttributeGym_ByteMinMaxCurrent"; }
+        if (InIndex == 3) { return n"TAG_AttributeGym_ByteMultiple"; }
+        if (InIndex == 4) { return n"TAG_AttributeGym_ByteValues"; }
+        if (InIndex == 5) { return n"TAG_AttributeGym_ByteSignals"; }
+        return NAME_None;
+    }
+
+    FCk_Handle FindStation(int32 InIndex)
+    {
+        auto World = ck::TransientEntity();
+        if (!IsLiveEntity(World)) { return FCk_Handle(); }
+        auto Tag = Get_StationTag(InIndex);
+        if (Tag == NAME_None) { return FCk_Handle(); }
+        auto Matches = utils_entity_tag::ForEach_Entity(World, Tag);
+        if (Matches.Num() != 1 || !IsLiveEntity(Matches[0]) ||
+            !Matches[0].Has_Fragment(FCkGym_Station_Anchors))
+        { return FCk_Handle(); }
+        return Matches[0];
+    }
+
+    ACk_ByteAttributeGym_GameState Get_State()
+    {
+        TArray<ACk_ByteAttributeGym_GameState> States;
+        GetAllActorsOfClass(ACk_ByteAttributeGym_GameState, States);
+        if (States.Num() != 1 || ck::Is_NOT_Valid(States[0])) { return nullptr; }
+        return States[0];
+    }
+}
+
+class ACk_ByteAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
+{
+    UPROPERTY(Replicated) int32 LastControlSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlAttemptSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlResult = 0;
+    UPROPERTY(Replicated) int32 MinPresetIndex = -1;
+    UPROPERTY(Replicated) int32 MaxPresetIndex = -1;
+    UPROPERTY(Replicated) int32 MinAttemptPresetIndex = -1;
+    UPROPERTY(Replicated) int32 MaxAttemptPresetIndex = -1;
+    UPROPERTY(Replicated) int32 CurrentPresetIndex = -1;
+    UPROPERTY(Replicated) int32 SignalPresetIndex = -1;
+    private int32 _RequestedSerial = 0;
+    private int32 _PendingSerial = 0;
+    private float _PendingSeconds = 0.0;
+    private int32 _ServerPendingSerial = 0;
+    private int32 _ServerPendingGeneration = 0;
+    private int32 _ServerPendingAction = -1;
+    private int32 _ServerPendingPreset = -1;
+    private int32 _AttemptEpoch = 0;
+    private int32 _ServerPendingAttemptEpoch = 0;
+    private int32 _StateWaitAttempts = 0;
+
+    TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
+    {
+        if (HasAuthority()) { return TArray<FCkGym_Station_SpawnParams_Payload>(); }
+        return CkAttributeByte::Get_Stations();
+    }
+
     void Request_StartGym() override
     {
-        Request_StartByteClamping();
-        Request_StartByteModifiers();
-        Request_StartByteMinMaxCurrent();
-        Request_StartByteMultiple();
-        Request_StartByteValues();
-        Request_StartByteSignals();
+        auto State = CkAttributeByte::Get_State();
+        if (ck::Is_NOT_Valid(State))
+        {
+            if (IsLocalController() && _StateWaitAttempts++ < 200)
+            { System::SetTimer(this, n"OnStateWait", 0.1, false); }
+            return;
+        }
+        if (HasAuthority() && State.Get_HasPublishedCatalog())
+        { State.Request_EnsureSharedDemo(); }
+        if (IsLocalController()) { State.Request_EnsureLocalProjection(); }
     }
 
-    void Request_StartByteClamping()
+    UFUNCTION() private void OnStateWait() { Request_StartGym(); }
+
+    UFUNCTION(BlueprintOverride)
+    void Tick(float DeltaSeconds)
     {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.ByteClamping", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.ByteClamping"),
-            UCk_EntityScript_AttributeGym_ByteClamping,
-            FInstancedStruct::Make(SpawnParams)
-        );
-	}
-
-    void Request_StartByteModifiers()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.ByteModifiers", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.ByteModifiers"),
-            UCk_EntityScript_AttributeGym_ByteModifiers,
-            FInstancedStruct::Make(SpawnParams)
-        );
+        if (IsLocalController()) { Request_ReconcileControlAck(); }
     }
-
-    void Request_StartByteMinMaxCurrent()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.ByteMinMaxCurrent", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.ByteMinMaxCurrent"),
-            UCk_EntityScript_AttributeGym_ByteMinMaxCurrent,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartByteMultiple()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.ByteMultiple", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.ByteMultiple"),
-            UCk_EntityScript_AttributeGym_ByteMultiple,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartByteValues()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.ByteValues", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.ByteValues"),
-            UCk_EntityScript_AttributeGym_ByteValues,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    void Request_StartByteSignals()
-    {
-        auto StationTransform = Get_StationAnchorTransform("Gym.Attribute.ByteSignals", ECk_GymStation_Anchor::PanelCenter);
-        auto SpawnParams = FCk_Gym_TransformSpawnParams(StationTransform);
-
-        auto SpawnRequest = utils_entity_script::Request_SpawnEntity(
-            Get_StationHandle("Gym.Attribute.ByteSignals"),
-            UCk_EntityScript_AttributeGym_ByteSignals,
-            FInstancedStruct::Make(SpawnParams)
-        );
-    }
-
-    //------------------------------------------------------------------------
-    // Control panel
-    //------------------------------------------------------------------------
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override
     {
+        Request_ReconcileControlAck();
         auto Rows = TArray<FCkGym_ControlRow>();
+        auto State = CkAttributeByte::Get_State();
+        bool _AutoClamping = ck::IsValid(State) && State.Get_AutoRunning(0);
+        bool _AutoModifiers = ck::IsValid(State) && State.Get_AutoRunning(1);
+        bool _AutoMinMaxCurrent = ck::IsValid(State) && State.Get_AutoRunning(2);
+        bool _AutoMultiple = ck::IsValid(State) && State.Get_AutoRunning(3);
+        bool _AutoValues = ck::IsValid(State) && State.Get_AutoRunning(4);
+        bool _AutoSignals = ck::IsValid(State) && State.Get_AutoRunning(5);
+        bool _AutoAllEnabled = _AutoClamping && _AutoModifiers && _AutoMinMaxCurrent &&
+            _AutoMultiple && _AutoValues && _AutoSignals;
         Rows.Add(CkGym_Control::Header("BYTE ATTRIBUTE GYM"));
         Rows.Add(CkGym_Control::Toggle(EKeys::T, "T", "Auto-cycle all stations", _AutoAllEnabled));
 
@@ -215,14 +218,14 @@ class ACk_ByteAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
         Rows.Add(CkGym_Control::Numbered(5, "Signals", _AutoSignals));
 
         Rows.Add(CkGym_Control::Header("MIN/MAX/CURRENT STATION"));
-        Rows.Add(CkGym_Control::Cycle(EKeys::Seven, "7", "Min preset",     DoGet_PresetLabel(_MinPresetIndex,     "10 / 20 / 120 / 220")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::Eight, "8", "Max preset",     DoGet_PresetLabel(_MaxPresetIndex,     "200 / 180 / 80 / 5")));
-        Rows.Add(CkGym_Control::Cycle(EKeys::Nine,  "9", "Current preset", DoGet_PresetLabel(_CurrentPresetIndex, "100 / 150 / 255 / 0")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::Seven, "7", "Min preset",     DoGet_PresetLabel(MinPresetIndex,     "10 / 20 / 120 / 220")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::Eight, "8", "Max preset",     DoGet_PresetLabel(MaxPresetIndex,     "200 / 180 / 80 / 5")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::Nine,  "9", "Current preset", DoGet_PresetLabel(CurrentPresetIndex, "100 / 150 / 255 / 0")));
 
         // The Signals attribute spans 0-255, which IS the whole uint8 domain, so no argument can
         // land outside the band - this ring walks the band ends instead of provoking a clamp.
         Rows.Add(CkGym_Control::Header("SIGNALS STATION"));
-        Rows.Add(CkGym_Control::Cycle(EKeys::Zero, "0", "Signal value preset", DoGet_PresetLabel(_SignalPresetIndex, "150 / 0 / 255 / 200")));
+        Rows.Add(CkGym_Control::Cycle(EKeys::Zero, "0", "Signal value preset", DoGet_PresetLabel(SignalPresetIndex, "150 / 0 / 255 / 200")));
 
         Rows.Add(CkGym_Control::Header("VALUES STATION"));
         Rows.Add(CkGym_Control::Action(EKeys::J, "J", "Add modifier"));
@@ -246,209 +249,151 @@ class ACk_ByteAttributeGym_PlayerController : ACk_Gym_Base_PlayerController
 
     void Request_ControlActivated(int32 InRowIndex) override
     {
-        if (InRowIndex == 1)
-        {
-            _AutoAllEnabled = !_AutoAllEnabled;
-            _AutoClamping = _AutoAllEnabled;
-            _AutoModifiers = _AutoAllEnabled;
-            _AutoValues = _AutoAllEnabled;
-            _AutoMinMaxCurrent = _AutoAllEnabled;
-            _AutoMultiple = _AutoAllEnabled;
-            _AutoSignals = _AutoAllEnabled;
+        Request_ReconcileControlAck();
+        if (!IsLocalController() || _PendingSerial != 0) { return; }
+        auto State = CkAttributeByte::Get_State();
+        if (ck::Is_NOT_Valid(State) || !State.Get_HasCompleteSnapshot()) { return; }
+        int32 Action = -1;
+        if (InRowIndex == 1) { Action = 0; }
+        else if (InRowIndex >= 3 && InRowIndex <= 8) { Action = InRowIndex - 2; }
+        else if (InRowIndex >= 10 && InRowIndex <= 12) { Action = InRowIndex - 3; }
+        else if (InRowIndex == 14) { Action = 10; }
+        else if (InRowIndex == 16) { Action = 11; }
+        else if (InRowIndex == 17) { Action = 12; }
+        else if (InRowIndex == 19) { Action = 13; }
+        else if (InRowIndex == 20) { Action = 14; }
+        else if (InRowIndex == 22) { Action = 15; }
+        else if (InRowIndex == 23) { Action = 16; }
+        else if (InRowIndex == 25) { Action = 17; }
+        else if (InRowIndex == 27) { Action = 18; }
+        if (Action < 0) { return; }
+        int32 Preset = -1;
+        if (Action == 7) { Preset = (MinAttemptPresetIndex + 1) % 4; }
+        if (Action == 8) { Preset = (MaxAttemptPresetIndex + 1) % 4; }
+        if (Action == 9) { Preset = (CurrentPresetIndex + 1) % 4; }
+        if (Action == 10) { Preset = (SignalPresetIndex + 1) % 4; }
+        _RequestedSerial = Math::Max(_RequestedSerial, LastControlSerial) + 1;
+        _PendingSerial = _RequestedSerial;
+        _PendingSeconds = float(System::GetGameTimeInSeconds());
+        System::SetTimer(this, n"OnControlDeadline", 25.0, false);
+        Server_RequestByteControl(_PendingSerial, Action, Preset);
+    }
 
-            for (auto Tag : Get_AllStationTags())
-            {
-                DoBroadcastToStation(Tag, FCk_Message_Gym_AutoSet(_AutoAllEnabled));
-            }
-        }
-        else if (InRowIndex == 3)
-        {
-            _AutoClamping = !_AutoClamping;
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteClamping", FCk_Message_Gym_AutoSet(_AutoClamping));
-        }
-        else if (InRowIndex == 4)
-        {
-            _AutoModifiers = !_AutoModifiers;
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteModifiers", FCk_Message_Gym_AutoSet(_AutoModifiers));
-        }
-        else if (InRowIndex == 5)
-        {
-            _AutoValues = !_AutoValues;
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteValues", FCk_Message_Gym_AutoSet(_AutoValues));
-        }
-        else if (InRowIndex == 6)
-        {
-            _AutoMinMaxCurrent = !_AutoMinMaxCurrent;
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteMinMaxCurrent", FCk_Message_Gym_AutoSet(_AutoMinMaxCurrent));
-        }
-        else if (InRowIndex == 7)
-        {
-            _AutoMultiple = !_AutoMultiple;
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteMultiple", FCk_Message_Gym_AutoSet(_AutoMultiple));
-        }
-        else if (InRowIndex == 8)
-        {
-            _AutoSignals = !_AutoSignals;
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteSignals", FCk_Message_Gym_AutoSet(_AutoSignals));
-        }
-        else if (InRowIndex == 10)
-        {
-            _MinPresetIndex = (_MinPresetIndex + 1) % 4;
-            auto Values = TArray<uint8>();
-            Values.Add(uint8(10)); Values.Add(uint8(20)); Values.Add(uint8(120)); Values.Add(uint8(220));
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteMinMaxCurrent", FCk_Message_ByteGym_SetValue(Values[_MinPresetIndex], ECk_MinMaxCurrent::Min));
-        }
-        else if (InRowIndex == 11)
-        {
-            _MaxPresetIndex = (_MaxPresetIndex + 1) % 4;
-            auto Values = TArray<uint8>();
-            Values.Add(uint8(200)); Values.Add(uint8(180)); Values.Add(uint8(80)); Values.Add(uint8(5));
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteMinMaxCurrent", FCk_Message_ByteGym_SetValue(Values[_MaxPresetIndex], ECk_MinMaxCurrent::Max));
-        }
-        else if (InRowIndex == 12)
-        {
-            _CurrentPresetIndex = (_CurrentPresetIndex + 1) % 4;
-            auto Values = TArray<uint8>();
-            Values.Add(uint8(100)); Values.Add(uint8(150)); Values.Add(uint8(255)); Values.Add(uint8(0));
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteMinMaxCurrent", FCk_Message_ByteGym_SetValue(Values[_CurrentPresetIndex], ECk_MinMaxCurrent::Current));
-        }
-        else if (InRowIndex == 14)
-        {
-            _SignalPresetIndex = (_SignalPresetIndex + 1) % 4;
-            auto Values = TArray<uint8>();
-            Values.Add(uint8(150)); Values.Add(uint8(0)); Values.Add(uint8(255)); Values.Add(uint8(200));
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteSignals", FCk_Message_ByteGym_SetValue(Values[_SignalPresetIndex], ECk_MinMaxCurrent::Current));
-        }
-        else if (InRowIndex == 16)
-        {
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteValues", FCk_Message_ByteGym_AddModifier());
-        }
-        else if (InRowIndex == 17)
-        {
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteValues", FCk_Message_ByteGym_ClearModifiers());
-        }
-        else if (InRowIndex == 19)
-        {
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteModifiers", FCk_Message_ByteGym_AddModifier());
-        }
-        else if (InRowIndex == 20)
-        {
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteModifiers", FCk_Message_ByteGym_ClearModifiers());
-        }
-        else if (InRowIndex == 22)
-        {
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteMultiple", FCk_Message_ByteGym_AddBatch());
-        }
-        else if (InRowIndex == 23)
-        {
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteMultiple", FCk_Message_ByteGym_ClearBatch());
-        }
-        else if (InRowIndex == 25)
-        {
-            DoBroadcastToStation(n"TAG_AttributeGym_ByteClamping", FCk_Message_AttributeGym_TestBoundaries());
-        }
-        else if (InRowIndex == 27)
-        {
-            for (auto Tag : Get_AllStationTags())
-            {
-                DoBroadcastToStation(Tag, FCk_Message_AttributeGym_ResetAttributes());
-            }
+    UFUNCTION() private void OnControlDeadline()
+    {
+        if (_PendingSerial == 0) { return; }
+        Request_ReconcileControlAck();
+        if (_PendingSerial == 0) { return; }
+        if (float(System::GetGameTimeInSeconds()) - _PendingSeconds >= 25.0)
+        { ck::Error("[AttributeByte] Control acknowledgement timed out"); _PendingSerial = 0; }
+    }
 
-            _MinPresetIndex = -1;
-            _MaxPresetIndex = -1;
-            _CurrentPresetIndex = -1;
-            _SignalPresetIndex = -1;
-        }
+    private void Request_ReconcileControlAck()
+    {
+        if (_PendingSerial > 0 &&
+            (LastControlSerial >= _PendingSerial ||
+             (LastControlAttemptSerial == _PendingSerial && LastControlResult != 0)))
+        { _PendingSerial = 0; }
     }
 
     private FString DoGet_PresetLabel(int32 InIndex, FString InRing)
+    { return InIndex < 0 ? f"({InRing})" : f"step {InIndex + 1}"; }
+
+    void Request_CompleteByteControl(int32 InSerial, int32 InAction,
+        int32 InPresetIndex, int32 InGeneration, bool InSuccess)
     {
-        return InIndex < 0 ? f"({InRing})" : f"step {InIndex + 1}";
+        if (!HasAuthority() || InSerial <= 0 || InSerial <= LastControlSerial ||
+            _ServerPendingSerial != InSerial || _ServerPendingGeneration != InGeneration ||
+            _ServerPendingAction != InAction || _ServerPendingPreset != InPresetIndex)
+        { return; }
+        bool IsLatestAttempt = _AttemptEpoch == _ServerPendingAttemptEpoch;
+        _ServerPendingSerial = 0;
+        _ServerPendingGeneration = 0;
+        _ServerPendingAction = -1;
+        _ServerPendingPreset = -1;
+        _ServerPendingAttemptEpoch = 0;
+        if (!InSuccess)
+        { if (IsLatestAttempt) { LastControlResult = 3; } return; }
+        if (InAction == 7) { MinPresetIndex = InPresetIndex; MinAttemptPresetIndex = InPresetIndex; }
+        if (InAction == 8) { MaxPresetIndex = InPresetIndex; MaxAttemptPresetIndex = InPresetIndex; }
+        if (InAction == 9) { CurrentPresetIndex = InPresetIndex; }
+        if (InAction == 10) { SignalPresetIndex = InPresetIndex; }
+        if (InAction == 18)
+        { MinPresetIndex = -1; MaxPresetIndex = -1; MinAttemptPresetIndex = -1;
+          MaxAttemptPresetIndex = -1; CurrentPresetIndex = -1; SignalPresetIndex = -1; }
+        LastControlSerial = InSerial;
+        if (IsLatestAttempt) { LastControlResult = 1; }
     }
 
-    private TArray<FName> Get_AllStationTags()
+    UFUNCTION(Server)
+    void Server_RequestByteControl(int32 InSerial, int32 InAction, int32 InPresetIndex)
     {
-        auto StationTags = TArray<FName>();
-        StationTags.Add(n"TAG_AttributeGym_ByteClamping");
-        StationTags.Add(n"TAG_AttributeGym_ByteModifiers");
-        StationTags.Add(n"TAG_AttributeGym_ByteValues");
-        StationTags.Add(n"TAG_AttributeGym_ByteMinMaxCurrent");
-        StationTags.Add(n"TAG_AttributeGym_ByteMultiple");
-        StationTags.Add(n"TAG_AttributeGym_ByteSignals");
-        return StationTags;
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_Gym_AutoSet InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
+        if (!HasAuthority()) { return; }
+        _AttemptEpoch++;
+        LastControlAttemptSerial = InSerial;
+        LastControlResult = 0;
+        if (InSerial <= 0 || InSerial <= LastControlSerial || InAction < 0 || InAction > 18 ||
+            ((InAction >= 7 && InAction <= 10) && (InPresetIndex < 0 || InPresetIndex >= 4)) ||
+            ((InAction < 7 || InAction > 10) && InPresetIndex != -1) ||
+            (InAction == 7 && InPresetIndex != (MinAttemptPresetIndex + 1) % 4) ||
+            (InAction == 8 && InPresetIndex != (MaxAttemptPresetIndex + 1) % 4) ||
+            (InAction == 9 && InPresetIndex != (CurrentPresetIndex + 1) % 4) ||
+            (InAction == 10 && InPresetIndex != (SignalPresetIndex + 1) % 4))
+        { LastControlResult = 4; return; }
+        if (_ServerPendingSerial > 0)
+        { LastControlResult = 3; return; }
+        auto Pawn = Cast<ACk_Gym_Base_Pawn>(GetControlledPawn());
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetController() != this ||
+            Pawn.GetWorld() != GetWorld())
+        { LastControlResult = 2; return; }
+        auto State = CkAttributeByte::Get_State();
+        TArray<ACk_ByteAttributeGym_GameMode> Modes;
+        GetAllActorsOfClass(ACk_ByteAttributeGym_GameMode, Modes);
+        auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto CurrentGym = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (ck::Is_NOT_Valid(State) || State.GetWorld() != GetWorld() ||
+            Modes.Num() != 1 || ck::Is_NOT_Valid(Modes[0]) ||
+            Modes[0].GetWorld() != GetWorld() || !State.Get_HasPublishedCatalog() ||
+            CurrentGym < 0 || CurrentGym >= Registry.Num() ||
+            Registry[CurrentGym].DisplayName != "Attribute Byte" ||
+            !State.Get_HasReadyServerChildren())
+        { LastControlResult = 3; return; }
+        if (State.Get_IsCrossedBoundPreset(InAction, InPresetIndex))
         {
-            utils_messaging::Broadcast(Entity, InMessage);
+            if (InAction == 7) { MinAttemptPresetIndex = InPresetIndex; }
+            if (InAction == 8) { MaxAttemptPresetIndex = InPresetIndex; }
+            LastControlResult = 4;
+            return;
         }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_ByteGym_SetValue InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
+        _ServerPendingSerial = InSerial;
+        _ServerPendingGeneration = State.Snapshot.Generation;
+        _ServerPendingAction = InAction;
+        _ServerPendingPreset = InPresetIndex;
+        _ServerPendingAttemptEpoch = _AttemptEpoch;
+        if (!State.Request_ApplyControl(this, InSerial, InAction, InPresetIndex))
         {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_ByteGym_AddModifier InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_ByteGym_ClearModifiers InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_ByteGym_AddBatch InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_ByteGym_ClearBatch InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_AttributeGym_TestBoundaries InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
-        }
-    }
-
-    private void DoBroadcastToStation(FName InTag, FCk_Message_AttributeGym_ResetAttributes InMessage)
-    {
-        for (auto Entity : utils_entity_tag::ForEach_Entity(ck::ToEntity(this), InTag))
-        {
-            utils_messaging::Broadcast(Entity, InMessage);
+            if (_ServerPendingSerial == InSerial)
+            { _ServerPendingSerial = 0; _ServerPendingGeneration = 0;
+              _ServerPendingAction = -1; _ServerPendingPreset = -1;
+              _ServerPendingAttemptEpoch = 0; }
+            if (LastControlAttemptSerial == InSerial) { LastControlResult = 3; }
+            return;
         }
     }
 }
-
-//============================================================================
-// GAME MODE
-//============================================================================
 
 class ACk_ByteAttributeGym_GameMode : ACkTests_Gym_Base_GameMode
 {
     default PlayerControllerClass = ACk_ByteAttributeGym_PlayerController;
     default DefaultPawnClass = ACk_Gym_Base_Pawn;
+    default GameStateClass = ACk_ByteAttributeGym_GameState;
+
+    UFUNCTION(BlueprintOverride)
+    void BeginPlay()
+    {
+        Super::BeginPlay();
+        auto State = CkAttributeByte::Get_State();
+        if (ck::IsValid(State) && State.Get_HasPublishedCatalog())
+        { State.Request_EnsureSharedDemo(); }
+    }
 }

@@ -26,7 +26,7 @@ class UCk_AutoTest_Net_Float_Local_AddWorksOnBothWorlds : UCk_AutoTest_NetBase
 {
     // Independent mode - no cross-world coordination expected. Each PIE world runs DoBeginPlay
     // independently against its own ECS state.
-    // default _NetMode = ECk_AutoTest_NetMode::ServerAndClientsIndependent;
+    default _NetMode = ECk_AutoTest_NetMode::ServerAndClientsIndependent;
 
     private FName _AttributeTagName = n"FloatAttribute.Health";
     private float32 _InitialValue = 42.5f;

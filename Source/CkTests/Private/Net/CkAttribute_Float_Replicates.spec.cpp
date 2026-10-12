@@ -37,7 +37,7 @@ namespace
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_Float_InitialValue_Replicates,
     "Ck.Attribute.Net.Float_InitialValue_Replicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -72,7 +72,7 @@ bool FCkAttributeNet_Float_InitialValue_Replicates::RunTest(const FString& Param
     // reads it back for the server-side sanity check.
     auto OwnerSlot = MakeShared<FCk_Handle>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // ---- Stage 1 — server spawns the subject actor. The actor's BeginPlay schedules a -------------------------
