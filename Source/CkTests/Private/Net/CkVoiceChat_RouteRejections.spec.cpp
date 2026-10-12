@@ -95,7 +95,7 @@ namespace ck_voice_rejections_spec
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatNet_RouteRejections,
     "Ck.VoiceChat.Net.RouteRejections",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -110,10 +110,18 @@ bool FCkVoiceChatNet_RouteRejections::RunTest(const FString& Parameters)
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FRejectionsSpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(3, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(3, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 30.0f));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
+        {
+            auto* Server = ck::auto_test::net::Get_ServerWorld();
+            if (Server == nullptr) { return false; }
+            auto* Client0 = ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 0);
+            auto* Client1 = ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 1);
+            return Client0 != nullptr && Client1 != nullptr && Client0 != Client1;
+        }), 30.0, TEXT("both remote controllers have distinct replicated client identities")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InClient) -> void
@@ -229,23 +237,29 @@ bool FCkVoiceChatNet_RouteRejections::RunTest(const FString& Parameters)
         }),
         TEXT("non-member send rejected")));
 
-    // Act 2 - forged sender: talker A's bundle stamped as if the HOST sent it. Both the stamp
-    // and the owning player resolve, and they differ - the spoof shape. The diagnostic ensure
-    // fires once by design (suppressed here); the property under test is non-delivery.
+    // Act 2 - forged sender: stamp talker A's bundle with client 1's identity. Both
+    // identities resolve, but client 0 owns talker A, so the mismatch must reject it.
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
         {
             auto* TalkerA = Find_SubjectNear(InServer, TalkerALocation);
-            const auto* HostController = InServer->GetFirstPlayerController();
+            auto* ListenerB = Find_SubjectNear(InServer, ListenerBLocation);
+            if (TalkerA == nullptr || ListenerB == nullptr)
+            { AddError(TEXT("talker A or client 1 listener missing at act 2")); return; }
 
-            if (TalkerA == nullptr || HostController == nullptr || HostController->PlayerState == nullptr)
+            auto* ActualOwner = Cast<APlayerController>(TalkerA->GetOwner());
+            auto* ForgedSender = Cast<APlayerController>(ListenerB->GetOwner());
+            if (ActualOwner == nullptr || ForgedSender == nullptr ||
+                ActualOwner == ForgedSender || ActualOwner->PlayerState == nullptr ||
+                ForgedSender->PlayerState == nullptr ||
+                ActualOwner->PlayerState->GetPlayerId() == ForgedSender->PlayerState->GetPlayerId())
             {
-                AddError(TEXT("talker A or the host PlayerState missing at act 2"));
+                AddError(TEXT("act 2 requires distinct, resolved client 0 and client 1 identities"));
                 return;
             }
 
             UCk_Utils_VoiceTalker_UE::Debug_InjectInboundBundle(
-                TalkerA->_TestTalker, Make_Bundle(2, State->ChannelIdx), HostController->PlayerState);
+                TalkerA->_TestTalker, Make_Bundle(2, State->ChannelIdx), ForgedSender->PlayerState);
         })));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));

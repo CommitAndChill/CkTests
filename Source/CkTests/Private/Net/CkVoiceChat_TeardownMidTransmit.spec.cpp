@@ -59,12 +59,13 @@ namespace ck_voice_teardown_spec
         { GConfig->RemoveKey(TEXT("Voice"), TEXT("bEnabled"), GEngineIni); }
     }
 
-    auto Find_Subject(UWorld* InWorld, bool InServerOwned) -> ACk_AutoTest_NetSubject_VoiceChat_UE*
+    auto Find_Subject(UWorld* InWorld, bool InSpeaker) -> ACk_AutoTest_NetSubject_VoiceChat_UE*
     {
         for (TActorIterator<ACk_AutoTest_NetSubject_VoiceChat_UE> It{InWorld}; It; ++It)
         {
-            const auto IsServerOwned = It->GetOwner() == nullptr;
-            if (IsServerOwned == InServerOwned)
+            const auto IsSpeaker = ck::auto_test::net::Get_NumClientWorlds() > 1
+                ? It->GetActorLocation().X < 500.0 : It->GetOwner() == nullptr;
+            if (IsSpeaker == InSpeaker)
             { return *It; }
         }
 
@@ -72,21 +73,12 @@ namespace ck_voice_teardown_spec
     }
 
     auto Find_RemotePlayerController(UWorld* InServer) -> APlayerController*
-    {
-        for (auto It = InServer->GetPlayerControllerIterator(); It; ++It)
-        {
-            if (auto* Controller = It->Get();
-                Controller != nullptr && NOT Controller->IsLocalController())
-            { return Controller; }
-        }
-
-        return nullptr;
-    }
+    { return ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 0); }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatNet_TeardownMidTransmit,
     "Ck.VoiceChat.Net.TeardownMidTransmit",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -98,20 +90,36 @@ bool FCkVoiceChatNet_TeardownMidTransmit::RunTest(const FString& Parameters)
     bSuppressLogErrors = true;
     bSuppressLogWarnings = true;
 
+    const auto DedicatedServer = Parameters == TEXT("ClientServer");
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FTeardownSpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(DedicatedServer ? 3 : 2, MapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(DedicatedServer ? 3 : 2, 30.0f));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([DedicatedServer]() -> bool
+        {
+            auto* Server = ck::auto_test::net::Get_ServerWorld();
+            return ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 0) != nullptr &&
+                (NOT DedicatedServer ||
+                    ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 1) != nullptr);
+        }), 45.0, TEXT("listener and speaker server controllers ready")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State, DedicatedServer](UWorld* InServer) -> void
         {
             EnableEngineVoice(*State);
 
             auto SpawnInfo = FActorSpawnParameters{};
             SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+            if (DedicatedServer)
+            {
+                SpawnInfo.Owner = ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 1);
+                if (SpawnInfo.Owner == nullptr)
+                { AddError(TEXT("speaker client 1 has no server controller")); return; }
+            }
             if (InServer->SpawnActor<ACk_AutoTest_NetSubject_VoiceChat_UE>(
                     ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(), FTransform::Identity, SpawnInfo) == nullptr)
             { AddError(TEXT("spawn of the speaker subject failed")); }
@@ -125,14 +133,15 @@ bool FCkVoiceChatNet_TeardownMidTransmit::RunTest(const FString& Parameters)
 
             SpawnInfo.Owner = RemoteController;
             if (InServer->SpawnActor<ACk_AutoTest_NetSubject_VoiceChat_UE>(
-                    ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(), FTransform::Identity, SpawnInfo) == nullptr)
+                    ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(),
+                    DedicatedServer ? FTransform{FVector{1000.0, 0.0, 0.0}} : FTransform::Identity, SpawnInfo) == nullptr)
             { AddError(TEXT("spawn of the listener subject failed")); }
         })));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(40));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, DedicatedServer](UWorld* InServer) -> void
         {
             auto* Speaker = Find_Subject(InServer, true);
             auto* Listener = Find_Subject(InServer, false);
@@ -152,9 +161,43 @@ bool FCkVoiceChatNet_TeardownMidTransmit::RunTest(const FString& Parameters)
             FakeSource->Enqueue_Silence(FCk_Time{0.2f});
             FakeSource->Enqueue_Sine(FCk_Time{5.0f}, 0.4f, 300.0f);
 
-            UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(Speaker->_TestTalker, FakeSource);
-            UCk_Utils_VoiceTalker_UE::Request_StartTransmit(Speaker->_TestTalker, {}, {});
+            if (NOT DedicatedServer)
+            {
+                UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(Speaker->_TestTalker, FakeSource);
+                UCk_Utils_VoiceTalker_UE::Request_StartTransmit(Speaker->_TestTalker, {}, {});
+            }
         })));
+
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
+            {
+                auto* World = ck::auto_test::net::Get_ClientWorld(1);
+                auto* Speaker = World != nullptr ? Find_Subject(World, true) : nullptr;
+                return Speaker != nullptr && ck::IsValid(Speaker->_TestChannel) &&
+                    ck::IsValid(Speaker->_TestTalker) &&
+                    UCk_Utils_VoiceChannel_UE::Get_IsMember(Speaker->_TestChannel, Speaker->_TestTalker);
+            }), 10.0, TEXT("speaker channel membership replicated to capture client")));
+    }
+
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InClient) -> void
+            {
+                auto* Speaker = Find_Subject(InClient, true);
+                auto* Owner = Speaker != nullptr ? Cast<APlayerController>(Speaker->GetOwner()) : nullptr;
+                if (Speaker == nullptr || ck::Is_NOT_Valid(Speaker->_TestTalker) ||
+                    Owner == nullptr || NOT Owner->IsLocalController())
+                { AddError(TEXT("client 1 speaker replica/talker/local owner missing")); return; }
+                const auto FakeSource = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
+                FakeSource->Enqueue_Silence(FCk_Time{0.2f});
+                FakeSource->Enqueue_Sine(FCk_Time{5.0f}, 0.4f, 300.0f);
+                UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(Speaker->_TestTalker, FakeSource);
+                UCk_Utils_VoiceTalker_UE::Request_StartTransmit(Speaker->_TestTalker, {}, {});
+            })));
+    }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(80));
 

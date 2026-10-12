@@ -39,7 +39,7 @@ namespace ck_voice_channel_spec
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatChannel_MembershipAndIdx,
     "Ck.VoiceChat.Channel.MembershipAndIdx",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -54,8 +54,8 @@ bool FCkVoiceChatChannel_MembershipAndIdx::RunTest(const FString& Parameters)
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FChannelSpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, MapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InServer) -> void
@@ -152,7 +152,7 @@ bool FCkVoiceChatChannel_MembershipAndIdx::RunTest(const FString& Parameters)
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatChannel_InvalidInputsRejected,
     "Ck.VoiceChat.Channel.InvalidInputs_Rejected",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -171,8 +171,8 @@ bool FCkVoiceChatChannel_InvalidInputsRejected::RunTest(const FString& Parameter
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FChannelSpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, MapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InServer) -> void
@@ -219,7 +219,7 @@ bool FCkVoiceChatChannel_InvalidInputsRejected::RunTest(const FString& Parameter
 // an authored soft ref that cannot resolve ensures once, completes setup on module defaults
 // (resolved getters null), and leaves the channel fully functional - no partial state. The
 // positive path (a real asset audibly applied) is the Gate_4 [EDITOR-VERIFY] audition.
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatChannel_AudioAssetResolveFails,
     "Ck.VoiceChat.Channel.AudioAssetResolveFails",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -234,8 +234,8 @@ bool FCkVoiceChatChannel_AudioAssetResolveFails::RunTest(const FString& Paramete
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FChannelSpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, MapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InServer) -> void

@@ -139,7 +139,7 @@ namespace ck_voice_spike_spec
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatSpike_UnreliableUnicast_DeliveryUnderLoad,
     "Ck.VoiceChat.Spike.UnreliableUnicast_DeliveryUnderLoad",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -154,7 +154,7 @@ bool FCkVoiceChatSpike_UnreliableUnicast_DeliveryUnderLoad::RunTest(const FStrin
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto Results = MakeShared<FVoiceSpikeResults, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -340,7 +340,7 @@ bool FCkVoiceChatSpike_UnreliableUnicast_DeliveryUnderLoad::RunTest(const FStrin
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatSpike_UnresolvedTarget_SilentDrop,
     "Ck.VoiceChat.Spike.UnresolvedTarget_SilentDrop",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -356,7 +356,7 @@ bool FCkVoiceChatSpike_UnresolvedTarget_SilentDrop::RunTest(const FString& Param
     constexpr auto UnreliableBurst = 20;
     constexpr auto ReliableBurst = 5;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(

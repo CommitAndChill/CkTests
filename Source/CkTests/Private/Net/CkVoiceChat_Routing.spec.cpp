@@ -4,10 +4,9 @@
 // stashed: allocating that very idx afterwards (with members who would receive it) must not
 // resurrect the dropped bundle.
 //
-// Topology: subject A is server-owned (its talker transmits via the listen-host injection path,
-// no self-RPC); subject B is spawned OWNED BY the client's PlayerController, so its talker
-// resolves to the client connection - the recipient. Both worlds compose both subjects
-// symmetrically; B's talker joins A's channel as a listener.
+// Topology: the listen host owns speaker A; on a dedicated server, remote client 1 owns
+// it and sends through its relay. Client 0 owns listener B in both cases. Both subjects
+// compose symmetrically, and B's talker joins A's channel as a listener.
 //
 // Surface in Session Frontend: Ck.VoiceChat.Net.Routing_ForwardsAndNeverStashes
 
@@ -74,34 +73,43 @@ namespace ck_voice_routing_spec
         { GConfig->RemoveKey(TEXT("Voice"), TEXT("bEnabled"), GEngineIni); }
     }
 
-    auto Find_Subject(UWorld* InWorld, bool InServerOwned) -> ACk_AutoTest_NetSubject_VoiceChat_UE*
+    auto Find_Subject(UWorld* InWorld, bool InSpeaker) -> ACk_AutoTest_NetSubject_VoiceChat_UE*
     {
         for (TActorIterator<ACk_AutoTest_NetSubject_VoiceChat_UE> It{InWorld}; It; ++It)
         {
-            const auto IsServerOwned = It->GetOwner() == nullptr;
-            if (IsServerOwned == InServerOwned)
+            const auto IsSpeaker = ck::auto_test::net::Get_NumClientWorlds() > 1
+                ? It->GetActorLocation().X < 500.0 : It->GetOwner() == nullptr;
+            if (IsSpeaker == InSpeaker)
             { return *It; }
         }
 
         return nullptr;
     }
 
-    auto Find_RemotePlayerController(UWorld* InServer) -> APlayerController*
+    auto Transmit_Spurt(FAutomationTestBase* InTest, UWorld* InWorld) -> void
     {
-        for (auto It = InServer->GetPlayerControllerIterator(); It; ++It)
+        auto* Speaker = Find_Subject(InWorld, true);
+        if (Speaker == nullptr || ck::Is_NOT_Valid(Speaker->_TestTalker))
+        { InTest->AddError(TEXT("speaker missing at transmit time")); return; }
+        if (InWorld->GetNetMode() == NM_Client)
         {
-            if (auto* Controller = It->Get();
-                Controller != nullptr && NOT Controller->IsLocalController())
-            { return Controller; }
+            const auto* Owner = Cast<APlayerController>(Speaker->GetOwner());
+            if (Owner == nullptr || NOT Owner->IsLocalController())
+            { InTest->AddError(TEXT("speaker is not owned by the transmitting client")); return; }
         }
 
-        return nullptr;
+        const auto FakeSource = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
+        FakeSource->Enqueue_Silence(FCk_Time{0.2f});
+        FakeSource->Enqueue_Sine(FCk_Time{0.8f}, 0.4f, 300.0f);
+        FakeSource->Enqueue_Silence(FCk_Time{0.5f});
+        UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(Speaker->_TestTalker, FakeSource);
+        UCk_Utils_VoiceTalker_UE::Request_StartTransmit(Speaker->_TestTalker, {}, {});
     }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatNet_RoutingForwardsAndNeverStashes,
     "Ck.VoiceChat.Net.Routing_ForwardsAndNeverStashes",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -117,26 +125,43 @@ bool FCkVoiceChatNet_RoutingForwardsAndNeverStashes::RunTest(const FString& Para
     constexpr auto ExpectedTotalWorlds = 2;
     constexpr auto ReadyTimeoutSeconds = 30.0f;
 
+    const auto DedicatedServer = Parameters == TEXT("ClientServer");
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FRoutingSpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients + (DedicatedServer ? 1 : 0), MapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds + (DedicatedServer ? 1 : 0), ReadyTimeoutSeconds));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([DedicatedServer]() -> bool
+        {
+            auto* Server = ck::auto_test::net::Get_ServerWorld();
+            return ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 0) != nullptr &&
+                (NOT DedicatedServer ||
+                    ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 1) != nullptr);
+        }), 45.0, TEXT("listener and speaker server controllers ready")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State, DedicatedServer](UWorld* InServer) -> void
         {
             EnableEngineVoice(*State);
 
             auto SpawnInfo = FActorSpawnParameters{};
             SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+            if (DedicatedServer)
+            {
+                SpawnInfo.Owner = ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 1);
+                if (SpawnInfo.Owner == nullptr)
+                { AddError(TEXT("speaker client 1 has no server controller")); return; }
+            }
+
             auto* SubjectA = InServer->SpawnActor<ACk_AutoTest_NetSubject_VoiceChat_UE>(
                 ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(), FTransform::Identity, SpawnInfo);
             if (SubjectA == nullptr)
             { AddError(TEXT("server-side SpawnActor of subject A returned null")); }
 
-            auto* RemoteController = Find_RemotePlayerController(InServer);
+            auto* RemoteController = ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 0);
             if (RemoteController == nullptr)
             {
                 AddError(TEXT("no remote (client) PlayerController found on the server"));
@@ -145,7 +170,8 @@ bool FCkVoiceChatNet_RoutingForwardsAndNeverStashes::RunTest(const FString& Para
 
             SpawnInfo.Owner = RemoteController;
             auto* SubjectB = InServer->SpawnActor<ACk_AutoTest_NetSubject_VoiceChat_UE>(
-                ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(), FTransform::Identity, SpawnInfo);
+                ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(),
+                DedicatedServer ? FTransform{FVector{1000.0, 0.0, 0.0}} : FTransform::Identity, SpawnInfo);
             if (SubjectB == nullptr)
             { AddError(TEXT("server-side SpawnActor of subject B returned null")); }
         })));
@@ -153,7 +179,7 @@ bool FCkVoiceChatNet_RoutingForwardsAndNeverStashes::RunTest(const FString& Para
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(40));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, DedicatedServer](UWorld* InServer) -> void
         {
             auto* SubjectA = Find_Subject(InServer, true);
             auto* SubjectB = Find_Subject(InServer, false);
@@ -169,27 +195,54 @@ bool FCkVoiceChatNet_RoutingForwardsAndNeverStashes::RunTest(const FString& Para
             UCk_Utils_VoiceChannel_UE::Request_Join(SubjectA->_TestChannel,
                 FCk_Request_VoiceChannel_Join{SubjectB->_TestTalker}, {});
 
-            // 0.2 s silence (VAD closed), 0.8 s sine (frames flow), trailing silence (VAD closes).
-            const auto FakeSource = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
-            FakeSource->Enqueue_Silence(FCk_Time{0.2f});
-            FakeSource->Enqueue_Sine(FCk_Time{0.8f}, 0.4f, 300.0f);
-            FakeSource->Enqueue_Silence(FCk_Time{0.5f});
-
-            UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(SubjectA->_TestTalker, FakeSource);
-            UCk_Utils_VoiceTalker_UE::Request_StartTransmit(SubjectA->_TestTalker, {}, {});
+            if (NOT DedicatedServer)
+            { Transmit_Spurt(this, InServer); }
         })));
+
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
+            {
+                auto* World = ck::auto_test::net::Get_ClientWorld(1);
+                auto* Speaker = World != nullptr ? Find_Subject(World, true) : nullptr;
+                return Speaker != nullptr && ck::IsValid(Speaker->_TestChannel) &&
+                    ck::IsValid(Speaker->_TestTalker) &&
+                    UCk_Utils_VoiceChannel_UE::Get_IsMember(Speaker->_TestChannel, Speaker->_TestTalker);
+            }), 10.0, TEXT("speaker channel membership replicated to capture client")));
+    }
+
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InClient) -> void
+            { Transmit_Spurt(this, InClient); })));
+    }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(140));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
-        {
-            auto* SubjectA = Find_Subject(InServer, true);
-            if (SubjectA == nullptr)
-            { return; }
-
-            UCk_Utils_VoiceTalker_UE::Request_StopTransmit(SubjectA->_TestTalker, {});
-        })));
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(1,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InClient) -> void
+            {
+                auto* Speaker = Find_Subject(InClient, true);
+                if (Speaker == nullptr || ck::Is_NOT_Valid(Speaker->_TestTalker))
+                { AddError(TEXT("speaker missing at stop time")); return; }
+                UCk_Utils_VoiceTalker_UE::Request_StopTransmit(Speaker->_TestTalker, {});
+            })));
+    }
+    else
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+            {
+                auto* Speaker = Find_Subject(InServer, true);
+                if (Speaker == nullptr || ck::Is_NOT_Valid(Speaker->_TestTalker))
+                { AddError(TEXT("speaker missing at stop time")); return; }
+                UCk_Utils_VoiceTalker_UE::Request_StopTransmit(Speaker->_TestTalker, {});
+            })));
+    }
 
     // Long settle: the client's jitter tail must FULLY drain before the decoded-bytes snapshot -
     // the never-stash assertion below is an equality against it.

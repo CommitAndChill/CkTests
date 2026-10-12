@@ -1,6 +1,6 @@
 // P3 proximity routing gate (ADR-6 / gate item 5): Positional3D forwards only within the
-// probe-maintained routing set, with hysteresis. Three worlds - a server-owned speaker at the
-// origin, a client-0-owned listener in range, a client-1-owned listener far out of range:
+// probe-maintained routing set, with hysteresis. The listen host owns the speaker; the
+// dedicated case uses a third remote client. Clients 0 and 1 remain the near/far listeners:
 //
 //   1. In range (500 cm, range 4000) receives; out of range (9000 cm) receives NOTHING.
 //   2. Hysteresis hold: the in-range listener moved into the margin band (4050, range+margin
@@ -78,14 +78,13 @@ namespace ck_voice_proximity_spec
         { GConfig->RemoveKey(TEXT("Voice"), TEXT("bEnabled"), GEngineIni); }
     }
 
-    // The speaker replica in ANY world: owner is null there (server-owned) AND it sits at the
-    // origin. Owner alone is ambiguous in a bystander world - subjects owned by OTHER clients'
-    // PlayerControllers also replicate with a null owner (PCs replicate only to their owner).
+    // The speaker is uniquely placed at the origin in every world; ownership differs
+    // between the listen host and the dedicated server's remote speaker client.
     auto Find_SpeakerReplica(UWorld* InWorld) -> ACk_AutoTest_NetSubject_VoiceChat_UE*
     {
         for (TActorIterator<ACk_AutoTest_NetSubject_VoiceChat_UE> It{InWorld}; It; ++It)
         {
-            if (It->GetOwner() == nullptr && It->GetActorLocation().Size() < 100.0)
+            if (It->GetActorLocation().Size() < 100.0)
             { return *It; }
         }
 
@@ -110,7 +109,7 @@ namespace ck_voice_proximity_spec
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVoiceChatNet_ProximityRouting,
     "Ck.VoiceChat.Net.ProximityRouting",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -122,15 +121,21 @@ bool FCkVoiceChatNet_ProximityRouting::RunTest(const FString& Parameters)
     bSuppressLogErrors = true;
     bSuppressLogWarnings = true;
 
+    const auto DedicatedServer = Parameters == TEXT("ClientServer");
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
     const auto State = MakeShared<FProximitySpecState, ESPMode::ThreadSafe>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(3, MapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(DedicatedServer ? 4 : 3, MapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(DedicatedServer ? 4 : 3, 30.0f));
 
-    // A client's LOCAL PlayerState arrives with the initial replication after login - it is not
-    // guaranteed to exist the moment PIE-ready fires.
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+    // A client's local PlayerState may arrive after PIE-ready.
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
+        {
+            auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+            auto* Controller = Client != nullptr ? Client->GetFirstPlayerController() : nullptr;
+            return Controller != nullptr && Controller->PlayerState != nullptr;
+        }), 45.0, TEXT("client 0 local PlayerState ready")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InClient) -> void
@@ -145,26 +150,33 @@ bool FCkVoiceChatNet_ProximityRouting::RunTest(const FString& Parameters)
             State->Client0PlayerId = LocalController->PlayerState->GetPlayerId();
         })));
 
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State, DedicatedServer]() -> bool
+        {
+            auto* Server = ck::auto_test::net::Get_ServerWorld();
+            auto* NearController = ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 0);
+            auto* FarController = ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 1);
+            if (NearController == nullptr || FarController == nullptr || NearController == FarController ||
+                NearController->PlayerState == nullptr ||
+                NearController->PlayerState->GetPlayerId() != State->Client0PlayerId)
+            { return false; }
+            if (NOT DedicatedServer)
+            { return true; }
+            auto* SpeakerController = ck::auto_test::net::TryGet_RemoteClientPlayerController(Server, 2);
+            return SpeakerController != nullptr && SpeakerController != NearController &&
+                SpeakerController != FarController;
+        }), 45.0, TEXT("near, far, and speaker server controllers ready")));
+
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State, DedicatedServer](UWorld* InServer) -> void
         {
             EnableEngineVoice(*State);
 
-            auto* InRangeController = static_cast<APlayerController*>(nullptr);
-            auto* FarController = static_cast<APlayerController*>(nullptr);
-            for (auto It = InServer->GetPlayerControllerIterator(); It; ++It)
-            {
-                auto* Controller = It->Get();
-                if (Controller == nullptr || Controller->IsLocalController() || Controller->PlayerState == nullptr)
-                { continue; }
-
-                if (Controller->PlayerState->GetPlayerId() == State->Client0PlayerId)
-                { InRangeController = Controller; }
-                else
-                { FarController = Controller; }
-            }
-
-            if (InRangeController == nullptr || FarController == nullptr)
+            auto* InRangeController = ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 0);
+            auto* FarController = ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 1);
+            if (InRangeController == nullptr || FarController == nullptr ||
+                InRangeController == FarController || InRangeController->PlayerState == nullptr ||
+                InRangeController->PlayerState->GetPlayerId() != State->Client0PlayerId)
             {
                 AddError(TEXT("could not resolve both remote PlayerControllers on the server"));
                 return;
@@ -173,6 +185,13 @@ bool FCkVoiceChatNet_ProximityRouting::RunTest(const FString& Parameters)
             auto SpawnInfo = FActorSpawnParameters{};
             SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+            if (DedicatedServer)
+            {
+                SpawnInfo.Owner = ck::auto_test::net::Get_RemoteClientPlayerController(InServer, 2);
+                if (SpawnInfo.Owner == nullptr || SpawnInfo.Owner == InRangeController ||
+                    SpawnInfo.Owner == FarController)
+                { AddError(TEXT("speaker client 2 has no distinct server controller")); return; }
+            }
             if (InServer->SpawnActor<ACk_AutoTest_NetSubject_VoiceChat_UE>(
                     ACk_AutoTest_NetSubject_VoiceChat_UE::StaticClass(), FTransform{SpeakerLocation}, SpawnInfo) == nullptr)
             { AddError(TEXT("spawn of the speaker subject failed")); }
@@ -191,7 +210,7 @@ bool FCkVoiceChatNet_ProximityRouting::RunTest(const FString& Parameters)
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(40));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State, DedicatedServer](UWorld* InServer) -> void
         {
             auto* Speaker = Find_SpeakerReplica(InServer);
             auto* InRange = Find_SubjectByOwnerPlayerId(InServer, State->Client0PlayerId);
@@ -221,9 +240,43 @@ bool FCkVoiceChatNet_ProximityRouting::RunTest(const FString& Parameters)
             FakeSource->Enqueue_Silence(FCk_Time{0.2f});
             FakeSource->Enqueue_Sine(FCk_Time{30.0f}, 0.4f, 300.0f);
 
-            UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(Speaker->_TestTalker, FakeSource);
-            UCk_Utils_VoiceTalker_UE::Request_StartTransmit(Speaker->_TestTalker, {}, {});
+            if (NOT DedicatedServer)
+            {
+                UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(Speaker->_TestTalker, FakeSource);
+                UCk_Utils_VoiceTalker_UE::Request_StartTransmit(Speaker->_TestTalker, {}, {});
+            }
         })));
+
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([]() -> bool
+            {
+                auto* World = ck::auto_test::net::Get_ClientWorld(2);
+                auto* Speaker = World != nullptr ? Find_SpeakerReplica(World) : nullptr;
+                return Speaker != nullptr && ck::IsValid(Speaker->_TestChannel) &&
+                    ck::IsValid(Speaker->_TestTalker) &&
+                    UCk_Utils_VoiceChannel_UE::Get_IsMember(Speaker->_TestChannel, Speaker->_TestTalker);
+            }), 10.0, TEXT("speaker channel membership replicated to capture client")));
+    }
+
+    if (DedicatedServer)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(2,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InClient) -> void
+            {
+                auto* Speaker = Find_SpeakerReplica(InClient);
+                auto* Owner = Speaker != nullptr ? Cast<APlayerController>(Speaker->GetOwner()) : nullptr;
+                if (Speaker == nullptr || ck::Is_NOT_Valid(Speaker->_TestTalker) ||
+                    Owner == nullptr || NOT Owner->IsLocalController())
+                { AddError(TEXT("client 2 speaker replica/talker/local owner missing")); return; }
+                const auto FakeSource = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
+                FakeSource->Enqueue_Silence(FCk_Time{0.2f});
+                FakeSource->Enqueue_Sine(FCk_Time{30.0f}, 0.4f, 300.0f);
+                UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(Speaker->_TestTalker, FakeSource);
+                UCk_Utils_VoiceTalker_UE::Request_StartTransmit(Speaker->_TestTalker, {}, {});
+            })));
+    }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(100));
 
