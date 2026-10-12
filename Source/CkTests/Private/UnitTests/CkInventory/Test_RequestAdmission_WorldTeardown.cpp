@@ -21,7 +21,7 @@
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRequestAdmission_WorldTeardown_RejectsInventoryRemoveAndTimerAdd,
     "Ck.RequestAdmission.WorldTeardown.RejectsInventoryRemoveAndTimerAdd",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -32,8 +32,8 @@ bool FCkRequestAdmission_WorldTeardown_RejectsInventoryRemoveAndTimerAdd::RunTes
         NewObject<UCk_RequestAdmissionTest_Listener_UE>(GetTransientPackage())};
     auto Owner = MakeShared<FCk_Handle>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Listener, Owner](UWorld* InWorld) -> void
