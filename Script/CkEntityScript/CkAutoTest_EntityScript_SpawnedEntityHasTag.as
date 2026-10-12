@@ -29,7 +29,7 @@ class UCk_AutoTest_EntityScript_SpawnedEntityHasTag : UCk_AutoTest_Base
         auto _CkPerfScope = ck::ScopedStat();
         _Owner = InHandle;
 
-        auto SpawnParams = UCk_EntityScript_EntityScriptGym_Spawn::Params();
+        auto SpawnParams = FEntityScriptGym_SpawnParams();
         SpawnParams.InitialTransform = FTransform::Identity;
 
         auto SpawnRequest = utils_entity_script::Request_SpawnEntity(

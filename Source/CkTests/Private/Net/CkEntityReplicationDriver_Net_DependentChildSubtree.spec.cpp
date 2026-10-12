@@ -31,7 +31,7 @@
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkEntityReplicationDriverNet_DependentChildSubtreeConstructs,
     "Ck.EntityReplicationDriver.Net.DependentChildSubtreeConstructs",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -53,7 +53,7 @@ bool FCkEntityReplicationDriverNet_DependentChildSubtreeConstructs::RunTest(cons
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // ---- Server spawns the dependent-subtree subject --------------------------------------------------------
