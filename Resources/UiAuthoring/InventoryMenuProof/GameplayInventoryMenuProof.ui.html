@@ -1,0 +1,96 @@
+<ui version="1">
+  <region name="main">
+    <column id="inventory-composition">
+      <column id="inventory-top-space" class="top-space" />
+      <column id="inventory-panel" class="panel">
+        <row id="inventory-header" class="header">
+          <column id="inventory-heading" class="heading">
+            <text id="inventory-title" bind="InventoryTitle" class="title" />
+            <text id="inventory-subtitle" bind="InventorySubtitle" class="subtitle" />
+          </column>
+          <text id="inventory-count" bind="InventoryCount" class="count" />
+        </row>
+        <column id="inventory-divider" class="divider" />
+        <column id="inventory-after-header" class="after-header" />
+        <row id="inventory-body" class="body">
+          <column id="inventory-browser" class="browser">
+            <row id="inventory-filters" class="filters">
+              <column id="inventory-filter-all-group" class="filter-group filter-all-group">
+                <button id="inventory-filter-all" action="InventoryFilterAll" class="filter-button filter-all-button" bind="GameplayFilterAll" />
+                <column id="inventory-filter-all-accent" visible="InventoryFilterAllSelected" class="filter-accent filter-all-accent" />
+              </column>
+              <column id="inventory-filter-equipment-group" class="filter-group">
+                <button id="inventory-filter-equipment" action="InventoryFilterEquipment" class="filter-button" bind="GameplayFilterEquipment" />
+                <column id="inventory-filter-equipment-accent" visible="InventoryFilterEquipmentSelected" class="filter-accent" />
+              </column>
+              <column id="inventory-filter-supplies-group" class="filter-group">
+                <button id="inventory-filter-supplies" action="InventoryFilterSupplies" class="filter-button" bind="GameplayFilterSupplies" />
+                <column id="inventory-filter-supplies-accent" visible="InventoryFilterSuppliesSelected" class="filter-accent" />
+              </column>
+              <column id="inventory-filter-materials-group" class="filter-group">
+                <button id="inventory-filter-materials" action="InventoryFilterMaterials" class="filter-button" bind="GameplayFilterMaterials" />
+                <column id="inventory-filter-materials-accent" visible="InventoryFilterMaterialsSelected" class="filter-accent" />
+              </column>
+              <column id="inventory-filter-gap" class="filter-gap" />
+              <search id="inventory-search" bind="InventorySearch" placeholder-bind="GameplaySearchHint" class="search" />
+            </row>
+            <column id="inventory-search-gap" class="search-gap" />
+            <overlay id="inventory-results" class="results">
+              <scroll id="inventory-scroll" direction="vertical" class="results">
+                <repeat id="inventory-items" bind="InventoryItems" direction="horizontal" class="cards">
+                  <action-card id="inventory-card" item-action="SelectInventoryItem" selected-field="selected" class="card">
+                    <slot name="content">
+                      <column id="inventory-card-content" class="card-content">
+                        <image id="inventory-card-image" bind-field="image" class="card-image" />
+                        <text id="inventory-card-title" bind-field="title" class="card-title" />
+                        <text id="inventory-card-meta" bind-field="meta" class="card-meta" />
+                      </column>
+                    </slot>
+                  </action-card>
+                </repeat>
+              </scroll>
+              <column id="inventory-empty-state" visible="InventoryIsEmpty" class="empty-state">
+                <text id="inventory-empty-label" bind="InventoryEmpty" class="empty-label" />
+              </column>
+            </overlay>
+          </column>
+          <column id="inventory-detail" class="detail">
+            <column id="inventory-detail-content" visible="InventoryHasSelection" class="detail-content">
+              <column id="inventory-detail-image-frame" class="detail-image-frame">
+                <image id="inventory-detail-image" bind="InventoryDetailImage" class="detail-image" />
+              </column>
+              <text id="inventory-detail-category" bind="InventoryDetailCategory" class="detail-category" />
+              <text id="inventory-detail-name" bind="InventoryDetailName" class="detail-name" />
+              <text id="inventory-detail-description" bind="InventoryDetailDescription" class="detail-description" />
+              <column id="inventory-detail-rule-one" class="detail-rule" />
+              <row id="inventory-detail-stat-row-one" class="detail-stat-row">
+                <text id="inventory-detail-stat-label-one" bind="InventoryStatLabelOne" class="detail-stat-label" />
+                <text id="inventory-detail-stat-value-one" bind="InventoryStatValueOne" class="detail-stat-value" />
+              </row>
+              <row id="inventory-detail-stat-row-two" class="detail-stat-row">
+                <text id="inventory-detail-stat-label-two" bind="InventoryStatLabelTwo" class="detail-stat-label" />
+                <text id="inventory-detail-stat-value-two" bind="InventoryStatValueTwo" class="detail-stat-value" />
+              </row>
+              <column id="inventory-detail-rule-two" class="detail-rule" />
+              <text id="inventory-detail-owned" bind="InventoryDetailOwned" class="detail-owned" />
+            </column>
+            <column id="inventory-detail-fill" class="detail-fill" />
+            <row id="inventory-detail-actions" class="detail-actions">
+              <button id="inventory-primary-action" action="InventoryPrimaryAction" enabled-bind="InventoryPrimaryEnabled" bind="InventoryPrimaryLabel" class="game-button" />
+              <column id="inventory-detail-button-gap" class="detail-button-gap" />
+              <button id="inventory-close" action="InventoryClose" class="game-button close-button" bind="GameplayClose" />
+            </row>
+            <column id="inventory-footer-gap" class="footer-gap" />
+            <text id="inventory-feedback" bind="InventoryFeedback" class="feedback" />
+          </column>
+        </row>
+      </column>
+      <column id="inventory-hint-gap" class="hint-gap" />
+      <row id="inventory-input-hint" class="input-hint">
+        <key-hint id="inventory-keycap" label="ESC" font-family="inventory-ui" class="keycap" />
+        <text id="inventory-hint-label" class="hint-label" bind="GameplayCloseHint" />
+      </row>
+      <column id="inventory-bottom-space" class="bottom-space" />
+    </column>
+  </region>
+</ui>

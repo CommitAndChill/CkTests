@@ -3,12 +3,14 @@
 #include "CkTests/UI/CkInventoryMenuProof.h"
 #include "CkSlateLayout/SCkUiSurface.h"
 #include "CkSlateLayout/CkUiCollection.h"
+#include "CkInventory/Inventory/CkInventory_Fragment_Data.h"
+#include "CkGameplayInventoryMenuAdapter.h"
 
 #include "UObject/StrongObjectPtr.h"
 
 class UTexture2D;
 
-/** In-memory proof inventory. All mutations validate and publish a complete projection. */
+/** Fixture and gameplay inventory projections for one authored menu contract. */
 class FCkInventoryMenuProofModel final : public TSharedFromThis<FCkInventoryMenuProofModel>
 {
 public:
@@ -20,6 +22,14 @@ public:
 
     static auto TryCreate(const FCk_UiAuthoringProof_InventoryState& InState, const FString& InAtlasPath,
         TSharedPtr<FCkInventoryMenuProofModel>& OutModel, FString& OutError) -> bool;
+
+    /** Projects committed CkInventory state through the same authored bindings. */
+    static auto TryCreateForInventory(const FCk_Handle_Inventory_DataOnly& InInventory,
+        const FString& InAtlasPath, TSharedPtr<FCkInventoryMenuProofModel>& OutModel, FString& OutError) -> bool;
+    auto RefreshGameplay() -> bool;
+    auto Get_IsGameplayMode() const -> bool { return _GameplayAdapter.IsValid(); }
+    auto Get_IsGameplaySourceValid() const -> bool;
+    auto Get_IsGameplayRequestPending() const -> bool;
 
     auto PopulateBindings(FCkUiView::FDataBindings& InOutData, FCkUiView::FActions& InOutActions,
         FSimpleDelegate InClose) -> void;
@@ -45,6 +55,9 @@ private:
         TArray<FString>& OutKeys, FString& OutSelection) const -> bool;
     auto TryCommit(const FCk_UiAuthoringProof_InventoryState& InState, const FString& InCategory,
         const FText& InSearch, const FString& InPreferredSelection) -> bool;
+    auto TryCommitGameplay(const FString& InCategory, const FText& InSearch,
+        const FString& InPreferredSelection) -> bool;
+    auto GameplaySelectedIndex() const -> int32;
     auto SelectedIndex() const -> int32;
     auto SelectedBrush() const -> const FSlateBrush*;
     auto SelectedName() const -> FText;
@@ -62,6 +75,7 @@ private:
     auto SelectedOwned() const -> FText;
     auto PrimaryLabel() const -> FText;
     auto HasPrimaryAction() const -> bool;
+    auto Get_SummaryText() const -> FText;
 
     FCk_UiAuthoringProof_InventoryState _State;
     TSharedPtr<TStrongObjectPtr<UTexture2D>> _AtlasRoot;
@@ -74,4 +88,7 @@ private:
     FText _SearchText;
     TMap<FName, int32> _ActionCounts;
     TAttribute<bool> _DispatchGate;
+    TStrongObjectPtr<UCk_GameplayInventoryMenuAdapter_UE> _GameplayAdapter;
+    TArray<FCkGameplayInventoryMenuRow> _GameplayRows;
+    bool _GameplayRetired = false;
 };
