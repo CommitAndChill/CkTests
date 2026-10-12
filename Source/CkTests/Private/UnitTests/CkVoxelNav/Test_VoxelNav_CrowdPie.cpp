@@ -133,7 +133,7 @@ namespace ck_test_voxelnav_crowd_pie
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_VoxelNav_CrowdPie_AgentReceivesItsRouteThroughTheNavPathSeam,
     "Ck.VoxelNav.Crowd.Pie.AgentReceivesItsRouteThroughTheNavPathSeam",
     ck_test_voxelnav_crowd_pie::kTestFlags)
@@ -157,10 +157,10 @@ bool FCkTest_VoxelNav_CrowdPie_AgentReceivesItsRouteThroughTheNavPathSeam::RunTe
     constexpr auto BodyAddedTimeoutSeconds = 15.0;
     constexpr auto BakeTimeoutSeconds = 60.0;
     constexpr auto RouteTimeoutSeconds = 15.0;
-    constexpr int32 NumClients = 1;
-    constexpr int32 ExpectedWorlds = 1;
+    constexpr int32 NumClients = 2;
+    constexpr int32 ExpectedWorlds = 2;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedWorlds, ReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleFrames));
 
@@ -322,7 +322,7 @@ bool FCkTest_VoxelNav_CrowdPie_AgentReceivesItsRouteThroughTheNavPathSeam::RunTe
 // asynchronous repair lands. Real 3D locomotion is the flying test's subject.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_VoxelNav_CrowdPie_StaleVolumeEpochReplansTheWalkingAgentExactlyOnce,
     "Ck.VoxelNav.Crowd.Pie.StaleVolumeEpochReplansTheWalkingAgentExactlyOnce",
     ck_test_voxelnav_crowd_pie::kTestFlags)
@@ -355,14 +355,14 @@ bool FCkTest_VoxelNav_CrowdPie_StaleVolumeEpochReplansTheWalkingAgentExactlyOnce
     constexpr auto RouteTimeoutSeconds = 15.0;
     constexpr auto RepairTimeoutSeconds = 30.0;
     constexpr auto ReplanTimeoutSeconds = 15.0;
-    constexpr int32 NumClients = 1;
-    constexpr int32 ExpectedWorlds = 1;
+    constexpr int32 NumClients = 2;
+    constexpr int32 ExpectedWorlds = 2;
     constexpr int32 GeometrySettleFrames = 10;
 
     // Long enough that a per-frame re-request would show up as a double-digit count, not a second fire.
     constexpr int32 SecondReplanWatchFrames = 60;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedWorlds, ReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleFrames));
 
