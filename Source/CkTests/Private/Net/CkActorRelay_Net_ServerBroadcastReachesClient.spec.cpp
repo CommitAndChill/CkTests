@@ -31,7 +31,7 @@ namespace ck_actorrelay_net_serverbroadcast
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkActorRelayNet_ServerBroadcastReachesClient,
     "Ck.ActorRelay.Net.ServerBroadcastReachesClient",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -47,7 +47,7 @@ bool FCkActorRelayNet_ServerBroadcastReachesClient::RunTest(const FString& Param
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(kNumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(kNumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(kExpectedTotalWorlds, kReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(kFramesAfterPIEReady));
 

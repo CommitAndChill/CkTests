@@ -77,18 +77,18 @@ namespace ck_tests_actor_relay_authored_inspector
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_ActorRelay_AuthoredInspectorComposition,
     "CkTests.UnitTests.CkActorRelay.ActorRelay.AuthoredInspectorComposition",
     ck_tests_actor_relay_authored_inspector::kTestFlags)
 
-bool FCkTest_ActorRelay_AuthoredInspectorComposition::RunTest(const FString&)
+bool FCkTest_ActorRelay_AuthoredInspectorComposition::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_actor_relay_authored_inspector;
     const auto Scenario = MakeShared<FScenario>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, kEntryMapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, kReadyTimeoutSeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, kEntryMapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, kReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(
         this,
         FCk_NetAutoTest_Condition::CreateLambda([Scenario]() -> bool

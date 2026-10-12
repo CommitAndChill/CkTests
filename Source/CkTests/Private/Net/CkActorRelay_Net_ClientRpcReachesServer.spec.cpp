@@ -59,7 +59,7 @@ namespace ck_actorrelay_net_clientrpc
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkActorRelayNet_ClientRpcReachesServer,
     "Ck.ActorRelay.Net.ClientRpcReachesServer",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -75,7 +75,7 @@ bool FCkActorRelayNet_ClientRpcReachesServer::RunTest(const FString& Parameters)
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(kNumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(kNumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(kExpectedTotalWorlds, kReadyTimeoutSeconds));
 
     // Wait until the client's OWNING channel has replicated, registered with the client's group
