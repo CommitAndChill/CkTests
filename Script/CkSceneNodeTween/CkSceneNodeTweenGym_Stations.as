@@ -1,27 +1,19 @@
-//============================================================================
-// SCENE NODE + TWEEN GYM - STATIONS
-//
-// Three entity-script stations, each a scene-node parent chain of increasing
-// depth with a Tween on the root. Compare AS-composed expected leaf positions
-// against ECS-reported world transforms; if they diverge the gym is catching
-// the same propagation bug as the Probe gym's NestedSceneNode station in
-// isolation (without physics/Jolt/probes muddying the picture).
-//
-// VISUAL CONVENTIONS (shared across stations):
-//   Root            = orange filled box, tweened along +Y
-//   Intermediate    = cyan / purple / teal filled boxes, shrinking with depth
-//   Leaf            = magenta filled sphere at expected pos / yellow on drift
-//   Parent->child   = dashed line (one-frame PMG draw)
-//============================================================================
+// Language=angelscript
+
+USTRUCT()
+struct FCkSceneNodeTweenGym_Station_SpawnParams
+{
+    UPROPERTY() FTransform InitialTransform = FTransform::Identity;
+    UPROPERTY() int32 Generation = 0;
+}
 
 namespace CkSceneNodeTweenGym_Vis
 {
-    FLinearColor RootColor()    { return FLinearColor(1.0f, 0.5f, 0.0f, 1.0f); }
-    FLinearColor LeafAligned()  { return FLinearColor(1.0f, 0.2f, 1.0f, 0.9f); }
-    FLinearColor LeafDrift()    { return FLinearColor(1.0f, 1.0f, 0.0f, 1.0f); }
+    FLinearColor RootColor() { return FLinearColor(1.0f, 0.5f, 0.0f, 1.0f); }
+    FLinearColor LeafAligned() { return FLinearColor(1.0f, 0.2f, 1.0f, 0.9f); }
+    FLinearColor LeafDrift() { return FLinearColor(1.0f, 1.0f, 0.0f, 1.0f); }
     FLinearColor IntermediateColor(int32 Depth)
     {
-        // Distinct hues so each chain link is unambiguous.
         if (Depth == 0) { return FLinearColor(0.2f, 0.9f, 1.0f, 1.0f); }
         if (Depth == 1) { return FLinearColor(0.7f, 0.3f, 1.0f, 1.0f); }
         if (Depth == 2) { return FLinearColor(0.3f, 1.0f, 0.6f, 1.0f); }
@@ -36,600 +28,388 @@ namespace CkSceneNodeTweenGym_Vis
         if (Depth == 3) { return FLinearColor(1.0f, 0.4f, 0.4f, 0.8f); }
         return FLinearColor(0.8f, 0.8f, 0.8f, 0.8f);
     }
-
-    // One-frame parent->child dashed line. Redraw each frame to track movement.
     void DrawEdge(FVector InStart, FVector InEnd, int32 InDepth)
     {
-        auto DashLen   = 15.0f;
-        auto GapLen    = 10.0f;
-        auto Thickness = 2.0f;
-        auto OneFrame  = 0.0f;
-        utils_pmg_directional_shapes::DrawDashedLine(
-            InStart, InEnd,
-            DashLen, GapLen, Thickness,
-            EdgeColor(InDepth), ECk_Plane_Axis::XY, OneFrame);
+        utils_pmg_directional_shapes::DrawDashedLine(InStart, InEnd, 15.0f, 10.0f, 2.0f,
+            EdgeColor(InDepth), ECk_Plane_Axis::XY, 0.0f);
     }
 }
 
-//============================================================================
-// STATION 1 - SIMPLE (1 parent -> 1 child)
-//============================================================================
-
-class UCk_EntityScript_SceneNodeTweenGym_SimpleStation : UCk_GenericEntityScript_UE
+class UCk_EntityScript_SceneNodeTweenGym_BaseStation : UCk_GenericEntityScript_UE
 {
     default _Replication = ECk_Replication::DoesNotReplicate;
+    UPROPERTY(ExposeOnSpawn) FTransform InitialTransform = FTransform::Identity;
+    UPROPERTY(ExposeOnSpawn) int32 Generation = 0;
+    UPROPERTY() int32 StationIndex = 0;
+    UPROPERTY() bool AuthorityConstructed = false;
+    UPROPERTY() bool ProjectionConstructed = false;
 
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
+    private bool _Authority = false;
+    private bool _Activated = false;
+    private FCk_Handle_Transform _TweenTarget;
+    private FCk_Handle_Transform _Root;
+    private TArray<FCk_Handle_SceneNode> _Links;
+    private TArray<FTransform> _Offsets;
+    private FCk_Handle_Tween _Tween;
+    private FCk_Handle_Timer _Tick;
+    private FCk_Handle_Pmg_DebugShape _RootShape;
+    private TArray<FCk_Handle_Pmg_DebugShape> _LinkShapes;
+    private FCk_Handle_Pmg_DebugShape _LeafShape;
+    private FLinearColor _LeafColor;
+    private bool _ShapesInitialized = false;
+    private bool _AutoRunning = true;
+    private FCkGym_AutoConfig _AutoConfig;
 
-    // The world-space station root the tween drives. RootTH below stays the first SceneNode
-    // link so the displayed chain depth is unchanged; a world-space tween aimed at RootTH is
-    // refused by design (it is parent-driven), which left every station visually frozen.
-    FCk_Handle_Transform TweenTargetTH;
-    FCk_Handle_Transform RootTH;
-    FCk_Handle_SceneNode Child;
-    FVector RootStart;
+    private int32 Get_ExpectedLinks() { return StationIndex == 0 ? 1 : (StationIndex == 1 ? 2 : 5); }
+    private FName Get_StationTag()
+    {
+        if (StationIndex == 0) { return n"Gym.SceneNodeTween.Simple"; }
+        if (StationIndex == 1) { return n"Gym.SceneNodeTween.Chain"; }
+        return n"Gym.SceneNodeTween.Deep";
+    }
 
-    FVector ChildOffset = FVector(0.0f, 120.0f, 0.0f);
-
-    FCk_Handle_Tween RootTween;
-    float32 Amplitude = 250.0f;
-    float32 Duration  = 3.0f;
-
-    FCk_Handle_Pmg_DebugShape RootShape;
-    FCk_Handle_Pmg_DebugShape ChildShape;
-    FCk_Handle_Pmg_DebugShape LeafShape;
-    FLinearColor LeafColorCached;
-
-    bool AutoRunning = true;
-    FCk_Handle_Timer AutoTimer;
-    FCkGym_AutoConfig AutoConfig;
-
-    float32 LastDrift = 0.0f;
-    FVector LastExpected;
-    FVector LastActual;
-    FString StatusLabel = "OK";
+    private void Request_BuildOffsets()
+    {
+        _Offsets.Empty();
+        if (StationIndex == 0)
+        { _Offsets.Add(FTransform(FRotator::ZeroRotator, FVector(0.0f, 120.0f, 0.0f), FVector(1,1,1))); }
+        else if (StationIndex == 1)
+        {
+            _Offsets.Add(FTransform(FRotator(0.0f, 45.0f, 0.0f), FVector(120.0f, 0.0f, 0.0f), FVector(1,1,1)));
+            _Offsets.Add(FTransform(FRotator(0.0f, 0.0f, 30.0f), FVector(0.0f, 100.0f, 0.0f), FVector(1,1,1)));
+        }
+        else
+        {
+            _Offsets.Add(FTransform(FRotator(0, 30, 0), FVector(100, 0, 0), FVector(1,1,1)));
+            _Offsets.Add(FTransform(FRotator(0,-20, 0), FVector(80, 20, 0), FVector(1,1,1)));
+            _Offsets.Add(FTransform(FRotator(0, 15, 0), FVector(60, 0, 0), FVector(1,1,1)));
+            _Offsets.Add(FTransform(FRotator(0,-10, 0), FVector(40, 20, 0), FVector(1,1,1)));
+            _Offsets.Add(FTransform(FRotator(0, 5, 0), FVector(30, 0, 0), FVector(1,1,1)));
+        }
+    }
 
     UFUNCTION(BlueprintOverride)
     ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
     {
-        auto _CkPerfScope = ck::ScopedStat();
-        auto TH = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-        utils_entity_tag::Add(InHandle, n"TAG_SceneNodeTweenGym_Station");
-        utils_handle::Set_DebugName(InHandle, n"SceneNodeTweenGym_Simple_Station");
+        auto State = CkSceneNodeTweenGym::Get_State();
+        auto Mode = utils_net::Get_EntityNetMode(InHandle);
+        if (ck::Is_NOT_Valid(State) || !CkSceneNodeTweenGym::IsLiveEntity(InHandle) ||
+            Generation <= 0 || StationIndex < 0 || StationIndex > 2 ||
+            utils_entity_lifetime::Get_LifetimeOwner(InHandle) !=
+                CkSceneNodeTweenGym::FindStation(Get_StationTag()) ||
+            (Mode != ECk_Net_NetModeType::Host && Mode != ECk_Net_NetModeType::ClientAndHost &&
+             Mode != ECk_Net_NetModeType::Client))
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+        _Authority = Mode != ECk_Net_NetModeType::Client;
+        if (_Authority && (!State.HasAuthority() || !State.Get_IsCurrentGeneration(Generation)))
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+        if (!_Authority && (State.HasAuthority() || !State.Snapshot.Ready ||
+                            State.Snapshot.Generation != Generation))
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+        _TweenTarget = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
+        if (!CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_TweenTarget)))
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+        Request_BuildOffsets();
+        if (_Offsets.Num() != Get_ExpectedLinks())
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+        _AutoConfig.TotalSteps = 1;
+        _AutoConfig.GlobalAutoCommand = "panel [J] Auto (all stations)";
+        _AutoConfig.Steps.Add(FCkGym_AutoStep("Tween yoyo", 0, 0));
+        if (StationIndex == 0)
+        { _AutoConfig.Description = "Single child tracks tweened root.\nDrift > 5 = propagation broken."; }
+        else if (StationIndex == 1)
+        { _AutoConfig.Description = "Root -> A -> B chain.\nTween drives root along +Y."; }
+        else
+        { _AutoConfig.Description = "5-level chain under a tweened root.\nStresses propagation depth."; }
+        if (!_Authority)
+        {
+            _Tick = utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnTick"));
+            ProjectionConstructed = CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_Tick));
+            return ECk_EntityScript_ConstructionFlow::Finished;
+        }
 
-        RootStart = InitialTransform.Translation;
-
-        TweenTargetTH = TH;
-
-        auto RootNode = utils_scene_node::Create(TH, FTransform::Identity);
-        RootTH = RootNode.As_Transform();
-        utils_handle::Set_DebugName(RootTH.H(), n"SceneNodeTweenGym_Simple_Root");
-
-        Child = utils_scene_node::Create(RootTH, FTransform(FRotator::ZeroRotator, ChildOffset, FVector(1,1,1)));
-        utils_handle::Set_DebugName(Child.H(), n"SceneNodeTweenGym_Simple_Child");
-
-        auto DisplayTimerParams = FCk_Timer_Spec(FCk_Time(0.0f));
-        DisplayTimerParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto T = utils_timer::Add(InHandle, DisplayTimerParams);
-        T.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"FrameTick"));
-
-        AutoTimer = gym_auto::Setup(InHandle, this, FCk_Time(1.0f));
-
-        AutoConfig.TotalSteps = 1;
-        AutoConfig.Description = "Single child tracks tweened root.\nDrift > 5 = propagation broken.";
-        AutoConfig.GlobalAutoCommand = "panel [J] Auto (all stations)";
-        AutoConfig.Steps.Add(FCkGym_AutoStep("Tween yoyo", 0, 0));
-
+        auto RootNode = utils_scene_node::Create(_TweenTarget, FTransform::Identity);
+        if (!CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(RootNode)))
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+        _Root = RootNode.As_Transform();
+        auto Parent = _Root;
+        for (int32 i = 0; i < _Offsets.Num(); i++)
+        {
+            auto Link = utils_scene_node::Create(Parent, _Offsets[i]);
+            if (!CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(Link)))
+            { return ECk_EntityScript_ConstructionFlow::Finished; }
+            _Links.Add(Link);
+            Parent = Link.As_Transform();
+        }
+        AuthorityConstructed = Get_IsPreparedComposition();
         return ECk_EntityScript_ConstructionFlow::Finished;
     }
 
-    UFUNCTION(BlueprintOverride)
-    void DoBeginPlay(FCk_Handle InHandle)
+    bool Get_HasPreparedAuthorityComposition()
+    { return AuthorityConstructed && Get_IsPreparedComposition(); }
+
+    private bool Get_IsPreparedComposition()
     {
-        auto _CkPerfScope = ck::ScopedStat();
-        utils_messaging::BindTo_OnBroadcast(InHandle, FCk_Message_SceneNodeTweenGym_Reset,
-            FCk_Delegate_Messaging_OnBroadcast(this, n"OnReset"));
-
-        RootShape  = utils_pmg_basic_shapes::DrawFilledBox(RootStart, FVector(30,30,30), CkSceneNodeTweenGym_Vis::RootColor(), true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-        ChildShape = utils_pmg_basic_shapes::DrawFilledBox(RootStart + ChildOffset, FVector(20,20,20), CkSceneNodeTweenGym_Vis::IntermediateColor(0), true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-
-        LeafColorCached = CkSceneNodeTweenGym_Vis::LeafAligned();
-        LeafShape = utils_pmg_basic_shapes::DrawFilledSphere(RootStart + ChildOffset, 25.0f, 12, 12, LeafColorCached, true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-
-        StartTween();
+        if (!_Authority) { return false; }
+        auto Self = ck::ToEntity(this);
+        if (!CkSceneNodeTweenGym::IsLiveEntity(Self) ||
+            !CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_TweenTarget)) ||
+            !CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_Root)) ||
+            FCk_Handle(_TweenTarget) != Self ||
+            !utils_transform::Has(Self) || !utils_transform::Has(FCk_Handle(_Root)) ||
+            _Links.Num() != Get_ExpectedLinks() || _Offsets.Num() != Get_ExpectedLinks())
+        { return false; }
+        if (utils_entity_lifetime::Get_LifetimeOwner(FCk_Handle(_Root)) != Self ||
+            !utils_scene_node::Has(FCk_Handle(_Root))) { return false; }
+        auto ExpectedOwner = FCk_Handle(_Root);
+        for (int32 i = 0; i < _Links.Num(); i++)
+        {
+            auto Link = FCk_Handle(_Links[i]);
+            if (!CkSceneNodeTweenGym::IsLiveEntity(Link) ||
+                !utils_scene_node::Has(Link) || !utils_transform::Has(Link) ||
+                utils_entity_lifetime::Get_LifetimeOwner(Link) != ExpectedOwner)
+            { return false; }
+            ExpectedOwner = Link;
+        }
+        return true;
     }
 
-    private void StartTween()
+    bool Request_ActivateAuthority()
     {
-        auto End = RootStart + FVector(0.0f, Amplitude, 0.0f);
-        RootTween = utils_tween::Create_TweenEntityLocation(
-            TweenTargetTH, End, Duration,
+        if (_Activated || !Get_HasPreparedAuthorityComposition()) { return false; }
+        auto End = InitialTransform.Translation +
+            FVector(0.0f, StationIndex == 2 ? 300.0f : 250.0f, 0.0f);
+        _Tween = utils_tween::Create_TweenEntityLocation(_TweenTarget, End,
+            StationIndex == 2 ? 4.0f : 3.0f,
             ECk_TweenEasing::InOutSine, ECk_TweenLoopType::Yoyo, -1, 0.0f);
-        if (!AutoRunning) { utils_tween::Pause(RootTween); }
+        if (!CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_Tween)) ||
+            !utils_tween::Has(FCk_Handle(_Tween))) { return false; }
+        auto State = CkSceneNodeTweenGym::Get_State();
+        if (ck::Is_NOT_Valid(State) || !State.Get_IsCurrentGeneration(Generation)) { return false; }
+        _AutoRunning = State.Snapshot.AutoRunning;
+        if (!_AutoRunning) { utils_tween::Pause(_Tween); }
+        _Tick = utils_timer::Create_Tick(ck::ToEntity(this), FCk_Delegate_Timer(this, n"OnTick"));
+        _Activated = CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_Tick));
+        return _Activated;
     }
 
-    UFUNCTION()
-    private void AutoTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT) {}
-
-    UFUNCTION()
-    private void OnReset(FCk_Handle InHandle, FGameplayTag InMessageName, FInstancedStruct InPayload) {}
-
-    UFUNCTION()
-    private void OnAutoSet(FCk_Handle InHandle, FGameplayTag InMessageName, FInstancedStruct InPayload)
+    bool Get_HasValidAuthorityComposition()
     {
-        gym_auto::HandleAutoSet(InPayload, AutoTimer, AutoRunning);
-        if (ck::Is_NOT_Valid(RootTween)) { return; }
-        if (AutoRunning) { utils_tween::Resume(RootTween); } else { utils_tween::Pause(RootTween); }
+        return _Activated && Get_HasPreparedAuthorityComposition() &&
+            CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_Tween)) &&
+            utils_tween::Has(FCk_Handle(_Tween)) &&
+            utils_entity_lifetime::Get_LifetimeOwner(FCk_Handle(_Tween)) == ck::ToEntity(this) &&
+            CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_Tick)) &&
+            utils_timer::DoCast(FCk_Handle(_Tick)).IsSet() &&
+            utils_entity_lifetime::Get_LifetimeOwner(FCk_Handle(_Tick)) == ck::ToEntity(this) &&
+            _Tick.Get_CurrentState() == ECk_Timer_State::Running;
     }
 
-    UFUNCTION()
-    private void FrameTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
+    bool Get_HasValidProjectionComposition()
     {
-        if (ck::Is_NOT_Valid(RootShape)) { return; }
+        auto Self = ck::ToEntity(this);
+        return !_Authority && ProjectionConstructed &&
+            CkSceneNodeTweenGym::IsLiveEntity(Self) &&
+            CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_TweenTarget)) &&
+            FCk_Handle(_TweenTarget) == Self && utils_transform::Has(Self) &&
+            _Links.Num() == 0 &&
+            CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_Tick)) &&
+            utils_timer::DoCast(FCk_Handle(_Tick)).IsSet() &&
+            utils_entity_lifetime::Get_LifetimeOwner(FCk_Handle(_Tick)) == Self &&
+            _Tick.Get_CurrentState() == ECk_Timer_State::Running;
+    }
 
-        // Use the FULL root world transform (including rotation) for AS-side
-        // composition - vector-add of offsets ignores rotation and produces
-        // false DESYNCs when the station has a non-zero yaw.
-        auto RootXform = utils_transform::Get_EntityCurrentTransform(RootTH);
-        auto ChildLocal = FTransform(FRotator::ZeroRotator, ChildOffset, FVector(1,1,1));
-        auto ExpectedXform = ChildLocal * RootXform;
-        auto RootWorld = RootXform.GetLocation();
-        auto Expected  = ExpectedXform.GetLocation();
-        LastExpected = Expected;
-        auto Actual    = utils_transform::Get_EntityCurrentLocation(Child.As_Transform());
-        LastActual = Actual;
-
-        LastDrift = float32((Expected - Actual).Size());
-        StatusLabel = LastDrift > 5.0f ? FString("DESYNC") : FString("OK");
-
-        utils_transform::Request_SetLocation(RootShape,  RootWorld, ECk_LocalWorld::World);
-        utils_transform::Request_SetLocation(ChildShape, Expected,  ECk_LocalWorld::World);
-
-        CkSceneNodeTweenGym_Vis::DrawEdge(RootWorld, Expected, 0);
-
-        auto DesiredColor = LastDrift > 5.0f ? CkSceneNodeTweenGym_Vis::LeafDrift() : CkSceneNodeTweenGym_Vis::LeafAligned();
-        if (ColorChanged(DesiredColor))
+    UFUNCTION(BlueprintOverride)
+    void DoEndPlay(FCk_Handle InHandle)
+    {
+        if (CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_RootShape)))
+        { utils_entity_lifetime::Request_DestroyEntity(_RootShape); }
+        for (auto Shape : _LinkShapes)
         {
-            utils_entity_lifetime::Request_DestroyEntity(LeafShape);
-            LeafColorCached = DesiredColor;
-            LeafShape = utils_pmg_basic_shapes::DrawFilledSphere(Actual, 25.0f, 12, 12, LeafColorCached, true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
+            if (CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(Shape)))
+            { utils_entity_lifetime::Request_DestroyEntity(Shape); }
+        }
+        if (CkSceneNodeTweenGym::IsLiveEntity(FCk_Handle(_LeafShape)))
+        { utils_entity_lifetime::Request_DestroyEntity(_LeafShape); }
+    }
+
+    void Request_SetAuto(bool InRunning)
+    {
+        if (!_Authority || !Get_HasValidAuthorityComposition()) { return; }
+        _AutoRunning = InRunning;
+        if (InRunning) { utils_tween::Resume(_Tween); }
+        else { utils_tween::Pause(_Tween); }
+    }
+
+    private FCkSceneNodeTweenGym_StationSample Request_Sample()
+    {
+        auto Sample = FCkSceneNodeTweenGym_StationSample();
+        auto RootTransform = utils_transform::Get_EntityCurrentTransform(_Root);
+        Sample.RootPosition = RootTransform.GetLocation();
+        auto Acc = RootTransform;
+        for (int32 i = 0; i < _Offsets.Num(); i++)
+        {
+            Acc = _Offsets[i] * Acc;
+            Sample.ExpectedLinks.Add(Acc.GetLocation());
+            Sample.ActualLinks.Add(utils_transform::Get_EntityCurrentLocation(_Links[i].As_Transform()));
+        }
+        Sample.Drift = float((Sample.ExpectedLinks.Last() - Sample.ActualLinks.Last()).Size());
+        return Sample;
+    }
+
+    UFUNCTION()
+    private void OnTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
+    {
+        auto State = CkSceneNodeTweenGym::Get_State();
+        if (ck::Is_NOT_Valid(State) || Generation != State.Snapshot.Generation) { return; }
+        auto Self = ck::ToEntity(this);
+        if (_Authority)
+        {
+            if (!State.Get_IsCurrentServerChild(Self, Generation)) { return; }
+            if (!Get_HasValidAuthorityComposition())
+            { State.Request_FailCurrentServerChild(Self, Generation, "Station lost a simulation dependency"); return; }
+            State.SubmitStationSample(Self, Generation, StationIndex, Request_Sample());
+            if (State.Snapshot.Failed) { return; }
+        }
+        else if (!State.Get_HasAdmittedLocalProjection(Generation)) { return; }
+        if (GetWorld().GetNetMode() == ENetMode::NM_DedicatedServer) { return; }
+        if (!State.Get_HasCompleteSnapshot()) { return; }
+        Request_Draw(State.Snapshot.Stations[StationIndex], State.Snapshot.AutoRunning);
+    }
+
+    private bool Get_ColorChanged(FLinearColor InColor)
+    {
+        return InColor.R != _LeafColor.R || InColor.G != _LeafColor.G ||
+            InColor.B != _LeafColor.B || InColor.A != _LeafColor.A;
+    }
+
+    private bool Get_IsValidShape(FCk_Handle_Pmg_DebugShape InShape)
+    {
+        auto Handle = FCk_Handle(InShape);
+        return CkSceneNodeTweenGym::IsLiveEntity(Handle) &&
+            utils_pmg_debug_shape::Has(Handle) && utils_transform::Has(Handle);
+    }
+
+    private void Request_FailPresentation(FString InReason)
+    {
+        auto State = CkSceneNodeTweenGym::Get_State();
+        if (ck::Is_NOT_Valid(State)) { return; }
+        auto Self = ck::ToEntity(this);
+        if (_Authority) { State.Request_FailCurrentServerChild(Self, Generation, InReason); }
+        else { State.Request_FailCurrentLocalChild(Self, Generation, InReason); }
+    }
+
+    private void Request_Draw(FCkSceneNodeTweenGym_StationSample InSample, bool InAutoRunning)
+    {
+        auto Needed = Get_ExpectedLinks();
+        if (InSample.ExpectedLinks.Num() != Needed || InSample.ActualLinks.Num() != Needed)
+        { return; }
+        auto RootLoc = InSample.RootPosition;
+        if (!_ShapesInitialized)
+        {
+            _RootShape = utils_pmg_basic_shapes::DrawFilledBox(RootLoc, FVector(30,30,30),
+                CkSceneNodeTweenGym_Vis::RootColor(), true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
+            for (int32 i = 0; i < Needed; i++)
+            {
+                if (StationIndex == 2 && i == Needed - 1) { break; }
+                auto Size = StationIndex == 0 ? 20.0f :
+                    (StationIndex == 1 ? (i == 0 ? 22.0f : 16.0f) : Math::Max(8.0f, 22.0f - float(i) * 3.0f));
+                _LinkShapes.Add(utils_pmg_basic_shapes::DrawFilledBox(InSample.ExpectedLinks[i],
+                    FVector(Size,Size,Size), CkSceneNodeTweenGym_Vis::IntermediateColor(i),
+                    true, 2.0f, ECk_Plane_Axis::XY, -1.0f));
+            }
+            _LeafColor = InSample.Drift > 5.0 ? CkSceneNodeTweenGym_Vis::LeafDrift() :
+                CkSceneNodeTweenGym_Vis::LeafAligned();
+            _LeafShape = utils_pmg_basic_shapes::DrawFilledSphere(InSample.ActualLinks[Needed - 1],
+                StationIndex == 2 ? 22.0f : 25.0f, 12, 12,
+                _LeafColor, true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
+            _ShapesInitialized = true;
+        }
+        if (_LinkShapes.Num() != (StationIndex == 2 ? 4 : Needed) ||
+            !Get_IsValidShape(_RootShape) || !Get_IsValidShape(_LeafShape))
+        { Request_FailPresentation("Required display shape is incomplete"); return; }
+        for (auto Shape : _LinkShapes)
+        {
+            if (!Get_IsValidShape(Shape))
+            { Request_FailPresentation("Required display link was lost"); return; }
+        }
+        utils_transform::Request_SetLocation(_RootShape, RootLoc, ECk_LocalWorld::World);
+        for (int32 i = 0; i < _LinkShapes.Num(); i++)
+        {
+            utils_transform::Request_SetLocation(_LinkShapes[i], InSample.ExpectedLinks[i], ECk_LocalWorld::World);
+        }
+        auto Start = RootLoc;
+        for (int32 i = 0; i < Needed; i++)
+        {
+            CkSceneNodeTweenGym_Vis::DrawEdge(Start, InSample.ExpectedLinks[i], i);
+            Start = InSample.ExpectedLinks[i];
+        }
+        auto LeafLoc = InSample.ActualLinks[Needed - 1];
+        auto Color = InSample.Drift > 5.0 ? CkSceneNodeTweenGym_Vis::LeafDrift() :
+            CkSceneNodeTweenGym_Vis::LeafAligned();
+        if (Get_ColorChanged(Color))
+        {
+            utils_entity_lifetime::Request_DestroyEntity(_LeafShape);
+            _LeafColor = Color;
+            _LeafShape = utils_pmg_basic_shapes::DrawFilledSphere(LeafLoc,
+                StationIndex == 2 ? 22.0f : 25.0f, 12, 12,
+                Color, true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
+            if (!Get_IsValidShape(_LeafShape))
+            { Request_FailPresentation("Leaf display allocation failed"); return; }
+        }
+        else { utils_transform::Request_SetLocation(_LeafShape, LeafLoc, ECk_LocalWorld::World); }
+
+        auto LastExpected = InSample.ExpectedLinks[Needed - 1];
+        auto LastActual = LeafLoc;
+        auto StatusLabel = InSample.Drift > 5.0 ? FString("DESYNC") : FString("OK");
+        auto Txt = gym_auto::FormatHeader(_AutoConfig, InAutoRunning);
+        Txt = Txt + "Expected sphere position:\n";
+        if (StationIndex == 0)
+        { Txt = Txt + " co-located with cyan child box\n (leaf IS the child).\n\n"; }
+        else if (StationIndex == 1)
+        { Txt = Txt + " co-located with purple B box\n (leaf IS node B at end of chain).\n\n"; }
+        else
+        { Txt = Txt + " OFFSET from the last box. Sphere\n sits past link 4 by the 5th local\n offset (it IS the 5th link).\n\n"; }
+        if (StationIndex == 2)
+        {
+            Txt = f"{Txt}Expected (leaf): {LastExpected.X},{LastExpected.Y},{LastExpected.Z}\n";
+            Txt = f"{Txt}Actual (leaf):   {LastActual.X},{LastActual.Y},{LastActual.Z}\n";
+            Txt = f"{Txt}Drift (leaf):    {InSample.Drift}\n";
+            Txt = f"{Txt}Status:          {StatusLabel}\n";
         }
         else
         {
-            utils_transform::Request_SetLocation(LeafShape, Actual, ECk_LocalWorld::World);
+            Txt = f"{Txt}Expected: {LastExpected.X},{LastExpected.Y},{LastExpected.Z}\n";
+            Txt = f"{Txt}Actual:   {LastActual.X},{LastActual.Y},{LastActual.Z}\n";
+            Txt = f"{Txt}Drift:    {InSample.Drift}\n";
+            Txt = f"{Txt}Status:   {StatusLabel}\n";
         }
-
-        Display();
-    }
-
-    private bool ColorChanged(FLinearColor InNew)
-    {
-        return InNew.R != LeafColorCached.R || InNew.G != LeafColorCached.G ||
-               InNew.B != LeafColorCached.B || InNew.A != LeafColorCached.A;
-    }
-
-    private void Display()
-    {
-        auto TitleText = FString("TWEEN + SCENE NODE (SIMPLE)");
-        auto Txt = gym_auto::FormatHeader(AutoConfig, AutoRunning);
-        Txt = Txt + "Expected sphere position:\n";
-        Txt = Txt + " co-located with cyan child box\n";
-        Txt = Txt + " (leaf IS the child).\n\n";
-        Txt = f"{Txt}Expected: {LastExpected.X},{LastExpected.Y},{LastExpected.Z}\n";
-        Txt = f"{Txt}Actual:   {LastActual.X},{LastActual.Y},{LastActual.Z}\n";
-        Txt = f"{Txt}Drift:    {LastDrift}\n";
-        Txt = f"{Txt}Status:   {StatusLabel}\n";
         if (StatusLabel == "DESYNC")
-        { Txt = Txt + "Child not following tweened root.\n"; }
-        Txt = Txt + gym_auto::FormatAutoAndCommands(AutoConfig, 0, AutoRunning);
-
-        auto Owner = utils_entity_lifetime::Get_LifetimeOwner(ck::ToEntity(this));
-        auto& F = Owner.AddOrGet_Fragment(FCkGym_Station_TitleAndDescription);
-        F.Title = FText::FromString(TitleText);
-        F.Description = FText::FromString(Txt);
+        {
+            if (StationIndex == 0) { Txt = Txt + "Child not following tweened root.\n"; }
+            else if (StationIndex == 1) { Txt = Txt + "Chain leaf not following root.\n"; }
+            else { Txt = Txt + "Leaf not following through chain.\n"; }
+        }
+        Txt = Txt + gym_auto::FormatAutoAndCommands(_AutoConfig, 0, InAutoRunning);
+        auto Parent = utils_entity_lifetime::Get_LifetimeOwner(ck::ToEntity(this));
+        if (!CkSceneNodeTweenGym::IsLiveEntity(Parent)) { return; }
+        auto& Display = Parent.AddOrGet_Fragment(FCkGym_Station_TitleAndDescription);
+        if (StationIndex == 0) { Display.Title = FText::FromString("TWEEN + SCENE NODE (SIMPLE)"); }
+        else if (StationIndex == 1) { Display.Title = FText::FromString("TWEEN + SCENE NODE (CHAIN)"); }
+        else { Display.Title = FText::FromString("TWEEN + SCENE NODE (DEEP)"); }
+        Display.Description = FText::FromString(Txt);
     }
 }
 
-//============================================================================
-// STATION 2 - CHAIN (root -> A -> B)
-//============================================================================
-
-class UCk_EntityScript_SceneNodeTweenGym_ChainStation : UCk_GenericEntityScript_UE
+class UCk_EntityScript_SceneNodeTweenGym_SimpleStation : UCk_EntityScript_SceneNodeTweenGym_BaseStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
-    // The world-space station root the tween drives. RootTH below stays the first SceneNode
-    // link so the displayed chain depth is unchanged; a world-space tween aimed at RootTH is
-    // refused by design (it is parent-driven), which left every station visually frozen.
-    FCk_Handle_Transform TweenTargetTH;
-    FCk_Handle_Transform RootTH;
-    FCk_Handle_SceneNode NodeA;
-    FCk_Handle_SceneNode NodeB;
-    FVector RootStart;
-
-    FVector OffsetA = FVector(120.0f, 0.0f, 0.0f);
-    FRotator RotA   = FRotator(0.0f, 45.0f, 0.0f);
-    FVector OffsetB = FVector(0.0f, 100.0f, 0.0f);
-    FRotator RotB   = FRotator(0.0f, 0.0f, 30.0f);
-
-    FCk_Handle_Tween RootTween;
-    float32 Amplitude = 250.0f;
-    float32 Duration  = 3.0f;
-
-    FCk_Handle_Pmg_DebugShape RootShape;
-    FCk_Handle_Pmg_DebugShape ShapeA;
-    FCk_Handle_Pmg_DebugShape ShapeB;
-    FCk_Handle_Pmg_DebugShape LeafShape;
-    FLinearColor LeafColorCached;
-
-    bool AutoRunning = true;
-    FCk_Handle_Timer AutoTimer;
-    FCkGym_AutoConfig AutoConfig;
-
-    float32 LastDrift = 0.0f;
-    FVector LastExpected;
-    FVector LastActual;
-    FString StatusLabel = "OK";
-
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
-    {
-        auto _CkPerfScope = ck::ScopedStat();
-        auto TH = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-        utils_entity_tag::Add(InHandle, n"TAG_SceneNodeTweenGym_Station");
-        utils_handle::Set_DebugName(InHandle, n"SceneNodeTweenGym_Chain_Station");
-        RootStart = InitialTransform.Translation;
-
-        TweenTargetTH = TH;
-
-        auto RootNode = utils_scene_node::Create(TH, FTransform::Identity);
-        RootTH = RootNode.As_Transform();
-
-        NodeA = utils_scene_node::Create(RootTH, FTransform(RotA, OffsetA, FVector(1,1,1)));
-        NodeB = utils_scene_node::Create(NodeA.As_Transform(), FTransform(RotB, OffsetB, FVector(1,1,1)));
-
-        auto DisplayParams = FCk_Timer_Spec(FCk_Time(0.0f));
-        DisplayParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto DisplayTimer = utils_timer::Add(InHandle, DisplayParams);
-        DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"FrameTick"));
-
-        AutoTimer = gym_auto::Setup(InHandle, this, FCk_Time(1.0f));
-        AutoConfig.TotalSteps = 1;
-        AutoConfig.Description = "Root -> A -> B chain.\nTween drives root along +Y.";
-        AutoConfig.GlobalAutoCommand = "panel [J] Auto (all stations)";
-        AutoConfig.Steps.Add(FCkGym_AutoStep("Tween yoyo", 0, 0));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
-    }
-
-    UFUNCTION(BlueprintOverride)
-    void DoBeginPlay(FCk_Handle InHandle)
-    {
-        auto _CkPerfScope = ck::ScopedStat();
-        utils_messaging::BindTo_OnBroadcast(InHandle, FCk_Message_SceneNodeTweenGym_Reset,
-            FCk_Delegate_Messaging_OnBroadcast(this, n"OnReset"));
-
-        auto RootXform = utils_transform::Get_EntityCurrentTransform(RootTH);
-        auto A = Compose_A(RootXform);
-        auto B = Compose_B(RootXform);
-
-        RootShape = utils_pmg_basic_shapes::DrawFilledBox(RootStart, FVector(30,30,30), CkSceneNodeTweenGym_Vis::RootColor(), true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-        ShapeA    = utils_pmg_basic_shapes::DrawFilledBox(A.GetLocation(), FVector(22,22,22), CkSceneNodeTweenGym_Vis::IntermediateColor(0), true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-        ShapeB    = utils_pmg_basic_shapes::DrawFilledBox(B.GetLocation(), FVector(16,16,16), CkSceneNodeTweenGym_Vis::IntermediateColor(1), true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-
-        LeafColorCached = CkSceneNodeTweenGym_Vis::LeafAligned();
-        LeafShape = utils_pmg_basic_shapes::DrawFilledSphere(B.GetLocation(), 25.0f, 12, 12, LeafColorCached, true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-
-        auto End = RootStart + FVector(0.0f, Amplitude, 0.0f);
-        RootTween = utils_tween::Create_TweenEntityLocation(TweenTargetTH, End, Duration, ECk_TweenEasing::InOutSine, ECk_TweenLoopType::Yoyo, -1, 0.0f);
-        if (!AutoRunning) { utils_tween::Pause(RootTween); }
-    }
-
-    // Takes the full Root world transform so station/root rotation is honored.
-    // A raw vector-origin build produces false DESYNCs on rotated stations.
-    private FTransform Compose_A(FTransform InRootWorld)
-    {
-        auto Local = FTransform(RotA, OffsetA, FVector(1,1,1));
-        return Local * InRootWorld;
-    }
-
-    private FTransform Compose_B(FTransform InRootWorld)
-    {
-        auto A = Compose_A(InRootWorld);
-        auto Local = FTransform(RotB, OffsetB, FVector(1,1,1));
-        return Local * A;
-    }
-
-    UFUNCTION()
-    private void AutoTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT) {}
-
-    UFUNCTION()
-    private void OnReset(FCk_Handle InHandle, FGameplayTag InMessageName, FInstancedStruct InPayload) {}
-
-    UFUNCTION()
-    private void OnAutoSet(FCk_Handle InHandle, FGameplayTag InMessageName, FInstancedStruct InPayload)
-    {
-        gym_auto::HandleAutoSet(InPayload, AutoTimer, AutoRunning);
-        if (ck::Is_NOT_Valid(RootTween)) { return; }
-        if (AutoRunning) { utils_tween::Resume(RootTween); } else { utils_tween::Pause(RootTween); }
-    }
-
-    UFUNCTION()
-    private void FrameTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        if (ck::Is_NOT_Valid(RootShape)) { return; }
-
-        auto RootXform = utils_transform::Get_EntityCurrentTransform(RootTH);
-        auto RootWorld = RootXform.GetLocation();
-        auto A = Compose_A(RootXform).GetLocation();
-        auto B = Compose_B(RootXform).GetLocation();
-        auto Actual = utils_transform::Get_EntityCurrentLocation(NodeB.As_Transform());
-        LastExpected = B;
-        LastActual = Actual;
-
-        LastDrift = float32((B - Actual).Size());
-        StatusLabel = LastDrift > 5.0f ? FString("DESYNC") : FString("OK");
-
-        utils_transform::Request_SetLocation(RootShape, RootWorld, ECk_LocalWorld::World);
-        utils_transform::Request_SetLocation(ShapeA,    A,         ECk_LocalWorld::World);
-        utils_transform::Request_SetLocation(ShapeB,    B,         ECk_LocalWorld::World);
-
-        CkSceneNodeTweenGym_Vis::DrawEdge(RootWorld, A, 0);
-        CkSceneNodeTweenGym_Vis::DrawEdge(A,         B, 1);
-
-        auto DesiredColor = LastDrift > 5.0f ? CkSceneNodeTweenGym_Vis::LeafDrift() : CkSceneNodeTweenGym_Vis::LeafAligned();
-        if (ColorChanged(DesiredColor))
-        {
-            utils_entity_lifetime::Request_DestroyEntity(LeafShape);
-            LeafColorCached = DesiredColor;
-            LeafShape = utils_pmg_basic_shapes::DrawFilledSphere(Actual, 25.0f, 12, 12, LeafColorCached, true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-        }
-        else
-        {
-            utils_transform::Request_SetLocation(LeafShape, Actual, ECk_LocalWorld::World);
-        }
-
-        Display();
-    }
-
-    private bool ColorChanged(FLinearColor InNew)
-    {
-        return InNew.R != LeafColorCached.R || InNew.G != LeafColorCached.G ||
-               InNew.B != LeafColorCached.B || InNew.A != LeafColorCached.A;
-    }
-
-    private void Display()
-    {
-        auto Txt = gym_auto::FormatHeader(AutoConfig, AutoRunning);
-        Txt = Txt + "Expected sphere position:\n";
-        Txt = Txt + " co-located with purple B box\n";
-        Txt = Txt + " (leaf IS node B at end of chain).\n\n";
-        Txt = f"{Txt}Expected: {LastExpected.X},{LastExpected.Y},{LastExpected.Z}\n";
-        Txt = f"{Txt}Actual:   {LastActual.X},{LastActual.Y},{LastActual.Z}\n";
-        Txt = f"{Txt}Drift:    {LastDrift}\n";
-        Txt = f"{Txt}Status:   {StatusLabel}\n";
-        if (StatusLabel == "DESYNC")
-        { Txt = Txt + "Chain leaf not following root.\n"; }
-        Txt = Txt + gym_auto::FormatAutoAndCommands(AutoConfig, 0, AutoRunning);
-
-        auto Owner = utils_entity_lifetime::Get_LifetimeOwner(ck::ToEntity(this));
-        auto& F = Owner.AddOrGet_Fragment(FCkGym_Station_TitleAndDescription);
-        F.Title = FText::FromString("TWEEN + SCENE NODE (CHAIN)");
-        F.Description = FText::FromString(Txt);
-    }
+    default StationIndex = 0;
 }
-
-//============================================================================
-// STATION 3 - DEEP (root -> L0 -> L1 -> L2 -> L3 -> leaf)
-//============================================================================
-
-class UCk_EntityScript_SceneNodeTweenGym_DeepStation : UCk_GenericEntityScript_UE
+class UCk_EntityScript_SceneNodeTweenGym_ChainStation : UCk_EntityScript_SceneNodeTweenGym_BaseStation
 {
-    default _Replication = ECk_Replication::DoesNotReplicate;
-
-    UPROPERTY(ExposeOnSpawn)
-    FTransform InitialTransform = FTransform::Identity;
-
-    // The world-space station root the tween drives. RootTH below stays the first SceneNode
-    // link so the displayed chain depth is unchanged; a world-space tween aimed at RootTH is
-    // refused by design (it is parent-driven), which left every station visually frozen.
-    FCk_Handle_Transform TweenTargetTH;
-    FCk_Handle_Transform RootTH;
-    TArray<FCk_Handle_SceneNode> Chain;     // 5 links, Chain.Last() is the leaf
-    TArray<FTransform> LocalOffsets;         // matching local transforms per link
-    FVector RootStart;
-
-    FCk_Handle_Tween RootTween;
-    float32 Amplitude = 300.0f;
-    float32 Duration  = 4.0f;
-
-    FCk_Handle_Pmg_DebugShape RootShape;
-    TArray<FCk_Handle_Pmg_DebugShape> LinkShapes;
-    FCk_Handle_Pmg_DebugShape LeafShape;
-    FLinearColor LeafColorCached;
-
-    bool AutoRunning = true;
-    FCk_Handle_Timer AutoTimer;
-    FCkGym_AutoConfig AutoConfig;
-
-    float32 LastDrift = 0.0f;
-    FVector LastExpected;
-    FVector LastActual;
-    FString StatusLabel = "OK";
-
-    UFUNCTION(BlueprintOverride)
-    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
-    {
-        auto _CkPerfScope = ck::ScopedStat();
-        auto TH = utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-        utils_entity_tag::Add(InHandle, n"TAG_SceneNodeTweenGym_Station");
-        utils_handle::Set_DebugName(InHandle, n"SceneNodeTweenGym_Deep_Station");
-        RootStart = InitialTransform.Translation;
-
-        TweenTargetTH = TH;
-
-        auto RootNode = utils_scene_node::Create(TH, FTransform::Identity);
-        RootTH = RootNode.As_Transform();
-
-        // Build a 5-link chain. Each link is a small offset with a mild rotation
-        // so the accumulated transform depends on every preceding level.
-        LocalOffsets.Add(FTransform(FRotator(0,  30, 0), FVector(100,  0, 0), FVector(1,1,1)));
-        LocalOffsets.Add(FTransform(FRotator(0, -20, 0), FVector( 80, 20, 0), FVector(1,1,1)));
-        LocalOffsets.Add(FTransform(FRotator(0,  15, 0), FVector( 60,  0, 0), FVector(1,1,1)));
-        LocalOffsets.Add(FTransform(FRotator(0, -10, 0), FVector( 40, 20, 0), FVector(1,1,1)));
-        LocalOffsets.Add(FTransform(FRotator(0,   5, 0), FVector( 30,  0, 0), FVector(1,1,1)));
-
-        auto ParentTH = RootTH;
-        for (int32 i = 0; i < LocalOffsets.Num(); ++i)
-        {
-            auto Link = utils_scene_node::Create(ParentTH, LocalOffsets[i]);
-            Chain.Add(Link);
-            ParentTH = Link.As_Transform();
-        }
-
-        auto DisplayParams = FCk_Timer_Spec(FCk_Time(0.0f));
-        DisplayParams.Set_StartingState(ECk_Timer_State::Running).Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-        auto DisplayTimer = utils_timer::Add(InHandle, DisplayParams);
-        DisplayTimer.BindTo_OnUpdate(FCk_Delegate_Timer(this, n"FrameTick"));
-
-        AutoTimer = gym_auto::Setup(InHandle, this, FCk_Time(1.0f));
-        AutoConfig.TotalSteps = 1;
-        AutoConfig.Description = "5-level chain under a tweened root.\nStresses propagation depth.";
-        AutoConfig.GlobalAutoCommand = "panel [J] Auto (all stations)";
-        AutoConfig.Steps.Add(FCkGym_AutoStep("Tween yoyo", 0, 0));
-
-        return ECk_EntityScript_ConstructionFlow::Finished;
-    }
-
-    UFUNCTION(BlueprintOverride)
-    void DoBeginPlay(FCk_Handle InHandle)
-    {
-        auto _CkPerfScope = ck::ScopedStat();
-        utils_messaging::BindTo_OnBroadcast(InHandle, FCk_Message_SceneNodeTweenGym_Reset,
-            FCk_Delegate_Messaging_OnBroadcast(this, n"OnReset"));
-
-        auto RootXformAtStart = utils_transform::Get_EntityCurrentTransform(RootTH);
-        auto Positions = ComposeAll(RootXformAtStart);
-
-        RootShape = utils_pmg_basic_shapes::DrawFilledBox(RootStart, FVector(30,30,30), CkSceneNodeTweenGym_Vis::RootColor(), true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-
-        // Skip last - it gets the sphere-leaf treatment below.
-        for (int32 i = 0; i < Positions.Num() - 1; ++i)
-        {
-            auto Size = Math::Max(8.0f, 22.0f - float(i) * 3.0f);
-            auto S = utils_pmg_basic_shapes::DrawFilledBox(
-                Positions[i], FVector(Size, Size, Size),
-                CkSceneNodeTweenGym_Vis::IntermediateColor(i),
-                true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-            LinkShapes.Add(S);
-        }
-
-        auto LeafExpected = Positions[Positions.Num() - 1];
-        LeafColorCached = CkSceneNodeTweenGym_Vis::LeafAligned();
-        LeafShape = utils_pmg_basic_shapes::DrawFilledSphere(LeafExpected, 22.0f, 12, 12, LeafColorCached, true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-
-        auto End = RootStart + FVector(0.0f, Amplitude, 0.0f);
-        RootTween = utils_tween::Create_TweenEntityLocation(TweenTargetTH, End, Duration, ECk_TweenEasing::InOutSine, ECk_TweenLoopType::Yoyo, -1, 0.0f);
-        if (!AutoRunning) { utils_tween::Pause(RootTween); }
-    }
-
-    // Returns the AS-composed world locations for each link, in chain order.
-    // Takes the full Root world transform so station/root rotation is honored.
-    private TArray<FVector> ComposeAll(FTransform InRootWorld)
-    {
-        auto Out = TArray<FVector>();
-        auto Acc = InRootWorld;
-        for (int32 i = 0; i < LocalOffsets.Num(); ++i)
-        {
-            Acc = LocalOffsets[i] * Acc;
-            Out.Add(Acc.GetLocation());
-        }
-        return Out;
-    }
-
-    UFUNCTION()
-    private void AutoTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT) {}
-
-    UFUNCTION()
-    private void OnReset(FCk_Handle InHandle, FGameplayTag InMessageName, FInstancedStruct InPayload) {}
-
-    UFUNCTION()
-    private void OnAutoSet(FCk_Handle InHandle, FGameplayTag InMessageName, FInstancedStruct InPayload)
-    {
-        gym_auto::HandleAutoSet(InPayload, AutoTimer, AutoRunning);
-        if (ck::Is_NOT_Valid(RootTween)) { return; }
-        if (AutoRunning) { utils_tween::Resume(RootTween); } else { utils_tween::Pause(RootTween); }
-    }
-
-    UFUNCTION()
-    private void FrameTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
-    {
-        if (ck::Is_NOT_Valid(RootShape)) { return; }
-
-        auto RootXform = utils_transform::Get_EntityCurrentTransform(RootTH);
-        auto RootWorld = RootXform.GetLocation();
-        auto Expected = ComposeAll(RootXform);
-        auto LeafNode = Chain[Chain.Num() - 1];
-        auto LeafActual = utils_transform::Get_EntityCurrentLocation(LeafNode.As_Transform());
-        auto LeafExpected = Expected[Expected.Num() - 1];
-        LastExpected = LeafExpected;
-        LastActual = LeafActual;
-
-        LastDrift = float32((LeafExpected - LeafActual).Size());
-        StatusLabel = LastDrift > 5.0f ? FString("DESYNC") : FString("OK");
-
-        utils_transform::Request_SetLocation(RootShape, RootWorld, ECk_LocalWorld::World);
-        for (int32 i = 0; i < LinkShapes.Num(); ++i)
-        { utils_transform::Request_SetLocation(LinkShapes[i], Expected[i], ECk_LocalWorld::World); }
-
-        // Edges: Root -> link 0, then link i -> link i+1.
-        CkSceneNodeTweenGym_Vis::DrawEdge(RootWorld, Expected[0], 0);
-        for (int32 i = 0; i < Expected.Num() - 1; ++i)
-        { CkSceneNodeTweenGym_Vis::DrawEdge(Expected[i], Expected[i + 1], i + 1); }
-
-        auto DesiredColor = LastDrift > 5.0f ? CkSceneNodeTweenGym_Vis::LeafDrift() : CkSceneNodeTweenGym_Vis::LeafAligned();
-        if (ColorChanged(DesiredColor))
-        {
-            utils_entity_lifetime::Request_DestroyEntity(LeafShape);
-            LeafColorCached = DesiredColor;
-            LeafShape = utils_pmg_basic_shapes::DrawFilledSphere(LeafActual, 22.0f, 12, 12, LeafColorCached, true, 2.0f, ECk_Plane_Axis::XY, -1.0f);
-        }
-        else
-        {
-            utils_transform::Request_SetLocation(LeafShape, LeafActual, ECk_LocalWorld::World);
-        }
-
-        Display();
-    }
-
-    private bool ColorChanged(FLinearColor InNew)
-    {
-        return InNew.R != LeafColorCached.R || InNew.G != LeafColorCached.G ||
-               InNew.B != LeafColorCached.B || InNew.A != LeafColorCached.A;
-    }
-
-    private void Display()
-    {
-        auto Txt = gym_auto::FormatHeader(AutoConfig, AutoRunning);
-        Txt = Txt + "Expected sphere position:\n";
-        Txt = Txt + " OFFSET from the last box. Sphere\n";
-        Txt = Txt + " sits past link 4 by the 5th local\n";
-        Txt = Txt + " offset (it IS the 5th link).\n\n";
-        Txt = f"{Txt}Expected (leaf): {LastExpected.X},{LastExpected.Y},{LastExpected.Z}\n";
-        Txt = f"{Txt}Actual (leaf):   {LastActual.X},{LastActual.Y},{LastActual.Z}\n";
-        Txt = f"{Txt}Drift (leaf):    {LastDrift}\n";
-        Txt = f"{Txt}Status:          {StatusLabel}\n";
-        if (StatusLabel == "DESYNC")
-        { Txt = Txt + "Leaf not following through chain.\n"; }
-        Txt = Txt + gym_auto::FormatAutoAndCommands(AutoConfig, 0, AutoRunning);
-
-        auto Owner = utils_entity_lifetime::Get_LifetimeOwner(ck::ToEntity(this));
-        auto& F = Owner.AddOrGet_Fragment(FCkGym_Station_TitleAndDescription);
-        F.Title = FText::FromString("TWEEN + SCENE NODE (DEEP)");
-        F.Description = FText::FromString(Txt);
-    }
+    default StationIndex = 1;
+}
+class UCk_EntityScript_SceneNodeTweenGym_DeepStation : UCk_EntityScript_SceneNodeTweenGym_BaseStation
+{
+    default StationIndex = 2;
 }
