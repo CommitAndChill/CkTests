@@ -135,7 +135,7 @@ namespace ck_test_voxelnav_occluder_pie
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_VoxelNav_OccluderPie_MovedObstacleRepairsTheVolumeAndForcesAReplan,
     "Ck.VoxelNav.Occluder.Pie.MovedObstacleRepairsTheVolumeAndForcesAReplan",
     ck_test_voxelnav_occluder_pie::kTestFlags)
@@ -169,10 +169,10 @@ bool FCkTest_VoxelNav_OccluderPie_MovedObstacleRepairsTheVolumeAndForcesAReplan:
     constexpr auto BakeTimeoutSeconds = 60.0;
     constexpr auto PathTimeoutSeconds = 15.0;
     constexpr auto RepairTimeoutSeconds = 30.0;
-    constexpr int32 NumClients = 1;
-    constexpr int32 ExpectedWorlds = 1;
+    constexpr int32 NumClients = 2;
+    constexpr int32 ExpectedWorlds = 2;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedWorlds, ReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleFrames));
 

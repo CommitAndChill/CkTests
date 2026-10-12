@@ -126,7 +126,7 @@ namespace ck_test_voxelnav_chunk_pie
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_VoxelNav_ChunkPie_PartitionedBakeRoutesAcrossAChunkBoundary,
     "Ck.VoxelNav.Chunk.Pie.PartitionedBakeRoutesAcrossAChunkBoundary",
     ck_test_voxelnav_chunk_pie::kTestFlags)
@@ -152,10 +152,10 @@ bool FCkTest_VoxelNav_ChunkPie_PartitionedBakeRoutesAcrossAChunkBoundary::RunTes
     constexpr auto BodyAddedTimeoutSeconds = 15.0;
     constexpr auto BakeTimeoutSeconds = 90.0;
     constexpr auto PathTimeoutSeconds = 15.0;
-    constexpr int32 NumClients = 1;
-    constexpr int32 ExpectedWorlds = 1;
+    constexpr int32 NumClients = 2;
+    constexpr int32 ExpectedWorlds = 2;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedWorlds, ReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleFrames));
 
