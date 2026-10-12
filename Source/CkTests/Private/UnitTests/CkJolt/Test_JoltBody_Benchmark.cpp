@@ -330,7 +330,7 @@ namespace ck_test_jolt_benchmark
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_JoltBody_Benchmark_FrameCostMatrix,
     "Ck.Jolt.Body.Benchmark.FrameCostMatrix",
     ck_test_jolt_benchmark::kTestFlags)
@@ -355,12 +355,12 @@ bool FCkTest_JoltBody_Benchmark_FrameCostMatrix::RunTest(const FString& Paramete
     GControlP50 = -1.0;
 
     constexpr auto ReadyTimeoutSeconds = 30.0f;
-    constexpr int32 NumClients = 1;
-    constexpr int32 ExpectedWorlds = 1;
+    constexpr int32 NumClients = 2;
+    constexpr int32 ExpectedWorlds = 2;
 
     const int32 BodyCounts[] = {500, 2000, 10000};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, EntryMapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedWorlds, ReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(SettleFrames));
 
