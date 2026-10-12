@@ -129,9 +129,9 @@ namespace ck_tests_goap_debugger_catalog_authored_pie
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkGoapDebugger_CatalogAuthoredPie, "Ck.GoapDebugger.Catalog.Authored.PIE", ck_tests_goap_debugger_catalog_authored_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkGoapDebugger_CatalogAuthoredPie, "Ck.GoapDebugger.Catalog.Authored.PIE", ck_tests_goap_debugger_catalog_authored_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkGoapDebugger_CatalogAuthoredPie::RunTest(const FString&)
+bool FCkGoapDebugger_CatalogAuthoredPie::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_goap_debugger_catalog_authored_pie;
     if (!FSlateApplication::IsInitialized()) { AddError(TEXT("GOAP Catalog authored PIE test requires Slate.")); return false; }
@@ -159,8 +159,8 @@ bool FCkGoapDebugger_CatalogAuthoredPie::RunTest(const FString&)
     const TSharedPtr<SWidget> Selected = FindTagged(State->Panel.ToSharedRef(), TEXT("goap-catalog-selected"));
     State->bEmpty = Empty.IsValid() && Selected.IsValid() && Empty->GetVisibility().IsVisible() && !Selected->GetVisibility().IsVisible();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* World)
     {
         if (UClass* FixtureClass = FindFixtureClass(); IsValid(World) && FixtureClass != nullptr)

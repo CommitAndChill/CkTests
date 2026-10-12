@@ -85,8 +85,8 @@ auto Refresh(const TSharedRef<FState>& State) -> void
 }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkGoapDebugger_GraphAuthoredPie, "Ck.GoapDebugger.Graph.Authored.PIE", ck_tests_goap_debugger_graph_authored_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
-bool FCkGoapDebugger_GraphAuthoredPie::RunTest(const FString&)
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkGoapDebugger_GraphAuthoredPie, "Ck.GoapDebugger.Graph.Authored.PIE", ck_tests_goap_debugger_graph_authored_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
+bool FCkGoapDebugger_GraphAuthoredPie::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_goap_debugger_graph_authored_pie;
     if (!FSlateApplication::IsInitialized()) { AddError(TEXT("GOAP Graph authored PIE test requires Slate.")); return false; }
@@ -98,8 +98,8 @@ bool FCkGoapDebugger_GraphAuthoredPie::RunTest(const FString&)
       if (!View.IsValid() || !View->GetLastResult().Succeeded) { AddError(FString::Printf(TEXT("Production Graph authored surface did not mount: %s"), *State->Pane->Get_AuthoredLoadFailure())); return false; } }
     const TSharedPtr<SWidget> Empty = FindTagged(State->Pane.ToSharedRef(), TEXT("goap-graph-empty")); const TSharedPtr<SWidget> Selected = FindTagged(State->Pane.ToSharedRef(), TEXT("goap-graph-selected"));
     State->bEmpty = Empty.IsValid() && Selected.IsValid() && Empty->GetVisibility().IsVisible() && !Selected->GetVisibility().IsVisible();
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(1));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*)
     {

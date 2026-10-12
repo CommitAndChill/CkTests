@@ -217,10 +217,10 @@ auto CollectKeys(const TSharedPtr<const FCkUiCollection> &InCollection) -> TArra
 }
 } // namespace ck_tests_goap_debugger_search_trace_authored_pie
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkGoapDebugger_SearchTraceAuthoredPie, "Ck.GoapDebugger.SearchTrace.Authored.PIE",
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkGoapDebugger_SearchTraceAuthoredPie, "Ck.GoapDebugger.SearchTrace.Authored.PIE",
                                  ck_tests_goap_debugger_search_trace_authored_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkGoapDebugger_SearchTraceAuthoredPie::RunTest(const FString &)
+bool FCkGoapDebugger_SearchTraceAuthoredPie::RunTest(const FString &Parameters)
 {
     using namespace ck_tests_goap_debugger_search_trace_authored_pie;
 
@@ -257,8 +257,8 @@ bool FCkGoapDebugger_SearchTraceAuthoredPie::RunTest(const FString &)
         return false;
     }
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [State](UWorld *World)
         {
