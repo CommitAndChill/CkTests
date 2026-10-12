@@ -69,7 +69,7 @@ namespace ck_test_eqs_navprojection
 // system, deliberately without NavMeshBounds, rather than a hand-authored provider table. The non-projected
 // companion query proves the fixture generated raw candidates and that failure is specific to requested projection.
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_Eqs_NavProjection_NoDataFailsClosed,
     "CkTests.UnitTests.CkEqs.NavProjection.NoDataFailsClosed",
     ck_test_eqs_navprojection::TestFlags)
@@ -78,8 +78,8 @@ bool FCkTest_Eqs_NavProjection_NoDataFailsClosed::RunTest(const FString& Paramet
 {
     using namespace ck_test_eqs_navprojection;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, EntryMapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, ReadyTimeoutSeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, EntryMapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InWorld) -> void
