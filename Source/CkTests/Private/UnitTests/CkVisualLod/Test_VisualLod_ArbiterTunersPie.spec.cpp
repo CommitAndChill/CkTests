@@ -341,18 +341,18 @@ namespace ck_tests_visual_lod_arbiter_tuners_pie
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkVisualLod_ArbiterTunersPie,
     "Ck.VisualLodDebugger.ArbiterTuners.PIE",
     ck_tests_visual_lod_arbiter_tuners_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkVisualLod_ArbiterTunersPie::RunTest(const FString&)
+bool FCkVisualLod_ArbiterTunersPie::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_visual_lod_arbiter_tuners_pie;
 
     const TSharedRef<FState> State = MakeShared<FState>();
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
         {
