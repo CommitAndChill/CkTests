@@ -5,6 +5,8 @@
 // Seven isolated fixtures contain eleven walkers and share the existing shot plan.
 class UCk_AutoTest_PaViz_NavigationFocus : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
+    default _RequiresRenderer = true;
     default _TimeoutSeconds = 75.0f;
     default _AutoStageOriginField = false;
     private FCkPaViz_ShotPlan _Shots;
