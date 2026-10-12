@@ -29,8 +29,7 @@ class UCk_AutoTest_EntityLifecycle_ScriptCastQueries : UCk_AutoTest_Base
         auto _CkPerfScope = ck::ScopedStat();
         auto LocalHandle = InHandle;
 
-        auto SpawnParams = UCk_EntityScript_EntityLifecycleGym_SpawnTarget::Params();
-        SpawnParams.InitialTransform = FTransform::Identity;
+        auto SpawnParams = FCk_Gym_TransformSpawnParams(FTransform::Identity);
 
         auto Pending = utils_entity_script::Request_SpawnEntity(
             LocalHandle,
@@ -48,6 +47,21 @@ class UCk_AutoTest_EntityLifecycle_ScriptCastQueries : UCk_AutoTest_Base
         if (IsFinished()) { return; }
 
         auto AsHandle = FCk_Handle(InEntityScriptHandle);
+
+        auto Script = UCk_Utils_EntityScript_UE::TryGet_EntityScript(AsHandle);
+        Assert_True(ck::IsValid(Script), "TryGet_EntityScript returns the live constructed script");
+        if (ck::Is_NOT_Valid(Script)) { FinishFailure("Constructed script lookup failed"); return; }
+        Assert_True(ck::ToEntity(Script) == AsHandle, "The returned instance owns the requested entity");
+        Assert_True(ck::Is_NOT_Valid(UCk_Utils_EntityScript_UE::TryGet_EntityScript(FCk_Handle())),
+            "Default handles are rejected without reading fragments");
+        auto PlainEntity = utils_entity_lifetime::Request_CreateEntity(AsHandle);
+        Assert_True(ck::IsValid(PlainEntity), "The non-script lookup probe exists");
+        if (ck::Is_NOT_Valid(PlainEntity)) { FinishFailure("Plain entity creation failed"); return; }
+        Assert_True(ck::Is_NOT_Valid(UCk_Utils_EntityScript_UE::TryGet_EntityScript(PlainEntity)),
+            "A live entity without a script returns null");
+        utils_entity_lifetime::Request_DestroyEntity(PlainEntity);
+        Assert_True(ck::Is_NOT_Valid(UCk_Utils_EntityScript_UE::TryGet_EntityScript(PlainEntity)),
+            "A retiring entity returns null");
 
         Assert_True(utils_entity_script::Has(AsHandle),
             "utils_entity_script::Has should be true on a freshly-spawned entity-script entity");
@@ -68,6 +82,9 @@ class UCk_AutoTest_EntityLifecycle_ScriptCastQueries : UCk_AutoTest_Base
         Assert_True(utils_handle::Get_IsValid(InChain),
             "TryGet_Entity_EntityScript_InOwnershipChain should resolve from the entity itself when it carries an entity script");
 
+        utils_entity_lifetime::Request_DestroyEntity(AsHandle);
+        Assert_True(ck::Is_NOT_Valid(UCk_Utils_EntityScript_UE::TryGet_EntityScript(AsHandle)),
+            "An admitted script is no longer exposed after destruction starts");
         FinishSuccess();
     }
 }
