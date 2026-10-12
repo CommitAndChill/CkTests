@@ -33,6 +33,7 @@
 
 class UCk_AutoTest_Particles_TuningContract : UCk_AutoTest_Base
 {
+    default _RequiresRenderer = true;
     default _TimeoutSeconds = 60.0f;
 
     // Deliberately non-identity in every lane, and all four distinct, so a
