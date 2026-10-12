@@ -1,6 +1,7 @@
 #include "CkResourceInspector/CkResourceInspectorModel.h"
 
 #include "CkCore/Ensure/CkEnsure.h"
+#include "CkCore/Format/CkFormat.h"
 #include "CkSlateLayout/CkUiTextInput.h"
 #include "CkSlateLayout/CkUiCheckbox.h"
 #include "CkSlateLayout/CkUiNumberInput.h"

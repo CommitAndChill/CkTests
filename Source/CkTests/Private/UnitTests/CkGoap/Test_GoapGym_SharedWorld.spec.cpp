@@ -36,6 +36,7 @@
 #include "UObject/UnrealType.h"
 #include "Editor.h"
 #include "Editor/UnrealEdEngine.h"
+#include "UnrealEdGlobals.h"
 #include "FileHelpers.h"
 #include "GameFramework/WorldSettings.h"
 #include "PlayInEditorDataTypes.h"

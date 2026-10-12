@@ -12,6 +12,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/Font.h"
+#include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkDynamic/CkDynamic_Utils.h"

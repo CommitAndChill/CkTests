@@ -14,6 +14,7 @@
 
 #include "Misc/App.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistry/AssetData.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
 
