@@ -1,4 +1,5 @@
 #include "CkInventoryMenuProofModel.h"
+#include "CkGameplayInventoryMenuAdapter.h"
 
 #include "Engine/Texture2D.h"
 #include "ImageUtils.h"
@@ -152,6 +153,33 @@ namespace ck_inventory_menu_proof
 
     auto Number(float InValue) -> FCkUiFieldValue
     { return FCkUiFieldValue{.Kind = ECkUiFieldKind::Number, .Number = InValue}; }
+
+    auto Schema() -> TArray<FCkUiFieldSchema>
+    {
+        return {
+            {TEXT("image"), ECkUiFieldKind::Image, true},
+            {TEXT("title"), ECkUiFieldKind::Text, true},
+            {TEXT("meta"), ECkUiFieldKind::Text, true},
+            {TEXT("selected"), ECkUiFieldKind::Bool, true},
+            {TEXT("equipped"), ECkUiFieldKind::Bool, true},
+            {TEXT("index"), ECkUiFieldKind::Number, true},
+            {TEXT("cropLeft"), ECkUiFieldKind::Number, true},
+            {TEXT("cropTop"), ECkUiFieldKind::Number, true},
+            {TEXT("cropRight"), ECkUiFieldKind::Number, true},
+            {TEXT("cropBottom"), ECkUiFieldKind::Number, true},
+        };
+    }
+
+    auto GameplayCategoryText(const FString& InCategory) -> FText
+    {
+        if (InCategory == TEXT("Equipment"))
+        { return NSLOCTEXT("CkGameplayInventoryMenu", "EquipmentCategory", "Equipment"); }
+        if (InCategory == TEXT("Supplies"))
+        { return NSLOCTEXT("CkGameplayInventoryMenu", "SuppliesCategory", "Supplies"); }
+        if (InCategory == TEXT("Materials"))
+        { return NSLOCTEXT("CkGameplayInventoryMenu", "MaterialsCategory", "Materials"); }
+        return NSLOCTEXT("CkGameplayInventoryMenu", "GenericCategory", "Item");
+    }
 }
 
 auto FCkInventoryMenuProofModel::TryValidateState(const FCk_UiAuthoringProof_InventoryState& InState,
@@ -194,18 +222,7 @@ auto FCkInventoryMenuProofModel::TryCreate(const FCk_UiAuthoringProof_InventoryS
             FVector2f{(Column + 1) / 4.0f, ck_inventory_menu_proof::RowEdges[Row + 1]}});
         Candidate->_Brushes.Add(MoveTemp(Brush));
     }
-    auto Schema = TArray<FCkUiFieldSchema>{
-        {TEXT("image"), ECkUiFieldKind::Image, true},
-        {TEXT("title"), ECkUiFieldKind::Text, true},
-        {TEXT("meta"), ECkUiFieldKind::Text, true},
-        {TEXT("selected"), ECkUiFieldKind::Bool, true},
-        {TEXT("equipped"), ECkUiFieldKind::Bool, true},
-        {TEXT("index"), ECkUiFieldKind::Number, true},
-        {TEXT("cropLeft"), ECkUiFieldKind::Number, true},
-        {TEXT("cropTop"), ECkUiFieldKind::Number, true},
-        {TEXT("cropRight"), ECkUiFieldKind::Number, true},
-        {TEXT("cropBottom"), ECkUiFieldKind::Number, true},
-    };
+    auto Schema = ck_inventory_menu_proof::Schema();
     if (NOT FCkUiCollection::TryCreate(MoveTemp(Schema), Candidate->_Items).Succeeded)
     {
         OutError = TEXT("Could not create the inventory collection.");
@@ -228,8 +245,118 @@ auto FCkInventoryMenuProofModel::TryCreate(const FCk_UiAuthoringProof_InventoryS
     return true;
 }
 
+auto FCkInventoryMenuProofModel::TryCreateForInventory(
+    const FCk_Handle_Inventory_DataOnly& InInventory, const FString& InAtlasPath,
+    TSharedPtr<FCkInventoryMenuProofModel>& OutModel, FString& OutError) -> bool
+{
+    (void)InAtlasPath; // The fixture atlas contains item-specific paintings, not gameplay item icons.
+    OutError.Reset();
+    auto Candidate = MakeShared<FCkInventoryMenuProofModel>();
+    Candidate->_GameplayAdapter.Reset(NewObject<UCk_GameplayInventoryMenuAdapter_UE>());
+    if (NOT Candidate->_GameplayAdapter.IsValid()
+        || NOT Candidate->_GameplayAdapter->TryInitialize(InInventory, OutError))
+    {
+        if (OutError.IsEmpty()) { OutError = TEXT("Could not create the gameplay inventory adapter."); }
+        return false;
+    }
+    if (NOT FCkUiCollection::TryCreate(ck_inventory_menu_proof::Schema(), Candidate->_Items).Succeeded)
+    { OutError = TEXT("Could not create the gameplay inventory collection."); return false; }
+    if (NOT Candidate->TryCommitGameplay(TEXT("All"), FText::GetEmpty(), FString{}))
+    { OutError = TEXT("Could not project the gameplay inventory."); return false; }
+    OutModel = MoveTemp(Candidate);
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::Get_IsGameplaySourceValid() const -> bool
+{ return _GameplayAdapter.IsValid() && NOT _GameplayRetired && _GameplayAdapter->Get_IsSourceValid(); }
+
+auto FCkInventoryMenuProofModel::Get_IsGameplayRequestPending() const -> bool
+{ return _GameplayAdapter.IsValid() && _GameplayAdapter->Get_IsRequestPending(); }
+
+auto FCkInventoryMenuProofModel::RefreshGameplay() -> bool
+{
+    if (NOT _GameplayAdapter.IsValid() || _GameplayRetired) { return false; }
+    if (NOT _GameplayAdapter->Get_IsSourceValid())
+    { _GameplayRetired = true; return false; }
+    return TryCommitGameplay(_Category, _SearchText, _SelectedKey);
+}
+
 auto FCkInventoryMenuProofModel::CanDispatch() const -> bool
-{ return NOT _DispatchGate.IsSet() || _DispatchGate.Get(true); }
+{
+    if (_GameplayAdapter.IsValid() && NOT Get_IsGameplaySourceValid()) { return false; }
+    return NOT _DispatchGate.IsSet() || _DispatchGate.Get(true);
+}
+
+auto FCkInventoryMenuProofModel::TryCommitGameplay(const FString& InCategory,
+    const FText& InSearch, const FString& InPreferredSelection) -> bool
+{
+    if (NOT _GameplayAdapter.IsValid() || _GameplayRetired || NOT _Items.IsValid()
+        || NOT ck_inventory_menu_proof::IsCategory(InCategory))
+    { return false; }
+    auto Rows = TArray<FCkGameplayInventoryMenuRow>{};
+    auto Error = FString{};
+    if (NOT _GameplayAdapter->TryRead(Rows, Error))
+    {
+        if (NOT _GameplayAdapter->Get_IsSourceValid()) { _GameplayRetired = true; }
+        return false;
+    }
+    const auto Needle = InSearch.ToString().TrimStartAndEnd();
+    auto Records = TArray<FCkUiRecordData>{};
+    auto Keys = TArray<FString>{};
+    Records.Reserve(Rows.Num());
+    for (const auto& Row : Rows)
+    {
+        if (InCategory != TEXT("All") && InCategory != Row.Category) { continue; }
+        if (NOT Needle.IsEmpty() && NOT Row.Name.ToString().Contains(Needle, ESearchCase::IgnoreCase))
+        { continue; }
+        auto Record = FCkUiRecordData{};
+        Record.Key = Row.Key;
+        Record.Fields.Add(TEXT("image"), FCkUiFieldValue{.Kind = ECkUiFieldKind::Image, .Image = Row.Icon});
+        Record.Fields.Add(TEXT("title"), FCkUiFieldValue{.Kind = ECkUiFieldKind::Text, .Text = Row.Name});
+        Record.Fields.Add(TEXT("meta"), FCkUiFieldValue{.Kind = ECkUiFieldKind::Text,
+            .Text = FText::Format(NSLOCTEXT("CkGameplayInventoryMenu", "QuantityMeta", "x{0}"),
+                FText::AsNumber(Row.Quantity))});
+        Record.Fields.Add(TEXT("selected"), ck_inventory_menu_proof::Bool(false));
+        Record.Fields.Add(TEXT("equipped"), ck_inventory_menu_proof::Bool(false));
+        Record.Fields.Add(TEXT("index"), ck_inventory_menu_proof::Number(0.0f));
+        Record.Fields.Add(TEXT("cropLeft"), ck_inventory_menu_proof::Number(0.0f));
+        Record.Fields.Add(TEXT("cropTop"), ck_inventory_menu_proof::Number(0.0f));
+        Record.Fields.Add(TEXT("cropRight"), ck_inventory_menu_proof::Number(1.0f));
+        Record.Fields.Add(TEXT("cropBottom"), ck_inventory_menu_proof::Number(1.0f));
+        Records.Add(MoveTemp(Record));
+        Keys.Add(Row.Key);
+    }
+    const auto Selection = Keys.Contains(InPreferredSelection) ? InPreferredSelection
+        : (Keys.IsEmpty() ? FString{} : Keys[0]);
+    bool SameRows = Rows.Num() == _GameplayRows.Num();
+    for (int32 Index = 0; SameRows && Index < Rows.Num(); ++Index)
+    {
+        const auto& A = Rows[Index];
+        const auto& B = _GameplayRows[Index];
+        SameRows = A.Key == B.Key && A.Quantity == B.Quantity && A.Category == B.Category
+            && A.Name.EqualTo(B.Name) && A.Description.EqualTo(B.Description)
+            && A.Icon.Get() == B.Icon.Get();
+    }
+    if (SameRows && _Category == InCategory && _SearchText.EqualTo(InSearch)
+        && _SelectedKey == Selection && _VisibleKeys == Keys)
+    { return true; }
+    for (auto& Record : Records)
+    { Record.Fields.FindChecked(TEXT("selected")).Bool = Record.Key == Selection; }
+    if (NOT _Items->TrySetRecords(MoveTemp(Records)).Succeeded) { return false; }
+    _GameplayRows = MoveTemp(Rows);
+    _Category = InCategory;
+    _SearchText = InSearch;
+    _VisibleKeys = MoveTemp(Keys);
+    _SelectedKey = Selection;
+    return true;
+}
+
+auto FCkInventoryMenuProofModel::GameplaySelectedIndex() const -> int32
+{
+    if (NOT _VisibleKeys.Contains(_SelectedKey)) { return INDEX_NONE; }
+    return _GameplayRows.IndexOfByPredicate([this](const auto& InRow)
+    { return InRow.Key == _SelectedKey; });
+}
 
 auto FCkInventoryMenuProofModel::TryProject(const FCk_UiAuthoringProof_InventoryState& InState,
     const FString& InCategory, const FText& InSearch, const FString& InPreferredSelection,
@@ -306,6 +433,12 @@ auto FCkInventoryMenuProofModel::TryCommit(const FCk_UiAuthoringProof_InventoryS
 auto FCkInventoryMenuProofModel::Request_Select(const FString& InKey) -> bool
 {
     if (NOT CanDispatch() || InKey == _SelectedKey || NOT _VisibleKeys.Contains(InKey)) { return false; }
+    if (_GameplayAdapter.IsValid())
+    {
+        if (NOT TryCommitGameplay(_Category, _SearchText, InKey)) { return false; }
+        ++_ActionCounts.FindOrAdd(TEXT("SelectInventoryItem"));
+        return true;
+    }
     if (NOT TryCommit(_State, _Category, _SearchText, InKey)) { return false; }
     ++_ActionCounts.FindOrAdd(TEXT("SelectInventoryItem"));
     return true;
@@ -315,6 +448,12 @@ auto FCkInventoryMenuProofModel::Request_Filter(const FString& InCategory) -> bo
 {
     if (NOT CanDispatch() || NOT ck_inventory_menu_proof::IsCategory(InCategory) || InCategory == _Category)
     { return false; }
+    if (_GameplayAdapter.IsValid())
+    {
+        if (NOT TryCommitGameplay(InCategory, _SearchText, _SelectedKey)) { return false; }
+        ++_ActionCounts.FindOrAdd(FName{*FString::Printf(TEXT("InventoryFilter%s"), *InCategory)});
+        return true;
+    }
     if (NOT TryCommit(_State, InCategory, _SearchText, _SelectedKey)) { return false; }
     ++_ActionCounts.FindOrAdd(FName{*FString::Printf(TEXT("InventoryFilter%s"), *InCategory)});
     return true;
@@ -323,6 +462,12 @@ auto FCkInventoryMenuProofModel::Request_Filter(const FString& InCategory) -> bo
 auto FCkInventoryMenuProofModel::Request_Search(FText InSearch) -> bool
 {
     if (NOT CanDispatch() || InSearch.EqualTo(_SearchText)) { return false; }
+    if (_GameplayAdapter.IsValid())
+    {
+        if (NOT TryCommitGameplay(_Category, InSearch, _SelectedKey)) { return false; }
+        ++_ActionCounts.FindOrAdd(TEXT("InventorySearch"));
+        return true;
+    }
     if (NOT TryCommit(_State, _Category, InSearch, _SelectedKey)) { return false; }
     ++_ActionCounts.FindOrAdd(TEXT("InventorySearch"));
     return true;
@@ -331,6 +476,13 @@ auto FCkInventoryMenuProofModel::Request_Search(FText InSearch) -> bool
 auto FCkInventoryMenuProofModel::Request_PrimaryAction() -> bool
 {
     if (NOT CanDispatch() || NOT HasPrimaryAction()) { return false; }
+    if (_GameplayAdapter.IsValid())
+    {
+        auto Error = FString{};
+        if (NOT _GameplayAdapter->TryDiscard(_SelectedKey, Error)) { return false; }
+        ++_ActionCounts.FindOrAdd(TEXT("InventoryPrimaryAction"));
+        return true;
+    }
     const auto Index = SelectedIndex();
     if (Index == INDEX_NONE) { return false; }
     auto Candidate = _State;
@@ -361,22 +513,32 @@ auto FCkInventoryMenuProofModel::SelectedIndex() const -> int32
 }
 
 auto FCkInventoryMenuProofModel::SelectedBrush() const -> const FSlateBrush*
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? nullptr : _Brushes[Index].Get(); }
+{ if (_GameplayAdapter.IsValid()) { const auto Index = GameplaySelectedIndex();
+    return Index == INDEX_NONE ? nullptr : _GameplayRows[Index].Icon.Get(); }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? nullptr : _Brushes[Index].Get(); }
 
 auto FCkInventoryMenuProofModel::SelectedName() const -> FText
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+{ if (_GameplayAdapter.IsValid()) { const auto Index = GameplaySelectedIndex();
+    return Index == INDEX_NONE ? FText::GetEmpty() : _GameplayRows[Index].Name; }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
     : FText::FromString(ck_inventory_menu_proof::Definitions[Index].Name); }
 
 auto FCkInventoryMenuProofModel::SelectedCategory() const -> FText
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+{ if (_GameplayAdapter.IsValid()) { const auto Index = GameplaySelectedIndex();
+    return Index == INDEX_NONE ? FText::GetEmpty()
+        : ck_inventory_menu_proof::GameplayCategoryText(_GameplayRows[Index].Category); }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
     : FText::FromString(ck_inventory_menu_proof::CategoryName(ck_inventory_menu_proof::Definitions[Index].Category)); }
 
 auto FCkInventoryMenuProofModel::SelectedDescription() const -> FText
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+{ if (_GameplayAdapter.IsValid()) { const auto Index = GameplaySelectedIndex();
+    return Index == INDEX_NONE ? FText::GetEmpty() : _GameplayRows[Index].Description; }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
     : FText::FromString(ck_inventory_menu_proof::Definitions[Index].Description); }
 
 auto FCkInventoryMenuProofModel::SelectedStats() const -> FText
 {
+    if (_GameplayAdapter.IsValid()) { return FText::GetEmpty(); }
     const auto Index = SelectedIndex();
     if (Index == INDEX_NONE) { return FText::GetEmpty(); }
     const auto& Definition = ck_inventory_menu_proof::Definitions[Index];
@@ -390,35 +552,49 @@ auto FCkInventoryMenuProofModel::SelectedStats() const -> FText
 }
 
 auto FCkInventoryMenuProofModel::SelectedStatLabelOne() const -> FText
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+{ if (_GameplayAdapter.IsValid()) { return GameplaySelectedIndex() == INDEX_NONE ? FText::GetEmpty()
+    : NSLOCTEXT("CkGameplayInventoryMenu", "QuantityLabel", "Quantity"); }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
     : FText::FromString(ck_inventory_menu_proof::StatRows(ck_inventory_menu_proof::Definitions[Index]).LabelOne); }
 
 auto FCkInventoryMenuProofModel::SelectedStatValueOne() const -> FText
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+{ if (_GameplayAdapter.IsValid()) { const auto Index = GameplaySelectedIndex();
+    return Index == INDEX_NONE ? FText::GetEmpty() : FText::AsNumber(_GameplayRows[Index].Quantity); }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
     : FText::FromString(ck_inventory_menu_proof::StatRows(ck_inventory_menu_proof::Definitions[Index]).ValueOne); }
 
 auto FCkInventoryMenuProofModel::SelectedStatLabelTwo() const -> FText
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+{ if (_GameplayAdapter.IsValid()) { return FText::GetEmpty(); }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
     : FText::FromString(ck_inventory_menu_proof::StatRows(ck_inventory_menu_proof::Definitions[Index]).LabelTwo); }
 
 auto FCkInventoryMenuProofModel::SelectedStatValueTwo() const -> FText
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
+{ if (_GameplayAdapter.IsValid()) { return FText::GetEmpty(); }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? FText::GetEmpty()
     : FText::FromString(ck_inventory_menu_proof::StatRows(ck_inventory_menu_proof::Definitions[Index]).ValueTwo); }
 
 auto FCkInventoryMenuProofModel::SelectedCropLeft() const -> float
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 0.0f : (Index % 4) / 4.0f; }
+{ if (_GameplayAdapter.IsValid()) { return 0.0f; }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 0.0f : (Index % 4) / 4.0f; }
 
 auto FCkInventoryMenuProofModel::SelectedCropTop() const -> float
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 0.0f : ck_inventory_menu_proof::RowEdges[Index / 4]; }
+{ if (_GameplayAdapter.IsValid()) { return 0.0f; }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 0.0f : ck_inventory_menu_proof::RowEdges[Index / 4]; }
 
 auto FCkInventoryMenuProofModel::SelectedCropRight() const -> float
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 1.0f : ((Index % 4) + 1) / 4.0f; }
+{ if (_GameplayAdapter.IsValid()) { return 1.0f; }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 1.0f : ((Index % 4) + 1) / 4.0f; }
 
 auto FCkInventoryMenuProofModel::SelectedCropBottom() const -> float
-{ const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 1.0f : ck_inventory_menu_proof::RowEdges[Index / 4 + 1]; }
+{ if (_GameplayAdapter.IsValid()) { return 1.0f; }
+  const auto Index = SelectedIndex(); return Index == INDEX_NONE ? 1.0f : ck_inventory_menu_proof::RowEdges[Index / 4 + 1]; }
 
 auto FCkInventoryMenuProofModel::SelectedOwned() const -> FText
 {
+    if (_GameplayAdapter.IsValid()) { const auto Index = GameplaySelectedIndex();
+        return Index == INDEX_NONE ? FText::GetEmpty()
+            : FText::Format(NSLOCTEXT("CkGameplayInventoryMenu", "OwnedCount", "Owned  {0}"),
+                FText::AsNumber(_GameplayRows[Index].Quantity)); }
     if (SelectedIndex() == INDEX_NONE) { return FText::GetEmpty(); }
     return FText::FromString(FString::Printf(TEXT("Owned  %d%s"), _State.Get_ItemQuantities().FindRef(_SelectedKey),
         _State.Get_EquippedKey() == _SelectedKey ? TEXT("  /  Equipped") : TEXT("")));
@@ -426,6 +602,8 @@ auto FCkInventoryMenuProofModel::SelectedOwned() const -> FText
 
 auto FCkInventoryMenuProofModel::PrimaryLabel() const -> FText
 {
+    if (_GameplayAdapter.IsValid())
+    { return NSLOCTEXT("CkGameplayInventoryMenu", "DiscardAction", "Discard"); }
     const auto Index = SelectedIndex();
     if (Index == INDEX_NONE) { return FText::FromString(TEXT("Select an item")); }
     switch (ck_inventory_menu_proof::Definitions[Index].Category)
@@ -440,6 +618,9 @@ auto FCkInventoryMenuProofModel::PrimaryLabel() const -> FText
 
 auto FCkInventoryMenuProofModel::HasPrimaryAction() const -> bool
 {
+    if (_GameplayAdapter.IsValid())
+    { return Get_IsGameplaySourceValid() && NOT _GameplayAdapter->Get_IsRequestPending()
+        && GameplaySelectedIndex() != INDEX_NONE; }
     const auto Index = SelectedIndex();
     return Index != INDEX_NONE && ck_inventory_menu_proof::Definitions[Index].Category
         != ck_inventory_menu_proof::ECategory::Materials;
@@ -447,10 +628,20 @@ auto FCkInventoryMenuProofModel::HasPrimaryAction() const -> bool
 
 auto FCkInventoryMenuProofModel::Get_Summary() const -> FString
 {
+    if (_GameplayAdapter.IsValid())
+    { return FString::Printf(TEXT("%d entries  /  %d shown  /  %s"),
+        _GameplayRows.Num(), _VisibleKeys.Num(), *_Category); }
     auto OwnedTypes = 0;
     for (const auto& Definition : ck_inventory_menu_proof::Definitions)
     { if (_State.Get_ItemQuantities().FindRef(Definition.Key) > 0) { ++OwnedTypes; } }
     return FString::Printf(TEXT("%d items  /  %d shown  /  %s"), OwnedTypes, _VisibleKeys.Num(), *_Category);
+}
+
+auto FCkInventoryMenuProofModel::Get_SummaryText() const -> FText
+{
+    if (NOT _GameplayAdapter.IsValid()) { return FText::FromString(Get_Summary()); }
+    return FText::Format(NSLOCTEXT("CkGameplayInventoryMenu", "Summary", "{0} entries  /  {1} shown"),
+        FText::AsNumber(_GameplayRows.Num()), FText::AsNumber(_VisibleKeys.Num()));
 }
 
 auto FCkInventoryMenuProofModel::PopulateBindings(FCkUiView::FDataBindings& InOutData,
@@ -459,10 +650,18 @@ auto FCkInventoryMenuProofModel::PopulateBindings(FCkUiView::FDataBindings& InOu
     _DispatchGate = InOutData.CanDispatchEvents;
     const auto Weak = TWeakPtr<FCkInventoryMenuProofModel>{AsShared()};
     InOutData.Collections.Add(TEXT("InventoryItems"), _Items);
-    InOutData.Text.Add(TEXT("InventoryTitle"), FText::FromString(TEXT("INVENTORY")));
-    InOutData.Text.Add(TEXT("InventorySubtitle"), FText::FromString(TEXT("Ready for the next run.")));
+    InOutData.Text.Add(TEXT("InventoryTitle"), _GameplayAdapter.IsValid()
+        ? NSLOCTEXT("CkGameplayInventoryMenu", "Title", "INVENTORY")
+        : FText::FromString(TEXT("INVENTORY")));
+    InOutData.Text.Add(TEXT("InventorySubtitle"), _GameplayAdapter.IsValid()
+        ? NSLOCTEXT("CkGameplayInventoryMenu", "LiveSubtitle", "Live carried items")
+        : FText::FromString(TEXT("Ready for the next run.")));
     InOutData.Text.Add(TEXT("InventoryCount"), TAttribute<FText>::CreateLambda([Weak]()
-    { const auto Self = Weak.Pin(); return Self.IsValid() ? FText::FromString(FString::Printf(TEXT("%d items"), Self->_VisibleKeys.Num())) : FText::GetEmpty(); }));
+    { const auto Self = Weak.Pin(); if (NOT Self.IsValid()) { return FText::GetEmpty(); }
+      return Self->_GameplayAdapter.IsValid()
+          ? FText::Format(NSLOCTEXT("CkGameplayInventoryMenu", "VisibleCount", "{0} items"),
+              FText::AsNumber(Self->_VisibleKeys.Num()))
+          : FText::FromString(FString::Printf(TEXT("%d items"), Self->_VisibleKeys.Num())); }));
     InOutData.Text.Add(TEXT("InventoryDetailName"), TAttribute<FText>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedName() : FText::GetEmpty(); }));
     InOutData.Text.Add(TEXT("InventoryDetailCategory"), TAttribute<FText>::CreateLambda([Weak]()
@@ -484,8 +683,10 @@ auto FCkInventoryMenuProofModel::PopulateBindings(FCkUiView::FDataBindings& InOu
     InOutData.Text.Add(TEXT("InventoryPrimaryLabel"), TAttribute<FText>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->PrimaryLabel() : FText::GetEmpty(); }));
     InOutData.Text.Add(TEXT("InventoryFeedback"), TAttribute<FText>::CreateLambda([Weak]()
-    { const auto Self = Weak.Pin(); return Self.IsValid() ? FText::FromString(Self->Get_Summary()) : FText::GetEmpty(); }));
-    InOutData.Text.Add(TEXT("InventoryEmpty"), FText::FromString(TEXT("No items match your search.")));
+    { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->Get_SummaryText() : FText::GetEmpty(); }));
+    InOutData.Text.Add(TEXT("InventoryEmpty"), _GameplayAdapter.IsValid()
+        ? NSLOCTEXT("CkGameplayInventoryMenu", "EmptyState", "No carried items match this view.")
+        : FText::FromString(TEXT("No items match your search.")));
     InOutData.Text.Add(TEXT("InventorySearch"), TAttribute<FText>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->_SearchText : FText::GetEmpty(); }));
     InOutData.TextChanged.Add(TEXT("InventorySearch"), FOnTextChanged::CreateLambda([Weak](const FText& InText)
@@ -504,7 +705,8 @@ auto FCkInventoryMenuProofModel::PopulateBindings(FCkUiView::FDataBindings& InOu
     InOutData.Number.Add(TEXT("InventoryCropBottom"), TAttribute<float>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() ? Self->SelectedCropBottom() : 1.0f; }));
     InOutData.Visibility.Add(TEXT("InventoryHasSelection"), TAttribute<bool>::CreateLambda([Weak]()
-    { const auto Self = Weak.Pin(); return Self.IsValid() && Self->SelectedIndex() != INDEX_NONE; }));
+    { const auto Self = Weak.Pin(); return Self.IsValid() && (Self->_GameplayAdapter.IsValid()
+        ? Self->GameplaySelectedIndex() : Self->SelectedIndex()) != INDEX_NONE; }));
     InOutData.Visibility.Add(TEXT("InventoryIsEmpty"), TAttribute<bool>::CreateLambda([Weak]()
     { const auto Self = Weak.Pin(); return Self.IsValid() && Self->_VisibleKeys.IsEmpty(); }));
     InOutData.Visibility.Add(TEXT("InventoryPrimaryEnabled"), TAttribute<bool>::CreateLambda([Weak]()

@@ -26,6 +26,7 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("CkSlateLayout");
         PrivateDependencyModuleNames.Add("AppFramework"); // Exercise native color-picker behavior through authored controls.
         PrivateDependencyModuleNames.Add("ImageCore");
+        PrivateDependencyModuleNames.Add("CommonInput"); // Inspect the actual controller input mode in menu acceptance tests.
         // The nonzero-player UI proof temporarily overlays player widget layers without a second scene view.
         PrivateDependencyModuleNames.Add("EngineSettings");
 
@@ -41,6 +42,7 @@ public class CkTests : CkModuleRules
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "SettingsMenuProof", "SettingsMenuProof.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "SettingsMenuProof", "SettingsMenuProof.ui.css"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "InventoryMenuProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "GameplayInventoryMenuProof.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "InventoryMenuProof.ui.css"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "inventory-item-atlas.png"), StagedFileType.NonUFS);
         foreach (var Theme in new[] { "Futuristic", "Tactical", "Fantasy" })

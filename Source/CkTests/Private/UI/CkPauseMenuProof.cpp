@@ -1,6 +1,7 @@
 #include "CkTests/UI/CkPauseMenuProof.h"
 #include "UI/CkInventoryMenuProofModel.h"
 #include "UI/CkUiReplicaPresentation.h"
+#include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 
 #include "CkSlateLayout/SCkUiSurface.h"
 #include "CkSlateLayout/CkUiCheckbox.h"
@@ -246,6 +247,26 @@ auto
         const FCk_UiAuthoringProof_InventoryState& InInventory)
     -> UCk_PauseMenuProof_UE*
 {
+    return DoOpen(InPlayerController, InScreen, InSettings, InInventory, nullptr);
+}
+
+auto
+    UCk_PauseMenuProof_UE::OpenWithGameplayInventory(APlayerController* InPlayerController,
+        const FCk_Handle_Inventory_DataOnly& InInventory)
+    -> UCk_PauseMenuProof_UE*
+{
+    if (NOT ck::IsValid(InInventory)) { return nullptr; }
+    return DoOpen(InPlayerController, ECk_UiAuthoringProof_Screen::Inventory,
+        FCk_UiAuthoringProof_Settings{}, FCk_UiAuthoringProof_InventoryState{}, &InInventory);
+}
+
+auto
+    UCk_PauseMenuProof_UE::DoOpen(APlayerController* InPlayerController,
+        ECk_UiAuthoringProof_Screen InScreen, const FCk_UiAuthoringProof_Settings& InSettings,
+        const FCk_UiAuthoringProof_InventoryState& InInventory,
+        const FCk_Handle_Inventory_DataOnly* InGameplayInventory)
+    -> UCk_PauseMenuProof_UE*
+{
     const auto ValidSettings = ck_pause_menu_proof::ValidScreen(InScreen)
         && FMath::IsFinite(InSettings.Get_Volume()) && InSettings.Get_Volume() >= 0.0f
         && InSettings.Get_Volume() <= 100.0f && ck_pause_menu_proof::ValidDisplayMode(InSettings.Get_DisplayMode());
@@ -268,6 +289,9 @@ auto
     CK_ENSURE_IF_NOT(ValidContext, TEXT("Pause menu requires a local player, world, and Slate application")) {}
     if (NOT ValidContext)
     { return nullptr; }
+    if (InGameplayInventory != nullptr && (World->IsPaused()
+        || UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(*InGameplayInventory) != World))
+    { return nullptr; }
 
     auto* Subsystem = LocalPlayer->GetSubsystem<UCk_UI_Layout_Subsystem_UE>();
     const auto HasSubsystem = IsValid(Subsystem);
@@ -285,6 +309,10 @@ auto
         if (auto* Active = Subsystem->Get_Layer(ck_pause_menu_proof::LayerTag)->GetActiveWidget())
         {
             auto* Existing = Cast<UCk_PauseMenuProof_UE>(Active);
+            if (NOT IsValid(Existing) || Existing->_UsesGameplayInventory != (InGameplayInventory != nullptr))
+            { return nullptr; }
+            if (InGameplayInventory != nullptr && Existing->_GameplayInventory != *InGameplayInventory)
+            { return nullptr; }
             return IsValid(Existing) && Existing->Request_ShowScreen(InScreen) ? Existing : nullptr;
         }
     }
@@ -303,6 +331,8 @@ auto
         Menu->_DraftSettings = InSettings;
         Menu->_Screen = InScreen;
         Menu->_InventoryInitialState = InInventory;
+        Menu->_UsesGameplayInventory = InGameplayInventory != nullptr;
+        if (InGameplayInventory != nullptr) { Menu->_GameplayInventory = *InGameplayInventory; }
     }
     const auto Prepared = IsValid(Menu) && Menu->DoPrepare();
     CK_ENSURE_IF_NOT(Prepared, TEXT("Pause menu source or background could not be prepared")) {}
@@ -331,7 +361,7 @@ auto
         return nullptr;
     }
 
-    if (NOT World->IsPaused())
+    if (NOT Menu->_UsesGameplayInventory && NOT World->IsPaused())
     {
         constexpr auto Pause = true;
         Menu->_OwnsPause = InPlayerController->SetPause(Pause);
@@ -636,9 +666,11 @@ auto
     _ControlRegistry = Registry.CreateSnapshot();
     if (NOT _IsSettingsChild)
     {
-        const auto InventoryReady = FCkInventoryMenuProofModel::TryCreate(_InventoryInitialState,
-            FPaths::Combine(Plugin->GetBaseDir(), TEXT("Resources/UiAuthoring/InventoryMenuProof/inventory-item-atlas.png")),
-            _InventoryModel, _SourceError);
+        const auto AtlasPath = FPaths::Combine(Plugin->GetBaseDir(),
+            TEXT("Resources/UiAuthoring/InventoryMenuProof/inventory-item-atlas.png"));
+        const auto InventoryReady = _UsesGameplayInventory
+            ? FCkInventoryMenuProofModel::TryCreateForInventory(_GameplayInventory, AtlasPath, _InventoryModel, _SourceError)
+            : FCkInventoryMenuProofModel::TryCreate(_InventoryInitialState, AtlasPath, _InventoryModel, _SourceError);
         if (NOT InventoryReady)
         { return false; }
     }
@@ -714,6 +746,16 @@ auto
         });
         _InventoryModel->PopulateBindings(Data, Actions, FSimpleDelegate::CreateWeakLambda(this,
             [this]() { Request_Close(); }));
+        if (_UsesGameplayInventory)
+        {
+            Data.Text.Add(TEXT("GameplayFilterAll"), LOCTEXT("GameplayFilterAll", "All"));
+            Data.Text.Add(TEXT("GameplayFilterEquipment"), LOCTEXT("GameplayFilterEquipment", "Equipment"));
+            Data.Text.Add(TEXT("GameplayFilterSupplies"), LOCTEXT("GameplayFilterSupplies", "Supplies"));
+            Data.Text.Add(TEXT("GameplayFilterMaterials"), LOCTEXT("GameplayFilterMaterials", "Materials"));
+            Data.Text.Add(TEXT("GameplaySearchHint"), LOCTEXT("GameplaySearchHint", "Search items..."));
+            Data.Text.Add(TEXT("GameplayClose"), LOCTEXT("GameplayClose", "Close"));
+            Data.Text.Add(TEXT("GameplayCloseHint"), LOCTEXT("GameplayCloseHint", "Close inventory / B"));
+        }
     }
     else
     {
@@ -957,6 +999,7 @@ auto
     UCk_PauseMenuProof_UE::Request_ShowScreen(ECk_UiAuthoringProof_Screen InScreen, bool InReturnToPause)
     -> bool
 {
+    if (_UsesGameplayInventory && InScreen != ECk_UiAuthoringProof_Screen::Inventory) { return false; }
     if (_IsSettingsChild || _SwitchingScreen || NOT ck_pause_menu_proof::ValidScreen(InScreen) || NOT IsActivated()
         || NOT _View.IsValid() || _View->IsOwnerReleased() || NOT IsValid(_Surface))
     { return false; }
@@ -1066,9 +1109,12 @@ auto
     }
     const auto ResourceRoot = FPaths::Combine(Plugin->GetBaseDir(),
         ck_pause_menu_proof::ResourcePrefix(_Screen));
+    const auto MarkupPath = _UsesGameplayInventory
+        ? FPaths::Combine(Plugin->GetBaseDir(), TEXT("Resources/UiAuthoring/InventoryMenuProof/GameplayInventoryMenuProof.ui.html"))
+        : ResourceRoot + TEXT(".html");
     auto Markup = FString{};
     auto Style = FString{};
-    if (NOT FFileHelper::LoadFileToString(Markup, *(ResourceRoot + TEXT(".html")))
+    if (NOT FFileHelper::LoadFileToString(Markup, *MarkupPath)
         || NOT FFileHelper::LoadFileToString(Style, *(ResourceRoot + TEXT(".css"))))
     {
         _SourceError = TEXT("Could not read both UI authoring source files.");
@@ -1159,6 +1205,8 @@ auto
     { return true; }
     if (NOT IsActivated() || NOT _View.IsValid())
     { return true; }
+    if (_UsesGameplayInventory && (NOT _InventoryModel.IsValid() || NOT _InventoryModel->RefreshGameplay()))
+    { Request_Close(); return false; }
     if (NOT _IsSettingsChild && _NeedsInitialFocus)
     { _NeedsInitialFocus = NOT DoFocus(0); }
     if (_IsSettingsChild && (_SettingsChildReleased || NOT DoCanDispatch()))
@@ -1558,6 +1606,26 @@ auto
     if (NOT IsActivated() || InEvent.GetUserIndex() != _SlateUserIndex)
     { return FReply::Unhandled(); }
     const auto Key = InEvent.GetKey();
+    if (_UsesGameplayInventory)
+    {
+        if (Key == EKeys::Gamepad_FaceButton_Right)
+        {
+            if (NOT InEvent.IsRepeat()) { Request_Close(); }
+            return FReply::Handled();
+        }
+        if (Key == EKeys::Gamepad_LeftShoulder || Key == EKeys::Gamepad_RightShoulder)
+        {
+            DoNavigate(Key == EKeys::Gamepad_LeftShoulder ? -1 : 1);
+            return FReply::Handled();
+        }
+        const auto PadOffset = Key == EKeys::Gamepad_DPad_Right ? 1 : Key == EKeys::Gamepad_DPad_Left ? -1
+            : Key == EKeys::Gamepad_DPad_Down ? 4 : Key == EKeys::Gamepad_DPad_Up ? -4 : 0;
+        if (PadOffset != 0)
+        {
+            if (NOT DoNavigateInventoryCards(PadOffset)) { DoNavigate(PadOffset < 0 ? -1 : 1); }
+            return FReply::Handled();
+        }
+    }
     if (_Screen == ECk_UiAuthoringProof_Screen::Inventory)
     {
         const auto Offset = Key == EKeys::Right ? 1 : Key == EKeys::Left ? -1

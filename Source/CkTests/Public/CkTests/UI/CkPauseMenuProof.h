@@ -2,6 +2,7 @@
 
 #include "CkUICore/UserWidget/CkActivatableWidget.h"
 #include "CkTests/UI/CkInventoryMenuProof.h"
+#include "CkInventory/Inventory/DataOnly/CkInventory_DataOnly_Fragment_Data.h"
 #include "CkCore/Time/CkTime.h"
 #include "Containers/Ticker.h"
 
@@ -85,6 +86,14 @@ public:
     static UCk_PauseMenuProof_UE*
     OpenWithProofState(APlayerController* InPlayerController, ECk_UiAuthoringProof_Screen InScreen,
         const FCk_UiAuthoringProof_Settings& InSettings, const FCk_UiAuthoringProof_InventoryState& InInventory);
+
+    /** Standalone gameplay inventory: input is captured, but ECS keeps running. Never seeds fixture state. */
+    UFUNCTION(BlueprintCallable, Category = "Ck|UI|Authoring Proof")
+    static UCk_PauseMenuProof_UE*
+    OpenWithGameplayInventory(APlayerController* InPlayerController, const FCk_Handle_Inventory_DataOnly& InInventory);
+
+    UFUNCTION(BlueprintPure, Category = "Ck|UI|Authoring Proof")
+    bool Get_UsesGameplayInventory() const { return _UsesGameplayInventory; }
 
     /** Prepare without changing stack/input/pause. Commit or close before the next CoreTicker pump, or preparation expires. */
     UFUNCTION(BlueprintCallable, Category = "Ck|UI|Authoring Proof")
@@ -172,6 +181,9 @@ protected:
     auto NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InEvent) -> FReply override;
 
 private:
+    static auto DoOpen(APlayerController* InPlayerController, ECk_UiAuthoringProof_Screen InScreen,
+        const FCk_UiAuthoringProof_Settings& InSettings, const FCk_UiAuthoringProof_InventoryState& InInventory,
+        const FCk_Handle_Inventory_DataOnly* InGameplayInventory) -> UCk_PauseMenuProof_UE*;
     auto DoPrepare() -> bool;
     auto DoCreateView(ECk_UiAuthoringProof_Screen InScreen) -> TSharedPtr<FCkUiView>;
     auto DoValidateSource(const TSharedPtr<FCkUiView>& InView, ECk_UiAuthoringProof_Screen InScreen,
@@ -226,6 +238,11 @@ private:
     TSharedPtr<FCkUiCollection> _DisplayModes;
     TSharedPtr<FCkInventoryMenuProofModel> _InventoryModel;
     FCk_UiAuthoringProof_InventoryState _InventoryInitialState;
+
+    UPROPERTY(Transient)
+    FCk_Handle_Inventory_DataOnly _GameplayInventory;
+
+    bool _UsesGameplayInventory = false;
     TSharedPtr<const FCkUiWidgetRegistrySnapshot> _ControlRegistry;
     FCk_UiAuthoringProof_Settings _AppliedSettings;
     FCk_UiAuthoringProof_Settings _DraftSettings;
