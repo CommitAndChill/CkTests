@@ -574,7 +574,7 @@ namespace ck_tests_state_machine_authored
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_StateMachine_AuthoredInspectorComposition,
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkTest_StateMachine_AuthoredInspectorComposition,
     "Ck.UiAuthoring.EcsDebugger.StateMachineInspector.AuthoredComposition", ck_tests_state_machine_authored::kFlags | EAutomationTestFlags::NonNullRHI)
 
 bool FCkTest_StateMachine_AuthoredInspectorComposition::RunTest(const FString& Parameters)
@@ -587,8 +587,8 @@ bool FCkTest_StateMachine_AuthoredInspectorComposition::RunTest(const FString& P
     }
 
     const auto Scenario = MakeShared<FScenario>();
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, Scenario](UWorld* InWorld)
         {
@@ -1057,31 +1057,37 @@ bool FCkTest_StateMachine_AuthoredInspectorComposition::RunTest(const FString& P
 
     // Unconditional fixture cleanup also runs after an earlier assertion/route failure. Release all
     // registry-backed handles and mounted views before the PIE world's registry is torn down.
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, Scenario](UWorld*)
+    ADD_LATENT_AUTOMATION_COMMAND(FDelayedFunctionLatentCommand([this, Scenario]() -> void
         {
             if (Scenario->Inspector.IsValid()) { Scenario->Inspector->OnDeactivated(); }
             if (Scenario->Window.IsValid())
             {
-                Scenario->Window->SetContent(SNullWidget::NullWidget);
-                FSlateApplication::Get().DestroyWindowImmediately(Scenario->Window.ToSharedRef());
+                if (FSlateApplication::IsInitialized())
+                {
+                    Scenario->Window->SetContent(SNullWidget::NullWidget);
+                    FSlateApplication::Get().DestroyWindowImmediately(Scenario->Window.ToSharedRef());
+                }
             }
             Scenario->Window.Reset();
             Scenario->Authored.Reset();
             Scenario->SecondAuthored.Reset();
             Scenario->Inspector.Reset();
-            if (ck::IsValid(Scenario->Owner) && NOT Scenario->Owner.Has<ck::FTag_DestroyEntity_Initiate>())
+            if (ck::auto_test::net::Get_ServerWorld() != nullptr && ck::IsValid(Scenario->Owner)
+                && NOT Scenario->Owner.Has<ck::FTag_DestroyEntity_Initiate>())
             { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Scenario->Owner); }
             Scenario->EnteredState = {};
             Scenario->Sm = {};
             Scenario->Owner = {};
             Scenario->RestoreCapture();
             Scenario->RestoreStyle();
-            Scenario->ReleasedBeforeEndPIE = TestTrue(TEXT("fixture released all views, window, and entity handles before EndPIE"),
-                NOT Scenario->Window.IsValid() && NOT Scenario->Authored.IsValid() && NOT Scenario->SecondAuthored.IsValid()
-                    && ck::Is_NOT_Valid(Scenario->Owner) && ck::Is_NOT_Valid(Scenario->Sm)
-                    && NOT Scenario->StyleOverridden && NOT Scenario->CaptureOverridden);
-        })));
+            if (NOT ck::auto_test::net::Get_HasSessionFailed())
+            {
+                Scenario->ReleasedBeforeEndPIE = TestTrue(TEXT("fixture released all views, window, and entity handles before EndPIE"),
+                    NOT Scenario->Window.IsValid() && NOT Scenario->Authored.IsValid() && NOT Scenario->SecondAuthored.IsValid()
+                        && ck::Is_NOT_Valid(Scenario->Owner) && ck::Is_NOT_Valid(Scenario->Sm)
+                        && NOT Scenario->StyleOverridden && NOT Scenario->CaptureOverridden);
+            }
+        }));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this, FCk_NetAutoTest_Assertion::CreateLambda([Scenario]()
         {
@@ -1091,7 +1097,7 @@ bool FCkTest_StateMachine_AuthoredInspectorComposition::RunTest(const FString& P
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_StateMachine_AuthoredInspectorVariants,
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkTest_StateMachine_AuthoredInspectorVariants,
     "Ck.UiAuthoring.EcsDebugger.StateMachineInspector.AuthoredVariants", ck_tests_state_machine_authored::kFlags | EAutomationTestFlags::NonNullRHI)
 
 bool FCkTest_StateMachine_AuthoredInspectorVariants::RunTest(const FString& Parameters)
@@ -1117,7 +1123,7 @@ bool FCkTest_StateMachine_AuthoredInspectorVariants::RunTest(const FString& Para
         return false;
     }
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, Scenario](UWorld* InWorld)
@@ -1492,6 +1498,19 @@ bool FCkTest_StateMachine_AuthoredInspectorVariants::RunTest(const FString& Para
                 EventCount(InWorld, Scenario->CascadeClass, ECk_AutoTest_Sm_EventKind::DoExitState),
                 Scenario->CascadeInitialDoExitCount + 1);
 
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FDelayedFunctionLatentCommand([this, Scenario]() -> void
+        {
+            if (Scenario->Inspector.IsValid()) { Scenario->Inspector->OnDeactivated(); }
+            if (Scenario->Window.IsValid() && FSlateApplication::IsInitialized())
+            {
+                Scenario->Window->SetContent(SNullWidget::NullWidget);
+                FSlateApplication::Get().DestroyWindowImmediately(Scenario->Window.ToSharedRef());
+            }
+            Scenario->Window.Reset();
+            Scenario->Authored.Reset();
+            Scenario->Inspector.Reset();
+            Scenario->RestoreCursor();
             Scenario->RestoreStyle();
             Scenario->State = {};
             Scenario->Task = {};
@@ -1503,16 +1522,21 @@ bool FCkTest_StateMachine_AuthoredInspectorVariants::RunTest(const FString& Para
             Scenario->Owner = {};
             Scenario->OverrideSm = {};
             Scenario->OverrideOwner = {};
+            Scenario->ClientSm = {};
+            Scenario->ClientOwner = {};
             Scenario->CascadeSm = {};
             Scenario->CascadeOwner = {};
             Scenario->StaleSm = {};
-            Scenario->ReleasedBeforeEndPIE = TestTrue(TEXT("variant fixture releases UI and handles before EndPIE"),
-                Scenario->VariantsAccepted && Scenario->OverrideAccepted && Scenario->ClientRefusalAccepted
-                    && Scenario->StopAccepted && Scenario->CascadeAccepted && Scenario->StaleAccepted
-                    && NOT Scenario->StyleOverridden
-                    && NOT Scenario->Window.IsValid() && NOT Scenario->Authored.IsValid()
-                    && NOT Scenario->Inspector.IsValid());
-        })));
+            if (NOT ck::auto_test::net::Get_HasSessionFailed())
+            {
+                Scenario->ReleasedBeforeEndPIE = TestTrue(TEXT("variant fixture releases UI and handles before EndPIE"),
+                    Scenario->VariantsAccepted && Scenario->OverrideAccepted && Scenario->ClientRefusalAccepted
+                        && Scenario->StopAccepted && Scenario->CascadeAccepted && Scenario->StaleAccepted
+                        && NOT Scenario->StyleOverridden
+                        && NOT Scenario->Window.IsValid() && NOT Scenario->Authored.IsValid()
+                        && NOT Scenario->Inspector.IsValid());
+            }
+        }));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this, FCk_NetAutoTest_Assertion::CreateLambda([Scenario]()
         {

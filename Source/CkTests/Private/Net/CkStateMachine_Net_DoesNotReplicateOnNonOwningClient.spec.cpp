@@ -59,7 +59,7 @@ namespace ck_sm_dnr_test
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineNet_DoesNotReplicate_RunsOnNonOwningClient,
     "Ck.StateMachine.Net.DoesNotReplicate_RunsOnNonOwningClient",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -76,7 +76,7 @@ bool FCkStateMachineNet_DoesNotReplicate_RunsOnNonOwningClient::RunTest(const FS
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // ---- Spawn the DoesNotReplicate SM subject on the server (a non-player replicated actor) ----------------

@@ -1,4 +1,4 @@
-﻿// Lifecycle-request edge states — pins the request handlers' behavior on the paths that fall
+// Lifecycle-request edge states — pins the request handlers' behavior on the paths that fall
 // outside the happy Start→Transition→Stop flow. Each scenario reproduces a corruption found by
 // the 2026-07 CkStateMachine audit:
 //
@@ -92,7 +92,7 @@ namespace ck_sm_lifecycle_test
 // 1. A transition request dropped while Paused must not wedge the evaluator.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineLifecycle_PauseDroppedTransitionDoesNotWedgeEvaluator,
     "Ck.StateMachine.Lifecycle.PauseDroppedTransitionDoesNotWedgeEvaluator",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -105,7 +105,7 @@ bool FCkStateMachineLifecycle_PauseDroppedTransitionDoesNotWedgeEvaluator::RunTe
     bSuppressLogWarnings = true;
     Reset();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -199,7 +199,7 @@ bool FCkStateMachineLifecycle_PauseDroppedTransitionDoesNotWedgeEvaluator::RunTe
 // 2. Request_Start while Paused is rejected (Resume is the way back).
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineLifecycle_StartWhilePausedIsRejected,
     "Ck.StateMachine.Lifecycle.StartWhilePausedIsRejected",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -212,7 +212,7 @@ bool FCkStateMachineLifecycle_StartWhilePausedIsRejected::RunTest(const FString&
     bSuppressLogWarnings = true;
     Reset();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -297,7 +297,7 @@ bool FCkStateMachineLifecycle_StartWhilePausedIsRejected::RunTest(const FString&
 // 3. Stop with a transition mid-flight destroys the deferred-alive previous state.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineLifecycle_StopMidTransitionDestroysDeferredPreviousState,
     "Ck.StateMachine.Lifecycle.StopMidTransitionDestroysDeferredPreviousState",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -310,7 +310,7 @@ bool FCkStateMachineLifecycle_StopMidTransitionDestroysDeferredPreviousState::Ru
     bSuppressLogWarnings = true;
     Reset();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -376,7 +376,7 @@ bool FCkStateMachineLifecycle_StopMidTransitionDestroysDeferredPreviousState::Ru
 //    never-entered intermediate target never fires EnterState.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineLifecycle_RapidDoubleTransitionCoalescesAndDestroysPreviousState,
     "Ck.StateMachine.Lifecycle.RapidDoubleTransitionCoalescesAndDestroysPreviousState",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -389,7 +389,7 @@ bool FCkStateMachineLifecycle_RapidDoubleTransitionCoalescesAndDestroysPreviousS
     bSuppressLogWarnings = true;
     Reset();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -470,7 +470,7 @@ bool FCkStateMachineLifecycle_RapidDoubleTransitionCoalescesAndDestroysPreviousS
 // 5. A null-target transition request is rejected at enqueue; the SM survives and keeps evaluating.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineLifecycle_NullTargetTransitionIsRejectedAndSmSurvives,
     "Ck.StateMachine.Lifecycle.NullTargetTransitionIsRejectedAndSmSurvives",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -483,7 +483,7 @@ bool FCkStateMachineLifecycle_NullTargetTransitionIsRejectedAndSmSurvives::RunTe
     bSuppressLogWarnings = true;
     Reset();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -570,7 +570,7 @@ bool FCkStateMachineLifecycle_NullTargetTransitionIsRejectedAndSmSurvives::RunTe
 // 6. A Paused SM must not call user Evaluate predicates at all.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineLifecycle_PausedSmDoesNotEvaluatePolledConditions,
     "Ck.StateMachine.Lifecycle.PausedSmDoesNotEvaluatePolledConditions",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -583,7 +583,7 @@ bool FCkStateMachineLifecycle_PausedSmDoesNotEvaluatePolledConditions::RunTest(c
     bSuppressLogWarnings = true;
     Reset();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
