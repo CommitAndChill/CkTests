@@ -175,7 +175,7 @@ bool FCkEntityVisualizer_TransformGizmo_InvalidDimensionsFailWithoutChildren::Ru
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkEntityVisualizer_IsmTransformGizmo_ComposesRetainedChildren,
     "Ck.EntityVisualizer.TransformGizmo.IsmComposesRetainedChildren",
     ck_tests_entity_visualizer::kTestFlags)
@@ -185,8 +185,8 @@ bool FCkEntityVisualizer_IsmTransformGizmo_ComposesRetainedChildren::RunTest(con
     auto CreatedCount = MakeShared<int32>(0);
     auto AllChildrenAttached = MakeShared<bool>(false);
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda(
             [CreatedCount, AllChildrenAttached](UWorld* InWorld) -> void
@@ -219,7 +219,7 @@ bool FCkEntityVisualizer_IsmTransformGizmo_ComposesRetainedChildren::RunTest(con
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkEntityVisualizer_IsmTransformGizmo_ThousandSourcesShareTwoBatches,
     "Ck.EntityVisualizer.TransformGizmo.IsmThousandSourcesShareTwoBatches",
     ck_tests_entity_visualizer::kTestFlags)
@@ -230,8 +230,8 @@ bool FCkEntityVisualizer_IsmTransformGizmo_ThousandSourcesShareTwoBatches::RunTe
     auto UniqueRendererCount = MakeShared<int32>(0);
     auto AllChildrenAttached = MakeShared<bool>(true);
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda(
             [CreatedCount, UniqueRendererCount, AllChildrenAttached](UWorld* InWorld) -> void
