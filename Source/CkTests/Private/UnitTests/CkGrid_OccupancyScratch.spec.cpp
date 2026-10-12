@@ -256,7 +256,7 @@ namespace ck_test_grid_occupancy_scratch
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkGrid_OccupancyScratch_LifecycleAndMapWorkload,
     "Ck.Grid.OccupancyScratch.LifecycleAndMapWorkload",
     ck_test_grid_occupancy_scratch::TestFlags)
@@ -267,8 +267,8 @@ bool FCkGrid_OccupancyScratch_LifecycleAndMapWorkload::RunTest(const FString& Pa
 
     auto Scenario = MakeShared<FScenario>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, EntryMapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, ReadyTimeoutSeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, EntryMapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Scenario](UWorld* InWorld) -> void
