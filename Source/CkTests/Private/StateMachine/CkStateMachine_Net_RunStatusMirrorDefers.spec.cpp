@@ -44,7 +44,7 @@ namespace ck_sm_mirror_defer_test
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineNet_RunStatusMirror_DefersWhileReplayInFlight,
     "Ck.StateMachine.Net.RunStatusMirror_DefersWhileReplayInFlight",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -62,7 +62,7 @@ bool FCkStateMachineNet_RunStatusMirror_DefersWhileReplayInFlight::RunTest(const
     constexpr auto ReadyTimeoutSeconds = 30.0f;
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(

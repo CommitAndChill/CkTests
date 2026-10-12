@@ -47,7 +47,7 @@ namespace ck_sm_fault_gate_test
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineNet_DeterminismFault_GateSkipsEnter,
     "Ck.StateMachine.Net.DeterminismFault_GateSkipsEnter",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -65,7 +65,7 @@ bool FCkStateMachineNet_DeterminismFault_GateSkipsEnter::RunTest(const FString& 
     constexpr auto ReadyTimeoutSeconds = 30.0f;
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // Build a local-only (DoesNotReplicate) SM on the server world so it runs its full lifecycle

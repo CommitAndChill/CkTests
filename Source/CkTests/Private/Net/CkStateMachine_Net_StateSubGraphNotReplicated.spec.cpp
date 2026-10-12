@@ -71,7 +71,7 @@ namespace ck_sm_norep_test
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkStateMachineNet_StateSubGraph_NotIndependentlyReplicated,
     "Ck.StateMachine.Net.StateSubGraph_NotIndependentlyReplicated",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -89,7 +89,7 @@ bool FCkStateMachineNet_StateSubGraph_NotIndependentlyReplicated::RunTest(const 
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // ---- Spawn the Replicates/ServerAuth SM subject on the server -------------------------------------------
