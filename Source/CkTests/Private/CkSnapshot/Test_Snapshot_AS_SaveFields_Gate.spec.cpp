@@ -1,6 +1,7 @@
 // CkSnapshot 4B.3 AS SaveGame-field GATE — round-trips an AngelScript EntityScript's UPROPERTY(SaveGame)
 // fields across a real v3 rebuild+hydrate load, and proves a non-SaveGame field is dropped (resets to default).
-// Surfaces in Session Frontend: Ck.Snapshot.AS.SaveGameFields_RoundTrip, Ck.Snapshot.AS.NonSaveGameField_Drops.
+// Surfaces in Session Frontend: Ck.Snapshot.AS.SaveGameFields_RoundTrip,
+// Ck.Snapshot.AS.NonSaveGameField_Drops, Ck.Snapshot.AS.SaveFields_MPServerTravel.
 //
 // Fixture: Plugins/CkTests/Script/CkSnapshot/CkSnapshot_AsSaveFields_EntityScript.as
 // Framework handler under test: CkEcs FCk_SaveData_EntityScriptFields (Save-transport, reflect-walks CPF_SaveGame).
@@ -11,6 +12,9 @@
 
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/StrongObjectPtr.h"
+#include "CkSnapshot_SaveCompletionProbe.h"
 
 #include "UObject/UObjectIterator.h"
 #include "UObject/UnrealType.h"
@@ -365,6 +369,238 @@ bool FCkSnapshot_AS_NonSaveGameField_Drops::RunTest(const FString& Parameters)
             InTest.TestEqual(TEXT("SavedInt survived (payload is real, drop is selective)"), ReloadedInt, Mutated_Int);
         });
 
+    return true;
+}
+
+
+// Real connected-client load: the existing OpenLevel rows above retain their single-world contract.
+namespace ck_snapshot_as_savefields_mp
+{
+    constexpr auto MapPath = TEXT("/Engine/Maps/Entry");
+    const auto Slot = FName{TEXT("CkSnapshot_AsSaveFields_MP_Slot")};
+
+    struct FTravelState
+    {
+        TWeakObjectPtr<UWorld> PreServer;
+        TWeakObjectPtr<UWorld> PreClient;
+        TStrongObjectPtr<UCkSnapshot_SaveCompletionProbe> SaveProbe;
+        FString SavedSeamless;
+        EConsoleVariableFlags SavedPriority = ECVF_Default;
+        bool HasSeamless = false;
+
+        ~FTravelState()
+        { RestoreSeamless(); }
+
+        void RestoreSeamless()
+        {
+            if (NOT HasSeamless) { return; }
+            if (auto* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.AllowPIESeamlessTravel")))
+            {
+                const auto CurrentPriority = static_cast<EConsoleVariableFlags>(CVar->GetFlags() & ECVF_SetByMask);
+                CVar->Set(*SavedSeamless, CurrentPriority);
+                CVar->SetFlags(static_cast<EConsoleVariableFlags>(
+                    (CVar->GetFlags() & ~ECVF_SetByMask) | SavedPriority));
+            }
+            HasSeamless = false;
+        }
+
+        auto EnableSeamless() -> bool
+        {
+            auto* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.AllowPIESeamlessTravel"));
+            if (CVar == nullptr) { return false; }
+            SavedSeamless = CVar->GetString();
+            SavedPriority = static_cast<EConsoleVariableFlags>(CVar->GetFlags() & ECVF_SetByMask);
+            HasSeamless = true;
+            CVar->Set(1, ECVF_SetByCode);
+            return CVar->GetInt() == 1;
+        }
+    };
+
+    auto MapName(UWorld* InWorld) -> FString
+    {
+        return InWorld != nullptr ? InWorld->RemovePIEPrefix(InWorld->GetOutermost()->GetName()) : FString{};
+    }
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
+    FCkSnapshot_AS_SaveFields_MPServerTravel,
+    "Ck.Snapshot.AS.SaveFields_MPServerTravel",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkSnapshot_AS_SaveFields_MPServerTravel::RunTest(const FString& Parameters)
+{
+    using namespace ck_snapshot_as_savefields_gate;
+    using namespace ck_snapshot_as_savefields_mp;
+
+    auto Dedicated = false;
+    if (NOT ck::auto_test::net::TryGet_DedicatedServer(Parameters, Dedicated))
+    { AddError(TEXT("AS SaveFields MP: unsupported topology")); return false; }
+    const auto ExpectedMode = Dedicated ? NM_DedicatedServer : NM_ListenServer;
+    auto State = MakeShared<FTravelState>();
+    State->SaveProbe.Reset(NewObject<UCkSnapshot_SaveCompletionProbe>(GetTransientPackage()));
+    if (NOT State->SaveProbe.IsValid())
+    { AddError(TEXT("AS SaveFields MP: cannot allocate save completion recorder")); return false; }
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, FString{MapPath}, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+        {
+            if (NOT State->EnableSeamless())
+            { AddError(TEXT("AS SaveFields MP: cannot enable PIE seamless travel")); return; }
+            auto SpawnInfo = FActorSpawnParameters{};
+            SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+            if (InServer->SpawnActor<ACk_AutoTest_NetSubject_M2aProbe>(
+                    ACk_AutoTest_NetSubject_M2aProbe::StaticClass(), FTransform::Identity, SpawnInfo) == nullptr)
+            { AddError(TEXT("AS SaveFields MP: probe spawn failed")); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        {
+            auto* FixtureClass = Resolve_FixtureClass();
+            auto Owner = ProbeEntity(InServer);
+            if (FixtureClass == nullptr || ck::Is_NOT_Valid(Owner))
+            { AddError(TEXT("AS SaveFields MP: fixture class or probe entity missing")); return; }
+            const auto Pending = UCk_Utils_EntityScript_UE::Request_SpawnEntity(
+                Owner, FixtureClass, FInstancedStruct{}, {});
+            if (NOT UCk_Utils_PendingEntityScript_UE::Get_IsValid(Pending))
+            { AddError(TEXT("AS SaveFields MP: fixture spawn rejected")); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+        {
+            auto* FixtureClass = Resolve_FixtureClass();
+            auto* Script = FixtureClass != nullptr ? Resolve_FixtureScript(InServer, FixtureClass) : nullptr;
+            auto* Sub = Subsystem(InServer);
+            auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+            if (Script == nullptr || Sub == nullptr || Client == nullptr)
+            { AddError(TEXT("AS SaveFields MP: pre-save fixture, subsystem, or client missing")); return; }
+            TestTrue(TEXT("SavedInt is CPF_SaveGame"), Has_SaveGameFlag(FixtureClass, FieldName_SavedInt));
+            TestTrue(TEXT("SavedString is CPF_SaveGame"), Has_SaveGameFlag(FixtureClass, FieldName_SavedString));
+            TestTrue(TEXT("SavedArray is CPF_SaveGame"), Has_SaveGameFlag(FixtureClass, FieldName_SavedArray));
+            TestFalse(TEXT("PlainInt is not CPF_SaveGame"), Has_SaveGameFlag(FixtureClass, FieldName_PlainInt));
+            if (NOT Set_Int(Script, FieldName_SavedInt, Mutated_Int) ||
+                NOT Set_Str(Script, FieldName_SavedString, Mutated_String) ||
+                NOT Set_IntArray(Script, FieldName_SavedArray, Mutated_Array) ||
+                NOT Set_Int(Script, FieldName_PlainInt, Mutated_Plain))
+            { AddError(TEXT("AS SaveFields MP: failed to mutate reflected fixture fields")); return; }
+            State->PreServer = InServer;
+            State->PreClient = Client;
+            State->SaveProbe->Clear();
+            auto Completion = FCk_Delegate_OnSaveComplete{};
+            Completion.BindDynamic(State->SaveProbe.Get(), &UCkSnapshot_SaveCompletionProbe::OnSaveComplete);
+            Sub->Request_Save(Slot, Completion);
+        })));
+    for (auto Cycle = 1; Cycle <= 2; ++Cycle)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+            { return State->SaveProbe.IsValid() && State->SaveProbe->HasFreshSuccess(); }),
+            30.0, FString::Printf(TEXT("AS SaveFields MP cycle %d: fresh save callback reports Success exactly once"), Cycle)));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+            FCk_NetAutoTest_Assertion::CreateLambda([this, State]() -> bool
+            {
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+                TestEqual(TEXT("AS SaveFields MP: save callback fires exactly once"), State->SaveProbe->CallbackCount, 1);
+                TestTrue(TEXT("AS SaveFields MP: disk-write result is Success"),
+                    State->SaveProbe->Result == ECk_SnapshotResult::Success);
+                return State->SaveProbe->HasFreshSuccess();
+            }), TEXT("AS SaveFields MP: only a newly successful disk save may be loaded")));
+
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+            {
+                if (NOT State->SaveProbe.IsValid() || NOT State->SaveProbe->HasFreshSuccess() ||
+                    State->PreServer.Get() != InServer)
+                { AddError(TEXT("AS SaveFields MP: fresh successful save required before load")); return; }
+                auto* Sub = Subsystem(InServer);
+                if (Sub == nullptr) { AddError(TEXT("AS SaveFields MP: pre-travel subsystem missing")); return; }
+                Sub->Request_Load(Slot, FCk_Delegate_OnLoadComplete{});
+                TestTrue(TEXT("AS SaveFields MP: Request_Load is asynchronous"), Sub->Get_IsLoadInProgress());
+            })));
+
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(
+            FCk_NetAutoTest_Assertion::CreateLambda([State]() -> bool
+            {
+                auto* Server = ck::auto_test::net::Get_ServerWorld();
+                auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+                if (Server == nullptr || Client == nullptr || Server == State->PreServer.Get() ||
+                    Client == State->PreClient.Get() || NOT Server->HasBegunPlay() || NOT Client->HasBegunPlay() ||
+                    MapName(Server) != MapPath || MapName(Client) != MapPath) { return false; }
+                auto* Sub = Subsystem(Server);
+                auto* FixtureClass = Resolve_FixtureClass();
+                return Sub != nullptr && NOT Sub->Get_IsLoadInProgress() && FixtureClass != nullptr &&
+                    Resolve_FixtureScript(Server, FixtureClass) != nullptr;
+            }), 60.0f));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+            FCk_NetAutoTest_Assertion::CreateLambda([this, ExpectedMode, State, Cycle]() -> bool
+            {
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+                auto* Server = ck::auto_test::net::Get_ServerWorld();
+                auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+                if (Server == nullptr || Client == nullptr)
+                { AddError(TEXT("AS SaveFields MP: post-travel server or client missing")); return false; }
+                TestEqual(TEXT("AS SaveFields MP: exactly two post-travel worlds"),
+                    ck::auto_test::net::Get_AllPIEWorlds().Num(), 2);
+                TestTrue(TEXT("AS SaveFields MP: server world changed"), Server != State->PreServer.Get());
+                TestTrue(TEXT("AS SaveFields MP: client reconnected"), Client != State->PreClient.Get());
+                TestTrue(TEXT("AS SaveFields MP: server topology retained"), Server->GetNetMode() == ExpectedMode);
+                TestTrue(TEXT("AS SaveFields MP: client mode retained"), Client->GetNetMode() == NM_Client);
+                TestTrue(TEXT("AS SaveFields MP: destination server map"), MapName(Server) == MapPath);
+                TestTrue(TEXT("AS SaveFields MP: destination client map"), MapName(Client) == MapPath);
+                auto* FixtureClass = Resolve_FixtureClass();
+                auto* Script = FixtureClass != nullptr ? Resolve_FixtureScript(Server, FixtureClass) : nullptr;
+                if (Script == nullptr) { AddError(TEXT("AS SaveFields MP: reloaded script missing")); return false; }
+                auto SavedInt = 0;
+                auto PlainInt = -1;
+                auto SavedString = FString{};
+                auto SavedArray = TArray<int32>{};
+                if (NOT Get_Int(Script, FieldName_SavedInt, SavedInt) ||
+                    NOT Get_Int(Script, FieldName_PlainInt, PlainInt) ||
+                    NOT Get_Str(Script, FieldName_SavedString, SavedString) ||
+                    NOT Get_IntArray(Script, FieldName_SavedArray, SavedArray))
+                { AddError(TEXT("AS SaveFields MP: reloaded reflected fields missing")); return false; }
+                const auto Label = FString::Printf(TEXT("AS SaveFields MP cycle %d: "), Cycle);
+                TestEqual(*(Label + TEXT("saved int round-trips")), SavedInt, Mutated_Int);
+                TestEqual(*(Label + TEXT("saved string round-trips")), SavedString, Mutated_String);
+                TestTrue(*(Label + TEXT("saved array round-trips")), SavedArray == Mutated_Array);
+                TestEqual(*(Label + TEXT("non-SaveGame field resets to default")), PlainInt, 0);
+                return true;
+            }), TEXT("AS SaveFields MP: ServerTravel preserves SaveGame fields and drops PlainInt")));
+        if (Cycle == 1)
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+                {
+                    auto* Sub = Subsystem(InServer);
+                    auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+                    auto* FixtureClass = Resolve_FixtureClass();
+                    auto* Script = FixtureClass != nullptr ? Resolve_FixtureScript(InServer, FixtureClass) : nullptr;
+                    if (Sub == nullptr || Client == nullptr || Script == nullptr)
+                    { AddError(TEXT("AS SaveFields MP: cycle-two save prerequisites missing")); return; }
+                    if (NOT Set_Int(Script, FieldName_PlainInt, Mutated_Plain))
+                    { AddError(TEXT("AS SaveFields MP: cannot re-mutate non-SaveGame field before second save")); return; }
+                    State->PreServer = InServer;
+                    State->PreClient = Client;
+                    State->SaveProbe->Clear();
+                    auto Completion = FCk_Delegate_OnSaveComplete{};
+                    Completion.BindDynamic(State->SaveProbe.Get(), &UCkSnapshot_SaveCompletionProbe::OnSaveComplete);
+                    Sub->Request_Save(Slot, Completion);
+                })));
+        }
+    }
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([State]() -> bool
+        { State->SaveProbe.Reset(); State->RestoreSeamless(); return true; }),
+        TEXT("AS SaveFields MP: release save callback recorder")));
     return true;
 }
 

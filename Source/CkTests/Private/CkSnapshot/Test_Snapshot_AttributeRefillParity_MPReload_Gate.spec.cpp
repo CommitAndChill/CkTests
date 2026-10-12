@@ -110,7 +110,7 @@ namespace
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_AttributeRefillParity_MPReload_Gate,
     "Ck.Snapshot.Parity.AttributeRefill_MPReload",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -129,7 +129,7 @@ bool FCkSnapshot_AttributeRefillParity_MPReload_Gate::RunTest(const FString& Par
 
     GRefill_PreServerWorld = nullptr;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{Refill_MapPath}));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{Refill_MapPath}, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // Stage 1 — open the PIE seamless gate + spawn the replicated bridged refill probe on the server.

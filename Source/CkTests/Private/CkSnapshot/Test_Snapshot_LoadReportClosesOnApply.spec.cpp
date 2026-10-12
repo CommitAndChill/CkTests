@@ -38,12 +38,12 @@ namespace ck_test_loadreport_closesonapply
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_LoadReportClosesOnApply_Gate,
     "Ck.Snapshot.Meta.LoadReportClosesOnApply",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_LoadReportClosesOnApply_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_LoadReportClosesOnApply_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_loadreport_closesonapply;
     using namespace ck_autotest_snapshot_applyclosure;
@@ -129,7 +129,7 @@ bool FCk_Snapshot_LoadReportClosesOnApply_Gate::RunTest(const FString& /*Paramet
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

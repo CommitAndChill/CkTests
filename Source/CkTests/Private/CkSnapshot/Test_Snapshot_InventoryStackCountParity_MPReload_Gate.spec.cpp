@@ -111,7 +111,7 @@ namespace
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_InventoryStackCountParity_MPReload_Gate,
     "Ck.Snapshot.Parity.InventoryStackCount_MPReload",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -131,7 +131,7 @@ bool FCkSnapshot_InventoryStackCountParity_MPReload_Gate::RunTest(const FString&
     GInvSCParity_PreServerWorld = nullptr;
     GInvSCParity_PreClientWorld = nullptr;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{InvSCParity_MapPath}));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{InvSCParity_MapPath}, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // Stage 1 — open the PIE seamless gate + spawn the replicated inventory subject on the server.

@@ -17,13 +17,13 @@ class UCk_EntityScript_UE;
 // skeleton; this factors it so a round-trip test is a data-only FCk_SnapshotRoundTrip_Spec plus a handful of
 // per-test stage lambdas.
 //
-// Usage (inside a standard IMPLEMENT_SIMPLE_AUTOMATION_TEST RunTest body):
+// Usage (inside a CK_IMPLEMENT_NET_AUTOMATION_TEST RunTest body):
 //
 //   auto Spec = ck::auto_test::snapshot::FCk_SnapshotRoundTrip_Spec{};
 //   Spec.SlotName = FName{TEXT("MyTest_Slot")};
 //   Spec.Spawn    = FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void { /* spawn subject */ });
 //   Spec.Assert   = FCk_NetAutoTest_Assertion::CreateLambda([this]() -> bool { /* final checks */ return true; });
-//   ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+//   ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
 //   return true;
 //
 // --------------------------------------------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ namespace ck::auto_test::snapshot
     // CkSnapshot/Claude.md section 5 — cycle 2 catches double-apply stacking).
     struct CKTESTS_API FCk_SnapshotRoundTrip_Spec
     {
-        int32   NumPIEClients = 2;                        // 2 = listen-server window + 1 client
+        int32   NumPIEClients = 2;                        // total worlds: server + one remote client
         FString MapPath = TEXT("/Engine/Maps/Entry");
         FName   SlotName;                                 // REQUIRED, unique per test
         float   ReloadTimeoutSeconds = 60.0f;
@@ -61,7 +61,9 @@ namespace ck::auto_test::snapshot
     };
 
     // Enqueues the full latent chain (StartPIE ... EndPIE). Call from RunTest, then return true.
-    CKTESTS_API auto EnqueueRoundTrip(FAutomationTestBase* InTest, FCk_SnapshotRoundTrip_Spec InSpec) -> void;
+    CKTESTS_API auto EnqueueRoundTrip(
+        FAutomationTestBase* InTest, FCk_SnapshotRoundTrip_Spec InSpec,
+        const FString& InTopology = FString{}) -> void;
 
     // Shared helpers (extracted from the ~21 per-file anon-namespace copies):
     CKTESTS_API auto Get_SnapshotSubsystem(UWorld* InWorld) -> UCk_Snapshot_Subsystem_UE*;

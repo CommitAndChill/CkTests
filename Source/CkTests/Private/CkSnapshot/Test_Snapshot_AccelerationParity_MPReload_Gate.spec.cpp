@@ -71,7 +71,7 @@ namespace
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_AccelerationParity_MPReload_Gate,
     "Ck.Snapshot.Parity.Acceleration_MPReload",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -91,7 +91,7 @@ bool FCkSnapshot_AccelerationParity_MPReload_Gate::RunTest(const FString& Parame
     GAccelParity_PreServerWorld = nullptr;
     GAccelParity_PreClientWorld = nullptr;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{AccelParity_MapPath}));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{AccelParity_MapPath}, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // Stage 1 — open the PIE seamless gate + spawn the replicated bridged probe on the server.

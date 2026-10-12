@@ -92,7 +92,7 @@ namespace
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_RenderTargetParity_MPReload_Gate,
     "Ck.Snapshot.Parity.RenderTarget_MPReload",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -112,7 +112,7 @@ bool FCkSnapshot_RenderTargetParity_MPReload_Gate::RunTest(const FString& Parame
     GRtParity_PreServerWorld = nullptr;
     GRtParity_PreClientWorld = nullptr;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{RtParity_MapPath}));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{RtParity_MapPath}, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // Stage 1 — open the PIE seamless gate + spawn the replicated RenderTarget subject on the server.

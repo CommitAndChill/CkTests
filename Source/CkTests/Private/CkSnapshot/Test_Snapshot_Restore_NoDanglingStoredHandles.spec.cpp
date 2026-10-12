@@ -64,12 +64,12 @@ namespace ck_test_no_dangling_handles
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_Restore_NoDanglingStoredHandles,
     "Ck.Snapshot.Restore.NoDanglingStoredHandles",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_Restore_NoDanglingStoredHandles::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_Restore_NoDanglingStoredHandles::RunTest(const FString& Parameters)
 {
     using namespace ck_test_no_dangling_handles;
     using namespace ck_autotest_snapshot_ordering;
@@ -145,7 +145,7 @@ bool FCk_Snapshot_Restore_NoDanglingStoredHandles::RunTest(const FString& /*Para
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

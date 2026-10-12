@@ -91,12 +91,12 @@ namespace ck_test_unapplied_downgrades
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_UnappliedPayloadDowngradesResult_Gate,
     "Ck.Snapshot.Report.UnappliedPayloadDowngradesResult",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_UnappliedPayloadDowngradesResult_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_UnappliedPayloadDowngradesResult_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_unapplied_downgrades;
 
@@ -179,18 +179,18 @@ bool FCk_Snapshot_UnappliedPayloadDowngradesResult_Gate::RunTest(const FString& 
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_NoHandlerPayloadIsCountedAndNamed_Gate,
     "Ck.Snapshot.Report.NoHandlerPayloadIsCountedAndNamed",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_NoHandlerPayloadIsCountedAndNamed_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_NoHandlerPayloadIsCountedAndNamed_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_unapplied_downgrades;
 
@@ -268,7 +268,7 @@ bool FCk_Snapshot_NoHandlerPayloadIsCountedAndNamed_Gate::RunTest(const FString&
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

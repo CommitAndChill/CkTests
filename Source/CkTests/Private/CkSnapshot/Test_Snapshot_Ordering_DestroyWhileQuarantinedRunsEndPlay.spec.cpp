@@ -53,12 +53,12 @@ namespace ck_test_ordering_destroy_while_held
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_Ordering_DestroyWhileQuarantinedRunsEndPlay_Gate,
     "Ck.Snapshot.Ordering.DestroyWhileQuarantinedRunsEndPlay",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_Ordering_DestroyWhileQuarantinedRunsEndPlay_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_Ordering_DestroyWhileQuarantinedRunsEndPlay_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_ordering_destroy_while_held;
     using namespace ck_autotest_snapshot_ordering;
@@ -127,7 +127,7 @@ bool FCk_Snapshot_Ordering_DestroyWhileQuarantinedRunsEndPlay_Gate::RunTest(cons
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

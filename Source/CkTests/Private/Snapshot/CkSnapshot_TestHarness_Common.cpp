@@ -103,7 +103,8 @@ namespace ck::auto_test::snapshot
     auto
         EnqueueRoundTrip(
             FAutomationTestBase* InTest,
-            FCk_SnapshotRoundTrip_Spec InSpec)
+            FCk_SnapshotRoundTrip_Spec InSpec,
+            const FString& InTopology)
         -> void
     {
         // Mutable state shared across the whole latent-command chain — each ADD_LATENT_AUTOMATION_COMMAND is a
@@ -117,7 +118,8 @@ namespace ck::auto_test::snapshot
 
         constexpr auto ReadyTimeoutSeconds = 30.0f;
 
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(InSpec.NumPIEClients, InSpec.MapPath));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
+            InSpec.NumPIEClients, InSpec.MapPath, InTopology));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(InSpec.NumPIEClients, ReadyTimeoutSeconds));
 
         // Spawn / compose the subject on the server.

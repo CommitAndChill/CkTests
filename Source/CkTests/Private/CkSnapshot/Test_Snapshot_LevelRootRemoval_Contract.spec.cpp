@@ -881,7 +881,7 @@ bool FCkSnapshot_LevelRootMutationSaveAtomicity::RunTest(const FString& Paramete
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_LevelRootRemovalAuthorityBoundary,
     "Ck.Snapshot.LevelRootRemoval.AuthorityBoundary",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -892,7 +892,7 @@ bool FCkSnapshot_LevelRootRemovalAuthorityBoundary::RunTest(const FString& Param
 
     AddExpectedError(TEXT("authority"), EAutomationExpectedErrorFlags::Contains, -1);
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(MultiPIEClients, EntryMap));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(MultiPIEClients, EntryMap, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(
         ListenServerAndClientWorlds, PIEReadyTimeoutSeconds));
 

@@ -34,12 +34,12 @@ namespace ck_test_snapshot_header_provenance
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_HeaderProvenance_CaptureStampsTheWritingBuild_Gate,
     "Ck.Snapshot.HeaderProvenance.CaptureStampsTheWritingBuild",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_HeaderProvenance_CaptureStampsTheWritingBuild_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_HeaderProvenance_CaptureStampsTheWritingBuild_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_snapshot_header_provenance;
 
@@ -90,7 +90,7 @@ bool FCk_Snapshot_HeaderProvenance_CaptureStampsTheWritingBuild_Gate::RunTest(co
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

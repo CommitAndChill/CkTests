@@ -36,21 +36,21 @@ namespace ck_test_uncaptured_runtime
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_UncapturedRuntimeEntityIsNamed_Gate,
     "Ck.Snapshot.Report.UncapturedRuntimeEntityIsNamed",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_UncapturedRuntimeEntityIsNamed_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_UncapturedRuntimeEntityIsNamed_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_uncaptured_runtime;
 
     // A save is enough — no load, no travel. The fact under test is produced by the CAPTURE.
-    constexpr auto NumClients = 1;
+    constexpr auto NumClients = 2;
     constexpr auto ReadyTimeoutSeconds = 30.0f;
     constexpr auto SettleFrames = 10;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, TEXT("/Engine/Maps/Entry"), Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(NumClients, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,

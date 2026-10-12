@@ -115,12 +115,12 @@ namespace ck_test_staged_adoption
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_StagedConstructionAdoption_Gate,
     "Ck.Snapshot.StagedConstructionAdoption",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_StagedConstructionAdoption_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_StagedConstructionAdoption_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_staged_adoption;
 
@@ -311,7 +311,7 @@ bool FCk_Snapshot_StagedConstructionAdoption_Gate::RunTest(const FString& /*Para
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

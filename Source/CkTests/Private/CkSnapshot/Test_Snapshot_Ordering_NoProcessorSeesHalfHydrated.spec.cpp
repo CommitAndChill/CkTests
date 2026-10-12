@@ -36,12 +36,12 @@ namespace ck_test_ordering_half_hydrated
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_Ordering_NoProcessorSeesHalfHydrated_Gate,
     "Ck.Snapshot.Ordering.NoProcessorSeesHalfHydrated",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_Ordering_NoProcessorSeesHalfHydrated_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_Ordering_NoProcessorSeesHalfHydrated_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_ordering_half_hydrated;
     using namespace ck_autotest_snapshot_ordering;
@@ -139,7 +139,7 @@ bool FCk_Snapshot_Ordering_NoProcessorSeesHalfHydrated_Gate::RunTest(const FStri
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

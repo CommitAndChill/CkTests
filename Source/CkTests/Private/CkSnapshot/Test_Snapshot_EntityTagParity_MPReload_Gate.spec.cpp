@@ -1,10 +1,9 @@
 // CkSnapshot EntityTag-Parity GATE — strict value round-trip of an entity's counted FName EntityTag set through REAL
-// OpenLevel reloads, asserted on the authority (single-world) after save -> restore.
+// OpenLevel reloads, asserted on the authority after save -> restore.
 //
 // EntityTag is UNREPLICATED (no Replicate processor / RepData / MayRequireReplication) — its state is purely local and
-// never reaches clients — so this gate drives the AUTHORITY/single-world reload path (NM_Standalone OpenLevel, one PIE
-// client), NOT the listen-server seamless-travel path of the TagSet/TeamPlayer parity gates. The "MPReload" suffix is
-// kept for suite naming consistency; there is no client convergence to assert.
+// never reaches clients. The original gate exercises single-world OpenLevel; the MPServerTravel row exercises
+// connected-client seamless travel while checking tag values on the authority and reconnection on the client.
 //
 // WHAT MAKES THIS THE MERGE-BUG PIN: both probes' Construct SEEDS one EntityTag tag (ConstructSeed). On a v3 load the
 // rebuilt entity re-runs Construct — re-Adding the seed through the SAME deferred EntityTag request path that is
@@ -26,6 +25,9 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
+#include "HAL/IConsoleManager.h"
+#include "UObject/StrongObjectPtr.h"
+#include "CkSnapshot_SaveCompletionProbe.h"
 #include "EngineUtils.h" // TActorIterator
 
 #include "CkEntityTag/CkEntityTag_Utils.h"
@@ -380,6 +382,297 @@ bool FCkSnapshot_EntityTagParity_MPReload_Gate::RunTest(const FString& Parameter
         }),
         TEXT("EntityTag: restore log suppression statics")));
 
+    return true;
+}
+
+
+// Connected-client counterpart. EntityTag is intentionally server-local; the client contract is reconnection.
+namespace ck_snapshot_entity_tag_mp
+{
+    constexpr auto MapPath = TEXT("/Engine/Maps/Entry");
+    const auto Slot = FName{TEXT("CkSnapshot_EntityTagParity_MPServerTravel_Slot")};
+
+    struct FTravelState
+    {
+        TWeakObjectPtr<UWorld> PreServer;
+        TWeakObjectPtr<UWorld> PreClient;
+        TStrongObjectPtr<UCkSnapshot_SaveCompletionProbe> SaveProbe;
+        FString SavedSeamless;
+        EConsoleVariableFlags SavedPriority = ECVF_Default;
+        bool HasSeamless = false;
+
+        ~FTravelState()
+        { RestoreSeamless(); }
+
+        void RestoreSeamless()
+        {
+            if (NOT HasSeamless) { return; }
+            if (auto* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.AllowPIESeamlessTravel")))
+            {
+                const auto CurrentPriority = static_cast<EConsoleVariableFlags>(CVar->GetFlags() & ECVF_SetByMask);
+                CVar->Set(*SavedSeamless, CurrentPriority);
+                CVar->SetFlags(static_cast<EConsoleVariableFlags>(
+                    (CVar->GetFlags() & ~ECVF_SetByMask) | SavedPriority));
+            }
+            HasSeamless = false;
+        }
+
+        auto EnableSeamless() -> bool
+        {
+            auto* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.AllowPIESeamlessTravel"));
+            if (CVar == nullptr) { return false; }
+            SavedSeamless = CVar->GetString();
+            SavedPriority = static_cast<EConsoleVariableFlags>(CVar->GetFlags() & ECVF_SetByMask);
+            HasSeamless = true;
+            CVar->Set(1, ECVF_SetByCode);
+            return CVar->GetInt() == 1;
+        }
+    };
+
+    auto MapName(UWorld* InWorld) -> FString
+    {
+        return InWorld != nullptr ? InWorld->RemovePIEPrefix(InWorld->GetOutermost()->GetName()) : FString{};
+    }
+
+    auto ProbePairReady(UWorld* InServer) -> bool
+    {
+        return InServer != nullptr &&
+            ck::IsValid(EntityTagParity_ResolveEntity(EntityTagParity_FindProbe<ACk_AutoTest_EntityTagSeedProbe>(InServer))) &&
+            ck::IsValid(EntityTagParity_ResolveEntity(EntityTagParity_FindProbe<ACk_AutoTest_EntityTagResurrectProbe>(InServer)));
+    }
+
+    auto CheckTags(FAutomationTestBase& InTest, UWorld* InServer, int32 InCycle) -> bool
+    {
+        if (NOT ProbePairReady(InServer))
+        { InTest.AddError(TEXT("EntityTag MP: post-travel probe pair or entity missing")); return false; }
+        const auto ConstructSeed = ck::auto_test::entity_tag_seed::Get_ConstructSeedTag();
+        const auto SeedEntity = EntityTagParity_ResolveEntity(
+            EntityTagParity_FindProbe<ACk_AutoTest_EntityTagSeedProbe>(InServer));
+        const auto ResurrectEntity = EntityTagParity_ResolveEntity(
+            EntityTagParity_FindProbe<ACk_AutoTest_EntityTagResurrectProbe>(InServer));
+        const auto Prefix = FString::Printf(TEXT("EntityTag MP cycle %d: "), InCycle);
+        InTest.TestEqual(*(Prefix + TEXT("ConstructSeed replaced without inflation")),
+            EntityTagParity_CountOf(SeedEntity, ConstructSeed), 1);
+        InTest.TestEqual(*(Prefix + TEXT("Alpha survived")), EntityTagParity_CountOf(SeedEntity, EntityTagParity_Alpha), 1);
+        InTest.TestEqual(*(Prefix + TEXT("Beta count remains exactly three")),
+            EntityTagParity_CountOf(SeedEntity, EntityTagParity_Beta), 3);
+        InTest.TestFalse(*(Prefix + TEXT("Gamma remains removed")),
+            UCk_Utils_EntityTag_UE::Has(SeedEntity, EntityTagParity_Gamma));
+        InTest.TestTrue(*(Prefix + TEXT("ConstructSeed storage view restored")),
+            EntityTagParity_StorageViewFinds(SeedEntity, ConstructSeed));
+        InTest.TestTrue(*(Prefix + TEXT("Beta storage view restored")),
+            EntityTagParity_StorageViewFinds(SeedEntity, EntityTagParity_Beta));
+        InTest.TestEqual(*(Prefix + TEXT("unset payload resurrects ConstructSeed")),
+            EntityTagParity_CountOf(ResurrectEntity, ConstructSeed), 1);
+        return true;
+    }
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
+    FCkSnapshot_EntityTagParity_MPServerTravel,
+    "Ck.Snapshot.Parity.EntityTag_MPServerTravel",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkSnapshot_EntityTagParity_MPServerTravel::RunTest(const FString& Parameters)
+{
+    using namespace ck_snapshot_entity_tag_mp;
+    auto Dedicated = false;
+    if (NOT ck::auto_test::net::TryGet_DedicatedServer(Parameters, Dedicated))
+    { AddError(TEXT("EntityTag MP: unsupported topology")); return false; }
+    const auto ExpectedMode = Dedicated ? NM_DedicatedServer : NM_ListenServer;
+    auto State = MakeShared<FTravelState>();
+    State->SaveProbe.Reset(NewObject<UCkSnapshot_SaveCompletionProbe>(GetTransientPackage()));
+    if (NOT State->SaveProbe.IsValid())
+    { AddError(TEXT("EntityTag MP: cannot allocate save completion recorder")); return false; }
+    const auto ConstructSeed = ck::auto_test::entity_tag_seed::Get_ConstructSeedTag();
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, FString{MapPath}, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+        {
+            if (NOT State->EnableSeamless())
+            { AddError(TEXT("EntityTag MP: cannot enable PIE seamless travel")); return; }
+            auto SpawnInfo = FActorSpawnParameters{};
+            SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+            if (InServer->SpawnActor<ACk_AutoTest_EntityTagSeedProbe>(
+                    ACk_AutoTest_EntityTagSeedProbe::StaticClass(), FTransform{EntityTagParity_SeedLocation}, SpawnInfo) == nullptr ||
+                InServer->SpawnActor<ACk_AutoTest_EntityTagResurrectProbe>(
+                    ACk_AutoTest_EntityTagResurrectProbe::StaticClass(), FTransform{EntityTagParity_ResurrectLocation}, SpawnInfo) == nullptr)
+            { AddError(TEXT("EntityTag MP: probe pair spawn failed")); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, ConstructSeed](UWorld* InServer) -> void
+        {
+            if (NOT ProbePairReady(InServer))
+            { AddError(TEXT("EntityTag MP: probe pair unresolved before mutation")); return; }
+            auto Seed = EntityTagParity_ResolveEntity(
+                EntityTagParity_FindProbe<ACk_AutoTest_EntityTagSeedProbe>(InServer));
+            auto Resurrect = EntityTagParity_ResolveEntity(
+                EntityTagParity_FindProbe<ACk_AutoTest_EntityTagResurrectProbe>(InServer));
+            UCk_Utils_EntityTag_UE::Add(Seed, EntityTagParity_Alpha);
+            for (auto Index = 0; Index < 3; ++Index)
+            { UCk_Utils_EntityTag_UE::Add(Seed, EntityTagParity_Beta); }
+            UCk_Utils_EntityTag_UE::Add(Seed, EntityTagParity_Gamma);
+            UCk_Utils_EntityTag_UE::Request_TryRemove(Seed, EntityTagParity_Gamma, {});
+            UCk_Utils_EntityTag_UE::Request_TryRemove(Resurrect, ConstructSeed, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State, ConstructSeed](UWorld* InServer) -> void
+        {
+            auto* Sub = EntityTagParity_Subsystem(InServer);
+            auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+            if (NOT ProbePairReady(InServer) || Sub == nullptr || Client == nullptr)
+            { AddError(TEXT("EntityTag MP: pre-save prerequisites missing")); return; }
+            const auto Seed = EntityTagParity_ResolveEntity(
+                EntityTagParity_FindProbe<ACk_AutoTest_EntityTagSeedProbe>(InServer));
+            const auto Resurrect = EntityTagParity_ResolveEntity(
+                EntityTagParity_FindProbe<ACk_AutoTest_EntityTagResurrectProbe>(InServer));
+            TestEqual(TEXT("EntityTag MP pre-save: ConstructSeed is one"), EntityTagParity_CountOf(Seed, ConstructSeed), 1);
+            TestEqual(TEXT("EntityTag MP pre-save: Beta is three"), EntityTagParity_CountOf(Seed, EntityTagParity_Beta), 3);
+            TestFalse(TEXT("EntityTag MP pre-save: removed seed absent so Produce is unset"),
+                UCk_Utils_EntityTag_UE::Has(Resurrect, ConstructSeed));
+            State->PreServer = InServer;
+            State->PreClient = Client;
+            State->SaveProbe->Clear();
+            auto Completion = FCk_Delegate_OnSaveComplete{};
+            Completion.BindDynamic(State->SaveProbe.Get(), &UCkSnapshot_SaveCompletionProbe::OnSaveComplete);
+            Sub->Request_Save(Slot, Completion);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+        { return State->SaveProbe.IsValid() && State->SaveProbe->HasFreshSuccess(); }),
+        30.0, TEXT("EntityTag MP cycle 1: fresh save callback reports Success exactly once")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([this, State]() -> bool
+        {
+            if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+            TestEqual(TEXT("EntityTag MP cycle 1: save callback fires exactly once"), State->SaveProbe->CallbackCount, 1);
+            TestTrue(TEXT("EntityTag MP cycle 1: disk-write result is Success"),
+                State->SaveProbe->Result == ECk_SnapshotResult::Success);
+            return State->SaveProbe->HasFreshSuccess();
+        }), TEXT("EntityTag MP: only a newly successful first save may be loaded")));
+
+    // Two independent production loads catch monotonic ConstructSeed inflation.
+    for (auto Cycle = 1; Cycle <= 2; ++Cycle)
+    {
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+            FCk_NetAutoTest_ServerAction::CreateLambda([this, State, Cycle](UWorld* InServer) -> void
+            {
+                if (NOT State->SaveProbe.IsValid() || NOT State->SaveProbe->HasFreshSuccess() ||
+                    State->PreServer.Get() != InServer)
+                { AddError(TEXT("EntityTag MP: fresh successful save required before load")); return; }
+                auto* Sub = EntityTagParity_Subsystem(InServer);
+                if (Sub == nullptr) { AddError(TEXT("EntityTag MP: subsystem missing before load")); return; }
+                Sub->Request_Load(Slot, FCk_Delegate_OnLoadComplete{});
+                TestTrue(*FString::Printf(TEXT("EntityTag MP cycle %d: load is asynchronous"), Cycle),
+                    Sub->Get_IsLoadInProgress());
+            })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(
+            FCk_NetAutoTest_Assertion::CreateLambda([State]() -> bool
+            {
+                auto* Server = ck::auto_test::net::Get_ServerWorld();
+                auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+                if (Server == nullptr || Client == nullptr || Server == State->PreServer.Get() ||
+                    Client == State->PreClient.Get() || NOT Server->HasBegunPlay() || NOT Client->HasBegunPlay() ||
+                    MapName(Server) != MapPath || MapName(Client) != MapPath) { return false; }
+                auto* Sub = EntityTagParity_Subsystem(Server);
+                return Sub != nullptr && NOT Sub->Get_IsLoadInProgress() && ProbePairReady(Server);
+            }), 60.0f));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+            FCk_NetAutoTest_Assertion::CreateLambda([this, State, ExpectedMode, Cycle]() -> bool
+            {
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+                auto* Server = ck::auto_test::net::Get_ServerWorld();
+                auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+                if (Server == nullptr || Client == nullptr)
+                { AddError(TEXT("EntityTag MP: post-travel server or client missing")); return false; }
+                TestEqual(TEXT("EntityTag MP: exactly two post-travel worlds"),
+                    ck::auto_test::net::Get_AllPIEWorlds().Num(), 2);
+                TestTrue(TEXT("EntityTag MP: server world changed"), Server != State->PreServer.Get());
+                TestTrue(TEXT("EntityTag MP: client reconnected"), Client != State->PreClient.Get());
+                TestTrue(TEXT("EntityTag MP: server topology retained"), Server->GetNetMode() == ExpectedMode);
+                TestTrue(TEXT("EntityTag MP: client mode retained"), Client->GetNetMode() == NM_Client);
+                TestTrue(TEXT("EntityTag MP: destination server map"), MapName(Server) == MapPath);
+                TestTrue(TEXT("EntityTag MP: destination client map"), MapName(Client) == MapPath);
+                return CheckTags(*this, Server, Cycle);
+            }), TEXT("EntityTag MP: connected-client travel retains exact server tag values")));
+
+        if (Cycle == 1)
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InServer) -> void
+                {
+                    State->SaveProbe->Clear();
+                    auto* Sub = EntityTagParity_Subsystem(InServer);
+                    auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+                    if (Sub == nullptr || Client == nullptr)
+                    { AddError(TEXT("EntityTag MP: cycle-two save prerequisites missing")); return; }
+                    State->PreServer = InServer;
+                    State->PreClient = Client;
+                    auto Completion = FCk_Delegate_OnSaveComplete{};
+                    Completion.BindDynamic(State->SaveProbe.Get(), &UCkSnapshot_SaveCompletionProbe::OnSaveComplete);
+                    Sub->Request_Save(Slot, Completion);
+                })));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+                FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+                { return State->SaveProbe.IsValid() && State->SaveProbe->HasFreshSuccess(); }),
+                30.0, TEXT("EntityTag MP cycle 2: fresh save callback reports Success exactly once")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+                FCk_NetAutoTest_Assertion::CreateLambda([this, State]() -> bool
+                {
+                    if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+                    TestEqual(TEXT("EntityTag MP cycle 2: save callback fires exactly once"), State->SaveProbe->CallbackCount, 1);
+                    TestTrue(TEXT("EntityTag MP cycle 2: disk-write result is Success"),
+                        State->SaveProbe->Result == ECk_SnapshotResult::Success);
+                    return State->SaveProbe->HasFreshSuccess();
+                }), TEXT("EntityTag MP: only a newly successful second save may be loaded")));
+        }
+    }
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        {
+            auto Seed = EntityTagParity_ResolveEntity(
+                EntityTagParity_FindProbe<ACk_AutoTest_EntityTagSeedProbe>(InServer));
+            if (ck::Is_NOT_Valid(Seed)) { AddError(TEXT("EntityTag MP: seed missing for Beta flip")); return; }
+            UCk_Utils_EntityTag_UE::Request_TryRemove(Seed, EntityTagParity_Beta, {});
+            UCk_Utils_EntityTag_UE::Request_TryRemove(Seed, EntityTagParity_Beta, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        {
+            auto Seed = EntityTagParity_ResolveEntity(
+                EntityTagParity_FindProbe<ACk_AutoTest_EntityTagSeedProbe>(InServer));
+            if (ck::Is_NOT_Valid(Seed)) { AddError(TEXT("EntityTag MP: seed missing after two Beta removes")); return; }
+            TestEqual(TEXT("EntityTag MP: Beta count one after two removes"), EntityTagParity_CountOf(Seed, EntityTagParity_Beta), 1);
+            TestTrue(TEXT("EntityTag MP: Beta still present after two removes"),
+                UCk_Utils_EntityTag_UE::Has(Seed, EntityTagParity_Beta));
+            UCk_Utils_EntityTag_UE::Request_TryRemove(Seed, EntityTagParity_Beta, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        {
+            const auto Seed = EntityTagParity_ResolveEntity(
+                EntityTagParity_FindProbe<ACk_AutoTest_EntityTagSeedProbe>(InServer));
+            if (ck::Is_NOT_Valid(Seed)) { AddError(TEXT("EntityTag MP: seed missing after third Beta remove")); return; }
+            TestEqual(TEXT("EntityTag MP: Beta count zero after third remove"), EntityTagParity_CountOf(Seed, EntityTagParity_Beta), 0);
+            TestFalse(TEXT("EntityTag MP: third remove flips Beta off"),
+                UCk_Utils_EntityTag_UE::Has(Seed, EntityTagParity_Beta));
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([State]() -> bool
+        { State->SaveProbe.Reset(); State->RestoreSeamless(); return true; }),
+        TEXT("EntityTag MP: release save callback recorder")));
     return true;
 }
 

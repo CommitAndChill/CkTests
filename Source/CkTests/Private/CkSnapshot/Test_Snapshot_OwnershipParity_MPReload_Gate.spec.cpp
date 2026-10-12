@@ -43,7 +43,7 @@ namespace
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_OwnershipParity_MPReload_Gate,
     "Ck.Snapshot.Parity.OwnershipAndTransientRoot_MPReload",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -133,7 +133,7 @@ bool FCkSnapshot_OwnershipParity_MPReload_Gate::RunTest(const FString& Parameter
         return true;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

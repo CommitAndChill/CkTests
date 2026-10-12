@@ -45,12 +45,12 @@ namespace ck_test_ordering_beginplay
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_Ordering_BeginPlayObservesConstructDefaults,
     "Ck.Snapshot.Ordering.BeginPlayObservesConstructDefaults",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_Ordering_BeginPlayObservesConstructDefaults::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_Ordering_BeginPlayObservesConstructDefaults::RunTest(const FString& Parameters)
 {
     using namespace ck_test_ordering_beginplay;
     using namespace ck_autotest_snapshot_ordering;
@@ -138,7 +138,7 @@ bool FCk_Snapshot_Ordering_BeginPlayObservesConstructDefaults::RunTest(const FSt
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 
