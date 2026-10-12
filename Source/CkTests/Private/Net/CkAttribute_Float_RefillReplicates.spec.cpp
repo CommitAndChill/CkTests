@@ -53,7 +53,7 @@ namespace
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_Float_Refill_Replicates,
     "Ck.Attribute.Net.Float_Refill_Replicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -76,7 +76,7 @@ bool FCkAttributeNet_Float_Refill_Replicates::RunTest(const FString& Parameters)
 
     auto OwnerSlot = MakeShared<FCk_Handle>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // ---- Stage 1 — server spawns the refill subject; entity-script Construct adds the float ---------------------

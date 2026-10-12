@@ -39,7 +39,7 @@ namespace
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_Float_ModifierRemove_Replicates,
     "Ck.Attribute.Net.Float_ModifierRemove_Replicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -64,7 +64,7 @@ bool FCkAttributeNet_Float_ModifierRemove_Replicates::RunTest(const FString& Par
     // modifier FinalValue, not the modifier itself), so storing this server handle is fine.
     auto ModifierSlot = MakeShared<FCk_Handle_FloatAttributeModifier>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // ---- Stage 1 — spawn the subject; entity-script Construct adds the float attribute -------------------------
