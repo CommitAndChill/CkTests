@@ -76,6 +76,16 @@ struct FCkInputGym_StationSpawnParams
 
     UPROPERTY()
     FString StationDescription;
+
+    UPROPERTY()
+    APlayerController OwningPlayerController;
+}
+
+USTRUCT()
+struct FCkInputGym_StationOwner
+{
+    UPROPERTY()
+    APlayerController PlayerController;
 }
 
 //----------------------------------------------------------------------------
@@ -180,9 +190,20 @@ namespace input_gym
     // from the loop that was running a moment ago.
     const FKey k_PersistMarkerKey = EKeys::Y;
 
-    APlayerController Get_LocalPlayerController()
+    APlayerController Get_LocalPlayerController(APlayerController InOwner, UObject InContext)
     {
-        return Gameplay::GetPlayerController(0);
+        if (ck::Is_NOT_Valid(InOwner) || ck::Is_NOT_Valid(InContext) ||
+            ck::Is_NOT_Valid(InOwner.GetWorld()) || ck::Is_NOT_Valid(InContext.GetWorld()) ||
+            InOwner.IsLocalController() == false || InOwner.GetWorld() != InContext.GetWorld())
+        { return nullptr; }
+        return InOwner;
+    }
+
+    FName Get_PrivateTag(APlayerController InOwner, FName InTag)
+    {
+        if (ck::Is_NOT_Valid(InOwner))
+        { return NAME_None; }
+        return FName(f"{InTag.ToString()}_{InOwner.GetName()}");
     }
 
     // Hands IMC_CkTests_KeyBinding to the user settings so its player-mappable
@@ -193,7 +214,9 @@ namespace input_gym
     // and changes nothing, which is why the result is not treated as a failure.
     bool Request_RegisterMappingContext(APlayerController InPlayerController)
     {
-        if (ck::Is_NOT_Valid(InPlayerController))
+        if (ck::Is_NOT_Valid(InPlayerController) ||
+            InPlayerController.IsLocalController() == false ||
+            ck::Is_NOT_Valid(InPlayerController.GetWorld()))
         { return false; }
 
         auto UserSettings = utils_key_binding::Get_InputUserSettings(InPlayerController);
@@ -209,7 +232,9 @@ namespace input_gym
     // SaveKeyBindings then overwrites whatever an earlier remap wrote to disk.
     void Request_ResetAllAndSave(APlayerController InPlayerController)
     {
-        if (ck::Is_NOT_Valid(InPlayerController))
+        if (ck::Is_NOT_Valid(InPlayerController) ||
+            InPlayerController.IsLocalController() == false ||
+            ck::Is_NOT_Valid(InPlayerController.GetWorld()))
         { return; }
 
         utils_key_binding::ResetAllToDefaults(InPlayerController);
@@ -626,30 +651,15 @@ namespace input_gym
     }
 
     //------------------------------------------------------------------------
-    // STATION LOOKUP + VERDICT TRANSPORT
+    // STATION VERDICT TRANSPORT
     //------------------------------------------------------------------------
 
-    // Any entity in the world works as the query anchor - the tag store is
-    // world-wide, which is what lets a demo step reach a station it holds no
-    // reference to.
-    FCk_Handle TryGet_TaggedStation(FCk_Handle InAnyEntity, FName InStationTag)
+    void Write_StepVerdict(FCk_Handle InStation, FString InStepLabel, TArray<FCkGym_ColoredLine>& InLines)
     {
-        if (ck::Is_NOT_Valid(InAnyEntity))
-        { return FCk_Handle(); }
-
-        auto Entities = utils_entity_tag::ForEach_Entity(InAnyEntity, InStationTag);
-        if (Entities.Num() == 0)
-        { return FCk_Handle(); }
-
-        return Entities[0];
-    }
-
-    void Write_StepVerdict(FCk_Handle InAnyEntity, FName InStationTag, FString InStepLabel, TArray<FCkGym_ColoredLine>& InLines)
-    {
-        auto Station = TryGet_TaggedStation(InAnyEntity, InStationTag);
-        if (ck::Is_NOT_Valid(Station))
+        if (ck::Is_NOT_Valid(InStation))
         { return; }
 
+        auto Station = InStation;
         auto& Verdict = Station.AddOrGet_Fragment(FCkInputGym_StepVerdict);
         Verdict.StepLabel = InStepLabel;
         Verdict.Lines = InLines;

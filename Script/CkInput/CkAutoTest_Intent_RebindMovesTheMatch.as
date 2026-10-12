@@ -32,6 +32,7 @@
 
 class UCk_AutoTest_Intent_RebindMovesTheMatch : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
     default _TimeoutSeconds = 25.0f;
 
     private FCk_Handle                _Owner;

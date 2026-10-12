@@ -27,6 +27,7 @@
 
 class UCk_AutoTest_Input_SwapSymmetry : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
     {

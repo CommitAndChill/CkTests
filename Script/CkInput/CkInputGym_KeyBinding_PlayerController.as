@@ -51,6 +51,7 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     private TArray<FCkGym_ColoredLine> _GlyphReportLines;
 
     private bool _TeardownArmed = true;
+    private bool _InputReady = false;
 
     // Mirror of the demo state machine's auto flag. The machine lives on the
     // Remap + Conflict station entity behind a broadcast message with no
@@ -80,13 +81,44 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        input_gym::Request_RegisterMappingContext(this);
+        if (IsLocalController())
+        {
+            _InputReady = input_gym::Request_RegisterMappingContext(this);
+            if (_InputReady == false)
+            { ck::Error("[InputGym] Local input settings unavailable; station startup is disabled"); }
+        }
         Super::BeginPlay();
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void EndPlay(EEndPlayReason InReason)
+    {
+        if (_InputReady && _TeardownArmed &&
+            ck::IsValid(input_gym::Get_LocalPlayerController(this, this)))
+        { input_gym::Request_ResetAllAndSave(this); }
+        Super::EndPlay(InReason);
+    }
+
+    FCk_Handle Get_StationLifetimeOwner() override
+    {
+        if (_InputReady == false ||
+            ck::Is_NOT_Valid(input_gym::Get_LocalPlayerController(this, this)))
+        { return FCk_Handle(); }
+        return ck::ToEntity(this);
+    }
+
+    FString Get_StationTag(FString InTag) override
+    {
+        return f"{InTag}_{GetName()}";
     }
 
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
         auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
+        if (_InputReady == false ||
+            ck::Is_NOT_Valid(input_gym::Get_LocalPlayerController(this, this)) ||
+            ck::Is_NOT_Valid(ck::ToEntity(this)))
+        { return Stations; }
 
         Stations.Add(MakeStationPayload(n"Gym.Input.ResetPersistence", "Reset + Persistence",
             "Putting keys back, and proving a change survives a restart."));
@@ -109,7 +141,7 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     private FCkGym_Station_SpawnParams_Payload MakeStationPayload(FName InTag, FString InTitle, FString InDesc)
     {
         auto Station = FCkGym_Station_SpawnParams_Payload();
-        Station.Tags.Add(InTag);
+        Station.Tags.Add(FName(Get_StationTag(InTag.ToString())));
         Station.Title = FText::FromString(InTitle);
         auto Desc = TArray<FText>();
         Desc.Add(FText::FromString(InDesc));
@@ -123,9 +155,10 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     // Conflict station enters its first step and starts moving keys.
     void Request_StartGym() override
     {
-        // Idempotent, and the gym can be restarted through Ck_Gym_Restart - a
-        // second registration of an already-registered context is a no-op.
-        input_gym::Request_RegisterMappingContext(this);
+        if (_InputReady == false ||
+            ck::Is_NOT_Valid(input_gym::Get_LocalPlayerController(this, this)) ||
+            ck::Is_NOT_Valid(ck::ToEntity(this)))
+        { return; }
 
         SpawnStation("Gym.Input.ResetPersistence", "RESET + PERSISTENCE",
             UCk_EntityScript_InputGym_ResetPersistence,
@@ -158,6 +191,7 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
         Params.InitialTransform = Get_StationAnchorTransform(InTag, ECk_GymStation_Anchor::PanelCenter);
         Params.StationTitle = InTitle;
         Params.StationDescription = InDescription;
+        Params.OwningPlayerController = this;
 
         utils_entity_script::Request_SpawnEntity(
             Get_StationHandle(InTag),
@@ -176,7 +210,8 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         _DemoRunning = InRunning;
 
-        auto Entities = utils_entity_tag::ForEach_Entity(ck::TransientEntity(), input_gym::k_Tag_RemapConflict);
+        auto Entities = utils_entity_tag::ForEach_Entity(ck::ToEntity(this),
+            input_gym::Get_PrivateTag(this, input_gym::k_Tag_RemapConflict));
         for (auto Entity : Entities)
         {
             utils_messaging::Broadcast(Entity, FCk_Message_Gym_AutoSet(InRunning));
@@ -191,7 +226,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto Lines = TArray<FCkGym_ColoredLine>();
 
         input_gym::Add_MappingRows(Lines, PlayerController);
@@ -208,7 +245,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         Request_RemapJumpTo(PlayerController, input_gym::k_FreeKey, "Move Jump to a free key");
     }
 
@@ -216,7 +255,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto CrouchKey = utils_key_binding::Get_KeyForMapping(
             PlayerController, input_gym::k_Mapping_Crouch, EPlayerMappableKeySlot::First);
 
@@ -227,7 +268,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto InteractKey = utils_key_binding::Get_KeyForMapping(
             PlayerController, input_gym::k_Mapping_Interact, EPlayerMappableKeySlot::First);
 
@@ -266,7 +309,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto Lines = TArray<FCkGym_ColoredLine>();
 
         auto JumpKey = utils_key_binding::Get_KeyForMapping(
@@ -304,7 +349,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto Lines = TArray<FCkGym_ColoredLine>();
 
         auto CrouchKey = utils_key_binding::Get_KeyForMapping(
@@ -337,7 +384,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto Lines = TArray<FCkGym_ColoredLine>();
 
         auto Names = TArray<FName>();
@@ -378,7 +427,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto Expected = input_gym::Format_Key(
             input_gym::Get_DefaultKeyForMapping(PlayerController, input_gym::k_Mapping_Jump));
 
@@ -396,7 +447,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         utils_key_binding::ResetAllToDefaults(PlayerController);
 
         auto Lines = TArray<FCkGym_ColoredLine>();
@@ -412,7 +465,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         utils_key_binding::SaveKeyBindings(PlayerController);
 
         auto Lines = TArray<FCkGym_ColoredLine>();
@@ -426,7 +481,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto MarkerText = input_gym::Format_Key(input_gym::k_PersistMarkerKey);
 
         FGameplayTagContainer FailureReason;
@@ -475,7 +532,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         input_gym::Request_ResetAllAndSave(PlayerController);
         _TeardownArmed = true;
 
@@ -496,7 +555,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
     {
         Request_SetDemoRunning(false);
 
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(this, this);
+        if (ck::Is_NOT_Valid(PlayerController))
+        { return; }
         auto Lines = TArray<FCkGym_ColoredLine>();
         input_gym::Add_AllGlyphRows(Lines, PlayerController);
 
@@ -557,6 +618,9 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
 
     void Request_ControlActivated(int32 InRowIndex) override
     {
+        if (_InputReady == false ||
+            ck::Is_NOT_Valid(input_gym::Get_LocalPlayerController(this, this)))
+        { return; }
         // Row 0 is the DEMO header; the headers at 2, 6, 10 and 17 hold no key.
         if (InRowIndex == 1) { Request_SetDemoRunning(_DemoRunning == false); }
         else if (InRowIndex == 3) { Request_RemapFree(); }
@@ -616,86 +680,86 @@ class ACk_InputGym_KeyBinding_PlayerController : ACk_Gym_Base_PlayerController
 
 namespace input_gym_pc
 {
-    ACk_InputGym_KeyBinding_PlayerController TryGet_GymPlayerController()
+    ACk_InputGym_KeyBinding_PlayerController TryGet_GymPlayerController(APlayerController InOwner, UObject InContext)
     {
-        return Cast<ACk_InputGym_KeyBinding_PlayerController>(input_gym::Get_LocalPlayerController());
+        return Cast<ACk_InputGym_KeyBinding_PlayerController>(input_gym::Get_LocalPlayerController(InOwner, InContext));
     }
 
-    FString Get_RemapReportLabel()
+    FString Get_RemapReportLabel(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return "(gym PlayerController unavailable)"; }
 
         return GymPlayerController.Get_RemapReportLabel();
     }
 
-    FString Get_ResetReportLabel()
+    FString Get_ResetReportLabel(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return "(gym PlayerController unavailable)"; }
 
         return GymPlayerController.Get_ResetReportLabel();
     }
 
-    FString Get_DumpReportLabel()
+    FString Get_DumpReportLabel(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return "(gym PlayerController unavailable)"; }
 
         return GymPlayerController.Get_DumpReportLabel();
     }
 
-    FString Get_GlyphReportLabel()
+    FString Get_GlyphReportLabel(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return "(gym PlayerController unavailable)"; }
 
         return GymPlayerController.Get_GlyphReportLabel();
     }
 
-    TArray<FCkGym_ColoredLine> Get_RemapReportLines()
+    TArray<FCkGym_ColoredLine> Get_RemapReportLines(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return TArray<FCkGym_ColoredLine>(); }
 
         return GymPlayerController.Get_RemapReportLines();
     }
 
-    TArray<FCkGym_ColoredLine> Get_ResetReportLines()
+    TArray<FCkGym_ColoredLine> Get_ResetReportLines(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return TArray<FCkGym_ColoredLine>(); }
 
         return GymPlayerController.Get_ResetReportLines();
     }
 
-    TArray<FCkGym_ColoredLine> Get_DumpReportLines()
+    TArray<FCkGym_ColoredLine> Get_DumpReportLines(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return TArray<FCkGym_ColoredLine>(); }
 
         return GymPlayerController.Get_DumpReportLines();
     }
 
-    TArray<FCkGym_ColoredLine> Get_GlyphReportLines()
+    TArray<FCkGym_ColoredLine> Get_GlyphReportLines(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return TArray<FCkGym_ColoredLine>(); }
 
         return GymPlayerController.Get_GlyphReportLines();
     }
 
-    bool Get_IsTeardownArmed()
+    bool Get_IsTeardownArmed(APlayerController InOwner, UObject InContext)
     {
-        auto GymPlayerController = TryGet_GymPlayerController();
+        auto GymPlayerController = TryGet_GymPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(GymPlayerController))
         { return true; }
 
@@ -706,9 +770,9 @@ namespace input_gym_pc
     // customized. No controller means the settings object is already
     // unreachable, so there is nothing left to reset; a failed cast is treated
     // as ARMED, because leaking a rebind is the worse of the two outcomes.
-    void Request_TeardownIfArmed()
+    void Request_TeardownIfArmed(APlayerController InOwner, UObject InContext)
     {
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(InOwner, InContext);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 

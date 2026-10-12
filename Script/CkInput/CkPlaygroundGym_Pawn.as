@@ -708,7 +708,7 @@ class ACk_PlaygroundGym_Pawn : ACk_Gym_Base_Pawn
         { return; }
 
         auto PC = Cast<APlayerController>(GetController());
-        if (PC == nullptr)
+        if (ck::Is_NOT_Valid(PC) || !PC.IsLocalController() || PC.GetControlledPawn() != this)
         { return; }
 
         const auto YawRot  = FRotator(0.0f, utils_camera::Get_ViewRotation(_Camera).Yaw, 0.0f);
@@ -820,7 +820,7 @@ class ACk_PlaygroundGym_Pawn : ACk_Gym_Base_Pawn
     int32 Request_ResolveProjectileImpact()
     {
         const auto BlockRun = playground_gym::Get_HeldRunFrames(
-            playground_gym::TryGet_Sampler(),
+            playground_gym::TryGet_Sampler(Cast<APlayerController>(GetController()), this),
             playground_gym::k_Key_Block.GetKeyName());
 
         _ProjectileBeatTicksRemaining = playground_gym_kit::k_ProjectileBeatTicks;
@@ -887,7 +887,7 @@ class ACk_PlaygroundGym_Pawn : ACk_Gym_Base_Pawn
     {
         DoTryCompose();
 
-        auto Sampler = playground_gym::TryGet_Sampler();
+        auto Sampler = playground_gym::TryGet_Sampler(Cast<APlayerController>(GetController()), this);
 
         const auto LightRun = playground_gym::Get_HeldRunFrames(Sampler, playground_gym::k_Key_Light.GetKeyName());
         const auto HeavyRun = playground_gym::Get_HeldRunFrames(Sampler, playground_gym::k_Key_Heavy.GetKeyName());
@@ -927,10 +927,10 @@ class ACk_PlaygroundGym_Pawn : ACk_Gym_Base_Pawn
 
         // Called from here as well as from the PlayerController's timer tick, so
         // the two never have to be ordered against each other.
-        if (playground_gym::Request_EnsureSourceComposed() == false)
+        if (playground_gym::Request_EnsureSourceComposed(Cast<APlayerController>(GetController()), this) == false)
         { return; }
 
-        auto Source = playground_gym::TryGet_PlayerSource();
+        auto Source = playground_gym::TryGet_PlayerSource(Cast<APlayerController>(GetController()), this);
 
         if (ck::Is_NOT_Valid(_Layer))
         {
@@ -965,7 +965,7 @@ class ACk_PlaygroundGym_Pawn : ACk_Gym_Base_Pawn
         // are terminals exactly as much as L is. The block key is NOT waited on:
         // no move terminates on it, so it cannot resolve or fail to resolve a
         // terminal.
-        auto ButtonMap = playground_gym::TryGet_ButtonMap();
+        auto ButtonMap = playground_gym::TryGet_ButtonMap(Cast<APlayerController>(GetController()), this);
 
         if (playground_gym::Get_IsKeyMinted(ButtonMap, playground_gym::k_Key_Light) == false)
         { return; }
@@ -1234,7 +1234,7 @@ class ACk_PlaygroundGym_Pawn : ACk_Gym_Base_Pawn
     {
         if (_State == playground_gym_kit::k_State_Idle)
         {
-            const auto LiveFrame = playground_gym::Get_LiveFrameIndex(playground_gym::TryGet_Sampler());
+            const auto LiveFrame = playground_gym::Get_LiveFrameIndex(playground_gym::TryGet_Sampler(Cast<APlayerController>(GetController()), this));
 
             if (_GraceUntilFrame >= 0 && LiveFrame <= _GraceUntilFrame && InFamily == _GraceFamily)
             {
@@ -1311,7 +1311,7 @@ class ACk_PlaygroundGym_Pawn : ACk_Gym_Base_Pawn
         // special nor a combo arms one, because neither is a chain step.
         if (Step >= 1 && Step <= 2)
         {
-            _GraceUntilFrame = playground_gym::Get_LiveFrameIndex(playground_gym::TryGet_Sampler())
+            _GraceUntilFrame = playground_gym::Get_LiveFrameIndex(playground_gym::TryGet_Sampler(Cast<APlayerController>(GetController()), this))
                 + playground_gym_kit::k_ChainGraceFrames;
             _GraceFamily   = Get_StateFamily();
             _GraceNextStep = Step + 1;
@@ -1374,7 +1374,7 @@ class ACk_PlaygroundGym_Pawn : ACk_Gym_Base_Pawn
         _PendingSwing_Extent = Get_ChainExtent(InFamily, InStep);
         _PendingSwing_Colour = Get_ChainColour(InFamily, InStep);
 
-        _StepEntryFrame = playground_gym::Get_LiveFrameIndex(playground_gym::TryGet_Sampler());
+        _StepEntryFrame = playground_gym::Get_LiveFrameIndex(playground_gym::TryGet_Sampler(Cast<APlayerController>(GetController()), this));
     }
 
     private int32 Get_ChainState(int32 InFamily, int32 InStep) const

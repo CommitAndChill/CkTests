@@ -38,12 +38,23 @@ class UCk_EntityScript_InputGym_Inspection : UCk_GenericEntityScript_UE
     UPROPERTY(ExposeOnSpawn)
     FString StationDescription;
 
+    UPROPERTY(ExposeOnSpawn)
+    APlayerController OwningPlayerController;
+
     UFUNCTION(BlueprintOverride)
     ECk_EntityScript_ConstructionFlow
     DoConstruct(FCk_Handle& InHandle)
     {
+        if (ck::Is_NOT_Valid(input_gym::Get_LocalPlayerController(OwningPlayerController, this)))
+        {
+            ck::Error("[InputGym] Invalid owning local controller; station construction rejected");
+            utils_entity_lifetime::Request_DestroyEntity(InHandle);
+            return ECk_EntityScript_ConstructionFlow::Continue;
+        }
+        auto& Owner = InHandle.AddOrGet_Fragment(FCkInputGym_StationOwner);
+        Owner.PlayerController = OwningPlayerController;
         utils_transform::Add(InHandle, InitialTransform, ECk_Replication::DoesNotReplicate);
-        utils_entity_tag::Add(InHandle, input_gym::k_Tag_Inspection);
+        utils_entity_tag::Add(InHandle, input_gym::Get_PrivateTag(OwningPlayerController, input_gym::k_Tag_Inspection));
         utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(this, n"OnDisplayTick"));
 
         return ECk_EntityScript_ConstructionFlow::Finished;
@@ -52,7 +63,7 @@ class UCk_EntityScript_InputGym_Inspection : UCk_GenericEntityScript_UE
     UFUNCTION()
     private void OnDisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
     {
-        auto PlayerController = input_gym::Get_LocalPlayerController();
+        auto PlayerController = input_gym::Get_LocalPlayerController(OwningPlayerController, this);
         if (ck::Is_NOT_Valid(PlayerController))
         { return; }
 
@@ -110,9 +121,9 @@ class UCk_EntityScript_InputGym_Inspection : UCk_GenericEntityScript_UE
     private void Add_LastCommand(TArray<FCkGym_ColoredLine>& OutLines)
     {
         input_gym::Add_Spacer(OutLines, gym_palette::White);
-        input_gym::Add_Line(OutLines, f"LAST COMMAND - {input_gym_pc::Get_DumpReportLabel()}", gym_palette::White);
+        input_gym::Add_Line(OutLines, f"LAST COMMAND - {input_gym_pc::Get_DumpReportLabel(OwningPlayerController, this)}", gym_palette::White);
 
-        auto Report = input_gym_pc::Get_DumpReportLines();
+        auto Report = input_gym_pc::Get_DumpReportLines(OwningPlayerController, this);
         input_gym::Add_Lines(OutLines, Report);
 
         input_gym::Add_Spacer(OutLines, gym_palette::White);
