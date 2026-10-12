@@ -30,6 +30,7 @@
 
 class UCk_AutoTest_RenderTarget_GpuRoundTrip_BytePreserving : UCk_AutoTest_Base
 {
+    default _RequiresRenderer = true;
     default _TimeoutSeconds = 10.0f;
 
     private FCk_Handle _TestEntity;
@@ -65,8 +66,7 @@ class UCk_AutoTest_RenderTarget_GpuRoundTrip_BytePreserving : UCk_AutoTest_Base
 
         // The drawable target exists one tick after Add (Setup processor) - poll for setup
         // timing. (Render capability was already gated above; a missing target here past the
-        // window means Setup itself failed, which the bounded poll converts into a skip with
-        // a trace rather than a 10s silent timeout.)
+        // window means Setup itself failed; report a fixture failure after the bounded poll.)
         ScheduleTimer(0.1f, n"OnSetupPoll");
     }
 
@@ -80,8 +80,7 @@ class UCk_AutoTest_RenderTarget_GpuRoundTrip_BytePreserving : UCk_AutoTest_Base
             _SetupPolls++;
             if (_SetupPolls >= 10)
             {
-                ck::Trace("[GpuRoundTrip] no drawable target after 1s - cannot render on this process (e.g. -nullrhi); skipping");
-                FinishSuccess();
+                FinishFailure("[GpuRoundTrip] rendering is available but no drawable target was created within 1s");
                 return;
             }
             ScheduleTimer(0.1f, n"OnSetupPoll");

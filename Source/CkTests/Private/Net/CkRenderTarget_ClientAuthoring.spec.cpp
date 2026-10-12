@@ -88,7 +88,7 @@ namespace ck_render_target_clientauth_spec
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRenderTargetNet_ClientAuth_DrawReachesServerAndOtherClient,
     "Ck.RenderTarget.Net.ClientAuth_DrawReachesServerAndOtherClient",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -100,7 +100,7 @@ bool FCkRenderTargetNet_ClientAuth_DrawReachesServerAndOtherClient::RunTest(cons
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(3, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(3, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -163,7 +163,7 @@ bool FCkRenderTargetNet_ClientAuth_DrawReachesServerAndOtherClient::RunTest(cons
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRenderTargetNet_ClientAuth_UploadRoundTrip,
     "Ck.RenderTarget.Net.ClientAuth_UploadRoundTrip",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -175,7 +175,7 @@ bool FCkRenderTargetNet_ClientAuth_UploadRoundTrip::RunTest(const FString& Param
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -237,7 +237,7 @@ bool FCkRenderTargetNet_ClientAuth_UploadRoundTrip::RunTest(const FString& Param
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRenderTargetNet_ClientAuth_UploadDisallowed_RejectedServerSide,
     "Ck.RenderTarget.Net.ClientAuth_UploadDisallowed_RejectedServerSide",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -249,7 +249,7 @@ bool FCkRenderTargetNet_ClientAuth_UploadDisallowed_RejectedServerSide::RunTest(
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     // DEFAULT subject — _ClientAuthoring stays Disallowed.

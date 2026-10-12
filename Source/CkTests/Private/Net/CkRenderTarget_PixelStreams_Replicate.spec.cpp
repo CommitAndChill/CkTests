@@ -95,7 +95,7 @@ namespace ck_render_target_pixel_spec
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRenderTargetNet_Pixel_FullSync_BaselineEstablished,
     "Ck.RenderTarget.Net.Pixel_FullSync_BaselineEstablished",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -107,7 +107,7 @@ bool FCkRenderTargetNet_Pixel_FullSync_BaselineEstablished::RunTest(const FStrin
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -169,7 +169,7 @@ bool FCkRenderTargetNet_Pixel_FullSync_BaselineEstablished::RunTest(const FStrin
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRenderTargetNet_Pixel_Delta_AfterBaseline,
     "Ck.RenderTarget.Net.Pixel_Delta_AfterBaseline",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -181,7 +181,7 @@ bool FCkRenderTargetNet_Pixel_Delta_AfterBaseline::RunTest(const FString& Parame
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -258,7 +258,7 @@ bool FCkRenderTargetNet_Pixel_Delta_AfterBaseline::RunTest(const FString& Parame
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkRenderTargetNet_Pixel_InstructionsBelowWatermark_Dropped,
     "Ck.RenderTarget.Net.Pixel_InstructionsBelowWatermark_Dropped",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -270,7 +270,7 @@ bool FCkRenderTargetNet_Pixel_InstructionsBelowWatermark_Dropped::RunTest(const 
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
