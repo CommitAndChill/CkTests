@@ -2,6 +2,8 @@
 
 Open **CkTests → CkUI → UI Authoring** in the gym selector. Its info panel offers **[1] Pause**, **[2] Settings**, and **[3] Inventory**. Close an active menu before selecting another shortcut. The project retains the previously approved 30 FPS Editor startup cap.
 
+The same gym now includes **[4] Gameplay inventory**, **[5] Save**, and **[6] Load** for a local-authority DataOnly inventory slice. Its [backend contract and validation evidence](GameplayInventoryProof/README.md) distinguish real ECS state and disk persistence from the original fixture, and keep packaged/process-restart acceptance explicit.
+
 **UI: Character & Equipment** is the next dark-fantasy proof: ten equipment slots, a six-column inventory, generated item/character art, native keyed drag/drop, rich comparison tooltips and owned custom-control focus. Its [breakdown and verification status](CharacterEquipmentProof/README.md) distinguish fixture behavior from shared pipeline additions.
 
 **UI: World Map** is a scripted Vesper city-map fixture with keyed objectives, services, hazards and a player marker. Its info panel exposes open/close, filters, reset, source reload, invalid-record rejection and a long-label exercise on **1–7**. The [proof, source contract and widget breakdown](WorldMapProof/README.md) define its original reference and authored state. The native map aspect-fits and clips its image, retains a local camera, and proposes marker selection to the script model. Route display is a straight illustrative vector, not pathfinding; normalized marker coordinates and a 1024-record cap bound this control. Source preflight and design dimensions do not establish native pixels, input behavior or packaged lookup; those require the proof's focused runtime receipt.
