@@ -1,4 +1,5 @@
 #include "CkSceneNode_NodeGraphTestAccess.h"
+#include "CkSceneNode_EcsRootsTestAccess.h"
 
 #include "CkSceneNode_ActorLedgerProbe.h"
 #include "CkSceneNodeGym_ActorLedger.h"
@@ -56,7 +57,6 @@ namespace ck_scene_node_graph_test
         FCk_Handle WorldRoot;
         FCk_Handle RootHandles[6];
         TArray<FSlot> Frozen;
-        bool bReentryObserved = false;
     };
 
     void Fail(FAutomationTestBase* Test, const TCHAR* Reason)
@@ -81,8 +81,9 @@ namespace ck_scene_node_graph_test
             ->GetDefaultObject<UCk_SceneNodeGym_WithActorScript_UE>();
         if (!IsValid(ProbeCDO) || !IsValid(ProbeCDO->Cube) ||
             !IsValid(ProbeCDO->Cube->GetStaticMesh()) ||
-            !IsValid(ScriptCDO) || ProbeCDO->GetIsReplicated() ||
-            ScriptCDO->Get_EffectiveReplication() != ECk_Replication::DoesNotReplicate)
+            !IsValid(ScriptCDO) || !ProbeCDO->GetIsReplicated() ||
+            ProbeCDO->IsReplicatingMovement() ||
+            ScriptCDO->Get_EffectiveReplication() != ECk_Replication::Replicates)
         { return false; }
         TArray<TSubclassOf<AActor>> Classes;
         Classes.Init(ACk_SceneNode_ActorLedgerProbe::StaticClass(), 17);
@@ -160,7 +161,7 @@ namespace ck_scene_node_graph_test
     }
 
     void Run(FAutomationTestBase* Test, const FString& Parameters,
-        bool bDestroyParentDuringFirstCommit)
+        bool bDestroyParentAfterComposition)
     {
         const auto State = MakeShared<FState>();
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(
@@ -180,7 +181,7 @@ namespace ck_scene_node_graph_test
             FCk_NetAutoTest_ServerAction::CreateLambda([Test, State](UWorld* World)
         {
             if (!SetupActorsAndRoots(*State, World))
-            { Fail(Test, TEXT("could not construct real actor cohort and six queued ECS roots")); }
+            { Fail(Test, TEXT("could not construct real actor cohort and seventeen queued ECS transforms")); }
         })));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
             FCk_NetAutoTest_Condition::CreateLambda([State]()
@@ -189,36 +190,16 @@ namespace ck_scene_node_graph_test
                 (IsValid(State->Roots.Get()) &&
                  UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsConstructionComplete(
                      State->Roots.Get()));
-        }), 20.0, TEXT("six real captured WithActor requests finish")));
+        }), 20.0, TEXT("seventeen real captured WithActor requests finish")));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
             FCk_NetAutoTest_ServerAction::CreateLambda(
-                [Test, State, bDestroyParentDuringFirstCommit](UWorld* World)
+                [Test, State, bDestroyParentAfterComposition](UWorld* World)
         {
             if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
             if (World != State->World.Get() || !CaptureRoots(*State))
             { Fail(Test, TEXT("six real source roots did not complete before graph admission")); return; }
             auto* Roots = State->Roots.Get();
-            auto* LostActor = State->Visuals[ActorRole[0] - 1].Get();
-            FDelegateHandle Observer;
-            if (bDestroyParentDuringFirstCommit)
-            {
-                if (!IsValid(LostActor))
-                { Fail(Test, TEXT("reentry parent actor is not live")); return; }
-                const FCk_Handle FirstRoot = State->RootHandles[0];
-                Observer = UCk_Utils_Transform_UE::Get_OnAdded().AddLambda(
-                    [State, LostActor, FirstRoot](const FCk_Handle_Transform& Added)
-                {
-                    if (State->bReentryObserved || !ck::IsValid(Added) ||
-                        !Added.Has<ck::FFragment_LifetimeOwner>() ||
-                        Added.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != FirstRoot)
-                    { return; }
-                    State->bReentryObserved = true;
-                    if (IsValid(LostActor)) { LostActor->Destroy(); }
-                });
-            }
             auto* Graph = UCk_SceneNodeGym_NodeGraphRuntime_UE::TryBegin(Roots);
-            if (Observer.IsValid())
-            { UCk_Utils_Transform_UE::Get_OnAdded().Remove(Observer); }
             State->Graph = Graph;
             int32 Generation = 0;
             TArray<FSlot> Slots;
@@ -228,27 +209,34 @@ namespace ck_scene_node_graph_test
                 Generation != 1 || Slots.Num() != 11)
             { Fail(Test, TEXT("graph did not retain fixed eleven-slot creator record")); return; }
             State->Frozen = Slots;
-            if (bDestroyParentDuringFirstCommit)
+            if (bDestroyParentAfterComposition)
             {
-                if (!State->bReentryObserved ||
-                    !UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_IsFailed(Graph) ||
-                    !Slots[0].bAllocationAttempted ||
-                    !ck::IsValid(Slots[0].Raw,
-                        ck::IsValid_Policy_IncludePendingKill{}) ||
-                    UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_ComposedCount(Graph) != 0 ||
-                    UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_IsConstructionComplete(Graph))
-                { Fail(Test, TEXT("real reentrant actor loss did not close graph after first raw return")); return; }
-                for (int32 I = 1; I < Slots.Num(); ++I)
+                auto* LostActor = State->Visuals[ActorRole[0] - 1].Get();
+                FCk_Handle CapturedWorld;
+                FCk_Handle CapturedOwner;
+                TArray<FCk_SceneNodeEcsRoots_TestAccess::FSlot> ActorSlots;
+                if (!IsValid(LostActor) ||
+                    !FCk_SceneNodeEcsRoots_TestAccess::TryCapture(
+                        Roots, CapturedWorld, CapturedOwner, ActorSlots) ||
+                    ActorSlots.Num() != 17 || CapturedWorld != State->WorldRoot ||
+                    UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_ComposedCount(Graph) != 11)
+                { Fail(Test, TEXT("actor-loss challenge lacks a complete retained composition")); return; }
+                for (int32 I = 0; I < Slots.Num(); ++I)
                 {
-                    if (Slots[I].bAllocationAttempted || Slots[I].Raw != FCk_Handle{})
-                    { Fail(Test, TEXT("reentrant failure allocated a later graph node")); return; }
+                    if (!Slots[I].bAllocationAttempted || !Slots[I].bComposed ||
+                        Slots[I].Raw != ActorSlots[6 + I].Target)
+                    { Fail(Test, TEXT("actor-loss challenge lost a preconstructed node identity")); return; }
                 }
+                if (!LostActor->Destroy())
+                { Fail(Test, TEXT("known parent actor destruction was rejected")); return; }
                 FCk_Handle_SceneNode Out;
-                if (UCk_SceneNodeGym_NodeGraphRuntime_UE::TryGet_CompletedNode(
+                if (UCk_SceneNodeGym_ActorLedgerRuntime_UE::Get_IsOpen(State->Ledger.Get()) ||
+                    UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_IsConstructionComplete(Graph) ||
+                    UCk_SceneNodeGym_NodeGraphRuntime_UE::TryGet_CompletedNode(
                         Graph, 0, Out) || Out != FCk_Handle_SceneNode{} ||
                     UCk_SceneNodeGym_NodeGraphRuntime_UE::TryBegin(Roots) != nullptr ||
                     !FrozenUnchanged(*State))
-                { Fail(Test, TEXT("reentrant failed graph exposed a node or allowed retry")); }
+                { Fail(Test, TEXT("known actor loss published a stale node or allowed retry")); }
                 return;
             }
             if (UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_IsFailed(Graph) ||
@@ -256,6 +244,13 @@ namespace ck_scene_node_graph_test
                 UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_ComposedCount(Graph) != 11 ||
                 UCk_SceneNodeGym_NodeGraphRuntime_UE::Get_IsConstructionComplete(Graph))
             { Fail(Test, TEXT("fresh graph did not retain eleven committed pending nodes")); return; }
+            FCk_Handle CapturedWorld;
+            FCk_Handle CapturedOwner;
+            TArray<FCk_SceneNodeEcsRoots_TestAccess::FSlot> ActorSlots;
+            if (!FCk_SceneNodeEcsRoots_TestAccess::TryCapture(
+                    Roots, CapturedWorld, CapturedOwner, ActorSlots) ||
+                ActorSlots.Num() != 17 || CapturedWorld != State->WorldRoot)
+            { Fail(Test, TEXT("graph lacks exact seventeen actor-backed creator identities")); return; }
             TArray<FCk_Handle> Known;
             for (const auto& Root : State->RootHandles) { Known.Add(Root); }
             for (int32 I = 0; I < 11; ++I)
@@ -264,7 +259,9 @@ namespace ck_scene_node_graph_test
                 const FCk_Handle ExpectedParent = ParentNode[I] == INDEX_NONE
                     ? State->RootHandles[RootSlot[I]] : Slots[ParentNode[I]].Raw;
                 if (!Slot.bAllocationAttempted || !Slot.bComposed ||
-                    !ck::IsValid(Slot.Raw) || Slot.Parent != ExpectedParent ||
+                    !ck::IsValid(Slot.Raw) ||
+                    Slot.Raw != ActorSlots[6 + I].Target ||
+                    Slot.Parent != ExpectedParent ||
                     Slot.RootSlot != RootSlot[I] ||
                     Slot.ParentNodeSlot != ParentNode[I] ||
                     !Slot.InitialOffset.Equals(ExpectedOffset(I), 0.0) ||
@@ -289,7 +286,7 @@ namespace ck_scene_node_graph_test
                 !FrozenUnchanged(*State))
             { Fail(Test, TEXT("real root/node queues or single-attempt record are wrong")); }
         })));
-        if (!bDestroyParentDuringFirstCommit)
+        if (!bDestroyParentAfterComposition)
         {
             ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
                 FCk_NetAutoTest_Condition::CreateLambda([State]()
@@ -368,7 +365,7 @@ bool FCkSceneNodeNodeGraph::RunTest(const FString& Parameters)
 }
 
 CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeNodeGraphReentry,
-    "Ck.SceneNode.Network.NodeGraph.ReentrantLoss",
+    "Ck.SceneNode.Network.NodeGraph.ActorLossAfterComposition",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FCkSceneNodeNodeGraphReentry::RunTest(const FString& Parameters)
 {

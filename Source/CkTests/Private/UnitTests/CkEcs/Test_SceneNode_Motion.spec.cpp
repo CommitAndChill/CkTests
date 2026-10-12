@@ -115,7 +115,6 @@ namespace ck_scene_node_motion_test
         bool bReentrantRoleTwoDestroyed = false;
         bool bReentrantPrerequisitesMet = false;
         bool bReentrantUnknownSpawned = false;
-        TArray<FTransform> ReentrantRemainingVisualPoses;
     };
 
     void Fail(FAutomationTestBase* Test, const TCHAR* Reason)
@@ -143,8 +142,9 @@ namespace ck_scene_node_motion_test
             ->GetDefaultObject<UCk_SceneNodeGym_WithActorScript_UE>();
         if (!IsValid(ProbeCDO) || !IsValid(ProbeCDO->Cube) ||
             !IsValid(ProbeCDO->Cube->GetStaticMesh()) ||
-            !IsValid(ScriptCDO) || ProbeCDO->GetIsReplicated() ||
-            ScriptCDO->Get_EffectiveReplication() != ECk_Replication::DoesNotReplicate)
+            !IsValid(ScriptCDO) || !ProbeCDO->GetIsReplicated() ||
+            ProbeCDO->IsReplicatingMovement() ||
+            ScriptCDO->Get_EffectiveReplication() != ECk_Replication::Replicates)
         { return false; }
         TArray<TSubclassOf<AActor>> Classes;
         Classes.Init(ACk_SceneNode_ActorLedgerProbe::StaticClass(), 17);
@@ -636,36 +636,38 @@ namespace ck_scene_node_motion_test
                 RecordedWorld, Owner, RootSlots) || RecordedWorld != S.WorldRoot ||
             !FCk_SceneNodeNodeGraph_TestAccess::TryCapture(S.Graph.Get(),
                 GraphGeneration, NodeSlots) || GraphGeneration != S.Generation ||
-            RootSlots.Num() != 6 || NodeSlots.Num() != 11 ||
+            RootSlots.Num() != 17 || NodeSlots.Num() != 11 ||
             S.Frozen.Num() != 6 || Owner == FCk_Handle{})
         { return false; }
         auto Add = [&OutKnown, &OutParents](const FCk_Handle& H,
             const FCk_Handle& Parent)
         { OutKnown.Add(H); OutParents.Add(Parent); };
         Add(Owner, S.WorldRoot);
-        for (int32 I = 0; I < 6; ++I)
+        for (int32 I = 0; I < 17; ++I)
         {
             if (!RootSlots[I].bAllocationAttempted || !RootSlots[I].bIssued ||
                 !RootSlots[I].bReturned || !RootSlots[I].bCallback ||
-                !RootSlots[I].bSucceeded || RootSlots[I].Target != S.RootHandles[I] ||
+                !RootSlots[I].bSucceeded ||
+                (I < 6 && RootSlots[I].Target != S.RootHandles[I]) ||
+                (I >= 6 && RootSlots[I].Target != S.NodeHandles[I - 6]) ||
                 RootSlots[I].Carrier == FCk_Handle{})
             { return false; }
-            Add(RootSlots[I].Target, Owner);
+            Add(RootSlots[I].Target, I < 6 ? Owner : NodeSlots[I - 6].Parent);
         }
-        for (int32 I = 0; I < 6; ++I)
+        for (int32 I = 0; I < 17; ++I)
         { Add(RootSlots[I].Carrier, RootSlots[I].Target); }
         for (int32 I = 0; I < 11; ++I)
         {
             if (!NodeSlots[I].bAllocationAttempted || !NodeSlots[I].bComposed ||
-                NodeSlots[I].Raw != S.NodeHandles[I])
+                NodeSlots[I].Raw != S.NodeHandles[I] ||
+                NodeSlots[I].Raw != RootSlots[6 + I].Target)
             { return false; }
-            Add(NodeSlots[I].Raw, NodeSlots[I].Parent);
         }
         for (int32 I = 0; I < 6; ++I)
         { Add(S.Frozen[I].Raw, S.RootHandles[I]); }
-        if (OutKnown.Num() != 30 || OutParents.Num() != 30)
+        if (OutKnown.Num() != 41 || OutParents.Num() != 41)
         { return false; }
-        for (int32 I = 0; I < 30; ++I)
+        for (int32 I = 0; I < 41; ++I)
         {
             if (OutKnown[I] == FCk_Handle{} ||
                 OutParents[I] == FCk_Handle{} ||
@@ -676,7 +678,7 @@ namespace ck_scene_node_motion_test
             if (!bRequireCurrentAllocation) { continue; }
             const bool Allocated = UCk_EntityScriptGym_Spawn_Runtime_UE::
                 Get_IsEntityAllocated(OutKnown[I]);
-            if ((I >= 7 && I < 13) ? Allocated : !Allocated)
+            if ((I >= 18 && I < 35) ? Allocated : !Allocated)
             { return false; }
             if (Allocated && (!OutKnown[I].Has<ck::FFragment_LifetimeOwner>() ||
                 OutKnown[I].Get<ck::FFragment_LifetimeOwner>().Get_Entity() !=
@@ -721,7 +723,7 @@ namespace ck_scene_node_motion_test
 
     bool AllRetirementEntitiesGone(const FState& S)
     {
-        if (S.RetirementKnown.Num() != 30) { return false; }
+        if (S.RetirementKnown.Num() != 41) { return false; }
         for (const auto& H : S.RetirementKnown)
         { if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(H))
           { return false; } }
@@ -810,38 +812,17 @@ namespace ck_scene_node_motion_test
         return true;
     }
 
-    bool AllRetirementRootActorsGone(const FState& S)
-    {
-        if (!HasReadableRetirementWorldLevels(S.World.Get()) ||
-            S.RetirementActors.Num() != 18)
-        { return false; }
-        constexpr int32 RootRoles[6] = {1, 3, 5, 10, 13, 16};
-        for (const int32 Role : RootRoles)
-        { if (ActorSerialInWorld(S.World.Get(), S.RetirementActors[Role]))
-          { return false; } }
-        return true;
-    }
-
     bool ReentrantResidualActorsSurvive(const FState& S)
     {
         if (!IsValid(S.World.Get()) || S.RetirementActors.Num() != 18 ||
             !S.bReentrantRoleTwoDestroyed ||
             ActorSerialInWorld(S.World.Get(), S.RetirementActors[2]))
         { return false; }
-        constexpr int32 RootRoles[6] = {1, 3, 5, 10, 13, 16};
-        for (const int32 Role : RootRoles)
-        { if (ActorSerialInWorld(S.World.Get(), S.RetirementActors[Role]))
-          { return false; } }
-        for (int32 Role = 0; Role < 18; ++Role)
+        // The production WithActor cascade retires every known visual actor.
+        // The unknown injection must keep the scope alive and refuse success.
+        for (int32 Role = 1; Role < 18; ++Role)
         {
-            if (Role == 2) { continue; }
-            bool bRoot = false;
-            for (const int32 RootRole : RootRoles)
-            { bRoot |= Role == RootRole; }
-            if (bRoot) { continue; }
-            auto* const Actor = S.RetirementActors[Role].Get();
-            if (!IsValid(Actor) || Actor->IsActorBeingDestroyed() ||
-                !ActorSerialInWorld(S.World.Get(), S.RetirementActors[Role]))
+            if (ActorSerialInWorld(S.World.Get(), S.RetirementActors[Role]))
             { return false; }
         }
         auto* const Scope = S.RetirementActors[0].Get();
@@ -855,67 +836,27 @@ namespace ck_scene_node_motion_test
                 S.Ledger.Get()) == 18;
     }
 
-    bool OnlyRoleTwoDestroyRequested(const FState& S)
+    bool NoManualActorDestroyRequested(const FState& S)
     {
         TArray<bool> Requested;
         if (!FCk_SceneNodeRetirement_TestAccess::TryCaptureDestroyRequested(
                 S.Retirement.Get(), Requested) || Requested.Num() != 18)
         { return false; }
         for (int32 Role = 0; Role < 18; ++Role)
-        { if (Requested[Role] != (Role == 2)) { return false; } }
-        return true;
-    }
-
-    bool CaptureReentrantRemainingVisualPoses(const FState& S,
-        TArray<FTransform>& Out)
-    {
-        Out.Reset();
-        if (S.Visuals.Num() != 17) { return false; }
-        constexpr int32 RootRoles[6] = {1, 3, 5, 10, 13, 16};
-        TArray<FTransform> Candidate;
-        Candidate.Reserve(10);
-        for (int32 Role = 1; Role <= 17; ++Role)
-        {
-            if (Role == 2) { continue; }
-            bool bRoot = false;
-            for (const int32 RootRole : RootRoles)
-            { bRoot |= Role == RootRole; }
-            if (bRoot) { continue; }
-            auto* Actor = S.Visuals[Role - 1].Get();
-            if (!IsValid(Actor) || !IsValid(Actor->Cube) ||
-                !Actor->Cube->IsRegistered())
-            { return false; }
-            const FTransform Pose = Actor->Cube->GetComponentTransform();
-            if (!Pose.IsValid()) { return false; }
-            Candidate.Add(Pose);
-        }
-        if (Candidate.Num() != 10) { return false; }
-        Out = MoveTemp(Candidate);
-        return true;
-    }
-
-    bool SameReentrantRemainingVisualPoses(const FState& S,
-        const TArray<FTransform>& Frozen)
-    {
-        TArray<FTransform> Actual;
-        if (Frozen.Num() != 10 ||
-            !CaptureReentrantRemainingVisualPoses(S, Actual))
-        { return false; }
-        for (int32 I = 0; I < 10; ++I)
-        { if (!Actual[I].Equals(Frozen[I], 0.0)) { return false; } }
+        { if (Requested[Role]) { return false; } }
         return true;
     }
 
     bool AllOriginalRetirementMembersSurvive(const FState& S)
     {
-        if (S.RetirementKnown.Num() != 30 ||
+        if (S.RetirementKnown.Num() != 41 ||
             S.RetirementActors.Num() != 18)
         { return false; }
-        for (int32 I = 0; I < 30; ++I)
+        for (int32 I = 0; I < 41; ++I)
         {
             const bool Allocated = UCk_EntityScriptGym_Spawn_Runtime_UE::
                 Get_IsEntityAllocated(S.RetirementKnown[I]);
-            if ((I >= 7 && I < 13) ? Allocated : !Allocated)
+            if ((I >= 18 && I < 35) ? Allocated : !Allocated)
             { return false; }
         }
         for (int32 Role = 0; Role < 18; ++Role)
@@ -979,9 +920,7 @@ namespace ck_scene_node_motion_test
                 UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
                     State->Retirement.Get()) ==
                     ECk_SceneNodeGym_RetirementState::Pending &&
-                RetirementReceiptMatchesFrozen(*State, true) &&
-                AllRetirementEntitiesGone(*State) &&
-                AllRetirementRootActorsGone(*State);
+                RetirementReceiptMatchesFrozen(*State, true);
             if (!State->bReentrantPrerequisitesMet) { return; }
             auto* Scope = State->RetirementActors[0].Get();
             auto* SourceWorld = State->World.Get();
@@ -1704,10 +1643,8 @@ namespace ck_scene_node_motion_test
                     !RetirementReceiptMatchesFrozen(*S, true) ||
                     !AllRetirementEntitiesGone(*S) ||
                     !ReentrantResidualActorsSurvive(*S) ||
-                    !OnlyRoleTwoDestroyRequested(*S) ||
+                    !NoManualActorDestroyRequested(*S) ||
                     !RawIdentityRetained(*S, &Slots) || Slots.Num() != 6 ||
-                    !CaptureReentrantRemainingVisualPoses(*S,
-                        S->ReentrantRemainingVisualPoses) ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                         S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
                 { Fail(Test, TEXT("reentrant unknown actor did not stop retirement after Role2")); return; }
@@ -1743,7 +1680,7 @@ namespace ck_scene_node_motion_test
                     !RawIdentityRetained(*S, &Slots) || Slots.Num() != 6 ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                         S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
-                { Fail(Test, TEXT("normal retirement lacked complete thirty-plus-eighteen absence")); return; }
+                { Fail(Test, TEXT("normal retirement lacked complete forty-one-plus-eighteen absence")); return; }
                 S->RetirementTickAtStop = S->RetirementWorldTicks;
             })));
         }
@@ -1791,9 +1728,7 @@ namespace ck_scene_node_motion_test
                     !RetirementReceiptMatchesFrozen(*S, true) ||
                     !AllRetirementEntitiesGone(*S) ||
                     !ReentrantResidualActorsSurvive(*S) ||
-                    !OnlyRoleTwoDestroyRequested(*S) ||
-                    !SameReentrantRemainingVisualPoses(*S,
-                        S->ReentrantRemainingVisualPoses) ||
+                    !NoManualActorDestroyRequested(*S) ||
                     !RejectSuccessorWithoutMutation(*S, S->Source.Get(),
                         S->Retirement.Get(), MakeSuccessorVisualClasses()))
                 { Fail(Test, TEXT("reentrant retirement destroyed a later actor or resumed")); }

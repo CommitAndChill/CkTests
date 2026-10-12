@@ -156,34 +156,9 @@ bool UCk_SceneNodeGym_MotionRuntime_UE::HasExactTimer(
         Timer.Get<ck::FFragment_Timer_Params>().Get_Behavior() !=
             ECk_Timer_Behavior::ResetOnDone)
     { return false; }
-#if !CK_DISABLE_NET_PARAM_COPY_PER_ENTITY
-    // Lifetime creation copies the source-only root's exact net policy when
-    // this build configuration enables per-entity metadata propagation.
-    if (!Root.Has<ck::FFragment_Net_Params>() ||
-        !Timer.Has<ck::FFragment_Net_Params>() ||
-        Timer.Get<ck::FFragment_Net_Params>()
-            .Get_ConnectionSettings().Get_Replication() !=
-            ECk_Replication::DoesNotReplicate ||
-        Timer.Get<ck::FFragment_Net_Params>()
-            .Get_ConnectionSettings().Get_NetRole() !=
-            Root.Get<ck::FFragment_Net_Params>()
-                .Get_ConnectionSettings().Get_NetRole() ||
-        Timer.Get<ck::FFragment_Net_Params>()
-            .Get_ConnectionSettings().Get_NetMode() !=
-            Root.Get<ck::FFragment_Net_Params>()
-                .Get_ConnectionSettings().Get_NetMode() ||
-        Timer.Has<ck::FTag_HasAuthority>() !=
-            Root.Has<ck::FTag_HasAuthority>() ||
-        Timer.Has<ck::FTag_NetMode_IsHost>() !=
-            Root.Has<ck::FTag_NetMode_IsHost>() ||
-        Timer.Has<ck::FTag_NetMode_IsClient>() !=
-            Root.Has<ck::FTag_NetMode_IsClient>())
-    { return false; }
-#else
     if (Timer.Has_Any<ck::FFragment_Net_Params, ck::FTag_HasAuthority,
         ck::FTag_NetMode_IsHost, ck::FTag_NetMode_IsClient>())
     { return false; }
-#endif
     if (bRequirePaused &&
         (Timer.Has_Any<ck::FTag_Timer_NeedsUpdate,
             ck::FFragment_Timer_Requests>() ||
@@ -279,6 +254,16 @@ UCk_SceneNodeGym_Motion_UE* UCk_SceneNodeGym_MotionRuntime_UE::TryBeginDormant(
             Capture.Timer == FCk_Handle_Timer{} ||
             FCk_Handle(Capture.Timer) != Capture.RawEntity)
         { Fail(M, Capture.bAllocationAttempted); return M; }
+        // Timers are authority-only producers even when their visual root
+        // carries replicated net parameters.
+        if (Slot.Raw.Has<ck::FFragment_Net_Params>())
+        { Slot.Raw.Remove<ck::FFragment_Net_Params>(); }
+        if (Slot.Raw.Has<ck::FTag_HasAuthority>())
+        { Slot.Raw.Remove<ck::FTag_HasAuthority>(); }
+        if (Slot.Raw.Has<ck::FTag_NetMode_IsHost>())
+        { Slot.Raw.Remove<ck::FTag_NetMode_IsHost>(); }
+        if (Slot.Raw.Has<ck::FTag_NetMode_IsClient>())
+        { Slot.Raw.Remove<ck::FTag_NetMode_IsClient>(); }
         auto MutableTimer = Capture.Timer;
         const auto Bound = UCk_Utils_Timer_UE::BindTo_OnUpdate(
             MutableTimer, M->UpdateDelegates[I],

@@ -4,10 +4,12 @@
 #include "CkEntityScriptGym_Runtime.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/ContextOwner/CkContextOwner_Utils.h"
 #include "CkEcs/EntityScript/CkEntityScript_Fragment.h"
 #include "CkEcs/EntityScript/CkEntityScript_Utils.h"
 #include "CkEcs/Net/CkNet_Fragment.h"
 #include "CkEcs/Net/CkNet_Utils.h"
+#include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Utils.h"
 #include "CkEcs/OwningActor/CkOwningActor_Fragment.h"
 #include "CkEcs/OwningActor/CkOwningActor_Fragment_Data.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
@@ -24,6 +26,12 @@
 namespace CkSceneNodeEcsRootsPrivate
 {
     constexpr int32 RootRoles[6] = {1, 3, 5, 10, 13, 16};
+    constexpr int32 NodeRoles[11] = {2, 4, 6, 7, 8, 9, 11, 12, 14, 15, 17};
+    constexpr int32 NodeRootSlots[11] = {0, 1, 2, 2, 2, 2, 3, 3, 4, 4, 5};
+    constexpr int32 NodeParentSlots[11] = {
+        INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE,
+        INDEX_NONE, INDEX_NONE, 6, INDEX_NONE, 8, INDEX_NONE};
+    constexpr int32 VisualCount = 17;
 
     bool IsLiveObject(const UObject* Value)
     {
@@ -34,8 +42,8 @@ namespace CkSceneNodeEcsRootsPrivate
     bool IsLiveActorRoot(const AActor* Actor, const UWorld* World)
     {
         if (!IsLiveObject(Actor) || Actor->IsActorBeingDestroyed() ||
-            Actor->GetWorld() != World || Actor->GetIsReplicated() ||
-            Actor->IsReplicatingMovement() || Actor->GetRemoteRole() != ROLE_None)
+            Actor->GetWorld() != World || !Actor->GetIsReplicated() ||
+            Actor->IsReplicatingMovement())
         { return false; }
         const auto* Root = Actor->GetRootComponent();
         return IsLiveObject(Root) && Root->GetOwner() == Actor &&
@@ -60,10 +68,9 @@ namespace CkSceneNodeEcsRootsPrivate
             ck::FTag_NetMode_IsClient>();
     }
 
-    bool IsAdmittedNonrepTarget(const FCk_Handle& Target)
+    bool IsAdmittedReplicatedTarget(const FCk_Handle& Target)
     {
-        if (!Target.Has<ck::FFragment_Net_Params>() ||
-            Target.Has<TObjectPtr<UCk_Fragment_EntityReplicationDriver_Rep>>())
+        if (!Target.Has<ck::FFragment_Net_Params>())
         { return false; }
         const auto& Settings = Target.Get<ck::FFragment_Net_Params>()
             .Get_ConnectionSettings();
@@ -75,10 +82,28 @@ namespace CkSceneNodeEcsRootsPrivate
         const bool WantClient =
             Settings.Get_NetMode() == ECk_Net_NetModeType::Client ||
             Settings.Get_NetMode() == ECk_Net_NetModeType::ClientAndHost;
-        return Settings.Get_Replication() == ECk_Replication::DoesNotReplicate &&
+        return Settings.Get_Replication() == ECk_Replication::Replicates &&
             Target.Has<ck::FTag_HasAuthority>() == WantAuthority &&
             Target.Has<ck::FTag_NetMode_IsHost>() == WantHost &&
             Target.Has<ck::FTag_NetMode_IsClient>() == WantClient;
+    }
+
+    bool HasExactRetiredCarrier(const FCk_Handle& Target,
+        const FCk_Handle& Carrier)
+    {
+        if (Target == FCk_Handle{} || Carrier == FCk_Handle{} ||
+            !ck::IsValid(Target) ||
+            Target.Get_RegistryView().Get_RegistryHandle() !=
+                Carrier.Get_RegistryView().Get_RegistryHandle() ||
+            UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Carrier))
+        { return false; }
+        if (!Target.Has<ck::FFragment_LifetimeDependents>())
+        { return false; }
+        int32 Count = 0;
+        for (const auto& Dependent : Target.Get<
+            ck::FFragment_LifetimeDependents>().Get_Entities())
+        { Count += Dependent == Carrier ? 1 : 0; }
+        return Count == 1;
     }
 }
 
@@ -89,7 +114,8 @@ void UCk_SceneNodeGym_EcsRootReceiver_UE::OnCompleted(
     auto* const R = Receipt.Get();
     if (!CkSceneNodeEcsRootsPrivate::IsLiveObject(R)) { return; }
     if (Slot < 0 || Slot >= R->Slots.Num() ||
-        R->Receivers.Num() != 6 || R->Receivers[Slot].Get() != this ||
+        R->Receivers.Num() != CkSceneNodeEcsRootsPrivate::VisualCount ||
+        R->Receivers[Slot].Get() != this ||
         !UCk_SceneNodeGym_EcsRootsRuntime_UE::HasExactReceipt(R))
     { UCk_SceneNodeGym_EcsRootsRuntime_UE::Fail(R, false); return; }
     auto& Entry = R->Slots[Slot];
@@ -145,7 +171,8 @@ bool UCk_SceneNodeGym_EcsRootsRuntime_UE::HasExactReceipt(
     const auto* Ledger = R->Ledger.Get();
     return Ledger->EcsRoots == R && Ledger->bEcsRootsAttempted &&
         R->Generation == Ledger->Generation &&
-        R->Slots.Num() == 6 && R->Receivers.Num() == 6 &&
+        R->Slots.Num() == CkSceneNodeEcsRootsPrivate::VisualCount &&
+        R->Receivers.Num() == CkSceneNodeEcsRootsPrivate::VisualCount &&
         CkSceneNodeEcsRootsPrivate::IsLiveObject(R->ClassCDO.Get());
 }
 
@@ -172,19 +199,22 @@ UCk_SceneNodeGym_EcsRoots_UE* UCk_SceneNodeGym_EcsRootsRuntime_UE::TryBegin(
     auto* const CDO = Cast<UCk_SceneNodeGym_WithActorScript_UE>(
         ScriptClass.Get()->GetDefaultObject(false));
     if (!CkSceneNodeEcsRootsPrivate::IsLiveObject(CDO) || CDO->GetClass() != ScriptClass.Get() ||
-        CDO->Get_EffectiveReplication() != ECk_Replication::DoesNotReplicate)
+        CDO->Get_EffectiveReplication() != ECk_Replication::Replicates)
     { return nullptr; }
     UWorld* const World = Ledger->SourceWorld.Get();
-    AActor* Actors[6]{};
-    for (int32 I = 0; I < 6; ++I)
+    AActor* Actors[CkSceneNodeEcsRootsPrivate::VisualCount]{};
+    for (int32 I = 0; I < CkSceneNodeEcsRootsPrivate::VisualCount; ++I)
     {
-        const auto& Role = Ledger->Roles[CkSceneNodeEcsRootsPrivate::RootRoles[I]];
+        const int32 ActorRole = I < 6
+            ? CkSceneNodeEcsRootsPrivate::RootRoles[I]
+            : CkSceneNodeEcsRootsPrivate::NodeRoles[I - 6];
+        const auto& Role = Ledger->Roles[ActorRole];
         if (!Role.bCaptured || !Role.bFinished || Role.bDestroyedObserved ||
             Role.bRemovedObserved) { return nullptr; }
         Actors[I] = Role.Actor.Get();
         if (!CkSceneNodeEcsRootsPrivate::IsLiveActorRoot(Actors[I], World) ||
             Actors[I]->GetOwner() != Ledger->Roles[0].Actor.Get() ||
-            Actors[I]->GetClass() != Ledger->VisualClasses[CkSceneNodeEcsRootsPrivate::RootRoles[I] - 1].Get() ||
+            Actors[I]->GetClass() != Ledger->VisualClasses[ActorRole - 1].Get() ||
             Actors[I]->GetComponentByClass<UCk_EntityOwningActor_ActorComponent_UE>() != nullptr)
         { return nullptr; }
     }
@@ -204,11 +234,11 @@ UCk_SceneNodeGym_EcsRoots_UE* UCk_SceneNodeGym_EcsRootsRuntime_UE::TryBegin(
     R->ClassCDO = CDO;
     R->WorldRoot = WorldRoot;
     R->Generation = Ledger->Generation;
-    R->Slots.SetNum(6);
-    R->Receivers.Reserve(6);
+    R->Slots.SetNum(CkSceneNodeEcsRootsPrivate::VisualCount);
+    R->Receivers.Reserve(CkSceneNodeEcsRootsPrivate::VisualCount);
     TArray<FCk_Delegate_Request_OnCompleted> Delegates;
-    Delegates.Reserve(6);
-    for (int32 I = 0; I < 6; ++I)
+    Delegates.Reserve(CkSceneNodeEcsRootsPrivate::VisualCount);
+    for (int32 I = 0; I < CkSceneNodeEcsRootsPrivate::VisualCount; ++I)
     {
         auto* Receiver = NewObject<UCk_SceneNodeGym_EcsRootReceiver_UE>(R);
         if (!CkSceneNodeEcsRootsPrivate::IsLiveObject(Receiver)) { Fail(R, false); return R; }
@@ -236,23 +266,31 @@ UCk_SceneNodeGym_EcsRoots_UE* UCk_SceneNodeGym_EcsRootsRuntime_UE::TryBegin(
     R->GenerationOwner = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(WorldRoot);
     if (!CkSceneNodeEcsRootsPrivate::IsFreshChild(R->GenerationOwner, WorldRoot))
     { Fail(R, true); return R; }
-    for (int32 I = 0; I < 6; ++I)
+    for (int32 I = 0; I < CkSceneNodeEcsRootsPrivate::VisualCount; ++I)
     {
+        const int32 ActorRole = I < 6
+            ? CkSceneNodeEcsRootsPrivate::RootRoles[I]
+            : CkSceneNodeEcsRootsPrivate::NodeRoles[I - 6];
+        const int32 NodeIndex = I - 6;
+        const FCk_Handle Parent = I < 6 ? R->GenerationOwner :
+            CkSceneNodeEcsRootsPrivate::NodeParentSlots[NodeIndex] == INDEX_NONE
+                ? R->Slots[CkSceneNodeEcsRootsPrivate::NodeRootSlots[NodeIndex]].Target
+                : R->Slots[6 + CkSceneNodeEcsRootsPrivate::NodeParentSlots[NodeIndex]].Target;
         if (!HasExactReceipt(R) || R->bFailed ||
             !UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryProve_CurrentCohort(Ledger, true) ||
-            Ledger->Roles[CkSceneNodeEcsRootsPrivate::RootRoles[I]].Actor.Get() != Actors[I] ||
+            Ledger->Roles[ActorRole].Actor.Get() != Actors[I] ||
             !CkSceneNodeEcsRootsPrivate::IsLiveActorRoot(Actors[I], World) ||
             Actors[I]->GetComponentByClass<
                 UCk_EntityOwningActor_ActorComponent_UE>() != nullptr ||
-            !UCk_Utils_EntityLifetime_UE::Get_CanCreateEntity(R->GenerationOwner))
+            !UCk_Utils_EntityLifetime_UE::Get_CanCreateEntity(Parent))
         { Fail(R, true); return R; }
         auto& Slot = R->Slots[I];
-        Slot.Target = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(R->GenerationOwner);
-        if (!CkSceneNodeEcsRootsPrivate::IsFreshChild(Slot.Target, R->GenerationOwner) ||
+        Slot.Target = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Parent);
+        if (!CkSceneNodeEcsRootsPrivate::IsFreshChild(Slot.Target, Parent) ||
             !UCk_Utils_EntityLifetime_UE::Get_LifetimeDependents(Slot.Target).IsEmpty())
         { Fail(R, true); return R; }
         // Request_CreateEntity inherits owner net fragments. This source-only
-        // path deliberately removes the same four copied fields as generic
+        // path removes the same four copied fields as generic
         // Request_SpawnEntity before calling native captured Add.
         if (Slot.Target.Has<ck::FFragment_Net_Params>())
         { Slot.Target.Remove<ck::FFragment_Net_Params>(); }
@@ -264,10 +302,15 @@ UCk_SceneNodeGym_EcsRoots_UE* UCk_SceneNodeGym_EcsRootsRuntime_UE::TryBegin(
         { Slot.Target.Remove<ck::FTag_NetMode_IsClient>(); }
         if (!CkSceneNodeEcsRootsPrivate::IsFreshClearedTarget(Slot.Target) || !HasExactReceipt(R) ||
             !UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryProve_CurrentCohort(Ledger, true) ||
-            Ledger->Roles[CkSceneNodeEcsRootsPrivate::RootRoles[I]].Actor.Get() != Actors[I] ||
+            Ledger->Roles[ActorRole].Actor.Get() != Actors[I] ||
             !CkSceneNodeEcsRootsPrivate::IsLiveActorRoot(Actors[I], World) ||
             Actors[I]->GetComponentByClass<
                 UCk_EntityOwningActor_ActorComponent_UE>() != nullptr)
+        { Fail(R, true); return R; }
+        UCk_Utils_ContextOwner_UE::Request_OverrideToSelf(Slot.Target, {});
+        if (!CkSceneNodeEcsRootsPrivate::IsFreshChild(Slot.Target, Parent) ||
+            !UCk_Utils_ContextOwner_UE::Has(Slot.Target) ||
+            UCk_Utils_ContextOwner_UE::Get_ContextOwner(Slot.Target) != Slot.Target)
         { Fail(R, true); return R; }
         const auto Params = FInstancedStruct::Make<FCk_EntityScript_WithActor_SpawnParams>(Actors[I]);
         if (!Params.IsValid()) { Fail(R, false); return R; }
@@ -285,7 +328,7 @@ UCk_SceneNodeGym_EcsRoots_UE* UCk_SceneNodeGym_EcsRootsRuntime_UE::TryBegin(
             Slot.Carrier.Get_RegistryView().Get_RegistryHandle() ==
                 WorldRoot.Get_RegistryView().Get_RegistryHandle();
         if (!Slot.bAllocationAttempted || !Slot.bReturned || R->bFailed ||
-            !CkSceneNodeEcsRootsPrivate::IsAdmittedNonrepTarget(Slot.Target))
+            !CkSceneNodeEcsRootsPrivate::IsAdmittedReplicatedTarget(Slot.Target))
         { Fail(R, Slot.bAllocationAttempted && !Slot.bReturned); return R; }
         if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Slot.Carrier))
         {
@@ -296,8 +339,8 @@ UCk_SceneNodeGym_EcsRoots_UE* UCk_SceneNodeGym_EcsRootsRuntime_UE::TryBegin(
             const auto& Request = Slot.Carrier.Get<
                 ck::FFragment_EntityScript_RequestSpawnEntity>();
             if (Request.Get_NewEntity() != Slot.Target ||
-                Request.Get_Owner() != R->GenerationOwner ||
-                Request.Get_ContextOwner() != R->GenerationOwner ||
+                Request.Get_Owner() != Parent ||
+                Request.Get_ContextOwner() != Parent ||
                 Request.Get_EntityScriptClassArchetype().Get() != CDO ||
                 Request.Get_DestroyTargetOnFailure())
             { Fail(R, true); return R; }
@@ -317,26 +360,38 @@ bool UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsConstructionComplete(
     auto* const World = R->Ledger.Get()->SourceWorld.Get();
     auto* const CDO = R->ClassCDO.Get();
     if (!CkSceneNodeEcsRootsPrivate::IsLiveObject(CDO) ||
-        CDO->Get_EffectiveReplication() != ECk_Replication::DoesNotReplicate)
+        CDO->Get_EffectiveReplication() != ECk_Replication::Replicates)
     { return false; }
-    for (int32 I = 0; I < 6; ++I)
+    for (int32 I = 0; I < CkSceneNodeEcsRootsPrivate::VisualCount; ++I)
     {
         const auto& Slot = R->Slots[I];
-        auto* const Actor = R->Ledger.Get()->Roles[CkSceneNodeEcsRootsPrivate::RootRoles[I]].Actor.Get();
+        const int32 ActorRole = I < 6
+            ? CkSceneNodeEcsRootsPrivate::RootRoles[I]
+            : CkSceneNodeEcsRootsPrivate::NodeRoles[I - 6];
+        const int32 NodeIndex = I - 6;
+        const FCk_Handle Parent = I < 6 ? R->GenerationOwner :
+            CkSceneNodeEcsRootsPrivate::NodeParentSlots[NodeIndex] == INDEX_NONE
+                ? R->Slots[CkSceneNodeEcsRootsPrivate::NodeRootSlots[NodeIndex]].Target
+                : R->Slots[6 + CkSceneNodeEcsRootsPrivate::NodeParentSlots[NodeIndex]].Target;
+        auto* const Actor = R->Ledger.Get()->Roles[ActorRole].Actor.Get();
         auto* const Receiver = R->Receivers[I].Get();
         if (!CkSceneNodeEcsRootsPrivate::IsLiveObject(Receiver) || Receiver->Receipt.Get() != R ||
             Receiver->Slot != I || !Slot.bIssued || !Slot.bReturned ||
             !Slot.bCallback || !Slot.bSucceeded || !Slot.bAllocationAttempted ||
             !CkSceneNodeEcsRootsPrivate::IsLiveActorRoot(Actor, World) ||
-            !CkSceneNodeEcsRootsPrivate::IsFreshChild(Slot.Target, R->GenerationOwner) ||
-            !CkSceneNodeEcsRootsPrivate::IsAdmittedNonrepTarget(Slot.Target) ||
+            !CkSceneNodeEcsRootsPrivate::IsFreshChild(Slot.Target, Parent) ||
+            !CkSceneNodeEcsRootsPrivate::IsAdmittedReplicatedTarget(Slot.Target) ||
+            !UCk_Utils_ContextOwner_UE::Has(Slot.Target) ||
+            UCk_Utils_ContextOwner_UE::Get_ContextOwner(Slot.Target) != Slot.Target ||
+            !UCk_Utils_EntityReplicationDriver_UE::Has(Slot.Target) ||
             !Slot.Target.Has<ck::FFragment_OwningActor>() ||
             !ck::IsValid(Slot.Pending) ||
             Slot.Pending.Get_EntityUnderConstruction() != Slot.Target ||
             Slot.Carrier == FCk_Handle{} ||
             Slot.Carrier.Get_RegistryView().Get_RegistryHandle() !=
                 R->WorldRoot.Get_RegistryView().Get_RegistryHandle() ||
-            UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Slot.Carrier) ||
+            !CkSceneNodeEcsRootsPrivate::HasExactRetiredCarrier(
+                Slot.Target, Slot.Carrier) ||
             !Slot.Target.Has<ck::FFragment_EntityScript>() ||
             !Slot.Target.Has<ck::FFragment_Transform>() ||
             !Slot.Target.Has<ck::FFragment_Transform_RootComponent>())
@@ -348,7 +403,7 @@ bool UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsConstructionComplete(
         if (!CkSceneNodeEcsRootsPrivate::IsLiveObject(Script) || Script->GetClass() != CDO->GetClass() ||
             Script->Get_AssociatedEntity() != Slot.Target ||
             Script->Get_OwningActor().Get() != Actor ||
-            Script->Get_EffectiveReplication() != ECk_Replication::DoesNotReplicate ||
+            Script->Get_EffectiveReplication() != ECk_Replication::Replicates ||
             !CkSceneNodeEcsRootsPrivate::IsLiveObject(Link) || !Link->IsRegistered() ||
             Link->GetOwner() != Actor || Link->Get_EntityHandle() != Slot.Target ||
             Slot.Target.Get<ck::FFragment_OwningActor>()

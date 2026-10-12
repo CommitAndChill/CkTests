@@ -4,7 +4,7 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
-// Read-only test evidence for the thirteen raw allocator returns. The runtime
+// Read-only test evidence for the thirty-five raw allocator returns. The runtime
 // deliberately exposes no public API that could use these identities to retire
 // a partially constructed graph.
 struct FCk_SceneNodeEcsRoots_TestAccess
@@ -28,10 +28,10 @@ struct FCk_SceneNodeEcsRoots_TestAccess
         OutWorldRoot = {};
         OutGenerationOwner = {};
         OutSlots.Reset();
-        if (!IsInGameThread() || !IsValid(Receipt) || Receipt->Slots.Num() != 6)
+        if (!IsInGameThread() || !IsValid(Receipt) || Receipt->Slots.Num() != 17)
         { return false; }
         TArray<FSlot> Candidate;
-        Candidate.Reserve(6);
+        Candidate.Reserve(17);
         for (const auto& Entry : Receipt->Slots)
         {
             Candidate.Add(FSlot{Entry.Target, Entry.Carrier, Entry.Pending,
