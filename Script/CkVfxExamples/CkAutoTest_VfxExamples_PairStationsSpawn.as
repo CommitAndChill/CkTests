@@ -14,6 +14,7 @@
 
 class UCk_AutoTest_VfxExamples_PairStationsSpawn : UCk_AutoTest_Base
 {
+    default _RequiresRenderer = true;
     default _TimeoutSeconds = 15.0f;
 
     UFUNCTION(BlueprintOverride)
