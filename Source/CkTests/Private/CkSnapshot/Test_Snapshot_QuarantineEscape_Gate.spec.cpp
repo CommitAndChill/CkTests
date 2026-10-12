@@ -56,12 +56,12 @@ namespace ck_test_quarantine_escape
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_QuarantineAlwaysLiftsAtFinish_Gate,
     "Ck.Snapshot.Ordering.QuarantineAlwaysLiftsAtFinish",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_QuarantineAlwaysLiftsAtFinish_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_QuarantineAlwaysLiftsAtFinish_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_quarantine_escape;
 
@@ -182,7 +182,7 @@ bool FCk_Snapshot_QuarantineAlwaysLiftsAtFinish_Gate::RunTest(const FString& /*P
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

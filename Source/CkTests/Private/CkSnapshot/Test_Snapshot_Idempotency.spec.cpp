@@ -110,12 +110,12 @@ namespace ck_test_snapshot_idempotency
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_RepeatedLoadSameSlot_Gate,
     "Ck.Snapshot.Idempotency.RepeatedLoadSameSlot",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_RepeatedLoadSameSlot_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_RepeatedLoadSameSlot_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_snapshot_idempotency;
     using namespace ck_autotest_snapshot_applyclosure;
@@ -192,18 +192,18 @@ bool FCk_Snapshot_RepeatedLoadSameSlot_Gate::RunTest(const FString& /*Parameters
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_SaveAfterLoadThenLoad_Gate,
     "Ck.Snapshot.Idempotency.SaveAfterLoadThenLoad",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_SaveAfterLoadThenLoad_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_SaveAfterLoadThenLoad_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_snapshot_idempotency;
     using namespace ck_autotest_snapshot_applyclosure;
@@ -279,7 +279,7 @@ bool FCk_Snapshot_SaveAfterLoadThenLoad_Gate::RunTest(const FString& /*Parameter
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

@@ -71,13 +71,16 @@ namespace
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_M2b2b_ServerTravelSpike,
     "Ck.Snapshot.M2b2b.ServerTravelSpike",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FCkSnapshot_M2b2b_ServerTravelSpike::RunTest(const FString& Parameters)
 {
+    auto DedicatedServer = false;
+    if (NOT ck::auto_test::net::TryGet_DedicatedServer(Parameters, DedicatedServer))
+    { AddError(TEXT("Unsupported topology for ServerTravel spike")); return false; }
     bSuppressLogErrors = true;
     bSuppressLogWarnings = true;
 
@@ -92,13 +95,13 @@ bool FCkSnapshot_M2b2b_ServerTravelSpike::RunTest(const FString& Parameters)
     GTravelSpike_PreClientWorld = nullptr;
     GTravelSpike_PreServerGI    = nullptr;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{TravelSpike_MapPath}));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{TravelSpike_MapPath}, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesPerSettle));
 
     // Stage 1 — stash pre-travel server + client + GI, ENABLE seamless travel, then issue a SEAMLESS ServerTravel.
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, DedicatedServer](UWorld* InServer) -> void
         {
             GTravelSpike_PreServerWorld = InServer;
             GTravelSpike_PreServerGI    = InServer->GetGameInstance();
@@ -136,9 +139,9 @@ bool FCkSnapshot_M2b2b_ServerTravelSpike::RunTest(const FString& Parameters)
                 UE_LOG(LogTemp, Display, TEXT("DIAG TRAVELSPIKE: GetAuthGameMode() NULL — cannot force seamless"));
             }
 
-            // "?listen" keeps the server a listen server; seamless preserves the client connection across the swap.
+            // A listen host needs ?listen; a dedicated server retains its server role without it.
             constexpr auto AbsoluteTravel = true;
-            InServer->ServerTravel(MapName + TEXT("?listen"), AbsoluteTravel);
+            InServer->ServerTravel(DedicatedServer ? MapName : MapName + TEXT("?listen"), AbsoluteTravel);
         })));
 
     // Tick across the seamless travel — transition map then destination map; the client rides the kept connection.
@@ -163,7 +166,7 @@ bool FCkSnapshot_M2b2b_ServerTravelSpike::RunTest(const FString& Parameters)
 
     // Stage 3 — assert the three empirical gates.
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
-        FCk_NetAutoTest_Assertion::CreateLambda([this]() -> bool
+        FCk_NetAutoTest_Assertion::CreateLambda([this, DedicatedServer]() -> bool
         {
             TravelSpike_DumpWorlds(TEXT("post-travel"));
 
@@ -175,8 +178,8 @@ bool FCkSnapshot_M2b2b_ServerTravelSpike::RunTest(const FString& Parameters)
                 NewServer != GTravelSpike_PreServerWorld.Get());
             TestTrue(TEXT("SPIKE: post-travel server on the destination map"),
                 TravelSpike_MapNameOf(NewServer) == TravelSpike_MapPath);
-            TestTrue(TEXT("SPIKE: post-travel server is still NM_ListenServer"),
-                NewServer->GetNetMode() == NM_ListenServer);
+            TestTrue(TEXT("SPIKE: post-travel server retains the requested topology"),
+                NewServer->GetNetMode() == (DedicatedServer ? NM_DedicatedServer : NM_ListenServer));
 
             // (2) GameInstance survived the travel (CkSnapshot GI-subsystem + FTSTicker survive).
             TestTrue(TEXT("SPIKE: GameInstance survived the travel (same object)"),

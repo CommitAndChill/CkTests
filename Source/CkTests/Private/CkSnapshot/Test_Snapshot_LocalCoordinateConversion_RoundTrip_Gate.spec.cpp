@@ -53,12 +53,12 @@ namespace ck_test_local_conversion_roundtrip
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_LocalCoordinateConversion_RoundTrip_Gate,
     "Ck.Snapshot.Parity.LocalCoordinateConversion_RoundTrip",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_LocalCoordinateConversion_RoundTrip_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_LocalCoordinateConversion_RoundTrip_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_local_conversion_roundtrip;
     using namespace ck_autotest_snapshot_ordering;
@@ -138,7 +138,7 @@ bool FCk_Snapshot_LocalCoordinateConversion_RoundTrip_Gate::RunTest(const FStrin
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

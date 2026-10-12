@@ -64,12 +64,12 @@ namespace ck_test_promise_onloadcomplete
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_PromiseSurvivesTravel_Gate,
     "Ck.Snapshot.Promise.SurvivesTravel",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_PromiseSurvivesTravel_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_PromiseSurvivesTravel_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_promise_onloadcomplete;
 
@@ -109,29 +109,29 @@ bool FCk_Snapshot_PromiseSurvivesTravel_Gate::RunTest(const FString& /*Parameter
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_PromiseNoLoadInProgress_Gate,
     "Ck.Snapshot.Promise.NoLoadInProgress",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_PromiseNoLoadInProgress_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_PromiseNoLoadInProgress_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_promise_onloadcomplete;
 
     // No save, no load — just a world. The contract under test is what the promise does when there is nothing to
     // wait for, so introducing a load would be testing something else.
-    constexpr auto NumClients = 1;
+    constexpr auto NumClients = 2;
     constexpr auto ReadyTimeoutSeconds = 30.0f;
 
     auto* Listener = Make_RootedListener();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, TEXT("/Engine/Maps/Entry"), Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(NumClients, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
@@ -181,12 +181,12 @@ bool FCk_Snapshot_PromiseNoLoadInProgress_Gate::RunTest(const FString& /*Paramet
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_PromiseOneShotAcrossTwoLoads_Gate,
     "Ck.Snapshot.Promise.OneShotAcrossTwoLoads",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_PromiseOneShotAcrossTwoLoads_Gate::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_PromiseOneShotAcrossTwoLoads_Gate::RunTest(const FString& Parameters)
 {
     using namespace ck_test_promise_onloadcomplete;
 
@@ -240,7 +240,7 @@ bool FCk_Snapshot_PromiseOneShotAcrossTwoLoads_Gate::RunTest(const FString& /*Pa
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

@@ -25,6 +25,7 @@
 #include "Engine/GameInstance.h"
 #include "EngineUtils.h"               // TActorIterator
 #include "HAL/IConsoleManager.h"       // net.AllowPIESeamlessTravel
+#include "UObject/SoftObjectPath.h"
 
 #include "CkStateMachine/StateMachine/CkStateMachine_Utils.h"
 #include "CkStateMachine/StateMachine/CkStateMachine_Fragment_Data.h"
@@ -41,6 +42,8 @@
 namespace
 {
     constexpr auto SmParity_MapPath = TEXT("/Engine/Maps/Entry");
+    constexpr auto SmParity_OverrideTargetPath = TEXT("/Script/Angelscript.Ck_SmOvrPersist_Target");
+    constexpr auto SmParity_OverrideReplacementPath = TEXT("/Script/Angelscript.Ck_SmOvrPersist_Replacement");
 
     static TWeakObjectPtr<UWorld> GSmParity_PreServerWorld;
     static TWeakObjectPtr<UWorld> GSmParity_PreClientWorld;
@@ -94,7 +97,7 @@ namespace
     auto SmParity_RunGate(
         FAutomationTestBase* InTest,
         TSubclassOf<ACk_AutoTest_NetSubject_StateMachine_UE> InSubjectClass,
-        const FName InSlotName) -> void
+        const FName InSlotName, const FString& Parameters, const bool bCheckOverride = false) -> void
     {
         constexpr auto NumPIEClients = 2;        // server window + 1 connected client
         constexpr auto ExpectedTotalWorlds = 2;
@@ -105,11 +108,22 @@ namespace
 
         const auto TargetStateClass =
             TSubclassOf<UCk_SmState_EntityScript>{UCk_AutoTest_Sm_RecordingState_B::StaticClass()};
+        const TSubclassOf<UCk_SmState_EntityScript> OverrideTarget = bCheckOverride
+            ? FSoftClassPath{SmParity_OverrideTargetPath}.TryLoadClass<UCk_SmState_EntityScript>()
+            : nullptr;
+        const TSubclassOf<UCk_SmState_EntityScript> OverrideReplacement = bCheckOverride
+            ? FSoftClassPath{SmParity_OverrideReplacementPath}.TryLoadClass<UCk_SmState_EntityScript>()
+            : nullptr;
+        if (bCheckOverride && (OverrideTarget.Get() == nullptr || OverrideReplacement.Get() == nullptr))
+        {
+            InTest->AddError(TEXT("State override AS fixture classes are unavailable."));
+            return;
+        }
 
         GSmParity_PreServerWorld = nullptr;
         GSmParity_PreClientWorld = nullptr;
 
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{SmParity_MapPath}));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, FString{SmParity_MapPath}, Parameters));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
         // Stage 1 — open the PIE seamless gate + spawn the SM-flavoured replicated subject on the server.
@@ -143,10 +157,13 @@ namespace
 
         // Stage 3 — server transitions A -> B (the away-from-Construct-default mutation the reload must preserve).
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-            FCk_NetAutoTest_ServerAction::CreateLambda([InTest, TargetStateClass](UWorld* InServer) -> void
+            FCk_NetAutoTest_ServerAction::CreateLambda(
+                [InTest, TargetStateClass, bCheckOverride, OverrideReplacement](UWorld* InServer) -> void
             {
                 auto Sm = SmParity_ResolveSm(SmParity_FindSubject(InServer));
                 if (ck::Is_NOT_Valid(Sm)) { InTest->AddError(TEXT("Stage 3: server SM unresolved")); return; }
+                if (bCheckOverride)
+                { UCk_Utils_StateMachine_UE::Request_AddOverrideState(Sm, OverrideReplacement, {}); }
                 UCk_Utils_StateMachine_UE::Request_Transition(Sm, TargetStateClass, {});
             })));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesPerSettle));
@@ -241,13 +258,56 @@ namespace
             }),
             TEXT("StateMachine parity: saved {Running, B} survives save -> seamless reload -> client convergence")));
 
+        if (bCheckOverride)
+        {
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+                FCk_NetAutoTest_ServerAction::CreateLambda(
+                    [InTest, TargetStateClass, OverrideTarget](UWorld* InServer) -> void
+                {
+                    InTest->TestTrue(TEXT("override: saved non-overridden B remains current before target transition"),
+                        SmParity_IsRunningIn(InServer, TargetStateClass));
+                    auto Sm = SmParity_ResolveSm(SmParity_FindSubject(InServer));
+                    if (ck::Is_NOT_Valid(Sm))
+                    { InTest->AddError(TEXT("override: restored server SM unresolved")); return; }
+                    UCk_Utils_StateMachine_UE::Request_Transition(Sm, OverrideTarget, {});
+                })));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(
+                InTest,
+                FCk_NetAutoTest_Condition::CreateLambda([OverrideReplacement]() -> bool
+                {
+                    return SmParity_IsRunningIn(ck::auto_test::net::Get_ServerWorld(), OverrideReplacement)
+                        && SmParity_IsRunningIn(ck::auto_test::net::Get_ClientWorld(0), OverrideReplacement);
+                }),
+                45.0,
+                TEXT("restored override resolves Target to Replacement on server and connected client")));
+            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(InTest,
+                FCk_NetAutoTest_Assertion::CreateLambda(
+                    [InTest, OverrideTarget, OverrideReplacement]() -> bool
+                {
+                    auto ServerSm = SmParity_ResolveSm(SmParity_FindSubject(ck::auto_test::net::Get_ServerWorld()));
+                    auto ClientSm = SmParity_ResolveSm(SmParity_FindSubject(ck::auto_test::net::Get_ClientWorld(0)));
+                    if (ck::Is_NOT_Valid(ServerSm) || ck::Is_NOT_Valid(ClientSm))
+                    { InTest->AddError(TEXT("override: restored server or client SM unresolved")); return false; }
+                    const auto ServerClass = UCk_Utils_StateMachine_UE::Get_CurrentStateClass(ServerSm);
+                    const auto ClientClass = UCk_Utils_StateMachine_UE::Get_CurrentStateClass(ClientSm);
+                    InTest->TestEqual(TEXT("override: server resolved requested Target to restored Replacement"),
+                        ServerClass.Get(), OverrideReplacement.Get());
+                    InTest->TestTrue(TEXT("override: server did not enter unmodified Target"),
+                        ServerClass.Get() != OverrideTarget.Get());
+                    InTest->TestEqual(TEXT("override: client replicated resolved Replacement"),
+                        ClientClass.Get(), OverrideReplacement.Get());
+                    return true;
+                }),
+                TEXT("restored runtime override applies after seamless ServerTravel")));
+        }
+
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_StateMachineParity_MPReload_Gate,
     "Ck.Snapshot.Parity.StateMachine_MPReload",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -259,13 +319,13 @@ bool FCkSnapshot_StateMachineParity_MPReload_Gate::RunTest(const FString& Parame
 
     SmParity_RunGate(this,
         ACk_AutoTest_NetSubject_StateMachine_UE::StaticClass(),
-        FName{TEXT("CkSnapshot_SmParity_WithHistory_GateSlot")});
+        FName{TEXT("CkSnapshot_SmParity_WithHistory_GateSlot")}, Parameters);
     return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_StateMachineNoHistoryParity_MPReload_Gate,
     "Ck.Snapshot.Parity.StateMachineNoHistory_MPReload",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -277,7 +337,23 @@ bool FCkSnapshot_StateMachineNoHistoryParity_MPReload_Gate::RunTest(const FStrin
 
     SmParity_RunGate(this,
         ACk_AutoTest_NetSubject_StateMachineNoHistory_UE::StaticClass(),
-        FName{TEXT("CkSnapshot_SmParity_NoHistory_GateSlot")});
+        FName{TEXT("CkSnapshot_SmParity_NoHistory_GateSlot")}, Parameters);
+    return true;
+}
+
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
+    FCkSnapshot_StateMachineOverrideParity_MPReload_Gate,
+    "Ck.Snapshot.Parity.StateMachineOverride_MPReload",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkSnapshot_StateMachineOverrideParity_MPReload_Gate::RunTest(const FString& Parameters)
+{
+    bSuppressLogErrors = true;
+    bSuppressLogWarnings = true;
+
+    SmParity_RunGate(this,
+        ACk_AutoTest_NetSubject_StateMachine_UE::StaticClass(),
+        FName{TEXT("CkSnapshot_SmParity_Override_GateSlot")}, Parameters, true);
     return true;
 }
 

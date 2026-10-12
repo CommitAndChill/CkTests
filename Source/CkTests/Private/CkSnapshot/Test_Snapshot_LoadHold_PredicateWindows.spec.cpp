@@ -50,19 +50,19 @@ namespace ck_test_loadhold_predicatewindows
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_LoadHold_PredicateWindows,
     "Ck.Snapshot.LoadHold.PredicateWindows",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_LoadHold_PredicateWindows::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_LoadHold_PredicateWindows::RunTest(const FString& Parameters)
 {
     using namespace ck_test_loadhold_predicatewindows;
 
-    constexpr auto NumClients = 1;
+    constexpr auto NumClients = 2;
     constexpr auto ReadyTimeoutSeconds = 30.0f;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumClients, TEXT("/Engine/Maps/Entry"), Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(NumClients, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,

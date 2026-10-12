@@ -295,7 +295,7 @@ namespace ck_runtime_archetype_gate
 // again. Reaping is what makes an unresolvable recipe a reported loss rather than permanent damage.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_RuntimeArchetype_HuskIsReapedAndNamed,
     "Ck.Snapshot.RuntimeArchetype.HuskIsReapedAndNamed",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -372,7 +372,7 @@ bool FCkSnapshot_RuntimeArchetype_HuskIsReapedAndNamed::RunTest(const FString& P
         return true;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 
@@ -383,7 +383,7 @@ bool FCkSnapshot_RuntimeArchetype_HuskIsReapedAndNamed::RunTest(const FString& P
 // handle. The discriminator is whether its traits composed, which only a real definition can do.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_RuntimeArchetype_ProviderRestoresDefinition,
     "Ck.Snapshot.RuntimeArchetype.ProviderRestoresDefinition",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -463,7 +463,7 @@ bool FCkSnapshot_RuntimeArchetype_ProviderRestoresDefinition::RunTest(const FStr
         return true;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
 
     // The registry is process-lifetime, so a leaked provider would quietly change every later test's answer.
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
@@ -490,7 +490,7 @@ bool FCkSnapshot_RuntimeArchetype_ProviderRestoresDefinition::RunTest(const FStr
 // what would let a build that can resolve the path restore a save an older build had already loaded.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_RuntimeArchetype_UnresolvedPathIsNotErased,
     "Ck.Snapshot.RuntimeArchetype.UnresolvedPathIsNotErased",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -548,7 +548,7 @@ bool FCkSnapshot_RuntimeArchetype_UnresolvedPathIsNotErased::RunTest(const FStri
         return true;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 
@@ -664,7 +664,7 @@ bool FCkSnapshot_RuntimeArchetype_RegistryContract::RunTest(const FString&)
 // this gate defends is whether their inventory slots come back usable or dead forever.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_RuntimeArchetype_ErasedPathStillFreesTheSlot,
     "Ck.Snapshot.RuntimeArchetype.ErasedPathStillFreesTheSlot",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -724,7 +724,7 @@ bool FCkSnapshot_RuntimeArchetype_ErasedPathStillFreesTheSlot::RunTest(const FSt
         return true;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 
@@ -741,7 +741,7 @@ bool FCkSnapshot_RuntimeArchetype_ErasedPathStillFreesTheSlot::RunTest(const FSt
 // inventory slot for the player, so the reap is unconditional and the ensure is how the route gets found.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_RuntimeArchetype_LiveRouteHuskIsReapedAndEnsured,
     "Ck.Snapshot.RuntimeArchetype.LiveRouteHuskIsReapedAndEnsured",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -776,7 +776,7 @@ bool FCkSnapshot_RuntimeArchetype_LiveRouteHuskIsReapedAndEnsured::RunTest(const
     constexpr auto SettleFrames = 60;
     constexpr auto NumPIEClients = 2;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, TEXT("/Engine/Maps/Entry"), Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(NumPIEClients, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
@@ -909,7 +909,7 @@ bool FCkSnapshot_RuntimeArchetype_LiveRouteHuskIsReapedAndEnsured::RunTest(const
 // a real client takes - is pinned with no wire at all by Ck.Snapshot.RuntimeArchetype.IdentityPathAloneResolvesViaProvider.
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_RuntimeArchetype_TransientArchetypeReachesClientResolved,
     "Ck.Snapshot.RuntimeArchetype.TransientArchetypeReachesClientResolved",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -940,7 +940,7 @@ bool FCkSnapshot_RuntimeArchetype_TransientArchetypeReachesClientResolved::RunTe
         return ck_runtime_archetype_gate::Mint_Definition(DefName);
     });
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, TEXT("/Engine/Maps/Entry"), Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(

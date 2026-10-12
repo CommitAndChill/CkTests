@@ -98,7 +98,7 @@ namespace
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkSnapshot_TimerParity_MPReload_Gate,
     "Ck.Snapshot.Parity.Timer_MPReload",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -197,7 +197,7 @@ bool FCkSnapshot_TimerParity_MPReload_Gate::RunTest(const FString& Parameters)
         return true;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 

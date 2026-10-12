@@ -59,12 +59,12 @@ namespace ck_test_ordering_onhydrated
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCk_Snapshot_Ordering_OnHydratedFiresAfterAllPayloads,
     "Ck.Snapshot.Ordering.OnHydratedFiresAfterAllPayloads",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 
-bool FCk_Snapshot_Ordering_OnHydratedFiresAfterAllPayloads::RunTest(const FString& /*Parameters*/)
+bool FCk_Snapshot_Ordering_OnHydratedFiresAfterAllPayloads::RunTest(const FString& Parameters)
 {
     using namespace ck_test_ordering_onhydrated;
     using namespace ck_autotest_snapshot_ordering;
@@ -193,7 +193,7 @@ bool FCk_Snapshot_Ordering_OnHydratedFiresAfterAllPayloads::RunTest(const FStrin
         return AllGood;
     });
 
-    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec);
+    ck::auto_test::snapshot::EnqueueRoundTrip(this, Spec, Parameters);
     return true;
 }
 
