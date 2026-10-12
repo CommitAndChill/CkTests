@@ -106,7 +106,7 @@ namespace ck_test_transform_physics_teleport
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_Transform_PhysicsTeleport_FollowsLiveSimulationState,
     "Ck.Transform.PhysicsTeleport.FollowsLiveSimulationState",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -116,8 +116,8 @@ bool FCkTest_Transform_PhysicsTeleport_FollowsLiveSimulationState::RunTest(const
     using namespace ck_test_transform_physics_teleport;
 
     const auto State = MakeShared<FTestState>();
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InWorld) -> void
