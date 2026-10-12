@@ -1,253 +1,537 @@
-//============================================================================
-// Station Showcase Gym - PlayerController
-//
-// Spawns five UCk_EntityScript_GymStation instances side-by-side along the Y
-// axis with varied tuners, so each aspect of the station can be eyeballed in
-// isolation:
-//
-//   Y = -7500   AutoSize Wide    (very long single lines - exercises width growth)
-//   Y = -6000   AutoSize Tall    (many shorter lines - exercises height growth)
-//   Y = -4500   AutoSize Runtime (small spawn-time content + ticker that reveals
-//                                 long lines over time - exercises runtime grow)
-//   Y = -3000   Default          (baseline 6x5x5)
-//   Y = -1500   Small            (3x3x3)
-//   Y =     0   Large            (10x8x8)
-//   Y = +1500   NoSpotlight      (default dims, ShowSpotlight=false)
-//   Y = +3000   RightAlign       (default dims, EHTA_Right + multi-line desc)
-//
-// All stations sit at X=-1000 with the alcove opening toward +X. The default
-// player pawn spawns near origin; flying back toward -X then turning around
-// gives a head-on view of all five fronts.
-//
-// Get_RequiredStations() returns empty: the legacy BP_DemoDisplay placement
-// infrastructure is bypassed in favour of direct Request_SpawnEntity calls.
-//============================================================================
-
+// Authored geometry is local presentation; the GameState owns its eight-slot source and reveal clock.
 class ACk_StationShowcaseGym_PlayerController : ACk_Gym_Base_PlayerController
 {
-	TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
-	{
-		return TArray<FCkGym_Station_SpawnParams_Payload>();
-	}
+    UPROPERTY(Replicated) int32 LastControlAttemptSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlSerial = 0;
+    UPROPERTY(Replicated) int32 LastControlResult = 0;
+    UPROPERTY(Replicated) int32 LastAcknowledgedDeliverySerial = 0;
+    UPROPERTY(Replicated) FCkStationShowcase_ControlCommit LastControlCommit;
+    UPROPERTY(Replicated) bool OwnerSessionFailed = false;
 
-	void Request_StartGym() override
-	{
-		Spawn_AutoSize_Wide();
-		Spawn_AutoSize_Tall();
-		Spawn_AutoSize_Runtime();
-		Spawn_Default();
-		Spawn_Small();
-		Spawn_Large();
-		Spawn_NoSpotlight();
-		Spawn_RightAlign();
-	}
+    private int32 _RequestedSerial = 0;
+    private int32 _PendingSerial = 0;
+    private int32 _ReservedSerial = 0;
+    private int32 _ReservedGeneration = 0;
+    private int32 _NextDeliverySerial = 0;
+    private int32 _AppliedDeliverySerial = 0;
+    private ACk_Gym_Base_Pawn _SessionPawn;
+    private bool _SessionBound = false;
+    private ACk_Gym_Base_Pawn _CommitPawn;
+    private ACk_StationShowcaseGym_GameState _SessionState;
+    private ACk_StationShowcaseGym_GameState _ReservedState;
+    private ACk_StationShowcaseGym_GameState _CommitState;
+    UPROPERTY() private FCkStationShowcase_ControlCommit _InstalledControlCommit;
 
-	//--------------------------------------------------------------------------------------------------------------------------
-	// CONTROL PANEL (Script/Common/CkGym_ControlPanel.as)
-	//
-	// One row. Everything here plays once and is then over, so re-running it IS the gym - and the console
-	// command's name was the only documentation that the control existed at all.
-	//--------------------------------------------------------------------------------------------------------------------------
+    UFUNCTION(BlueprintPure)
+    FCkStationShowcase_ControlCommit Get_InstalledShowcaseCommit() const
+    { return _InstalledControlCommit; }
+    // Pure whole-value observations; these do not install, release, acknowledge or repair state.
+    UFUNCTION(BlueprintPure) TArray<FCk_Handle> Get_ShowcaseLocalStations() const
+    { return _LocalStations; }
 
-	FString Get_ControlPanelTitle() override
-	{
-		return "GYM STATION SHOWCASE";
-	}
+    UFUNCTION(BlueprintPure) int32 Get_ShowcaseShownSequence() const
+    { return _ShownSequence; }
 
-	TArray<FCkGym_ControlRow> Get_ControlRows() override
-	{
-		auto Rows = TArray<FCkGym_ControlRow>();
-		Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Rebuild every station"));
-		return Rows;
-	}
+    UFUNCTION(BlueprintPure) bool Get_ShowcasePresentationReady()
+    {
+        auto State = CkStationShowcase::Get_State(GetWorld());
+        if (!IsLocalController() || ck::Is_NOT_Valid(State) || State != _BoundState ||
+            _LocalFailed || _LocalStarting || _ShownSequence <= 0 ||
+            !State.Get_IsCompleteSnapshot(State.Snapshot) || _ShownSequence > State.Snapshot.Sequence)
+        { return false; }
+        if (HasAuthority()) { return _LocalStations.IsEmpty() && State.Get_IsReady(); }
+        return _LocalGeneration == State.Snapshot.Generation && Get_HasExactLocalCohort(State.Snapshot);
+    }
 
-	// Note: the [R] row currently spawns ADDITIONAL stations on top of any already
-	// in the world (no destroy-before-respawn tracking yet). Use PIE restart for a
-	// clean reset; the row is for additive iteration.
-	void Request_ControlActivated(int32 InRowIndex) override
-	{
-		if (InRowIndex == 0) { Request_StartGym(); }
-	}
+    private bool _OwnerMonitorArmed = false;
+    private int32 _LocalGeneration = 0;
+    private int32 _ShownSequence = 0;
+    private ACk_StationShowcaseGym_GameState _BoundState;
+    private bool _PresentationArmed = false;
+    private bool _LocalStarting = false;
+    private bool _LocalFailed = false;
+    private float _LocalStartedAt = 0.0f;
+    private FCk_Handle _LocalOwner;
+    private TArray<FCk_Handle> _LocalStations;
+    private TArray<FCk_Handle_PendingEntityScript> _LocalPending;
+    private TArray<int32> _LocalCompleted;
+    private TArray<int32> _LocalConstructed;
+    private TArray<FCk_Handle> _LocalRetiring;
+    private TArray<FCk_Handle> _KnownLocal;
 
-	//------------------------------------------------------------------------
-	// Spawn helpers - each defines one tuner variant.
-	//------------------------------------------------------------------------
+    TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
+    { return TArray<FCkGym_Station_SpawnParams_Payload>(); }
 
-	private void Spawn_Default()
-	{
-		auto Params = FCk_GymStation_SpawnParams();
-		Params.InitialTransform = FTransform(FRotator::ZeroRotator, FVector(-1000.0, -3000.0, 0.0), FVector(1.0, 1.0, 1.0));
-		Params.TitleText = FText::FromString("Default");
-		Params.DescriptionText.Add(FText::FromString("Width=6  Depth=5  Height=5"));
-		Params.DescriptionText.Add(FText::FromString("Spotlight on, EHTA_Left."));
-		Params.DescriptionText.Add(FText::FromString("Baseline tuner config."));
+    void Request_StartGym() override
+    {
+        auto State = CkStationShowcase::Get_State(GetWorld());
+        if (HasAuthority() && ck::IsValid(State) && State.Get_HasPublishedCatalog())
+        {
+            State.Request_EnsureSharedDemo();
+            if (!_OwnerMonitorArmed)
+            { _OwnerMonitorArmed = true; System::SetTimer(this, n"OnOwnerContext", 0.1, true); }
+        }
+        if (IsLocalController() && !_PresentationArmed)
+        {
+            _PresentationArmed = true;
+            System::SetTimer(this, n"OnPresentationTick", 0.1, true);
+        }
+    }
 
-		// Exercise the optional floor description channel + placement/alignment.
-		Params.FloorDescriptionText.Add(FText::FromString("Floor text"));
-		Params.FloorDescriptionText.Add(FText::FromString("Front + Right"));
-		Params.FloorTextPlacement = ECk_GymStation_FloorTextPlacement::Front;
-		Params.FloorTextAlignment = EHorizTextAligment::EHTA_Right;
+    UFUNCTION() private void OnOwnerContext()
+    {
+        if (!HasAuthority() || OwnerSessionFailed ||
+            (_ReservedSerial == 0 && LastControlSerial == 0)) { return; }
+        auto State = CkStationShowcase::Get_State(GetWorld());
+        if (ck::Is_NOT_Valid(State) || State != _SessionState ||
+            !State.Get_IsValidOwner(this, _SessionPawn))
+        {
+            OwnerSessionFailed = true;
+            if (_ReservedSerial > 0)
+            { Request_RejectShowcaseControl(_ReservedSerial, 2); }
+            ForceNetUpdate();
+        }
+    }
 
-		// Show anchor visualisation spheres so we can eyeball anchor positions.
-		Params.ShowAnchors = true;
+    FString Get_ControlPanelTitle() override
+    { return "GYM STATION SHOWCASE"; }
 
-		// Showcase convention: every station here turns on debug overlays so
-		// each piece's expected vs actual transform is visible for verification.
-		// Production gyms should leave ShowDebugOverlays at its default (false).
-		Params.ShowDebugOverlays = true;
+    UFUNCTION(BlueprintPure)
+    TArray<FCkGym_ControlRow> Get_ControlRows() override
+    {
+        auto Rows = TArray<FCkGym_ControlRow>();
+        Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Rebuild every station",
+            !OwnerSessionFailed && _PendingSerial == 0));
+        auto Installed = _InstalledControlCommit;
+        if (Installed.DeliverySerial > 0)
+        {
+            Rows.Add(CkGym_Control::Status("Own rebuild delivery",
+                f"Request {Installed.RequestSerial}, delivery {Installed.DeliverySerial}"));
+            Rows.Add(CkGym_Control::Status("Installed generation",
+                f"{Installed.Snapshot.Generation}, reveal {Installed.Snapshot.RevealedLines}/9, tick {Installed.Snapshot.TickCount}"));
+        }
+        if (OwnerSessionFailed)
+        { Rows.Add(CkGym_Control::Status("Owner session", "Retired", true)); }
+        return Rows;
+    }
 
-		Spawn_StationAt(Params);
-	}
+    void Request_ControlActivated(int32 InRowIndex) override
+    {
+        if (!IsLocalController() || OwnerSessionFailed || InRowIndex != 0 ||
+            _PendingSerial != 0) { return; }
+        auto State = CkStationShowcase::Get_State(GetWorld());
+        if (ck::Is_NOT_Valid(State) || !State.Snapshot.Ready || State.Snapshot.Failed) { return; }
+        auto High = Math::Max(_RequestedSerial,
+            Math::Max(LastControlAttemptSerial, LastControlSerial));
+        if (High >= 2147483647) { return; }
+        _RequestedSerial = High + 1;
+        _PendingSerial = _RequestedSerial;
+        Server_RequestShowcaseRebuild(_RequestedSerial, State.Snapshot.Generation);
+    }
 
-	private void Spawn_Small()
-	{
-		auto Params = FCk_GymStation_SpawnParams();
-		Params.InitialTransform = FTransform(FRotator::ZeroRotator, FVector(-1000.0, -1500.0, 0.0), FVector(1.0, 1.0, 1.0));
-		Params.Width = 3.0;
-		Params.Depth = 3.0;
-		Params.Height = 3.0;
-		Params.TitleText = FText::FromString("Small");
-		Params.DescriptionText.Add(FText::FromString("Width=3  Depth=3  Height=3"));
-		Params.DescriptionText.Add(FText::FromString("Verifies down-scaling + text fit."));
-		Params.ShowDebugOverlays = true;
+    UFUNCTION(Server)
+    void Server_RequestShowcaseRebuild(int32 InSerial, int32 InGeneration)
+    {
+        if (!HasAuthority() || InSerial <= 0 || InSerial <= LastControlAttemptSerial ||
+            InSerial <= LastControlSerial) { return; }
+        LastControlAttemptSerial = InSerial;
+        LastControlResult = 0;
+        auto World = GetWorld();
+        if (ck::Is_NOT_Valid(World))
+        { LastControlResult = 3; ForceNetUpdate(); return; }
+        auto Pawn = Cast<ACk_Gym_Base_Pawn>(GetControlledPawn());
+        auto State = CkStationShowcase::Get_State(World);
+        TArray<ACk_StationShowcaseGym_GameMode> Modes;
+        GetAllActorsOfClass(ACk_StationShowcaseGym_GameMode, Modes);
+        auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
+        auto Current = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
+        if (OwnerSessionFailed || ck::Is_NOT_Valid(Pawn) || Pawn.GetController() != this ||
+            ck::Is_NOT_Valid(World) || Pawn.GetWorld() != World ||
+            ck::Is_NOT_Valid(State) || State.GetWorld() != World ||
+            World.GetGameState() != State || State.GetClass() != ACk_StationShowcaseGym_GameState ||
+            Modes.Num() != 1 || ck::Is_NOT_Valid(Modes[0]) || Modes[0].GetWorld() != World ||
+            !State.Get_HasPublishedCatalog() || !State.Get_IsReady() ||
+            Current < 0 || Current >= Registry.Num() ||
+            Registry[Current].DisplayName != "Station Showcase" ||
+            InGeneration != State.Snapshot.Generation || _ReservedSerial != 0 ||
+            !Get_CanAcceptOwnerCommit() ||
+            (_SessionBound && (_SessionPawn != Pawn || _SessionState != State)))
+        { LastControlResult = 3; ForceNetUpdate(); return; }
+        _SessionPawn = Pawn; _SessionState = State; _SessionBound = true;
+        _ReservedState = State;
+        _ReservedSerial = InSerial;
+        _ReservedGeneration = InGeneration;
+        if (!State.Request_Rebuild(this, Pawn, InSerial, InGeneration))
+        {
+            Request_RejectShowcaseControl(InSerial, 3);
+        }
+    }
 
-		Spawn_StationAt(Params);
-	}
+    bool Get_HasReservedShowcaseControl(int32 InSerial, int32 InGeneration,
+        ACk_Gym_Base_Pawn InPawn) const
+    {
+        return HasAuthority() && !OwnerSessionFailed && InSerial > 0 &&
+            InGeneration > 0 && _SessionPawn == InPawn && ck::IsValid(_ReservedState) &&
+            _ReservedState == _SessionState && _ReservedState.GetWorld() == GetWorld() &&
+            _ReservedSerial == InSerial && _ReservedGeneration == InGeneration;
+    }
 
-	private void Spawn_Large()
-	{
-		auto Params = FCk_GymStation_SpawnParams();
-		Params.InitialTransform = FTransform(FRotator::ZeroRotator, FVector(-1000.0, 0.0, 0.0), FVector(1.0, 1.0, 1.0));
-		Params.Width = 10.0;
-		Params.Depth = 8.0;
-		Params.Height = 8.0;
-		Params.TitleText = FText::FromString("Large");
-		Params.DescriptionText.Add(FText::FromString("Width=10  Depth=8  Height=8"));
-		Params.DescriptionText.Add(FText::FromString("Verifies up-scaling + spotlight reach."));
-		Params.ShowDebugOverlays = true;
+    int32 Get_NextDeliverySerial() const
+    { return HasAuthority() && _NextDeliverySerial < 2147483646 ? _NextDeliverySerial + 1 : 0; }
 
-		Spawn_StationAt(Params);
-	}
+    bool Get_CanAcceptOwnerCommit()
+    {
+        return HasAuthority() && !OwnerSessionFailed && _NextDeliverySerial < 2147483646 &&
+            (LastControlCommit.DeliverySerial == 0 ||
+             LastAcknowledgedDeliverySerial == LastControlCommit.DeliverySerial);
+    }
 
-	private void Spawn_NoSpotlight()
-	{
-		auto Params = FCk_GymStation_SpawnParams();
-		Params.InitialTransform = FTransform(FRotator::ZeroRotator, FVector(-1000.0, 1500.0, 0.0), FVector(1.0, 1.0, 1.0));
-		Params.ShowSpotlight = false;
-		Params.TitleText = FText::FromString("No Spotlight");
-		Params.DescriptionText.Add(FText::FromString("ShowSpotlight=false"));
-		Params.DescriptionText.Add(FText::FromString("Back wall should look noticeably darker."));
-		Params.ShowDebugOverlays = true;
+    void Request_RejectShowcaseControl(int32 InSerial, int32 InResult)
+    {
+        if (!HasAuthority() || InSerial <= 0 || InSerial <= LastControlSerial ||
+            InResult < 2 || InResult > 4) { return; }
+        if (_ReservedSerial == InSerial)
+        { _ReservedSerial = 0; _ReservedGeneration = 0; _ReservedState = nullptr; }
+        if (LastControlAttemptSerial == InSerial) { LastControlResult = InResult; }
+        ForceNetUpdate();
+    }
 
-		Spawn_StationAt(Params);
-	}
+    bool Request_DetachShowcaseControl(ACk_StationShowcaseGym_GameState InState,
+        ACk_Gym_Base_Pawn InPawn, int32 InSerial, int32 InGeneration)
+    {
+        if (!HasAuthority() || ck::Is_NOT_Valid(InState) ||
+            InState.GetWorld() != GetWorld() || InState != _ReservedState ||
+            InState != _SessionState || _SessionPawn != InPawn ||
+            _ReservedSerial != InSerial || _ReservedGeneration != InGeneration ||
+            InSerial <= 0 || InGeneration <= 0 ||
+            (InState.Get_HasCapturedOwnerContext(this, InPawn) && !OwnerSessionFailed)) { return false; }
+        OwnerSessionFailed = true;
+        Request_RejectShowcaseControl(InSerial, 2);
+        ForceNetUpdate();
+        return true;
+    }
 
-	private void Spawn_RightAlign()
-	{
-		auto Params = FCk_GymStation_SpawnParams();
-		Params.InitialTransform = FTransform(FRotator::ZeroRotator, FVector(-1000.0, 3000.0, 0.0), FVector(1.0, 1.0, 1.0));
-		Params.TextAlignment = EHorizTextAligment::EHTA_Right;
-		Params.TitleText = FText::FromString("Right Align");
-		Params.DescriptionText.Add(FText::FromString("EHTA_Right alignment."));
-		Params.DescriptionText.Add(FText::FromString("Text should hug the -Y side"));
-		Params.DescriptionText.Add(FText::FromString("of the back wall, not centre."));
-		Params.ShowDebugOverlays = true;
+    bool Request_TryRecordShowcaseCommit(ACk_StationShowcaseGym_GameState InState,
+        int32 InSerial)
+    {
+        if (!HasAuthority() || ck::Is_NOT_Valid(InState) ||
+            InState.GetWorld() != GetWorld() || InState != _ReservedState ||
+            InState != _SessionState || InSerial <= LastControlSerial ||
+            !Get_CanAcceptOwnerCommit()) { return false; }
+        auto World = GetWorld();
+        if (ck::Is_NOT_Valid(World) || World.GetGameState() != InState ||
+            !InState.Get_IsValidOwner(this, _SessionPawn)) { return false; }
+        FCkStationShowcase_ControlCommit Commit;
+        if (!InState.Request_TryGetPreparedShowcaseCommit(this, InSerial, Commit) ||
+            Commit.RequestSerial != InSerial || Commit.OriginState != InState ||
+            Commit.Owner != this || Commit.OwnerPawn != _SessionPawn ||
+            Commit.OriginGeneration != _ReservedGeneration ||
+            Commit.DeliverySerial != Get_NextDeliverySerial() ||
+            !Get_HasReservedShowcaseControl(InSerial, _ReservedGeneration, _SessionPawn) ||
+            !InState.Get_IsCompleteSnapshot(Commit.Snapshot)) { return false; }
+        _NextDeliverySerial = Commit.DeliverySerial;
+        LastControlCommit = Commit;
+        LastControlSerial = InSerial;
+        _CommitPawn = _SessionPawn; _CommitState = InState;
+        _ReservedSerial = 0; _ReservedGeneration = 0; _ReservedState = nullptr;
+        if (LastControlAttemptSerial == InSerial) { LastControlResult = 1; }
+        ForceNetUpdate();
+        return true;
+    }
 
-		Spawn_StationAt(Params);
-	}
+    UFUNCTION(Server) void Server_AcknowledgeShowcaseCommit(
+        ACk_StationShowcaseGym_GameState InState, ACk_Gym_Base_Pawn InPawn,
+        int32 InDelivery, int32 InSerial)
+    {
+        if (!HasAuthority() || OwnerSessionFailed ||
+            InDelivery <= LastAcknowledgedDeliverySerial ||
+            InDelivery != LastControlCommit.DeliverySerial ||
+            InSerial != LastControlCommit.RequestSerial ||
+            InSerial != LastControlSerial) { return; }
+        auto State = CkStationShowcase::Get_State(GetWorld());
+        if (ck::Is_NOT_Valid(State) || ck::Is_NOT_Valid(InState) ||
+            InState != State || State != _CommitState || State != _SessionState ||
+            LastControlCommit.OriginState != State || LastControlCommit.Owner != this ||
+            InPawn != _CommitPawn || LastControlCommit.OwnerPawn != InPawn ||
+            !State.Get_IsValidOwner(this, InPawn)) { return; }
+        LastAcknowledgedDeliverySerial = InDelivery;
+        ForceNetUpdate();
+    }
 
-	// AUTO-SIZE WIDE - long single lines force the width-growth axis of
-	// Apply_AutoSize_FromSpawnParams. Title is also long so the title's
-	// rendered width exceeds the description's longest line and dominates
-	// the spawn-time width calc.
-	private void Spawn_AutoSize_Wide()
-	{
-		auto Params = FCk_GymStation_SpawnParams();
-		Params.InitialTransform = FTransform(FRotator::ZeroRotator, FVector(-1000.0, -7500.0, 0.0), FVector(1.0, 1.0, 1.0));
-		Params.TitleText = FText::FromString("AUTO-SIZE WIDE — Long Title Stress For Width-Axis Growth Verification");
-		Params.DescriptionText.Add(FText::FromString("This description line is intentionally extremely long to verify the alcove grows along the Y (width) axis."));
-		Params.DescriptionText.Add(FText::FromString("The Apply_AutoSize_FromSpawnParams heuristic walks every line and picks the longest character count."));
-		Params.DescriptionText.Add(FText::FromString("Width = max(MinWidth, (LongestChars * Scale * CharWidthFactor + 2*Padding) / 100)."));
-		Params.DescriptionText.Add(FText::FromString("If anything here gets truncated against the back wall, the heuristic under-estimates and needs tuning."));
-		Params.AutoSize = true;
-		Params.ShowDebugOverlays = true;
-		Params.StationTags.Add(n"Gym.StationShowcase.AutoSize.Wide");
+    private void Request_CaptureLocal(FCk_Handle InRoot)
+    {
+        if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(InRoot) ||
+            _LocalRetiring.Contains(InRoot)) { return; }
+        _LocalRetiring.Add(InRoot);
+        if (ck::IsValid(InRoot))
+        { for (auto Child : utils_entity_lifetime::Get_LifetimeDependents(InRoot))
+          { Request_CaptureLocal(Child); } }
+    }
 
-		Spawn_StationAt(Params);
-	}
+    private void Request_RetireLocal()
+    {
+        Request_CaptureLocal(_LocalOwner);
+        for (auto Known : _KnownLocal) { Request_CaptureLocal(Known); }
+        for (auto Station : _LocalStations) { Request_CaptureLocal(Station); }
+        for (auto Pending : _LocalPending)
+        { Request_CaptureLocal(Pending.Get_EntityUnderConstruction()); }
+        for (auto Pending : _LocalPending)
+        { if (utils_pending_entity_script::Get_IsValid(Pending))
+          { utils_pending_entity_script::Request_DestroyEntity(Pending); } }
+        if (CkStationShowcase::IsLive(_LocalOwner))
+        { utils_entity_lifetime::Request_DestroyEntity(_LocalOwner); }
+        _LocalOwner = FCk_Handle();
+        _LocalStations.Empty(); _LocalPending.Empty(); _LocalCompleted.Empty();
+        _LocalConstructed.Empty();
+        _KnownLocal.Empty();
+        _LocalStarting = false; _ShownSequence = 0;
+    }
 
-	// AUTO-SIZE TALL - many short lines force the height-growth axis. Each
-	// line is short so width stays modest, but the line count drives Height
-	// up via the LineHeightFactor x DescLineCount path.
-	private void Spawn_AutoSize_Tall()
-	{
-		auto Params = FCk_GymStation_SpawnParams();
-		Params.InitialTransform = FTransform(FRotator::ZeroRotator, FVector(-1000.0, -6000.0, 0.0), FVector(1.0, 1.0, 1.0));
-		Params.TitleText = FText::FromString("AUTO-SIZE TALL");
-		Params.DescriptionText.Add(FText::FromString("Line  1: alpha"));
-		Params.DescriptionText.Add(FText::FromString("Line  2: bravo"));
-		Params.DescriptionText.Add(FText::FromString("Line  3: charlie"));
-		Params.DescriptionText.Add(FText::FromString("Line  4: delta"));
-		Params.DescriptionText.Add(FText::FromString("Line  5: echo"));
-		Params.DescriptionText.Add(FText::FromString("Line  6: foxtrot"));
-		Params.DescriptionText.Add(FText::FromString("Line  7: golf"));
-		Params.DescriptionText.Add(FText::FromString("Line  8: hotel"));
-		Params.DescriptionText.Add(FText::FromString("Line  9: india"));
-		Params.DescriptionText.Add(FText::FromString("Line 10: juliet"));
-		Params.DescriptionText.Add(FText::FromString("Line 11: kilo"));
-		Params.DescriptionText.Add(FText::FromString("Line 12: lima"));
-		Params.DescriptionText.Add(FText::FromString("Line 13: mike"));
-		Params.DescriptionText.Add(FText::FromString("Line 14: november"));
-		Params.DescriptionText.Add(FText::FromString("Line 15: oscar"));
-		Params.AutoSize = true;
-		Params.ShowDebugOverlays = true;
-		Params.StationTags.Add(n"Gym.StationShowcase.AutoSize.Tall");
+    private bool Get_LocalRetired()
+    {
+        for (auto Old : _LocalRetiring)
+        { if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(Old)) { return false; } }
+        _LocalRetiring.Empty();
+        return true;
+    }
 
-		Spawn_StationAt(Params);
-	}
+    private void Request_StartLocal(FCkStationShowcase_Snapshot InSample)
+    {
+        auto State = CkStationShowcase::Get_State(GetWorld());
+        if (ck::Is_NOT_Valid(State) || State != _BoundState || State.GetWorld() != GetWorld() ||
+            !Get_LocalRetired() || !State.Get_IsCompleteSnapshot(InSample)) { return; }
+        auto Owner = ck::ToEntity(this);
+        if (!CkStationShowcase::IsLive(Owner) ||
+            !utils_entity_lifetime::Get_CanCreateEntity(Owner))
+        { Request_FailLocal("Showcase local controller entity unavailable"); return; }
+        _LocalOwner = utils_entity_lifetime::Request_CreateEntity(Owner);
+        if (!CkStationShowcase::IsLive(_LocalOwner))
+        { Request_FailLocal("Showcase local owner allocation failed"); return; }
+        Request_RememberLocal(_LocalOwner);
+        _LocalGeneration = InSample.Generation;
+        _LocalStarting = true;
+        _LocalStartedAt = float(System::GetGameTimeInSeconds());
+        for (int32 i = 0; i < CkStationShowcase::SlotCount; i++)
+        {
+            auto Params = InSample.Stations[i];
+            if (!CkStationShowcase::Get_IsExactWireParams(Params, i))
+            { Request_FailLocal("Showcase local catalog invalid"); return; }
+            auto Pending = utils_entity_script::Request_SpawnEntity(_LocalOwner,
+                UCk_EntityScript_GymStation, FInstancedStruct::Make(Params),
+                FCk_Delegate_Request_OnCompleted(this, n"OnLocalSpawnCompleted"));
+            if (!utils_pending_entity_script::Get_IsValid(Pending))
+            { Request_FailLocal("Showcase local station spawn rejected"); return; }
+            _LocalPending.Add(Pending);
+            _LocalCompleted.Add(0);
+            _LocalConstructed.Add(0);
+            _LocalStations.Add(FCk_Handle());
+            utils_pending_entity_script::Promise_OnConstructed(Pending,
+                FCk_Delegate_EntityScript_Constructed(this, n"OnLocalConstructed"));
+        }
+    }
 
-	// AUTO-SIZE RUNTIME - starts with small spawn-time content then a
-	// companion ticker progressively reveals long lines, forcing
-	// Refit_FromMeasuredBounds to grow the alcove at runtime over many
-	// frames. Stresses Resize_Alcove + Update_*Transforms in particular.
-	private void Spawn_AutoSize_Runtime()
-	{
-		auto Params = FCk_GymStation_SpawnParams();
-		Params.InitialTransform = FTransform(FRotator::ZeroRotator, FVector(-1000.0, -4500.0, 0.0), FVector(1.0, 1.0, 1.0));
-		Params.TitleText = FText::FromString("AUTO-SIZE RUNTIME");
-		Params.DescriptionText.Add(FText::FromString("Initial small content."));
-		Params.DescriptionText.Add(FText::FromString("Watch the alcove grow as the ticker reveals lines."));
-		Params.AutoSize = true;
-		Params.ShowDebugOverlays = true;
-		Params.StationTags.Add(n"Gym.StationShowcase.AutoSize.Runtime");
+    UFUNCTION() private void OnLocalSpawnCompleted(FCk_Handle InEntity,
+        ECk_Request_OperationResult InResult)
+    {
+        if (!_LocalStarting) { return; }
+        if (_LocalPending.Num() != CkStationShowcase::SlotCount ||
+            _LocalStations.Num() != CkStationShowcase::SlotCount ||
+            _LocalCompleted.Num() != CkStationShowcase::SlotCount ||
+            _LocalConstructed.Num() != CkStationShowcase::SlotCount)
+        { Request_FailLocal("Showcase local callback cardinality invalid"); return; }
+        for (int32 i = 0; i < _LocalPending.Num(); i++)
+        {
+            if (_LocalPending[i].Get_EntityUnderConstruction() != InEntity) { continue; }
+            if (i >= _LocalCompleted.Num() || _LocalCompleted[i] != 0 ||
+                InResult != ECk_Request_OperationResult::Succeeded)
+            { Request_FailLocal("Showcase local station completion invalid"); return; }
+            _LocalCompleted[i] = 1;
+            return;
+        }
+        Request_FailLocal("Unexpected Showcase local station completion");
+    }
 
-		Spawn_StationAt(Params);
+    UFUNCTION() private void OnLocalConstructed(FCk_Handle_EntityScript InScript)
+    {
+        if (!_LocalStarting) { return; }
+        if (_LocalPending.Num() != CkStationShowcase::SlotCount ||
+            _LocalStations.Num() != CkStationShowcase::SlotCount ||
+            _LocalCompleted.Num() != CkStationShowcase::SlotCount ||
+            _LocalConstructed.Num() != CkStationShowcase::SlotCount)
+        { Request_FailLocal("Showcase local callback cardinality invalid"); return; }
+        auto Entity = FCk_Handle(InScript);
+        for (int32 i = 0; i < _LocalPending.Num(); i++)
+        {
+            if (_LocalPending[i].Get_EntityUnderConstruction() != Entity) { continue; }
+            if (i >= _LocalConstructed.Num() || _LocalConstructed[i] != 0 ||
+                !CkStationShowcase::IsLive(Entity) ||
+                !utils_entity_lifetime::Has_LifetimeOwner(Entity) ||
+                utils_entity_lifetime::Get_LifetimeOwner(Entity) != _LocalOwner ||
+                CkStationShowcase::IsLive(_LocalStations[i]))
+            { Request_FailLocal("Showcase local station constructed identity invalid"); return; }
+            _LocalStations[i] = Entity;
+            _LocalConstructed[i] = 1;
+            Request_RememberLocal(Entity);
+            return;
+        }
+        Request_FailLocal("Unexpected Showcase local station");
+    }
 
-		auto TickerParams = FCk_GymStation_Showcase_AutoSizeTickerParams();
-		TickerParams.StationTag = n"Gym.StationShowcase.AutoSize.Runtime";
-		TickerParams.Title = FText::FromString("AUTO-SIZE RUNTIME — Long Title Pushed By Ticker");
-		TickerParams.LineRevealInterval = 1.0f;
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 1: short line."));
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 2: a noticeably longer line that should force a width-axis grow."));
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 3: line three of the runtime grow stress test."));
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 4: extending the description further to verify height growth."));
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 5: another line — alcove must now be tall and wide."));
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 6: yet another, the back wall should keep up."));
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 7: a deliberately enormous line that easily exceeds the previous longest content for the runtime width-grow path."));
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 8: penultimate."));
-		TickerParams.DescriptionLines.Add(FText::FromString("Tick reveal step 9: final reveal — beyond this point only the tick counter mutates."));
+    private void Request_FailLocal(FString InReason)
+    {
+        _LocalFailed = true;
+        Request_RetireLocal();
+        ck::Error("[StationShowcase] " + InReason);
+    }
 
-		utils_entity_script::Request_SpawnEntity(
-			ck::TransientEntity(),
-			UCk_EntityScript_GymStation_Showcase_AutoSizeTicker,
-			FInstancedStruct::Make(TickerParams));
-	}
+    private void Request_RememberLocal(FCk_Handle InRoot)
+    {
+        if (!UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(InRoot)) { return; }
+        if (!_KnownLocal.Contains(InRoot)) { _KnownLocal.Add(InRoot); }
+        if (ck::IsValid(InRoot))
+        { for (auto Child : utils_entity_lifetime::Get_LifetimeDependents(InRoot))
+          { Request_RememberLocal(Child); } }
+    }
 
-	private void Spawn_StationAt(FCk_GymStation_SpawnParams InParams)
-	{
-		utils_entity_script::Request_SpawnEntity(
-			ck::TransientEntity(),
-			UCk_EntityScript_GymStation,
-			FInstancedStruct::Make(InParams));
-	}
-};
+    UFUNCTION() private void OnPresentationTick()
+    {
+        if (!IsLocalController()) { Request_RetireLocal(); return; }
+        if (_PendingSerial > 0 && LastControlAttemptSerial == _PendingSerial &&
+            LastControlResult > 1) { _PendingSerial = 0; }
+        auto State = CkStationShowcase::Get_State(GetWorld());
+        auto World = GetWorld();
+        if (ck::Is_NOT_Valid(World) || ck::Is_NOT_Valid(State) ||
+            State.GetWorld() != World || World.GetGameState() != State ||
+            State.GetClass() != ACk_StationShowcaseGym_GameState || !State.Get_HasPublishedCatalog())
+        {
+            Request_RetireLocal(); _BoundState = nullptr; _LocalGeneration = 0;
+            return;
+        }
+        if (_BoundState != State)
+        {
+            Request_RetireLocal();
+            _BoundState = State;
+            _LocalGeneration = 0;
+            _LocalFailed = false;
+        }
+        // Owner outcome is installed independently of the latest shared geometry's generation/readiness.
+        Request_ConsumeCommit(State);
+        auto Sample = State.Snapshot;
+        if (Sample.Failed || !Sample.Ready ||
+            !State.Get_IsCompleteSnapshot(Sample))
+        { Request_RetireLocal(); return; }
+        if (HasAuthority())
+        {
+            if (!State.Get_IsReady()) { return; }
+            _ShownSequence = Sample.Sequence;
+            return;
+        }
+        if (_LocalGeneration != Sample.Generation)
+        {
+            Request_RetireLocal();
+            _LocalGeneration = Sample.Generation;
+            _LocalFailed = false;
+        }
+        if (_LocalFailed || !Get_LocalRetired()) { return; }
+        if (!CkStationShowcase::IsLive(_LocalOwner))
+        { Request_StartLocal(Sample); return; }
+        if (_LocalStarting)
+        {
+            if (float(System::GetGameTimeInSeconds()) - _LocalStartedAt > 20.0f)
+            { Request_FailLocal("Showcase local station readiness timed out"); return; }
+            if (_LocalStations.Num() != CkStationShowcase::SlotCount ||
+                _LocalPending.Num() != CkStationShowcase::SlotCount ||
+                _LocalCompleted.Num() != CkStationShowcase::SlotCount ||
+                _LocalConstructed.Num() != CkStationShowcase::SlotCount)
+            { Request_FailLocal("Showcase local callback cardinality invalid"); return; }
+            for (int32 i = 0; i < CkStationShowcase::SlotCount; i++)
+            {
+                if (_LocalCompleted[i] < 0 || _LocalCompleted[i] > 1 ||
+                    _LocalConstructed[i] < 0 || _LocalConstructed[i] > 1)
+                { Request_FailLocal("Showcase local callback count invalid"); return; }
+                if (_LocalCompleted[i] == 0 || _LocalConstructed[i] == 0) { return; }
+            }
+            if (!Get_HasExactLocalIdentity(Sample))
+            { Request_FailLocal("Showcase local station identity invalid"); return; }
+            // GymStation publishes its display fragment on a timer after Construct.
+            if (!Get_HasExactLocalCohort(Sample)) { return; }
+            _LocalStarting = false;
+        }
+        if (!Get_HasExactLocalCohort(Sample))
+        { Request_FailLocal("Showcase local station cohort lost"); return; }
+        Request_RememberLocal(_LocalOwner);
+        for (auto Station : _LocalStations) { Request_RememberLocal(Station); }
+        if (_ShownSequence >= Sample.Sequence || Sample.TickCount == 0) { return; }
+        for (int32 i = 0; i < CkStationShowcase::SlotCount; i++)
+        {
+            auto& Text = _LocalStations[i].AddOrGet_Fragment(FCkGym_Station_TitleAndDescription);
+            Text.Title = FText::FromString(Sample.StationTitles[i]);
+            Text.Description = FText::FromString(Sample.StationBodies[i]);
+            Text.Instructions = FText::FromString(Sample.StationInstructions[i]);
+        }
+        _ShownSequence = Sample.Sequence;
+    }
+
+    private void Request_ConsumeCommit(ACk_StationShowcaseGym_GameState InState)
+    {
+        auto Commit = LastControlCommit;
+        if (OwnerSessionFailed || Commit.DeliverySerial <= _AppliedDeliverySerial ||
+            Commit.DeliverySerial <= LastAcknowledgedDeliverySerial || Commit.RequestSerial <= 0 ||
+            Commit.OriginGeneration <= 0 || Commit.OriginGeneration >= 2147483646 ||
+            Commit.Snapshot.Generation != Commit.OriginGeneration + 1 ||
+            ck::Is_NOT_Valid(InState) || Commit.OriginState != InState || Commit.Owner != this)
+        { return; }
+        auto World = GetWorld();
+        auto Pawn = Cast<ACk_Gym_Base_Pawn>(GetControlledPawn());
+        if (ck::Is_NOT_Valid(World) || World.GetGameState() != InState ||
+            InState.GetWorld() != World || InState.GetClass() != ACk_StationShowcaseGym_GameState ||
+            !InState.Get_HasPublishedCatalog() || ck::Is_NOT_Valid(Pawn) ||
+            Commit.OwnerPawn != Pawn || Pawn.GetWorld() != World || Pawn.GetController() != this ||
+            !InState.Get_IsCompleteSnapshot(Commit.Snapshot)) { return; }
+        // This whole typed cache is the real per-owner HUD consumer. Shared shells stay on live GS state.
+        _InstalledControlCommit = Commit;
+        _AppliedDeliverySerial = Commit.DeliverySerial;
+        if (_PendingSerial == Commit.RequestSerial) { _PendingSerial = 0; }
+        Server_AcknowledgeShowcaseCommit(InState, Pawn, Commit.DeliverySerial, Commit.RequestSerial);
+    }
+
+    private bool Get_HasExactLocalIdentity(FCkStationShowcase_Snapshot InSample)
+    {
+        auto WorldOwner = ck::TransientEntity();
+        if (!CkStationShowcase::IsLive(WorldOwner) || !CkStationShowcase::IsLive(_LocalOwner) ||
+            _LocalGeneration != InSample.Generation ||
+            InSample.CatalogVersion != CkStationShowcase::CatalogVersion ||
+            _LocalStations.Num() != CkStationShowcase::SlotCount ||
+            _LocalPending.Num() != CkStationShowcase::SlotCount) { return false; }
+        for (int32 i = 0; i < CkStationShowcase::SlotCount; i++)
+        {
+            auto H = _LocalStations[i];
+            auto Tagged = utils_entity_tag::ForEach_Entity(WorldOwner,
+                CkStationShowcase::Get_StationTag(i));
+            if (!CkStationShowcase::IsLive(H) ||
+                _LocalPending[i].Get_EntityUnderConstruction() != H ||
+                !utils_entity_lifetime::Has_LifetimeOwner(H) ||
+                utils_entity_lifetime::Get_LifetimeOwner(H) != _LocalOwner ||
+                Tagged.Num() != 1 || Tagged[0] != H ||
+                !CkStationShowcase::Get_IsExactStationScript(H))
+            { return false; }
+        }
+        return true;
+    }
+
+    private bool Get_HasExactLocalCohort(FCkStationShowcase_Snapshot InSample)
+    {
+        if (!Get_HasExactLocalIdentity(InSample)) { return false; }
+        for (int32 i = 0; i < CkStationShowcase::SlotCount; i++)
+        { if (!_LocalStations[i].Has_Fragment(FCkGym_Station_TitleAndDescription))
+          { return false; } }
+        return true;
+    }
+
+    UFUNCTION(BlueprintOverride)
+    void EndPlay(EEndPlayReason InReason)
+    {
+        Request_RetireLocal();
+        Super::EndPlay(InReason);
+    }
+}
