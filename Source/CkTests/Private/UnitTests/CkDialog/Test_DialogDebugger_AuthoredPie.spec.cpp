@@ -259,9 +259,9 @@ namespace ck_tests_dialog_debugger_authored_pie
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkDialogDebugger_AuthoredPie, "Ck.DialogDebugger.Authored.PIE", ck_tests_dialog_debugger_authored_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkDialogDebugger_AuthoredPie, "Ck.DialogDebugger.Authored.PIE", ck_tests_dialog_debugger_authored_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkDialogDebugger_AuthoredPie::RunTest(const FString&)
+bool FCkDialogDebugger_AuthoredPie::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_dialog_debugger_authored_pie;
 
@@ -310,8 +310,8 @@ bool FCkDialogDebugger_AuthoredPie::RunTest(const FString&)
         }
     }
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InWorld) -> void
     {
         if (IsValid(InWorld) && FSlateApplication::IsInitialized()) { Tick(FSlateApplication::Get()); }
