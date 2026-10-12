@@ -195,18 +195,18 @@ namespace ck_tests_ismproxy_authored_inspector
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkTest_IsmProxy_AuthoredInspectorComposition,
     "CkTests.UnitTests.CkIsmRenderer.IsmProxy.AuthoredInspectorComposition",
     ck_tests_ismproxy_authored_inspector::kTestFlags | EAutomationTestFlags::NonNullRHI)
 
-bool FCkTest_IsmProxy_AuthoredInspectorComposition::RunTest(const FString&)
+bool FCkTest_IsmProxy_AuthoredInspectorComposition::RunTest(const FString& Parameters)
 {
     using namespace ck_tests_ismproxy_authored_inspector;
     const auto Scenario = MakeShared<FScenario>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, kEntryMapPath));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, kReadyTimeoutSeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, kEntryMapPath, Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, kReadyTimeoutSeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, Scenario](UWorld* InWorld) -> void
         {
