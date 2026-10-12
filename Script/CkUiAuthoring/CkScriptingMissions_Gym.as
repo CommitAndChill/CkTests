@@ -63,8 +63,8 @@ class UCk_ScriptingMissions_Widget : UUserWidget
         TextNames.Add("MissionCount"); TextNames.Add("BoardStatus"); TextNames.Add("Selection");
         TextNames.Add("DetailTitle"); TextNames.Add("DetailRoute"); TextNames.Add("DetailBrief");
         TextNames.Add("DetailProgress"); TextNames.Add("DetailStatus");
-        for (const auto Name : TextNames)
-        { Texts.Add(FCk_UI_AuthoredText(Name, FText::FromString(""))); }
+        for (const auto TextName : TextNames)
+        { Texts.Add(FCk_UI_AuthoredText(TextName, FText::FromString(""))); }
         auto Actions = TArray<FString>(); Actions.Add("CompleteMission");
         auto ItemActions = TArray<FString>(); ItemActions.Add("SelectMission");
         auto Regions = TArray<FString>(); Regions.Add("main");
@@ -148,8 +148,8 @@ class UCk_ScriptingMissions_Widget : UUserWidget
             Done.Set_Bool(Mission.Done); Fields.Add(Done);
             auto Accent = FCk_UI_AuthoredFieldValue("AccentColor", ECk_UI_AuthoredFieldKind::Color);
             Accent.Set_Color(Mission.Accent); Fields.Add(Accent);
-            auto Priority = FCk_UI_AuthoredFieldValue("PriorityInteger", ECk_UI_AuthoredFieldKind::Integer);
-            Priority.Set_Integer(Mission.Priority); Fields.Add(Priority);
+            auto PriorityField = FCk_UI_AuthoredFieldValue("PriorityInteger", ECk_UI_AuthoredFieldKind::Integer);
+            PriorityField.Set_Integer(Mission.Priority); Fields.Add(PriorityField);
             auto Progress = FCk_UI_AuthoredFieldValue("ProgressNumber", ECk_UI_AuthoredFieldKind::Number);
             Progress.Set_Number(Mission.Progress); Fields.Add(Progress);
             auto Record = FCk_UI_AuthoredRecord(Mission.Key); Record.Set_Fields(Fields); Records.Add(Record);

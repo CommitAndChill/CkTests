@@ -208,13 +208,13 @@ class UCk_WorldMap_Widget : UCk_ActivatableWidget_UE
         TextNames.Add("SelectedKey"); TextNames.Add("SelectedTitle"); TextNames.Add("SelectedKind");
         TextNames.Add("SelectedDistrict"); TextNames.Add("SelectedDistance"); TextNames.Add("SelectedStatus");
         TextNames.Add("SelectedDescription"); TextNames.Add("Status"); TextNames.Add("FilterLabel");
-        for (const auto Name : TextNames) { Texts.Add(FCk_UI_AuthoredText(Name, FText::FromString(""))); }
+        for (const auto TextName : TextNames) { Texts.Add(FCk_UI_AuthoredText(TextName, FText::FromString(""))); }
         auto Bools = TArray<FCk_UI_AuthoredBool>();
         auto BoolNames = TArray<FString>();
         BoolNames.Add("HasSelection"); BoolNames.Add("CanRoute"); BoolNames.Add("RouteVisible"); BoolNames.Add("RouteHidden");
         BoolNames.Add("FilterAll"); BoolNames.Add("FilterQuests"); BoolNames.Add("FilterServices");
         BoolNames.Add("FilterAllInactive"); BoolNames.Add("FilterQuestsInactive"); BoolNames.Add("FilterServicesInactive");
-        for (const auto Name : BoolNames) { Bools.Add(FCk_UI_AuthoredBool(Name, false)); }
+        for (const auto BoolName : BoolNames) { Bools.Add(FCk_UI_AuthoredBool(BoolName, false)); }
         auto Images = TArray<FCk_UI_AuthoredImage>();
         auto MapImage = FCk_UI_AuthoredImage("MapImage"); MapImage.Set_Texture(_MapTexture); Images.Add(MapImage);
         auto Actions = TArray<FString>();
