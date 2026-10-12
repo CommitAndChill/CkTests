@@ -36,6 +36,7 @@
 
 class UCk_AutoTest_Particles_SpawnAllBehaviors : UCk_AutoTest_Base
 {
+    default _RequiresRenderer = true;
     default _TimeoutSeconds = 120.0f;
 
     // Ids spawned per frame. Small enough that no single frame stalls long enough to
