@@ -19,6 +19,7 @@
 
 class UCk_AutoTest_WorldSpaceWidget_CollapseOnDisable : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
     default _TimeoutSeconds = 15.0f;
 
     private FCk_Handle_WorldSpaceWidget _Widget;
@@ -42,8 +43,7 @@ class UCk_AutoTest_WorldSpaceWidget_CollapseOnDisable : UCk_AutoTest_Base
 
         if (ck::Is_NOT_Valid(ContentWidget))
         {
-            ck::Trace("[WSW CollapseOnDisable] content widget failed to create in this lane; skipping");
-            FinishSuccess();
+            FinishFailure("ScreenOverlay content widget could not be created after local player readiness");
             return;
         }
 
@@ -59,8 +59,7 @@ class UCk_AutoTest_WorldSpaceWidget_CollapseOnDisable : UCk_AutoTest_Base
 
         if (ck::Is_NOT_Valid(_Widget))
         {
-            ck::Trace("[WSW CollapseOnDisable] WorldSpaceWidget creation yielded an invalid handle in this lane; skipping");
-            FinishSuccess();
+            FinishFailure("ScreenOverlay WorldSpaceWidget could not be created after local player readiness");
             return;
         }
 
