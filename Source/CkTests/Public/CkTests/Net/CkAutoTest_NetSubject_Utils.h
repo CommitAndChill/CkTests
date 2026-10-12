@@ -44,8 +44,8 @@ public:
 // handle from each world's per-world Promise_OnConstructed callback. Required because
 // `FCk_Delegate_EntityScript_Constructed` is a dynamic delegate (Hazelight AS, BP-bindable) that
 // can only bind to a UObject's UFUNCTION method — IAutomationLatentCommand isn't a UObject so
-// it can't bind directly. The latent command owns one of these via TStrongObjectPtr for the
-// duration of the spawn-and-poll cycle.
+// it can't bind directly. The latent command owns one capturer per world via TStrongObjectPtr
+// for the duration of the spawn-and-poll cycle, so callback arrival order cannot relabel worlds.
 //
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -56,9 +56,8 @@ class CKTESTS_API UCk_AutoTest_BodyCapturer_UE : public UObject
 
 public:
     // Bound to FCk_Delegate_EntityScript_Constructed via Promise_OnConstructed per world.
-    // Appends the constructed handle's underlying FCk_Handle to _CapturedBodies in arrival
-    // order. Arrival order is per-world spawn order — server first if spawned first in
-    // FCk_Latent_RunAsTestOnAllWorlds's loop.
+    // Records the constructed handle for this capturer's single world. More than one callback
+    // is rejected by the latent command instead of silently shifting result attribution.
     UFUNCTION()
     void
     OnBodyConstructed(

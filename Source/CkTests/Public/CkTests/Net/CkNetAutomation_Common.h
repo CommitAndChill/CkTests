@@ -8,6 +8,9 @@
 #include "UObject/StrongObjectPtr.h"
 #include <GameFramework/GameModeBase.h>
 
+class APawn;
+class APlayerState;
+
 #include "CkTests/Net/CkAutoTest_NetSubject_Utils.h"
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -27,13 +30,16 @@
 //       [this]() -> bool { return /* per-world checks */; }), TEXT("scenario assertions")));
 //   ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
 //
-// NumClients argument matches ULevelEditorPlaySettings::PlayNumberOfClients: it counts the
-// ListenServer window. NumClients=2 means 1 server-window + 1 additional client (the smallest
-// useful case for testing one-server-one-client replication). NumClients=3 = server + 2 clients.
+// The count is TOTAL WORLDS for either topology: 2 = server + one remote client;
+// 3 = server + two remote clients. ClientServer adds a dedicated server and requests count - 1
+// player clients. ListenServer includes its local player in the server world.
+// The optional third argument is the complex-test parameter: ListenServer or ClientServer.
+// An empty parameter preserves the legacy listen/single-world callers.
 //
 // World accessors return nullptr if PIE isn't currently up or the requested world index is out
-// of range; latent commands handle that gracefully (return true to advance, the next assertion
-// fails with a clear message).
+// of range. Failed setup or prerequisite waits record an error and suppress downstream setup;
+// scenario assertions also stop after failure. Explicit cleanup assertions and observations
+// after EndPIE remain runnable. EndPIE restores editor settings.
 //
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -47,14 +53,19 @@ DECLARE_DELEGATE_RetVal(bool, FCk_NetAutoTest_Condition);
 
 namespace ck::auto_test::net
 {
-    // One independently reported case per network topology.
+    // Explicit cases keep topology visible in discovery, filtering, and the result report.
     CKTESTS_API auto Get_TopologyTestCases(
         TArray<FString>& OutNames, TArray<FString>& OutCommands) -> void;
+
+    // Pure validation: failure leaves OutDedicatedServer unchanged.
     CKTESTS_API auto TryGet_DedicatedServer(
         const FString& InTopology, bool& OutDedicatedServer) -> bool;
 
-    // Custom latent commands share the harness failure state.
+    // Custom latent commands must not run a test body after a rejected startup.
     CKTESTS_API auto Get_HasSessionFailed() -> bool;
+
+    // Custom commands use the same abort state as the standard harness commands.
+    // Cleanup remains runnable after this reports a rejected prerequisite.
     CKTESTS_API auto FailSession(const FString& InMessage) -> void;
 
     // Returns the PIE world running as the server (ListenServer or DedicatedServer). nullptr if
@@ -71,6 +82,11 @@ namespace ck::auto_test::net
     // Count of client worlds (excludes server). Returns 0 if no PIE active.
     CKTESTS_API auto Get_NumClientWorlds() -> int32;
 
+    // Quiet readiness lookup. Returns nullptr until the requested remote player's controller
+    // can be correlated uniquely; safe to poll without logging transient connection state.
+    CKTESTS_API auto TryGet_RemoteClientPlayerController(
+        UWorld* InServerWorld, int32 ClientIdx) -> class APlayerController*;
+
     // Server-side PlayerController representing the Nth remote PIE client (the one whose world is
     // Get_ClientWorld(ClientIdx)). On a listen server the local player's PC has no UNetConnection;
     // remote clients' PCs do. Used to possess a subject Pawn with a client's PC so
@@ -83,14 +99,11 @@ namespace ck::auto_test::net
     // PIEInstance order, so the result is CORRELATED by player identity (PlayerState UniqueId, PlayerId
     // fallback) to the SAME client as Get_ClientWorld(ClientIdx); returns nullptr (loud) if that identity
     // has not replicated yet, rather than silently binding the wrong client.
-    // Quiet, unique client-world identity correlation for readiness polling.
-    CKTESTS_API auto TryGet_RemoteClientPlayerController(
-        UWorld* InServerWorld, int32 ClientIdx) -> class APlayerController*;
     CKTESTS_API auto Get_RemoteClientPlayerController(UWorld* InServerWorld, int32 ClientIdx) -> class APlayerController*;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-// Standard complex net test: each topology has its own discovery/result row.
+// A standard complex test with one independently reported case per network topology.
 #define CK_IMPLEMENT_NET_AUTOMATION_TEST(TestClass, PrettyName, Flags) \
     IMPLEMENT_COMPLEX_AUTOMATION_TEST(TestClass, PrettyName, Flags) \
     void TestClass::GetTests(TArray<FString>& OutNames, TArray<FString>& OutCommands) const \
@@ -104,8 +117,7 @@ class CKTESTS_API FCk_Latent_StartPIEMultiClient : public IAutomationLatentComma
 {
 public:
     FCk_Latent_StartPIEMultiClient(
-        int32 InNumClients, const FString& InMapPath,
-        const FString& InTopology = FString{},
+        int32 InNumClients, const FString& InMapPath, const FString& InTopology = FString{},
         TSubclassOf<AGameModeBase> InGameModeClass = nullptr)
         : _NumClients(InNumClients), _MapPath(InMapPath), _Topology(InTopology),
           _GameModeClass(InGameModeClass.Get()) {}
@@ -118,6 +130,39 @@ private:
     FString _MapPath;
     FString _Topology;
     TStrongObjectPtr<UClass> _GameModeClass;
+};
+
+// Adds exactly one real PIE client to a healthy, exact, harness-owned topology. This command
+// remains pending until the added player's normal possession and server correlation are ready.
+// On failure downstream bodies are suppressed; callers must always enqueue EndPIE.
+class CKTESTS_API FCk_Latent_RequestLateJoin : public IAutomationLatentCommand
+{
+public:
+    explicit FCk_Latent_RequestLateJoin(double InTimeoutSeconds = 60.0)
+        : _TimeoutSeconds(InTimeoutSeconds) {}
+    virtual bool Update() override;
+
+private:
+    struct FPlayerIdentity
+    {
+        TWeakObjectPtr<APlayerController> Controller;
+        TWeakObjectPtr<APawn> Pawn;
+        TWeakObjectPtr<APlayerState> PlayerState;
+    };
+    struct FWorldIdentity
+    {
+        TWeakObjectPtr<UWorld> World;
+        int32 PIEInstance = INDEX_NONE;
+        ENetMode Mode = NM_Standalone;
+        TArray<FPlayerIdentity> Players;
+    };
+    TArray<FWorldIdentity> _Worlds;
+    TArray<TWeakObjectPtr<APlayerController>> _RemoteControllers;
+    TWeakObjectPtr<UObject> _Editor;
+    TWeakObjectPtr<AGameModeBase> _GameMode;
+    int32 _OldCount = 0, _LastPIEInstance = INDEX_NONE;
+    double _TimeoutSeconds = 60.0, _StartTime = -1.0;
+    bool _Requested = false;
 };
 
 class CKTESTS_API FCk_Latent_WaitForPIEReady : public IAutomationLatentCommand
@@ -135,10 +180,10 @@ private:
     double _StartTime = -1.0;
 };
 
-// Polls a bool predicate every frame until it returns true or InTimeoutSeconds elapses, then advances.
-// On timeout it advances anyway (returns true) so a following FCk_Latent_AssertCondition reports the failure
-// with a clear message rather than the whole test hanging. Reuses FCk_NetAutoTest_Assertion (RetVal bool) as
-// the predicate type. Use for non-deterministic waits like "client reconnected and the replicated actor exists".
+// Polls a bool predicate until it succeeds. An unbound predicate or timeout fails the session,
+// suppressing downstream setup while preserving assertions and EndPIE cleanup. Reuses the assertion
+// delegate signature; the predicate itself must have no side effects. Use for waits such as
+// "the client reconnected and the replicated actor exists".
 class CKTESTS_API FCk_Latent_WaitForCondition : public IAutomationLatentCommand
 {
 public:
@@ -222,7 +267,7 @@ private:
 
 // Poll-until-converged latent command. Calls the supplied Condition once per frame; advances
 // (returns true) as soon as it returns true. If TimeoutSeconds (wall-clock) elapses first, it
-// AddErrors on the test and advances so the suite never hangs. Replaces a fixed FCk_Latent_TickWorlds(N)
+// fails the session and advances to cleanup. Replaces a fixed FCk_Latent_TickWorlds(N)
 // "settle" wait when the real intent is "wait until replication has converged" — removes the
 // frame-budget race. Pair with a final FCk_Latent_AssertCondition that records the actual TestEqual
 // checks (which then pass immediately, since we only proceed once converged).
@@ -267,17 +312,19 @@ private:
 //
 // The AS class must be a subclass of `UCk_AutoTest_Base` (or `UCk_AutoTest_NetBase`), so its
 // DoBeginPlay writes a Pass/Fail to the result fragment by calling `FinishSuccess()` /
-// `FinishFailure()`. The command is spawn-only — multi-PIE startup, subject-actor spawn, and
-// settle ticks must be issued via the existing `FCk_Latent_StartPIEMultiClient` /
-// `FCk_Latent_RunOnServer` / `FCk_Latent_TickWorlds` commands first.
+// `FinishFailure()`. The command is spawn-only — multi-PIE startup and any replicated
+// subject-actor spawn/settle must be issued first. Independent stubs pass the optional
+// no-subject requirement; the command checks the actual CDO mode and both PIE worlds.
 class CKTESTS_API FCk_Latent_RunAsTestOnAllWorlds : public IAutomationLatentCommand
 {
 public:
     FCk_Latent_RunAsTestOnAllWorlds(
         FAutomationTestBase* InTest,
         const FString& InClassPath,
-        float InTimeoutSeconds)
-        : _Test(InTest), _ClassPath(InClassPath), _TimeoutSeconds(InTimeoutSeconds) {}
+        float InTimeoutSeconds,
+        bool InRequireNoNetSubject = false)
+        : _Test(InTest), _ClassPath(InClassPath), _TimeoutSeconds(InTimeoutSeconds),
+          _RequireNoNetSubject(InRequireNoNetSubject) {}
 
     virtual ~FCk_Latent_RunAsTestOnAllWorlds() = default;
     virtual bool Update() override;
@@ -286,15 +333,16 @@ private:
     FAutomationTestBase* _Test = nullptr;
     FString _ClassPath;
     float _TimeoutSeconds = 30.0f;
+    bool _RequireNoNetSubject = false;
 
     bool _Spawned = false;
     int32 _ExpectedBodyCount = 0;
     double _StartTime = -1.0;
 
-    // TStrongObjectPtr keeps the capturer alive across Update() calls. Dropped when the latent
-    // command destructs — by which point all bodies are terminal (or we timed out) and the
-    // capturer has nothing left to do.
-    TStrongObjectPtr<UCk_AutoTest_BodyCapturer_UE> _BodyCapturer;
+    // Slot i always belongs to Get_AllPIEWorlds()[i], regardless of callback arrival order.
+    TArray<TWeakObjectPtr<UWorld>> _Worlds;
+    TArray<TStrongObjectPtr<UCk_AutoTest_BodyCapturer_UE>> _BodyCapturers;
+    TArray<FCk_Handle> _SpawnedBodies;
 };
 
 #endif // WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS

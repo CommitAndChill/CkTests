@@ -136,6 +136,13 @@ class UCk_AutoTest_Base : UCk_GenericEntityScript_UE
     UPROPERTY()
     ECk_AutoTest_NetMode _NetMode = ECk_AutoTest_NetMode::Standalone;
 
+    // Multiplayer corpus scheduling prerequisites; ordinary functional tests retain their routing.
+    UPROPERTY()
+    bool _RequiresLocalPlayer = false;
+
+    UPROPERTY()
+    bool _RequiresRenderer = false;
+
     // Polls a wait is allowed before it is declared stuck. Deliberately
     // generous: an over-large budget is bounded by the global deadline below,
     // while an under-sized one fails a merely-slow test.
@@ -189,6 +196,8 @@ class UCk_AutoTest_Base : UCk_GenericEntityScript_UE
     // Console variables this test moved. The prior value AND priority of each live in C++
     // (UCk_Utils_AutoTest_UE), because restoring a CVar means restoring both.
     private TArray<FName> _CVarOverrideNames;
+    private bool _AbortCleanupBound = false;
+    private bool _AbortCleanupTriggered = false;
 
     // Only ever created for a test that tracks cleanup owners and has no other tick of ours -
     // see Arm_DeadlineFallbackTick.
@@ -666,6 +675,8 @@ class UCk_AutoTest_Base : UCk_GenericEntityScript_UE
         { return; }
 
         UCk_Utils_AutoTest_UE::Request_PushCVarOverride(InName, InValue);
+        Arm_AbortCleanup();
+        if (!_Finished) { Arm_DeadlineFallbackTick(); }
     }
 
     // For a variable this test does not set itself but that something it INVOKES will move on its
@@ -677,6 +688,8 @@ class UCk_AutoTest_Base : UCk_GenericEntityScript_UE
         { return; }
 
         UCk_Utils_AutoTest_UE::Request_PushCVarSnapshot(InName);
+        Arm_AbortCleanup();
+        if (!_Finished) { Arm_DeadlineFallbackTick(); }
     }
 
     private bool Do_TrackCVarForRestore(FName InName)
@@ -689,20 +702,63 @@ class UCk_AutoTest_Base : UCk_GenericEntityScript_UE
 
         _CVarOverrideNames.AddUnique(InName);
 
-        // Moving a CVar creates a restore obligation for the finish path, as Track_ForCleanup creates
-        // a destroy one, so it earns the same fallback tick: a test that hangs without ever using a
-        // base wait reaches only the engine's TimeLimit, which does not run Finalize.
-        Arm_DeadlineFallbackTick();
-
         return true;
     }
 
     private void Restore_CVarOverrides()
     {
-        for (auto CVarName : _CVarOverrideNames)
-        { UCk_Utils_AutoTest_UE::Request_PopCVarOverride(CVarName); }
-
+        auto Names = _CVarOverrideNames;
         _CVarOverrideNames.Empty();
+        for (auto CVarName : Names)
+        { UCk_Utils_AutoTest_UE::Request_PopCVarOverride(CVarName); }
+    }
+
+    // BeginDestroy broadcasts synchronously while the script object is still bound. Bind only
+    // after an actual cleanup obligation exists; ordinary tests gain no signal fragment.
+    private void Arm_AbortCleanup()
+    {
+        if (_Finished)
+        {
+            Drain_CleanupObligations();
+            return;
+        }
+        // Default handle validity still includes BeginDestroy. Its signal may already have
+        // fired before this first obligation, so a late binding would never clean up.
+        const bool SelfReady = ck::IsValid(SelfEntity) &&
+            !utils_entity_lifetime::Get_IsPendingDestroy(
+                SelfEntity, ECk_EntityLifetime_DestructionPhase::BeginDestroy);
+        if (!SelfReady)
+        {
+            _AbortCleanupTriggered = true;
+            _Finished = true;
+            Drain_CleanupObligations();
+            return;
+        }
+        if (_AbortCleanupBound) { return; }
+        _AbortCleanupBound = true;
+        utils_entity_lifetime::BindTo_OnBeginDestroy(SelfEntity,
+            FCk_Delegate_OnBeginDestroy(this, n"INTERNAL__AutoTest_OnBeginDestroy"));
+    }
+
+    UFUNCTION()
+    private void INTERNAL__AutoTest_OnBeginDestroy(FCk_Handle InDyingEntity)
+    {
+        // Do not inspect InDyingEntity: it is already tagged for destruction.
+        _AbortCleanupTriggered = true;
+        _Finished = true;
+        Drain_CleanupObligations();
+    }
+
+    private void Drain_CleanupObligations()
+    {
+        Restore_CVarOverrides();
+        auto Owners = _CleanupOwners;
+        _CleanupOwners.Empty();
+        for (auto Owner : Owners)
+        {
+            if (ck::IsValid(Owner))
+            { utils_entity_lifetime::Request_DestroyEntity(Owner); }
+        }
     }
 
     // Register an out-of-subtree entity ROOT to destroy when the test finishes: anything
@@ -731,7 +787,8 @@ class UCk_AutoTest_Base : UCk_GenericEntityScript_UE
         // cascades anyway). Destroying it would nuke the result before it is polled.
         if (InOwner == SelfEntity) { return; }
         _CleanupOwners.AddUnique(InOwner);
-        Arm_DeadlineFallbackTick();
+        Arm_AbortCleanup();
+        if (!_Finished) { Arm_DeadlineFallbackTick(); }
     }
 
     // THE test deadline, and the one thing that must not change about it is its ORIGIN.
@@ -846,14 +903,14 @@ class UCk_AutoTest_Base : UCk_GenericEntityScript_UE
     // result fragment survives to be written in the settle callback).
     private void Finalize(ECk_AutoTest_Status InStatus, const FString& InMessage)
     {
-        // Both FinishSuccess and FinishFailure land here, so an early-out failure cannot skip
-        // the restore. Synchronous: a CVar write needs no settle frame.
-        Restore_CVarOverrides();
-
+        // Drain before writing a terminal result; the same idempotent drain runs on abort.
         if (ck::IsValid(_DeadlineFallbackTimer))
         { utils_timer::Request_Pause(_DeadlineFallbackTimer); }
 
-        if (_CleanupOwners.IsEmpty())
+        const bool HadTrackedOwners = !_CleanupOwners.IsEmpty();
+        Drain_CleanupObligations();
+        if (_AbortCleanupTriggered) { return; }
+        if (!HadTrackedOwners)
         {
             WriteResult(InStatus, InMessage);
             return;
@@ -861,12 +918,6 @@ class UCk_AutoTest_Base : UCk_GenericEntityScript_UE
 
         _PendingStatus = InStatus;
         _PendingMessage = InMessage;
-        for (auto Owner : _CleanupOwners)
-        {
-            if (ck::IsValid(Owner))
-            { utils_entity_lifetime::Request_DestroyEntity(Owner); }
-        }
-        _CleanupOwners.Empty();
         WaitOneFrame(n"INTERNAL__AutoTest_OnCleanupSettled");
     }
 

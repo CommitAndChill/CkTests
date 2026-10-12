@@ -54,12 +54,20 @@ class ACkGym_ControlPanelHUD : AHUD
     UFUNCTION(BlueprintOverride)
     void EndPlay(EEndPlayReason EndPlayReason)
     {
-        // The layer must not outlive the HUD: stale captures would keep consuming row keys on the
-        // shared source, and the next level's panel would find its priority slot taken.
+        DoReleasePanelLayer();
+    }
+
+    private void DoReleasePanelLayer()
+    {
         if (ck::IsValid(_PanelLayerOwner))
         {
             utils_entity_lifetime::Request_DestroyEntity(_PanelLayerOwner);
         }
+        _PanelLayerOwner = FCk_Handle();
+        _PanelLayer = FCk_Handle_InputLayer();
+        _SyncedKeys.Reset();
+        _LeftShiftDown = false;
+        _RightShiftDown = false;
     }
 
     // No Canvas drawing left: this is the per-frame DRIVER. It arms the switchboard, keeps the
@@ -73,8 +81,11 @@ class ACkGym_ControlPanelHUD : AHUD
 
         auto PC = Cast<ACk_Gym_Base_PlayerController>(GetOwningPlayerController());
 
-        if (ck::Is_NOT_Valid(PC))
-        { return; }
+        if (ck::Is_NOT_Valid(PC) || PC.IsLocalController() == false)
+        {
+            DoReleasePanelLayer();
+            return;
+        }
 
         // Reconcile after focus/menu gaps, where a higher input layer may have consumed Shift.
         _LeftShiftDown = PC.IsInputKeyDown(EKeys::LeftShift);
@@ -106,7 +117,10 @@ class ACkGym_ControlPanelHUD : AHUD
         }
 
         if (Suppressed)
-        { return; }
+        {
+            DoReleasePanelLayer();
+            return;
+        }
 
         DoEnsurePanelLayer(PC);
         DoSyncCaptures(Rows);
@@ -120,8 +134,14 @@ class ACkGym_ControlPanelHUD : AHUD
     // controller.
     private void DoEnsurePanelLayer(APlayerController InPC)
     {
+        if (ck::Is_NOT_Valid(InPC) || InPC.IsLocalController() == false)
+        { return; }
         if (ck::IsValid(_PanelLayer))
         { return; }
+
+        // Source replacement invalidates the old layer before the HUD ends. Release its owner
+        // before composing a replacement, so an abandoned capture never keeps consuming keys.
+        DoReleasePanelLayer();
 
         auto SourceSubsystem = UCk_InputSource_Subsystem::Get(InPC);
         if (ck::Is_NOT_Valid(SourceSubsystem))
@@ -139,7 +159,10 @@ class ACkGym_ControlPanelHUD : AHUD
             FCk_InputLayer_Spec(Source, CkGym_InputStack::Priority_ControlPanel));
 
         if (ck::Is_NOT_Valid(_PanelLayer))
-        { return; }
+        {
+            DoReleasePanelLayer();
+            return;
+        }
 
         utils_input_layer::BindTo_OnCaptureTriggered(_PanelLayer,
             FCk_Delegate_InputLayer_CaptureTriggered(this, n"OnPanelCaptured"),
@@ -243,6 +266,14 @@ class ACkGym_ControlPanelHUD : AHUD
     UFUNCTION()
     private void OnPanelCaptured(FCk_Handle_InputLayer InLayer, FCk_InputSource_RawEvent InEvent, FCk_InputLayer_Capture InCapture)
     {
+        auto PC = Cast<ACk_Gym_Base_PlayerController>(GetOwningPlayerController());
+        if (ck::Is_NOT_Valid(PC) || PC.IsLocalController() == false ||
+            ck::Is_NOT_Valid(_PanelLayer) || InLayer != _PanelLayer)
+        { return; }
+
+        if (UCk_Utils_GymRegistry_UE::Get_SuppressHUDDuringStartup())
+        { return; }
+
         auto Key = InEvent.Get_Key();
         // Preserve Shift/number/release ordering inside a routed event batch, even when
         // the physical modifier is already released by the time its number is delivered.
@@ -269,10 +300,6 @@ class ACkGym_ControlPanelHUD : AHUD
             UCk_Utils_GymStartup_UE::Request_Set_ControlPanelMode(_PanelMode);
             return;
         }
-
-        auto PC = Cast<ACk_Gym_Base_PlayerController>(GetOwningPlayerController());
-        if (ck::Is_NOT_Valid(PC))
-        { return; }
 
         // Resolve by key at DELIVERY time against the live rows - first enabled match wins, same
         // contract the polled Get_PressedRow had.
