@@ -106,7 +106,7 @@ void ScatterPickupsAcrossFullLevel()
 
     void SpawnInterfacePickup(FVector Location)
     {
-        auto SpawnParams = FCkAudioGym_Advanced_AudioPickup_SpawnParams();
+        auto SpawnParams = FCkAudioGym_Advanced_Station_SpawnParams();
         SpawnParams.Transform = FTransform(FRotator::ZeroRotator, Location);
 
         auto PickupEntity = utils_entity_script::Request_SpawnEntity(ck::ToEntity(this),
@@ -120,7 +120,7 @@ void ScatterPickupsAcrossFullLevel()
 
     void SpawnLevelUpPickup(FVector Location)
     {
-        auto SpawnParams = FCkAudioGym_Advanced_AudioPickup_SpawnParams();
+        auto SpawnParams = FCkAudioGym_Advanced_Station_SpawnParams();
         SpawnParams.Transform = FTransform(FRotator::ZeroRotator, Location);
 
         auto PickupEntity = utils_entity_script::Request_SpawnEntity(ck::ToEntity(this),
@@ -134,7 +134,7 @@ void ScatterPickupsAcrossFullLevel()
 
     void SpawnNotificationsPickup(FVector Location)
     {
-        auto SpawnParams = FCkAudioGym_Advanced_AudioPickup_SpawnParams();
+        auto SpawnParams = FCkAudioGym_Advanced_Station_SpawnParams();
         SpawnParams.Transform = FTransform(FRotator::ZeroRotator, Location);
 
         auto PickupEntity = utils_entity_script::Request_SpawnEntity(ck::ToEntity(this),
