@@ -31,7 +31,7 @@ namespace ck_actorrelay_net_grouprep
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkActorRelayNet_GroupSubsystemClassReplicates,
     "Ck.ActorRelay.Net.GroupSubsystemClassReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -47,7 +47,7 @@ bool FCkActorRelayNet_GroupSubsystemClassReplicates::RunTest(const FString& Para
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(kNumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(kNumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(kExpectedTotalWorlds, kReadyTimeoutSeconds));
 
     // Wait until every client world has wired at least one replicated probe into its group
