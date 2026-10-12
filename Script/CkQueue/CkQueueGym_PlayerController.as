@@ -305,6 +305,7 @@ class ACk_QueueGym_PlayerController : ACk_Gym_Base_PlayerController
         if (_CapturedQueueVisualization)
         { utils_queue::Set_DebugDrawEnabled(_PreviousQueueVisualization); }
         RestoreCrowdVisualization();
+        Super::EndPlay(EndPlayReason);
     }
 
     private void CaptureAndEnableCrowdVisualization()
