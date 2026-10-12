@@ -24,6 +24,14 @@ class ACk_NetGym_TwoPlayer_Pawn : ADefaultPawn
 {
     default Replicates = true;
 
+    // Written only by the server director. The slot survives a peer departure;
+    // RosterReady makes the incomplete/over-capacity state explicit on clients.
+    UPROPERTY(Replicated)
+    int32 PlayerSlot = CkNetGym::PlayerSlot_Unassigned;
+
+    UPROPERTY(Replicated)
+    bool RosterReady = false;
+
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {

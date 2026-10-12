@@ -24,12 +24,18 @@ namespace CkNetGym
     const float BeatSeconds = 1.0f;   // heartbeat granularity
     const int   BeatPeriod  = 10;     // full interleave cycle (beats)
 
-    // Slot-0 pawn = the host's own pawn (server-locally-controlled); slot-1 = the remote client's.
+    // The server assigns stable slots to the two possessed player pawns. Neither slot
+    // implies local control: a dedicated server has two remote-owned pawns.
+    const int PlayerSlot_Unassigned = -1;
+    const int PlayerSlot_0 = 0;
+    const int PlayerSlot_1 = 1;
+    const int RequiredPlayerCount = 2;
+
     // Phases are offset so a state change and a damage tick never land on the same beat.
-    const int BeatPhase_State_Slot0  = 5;  // host pawn advances state
-    const int BeatPhase_State_Slot1  = 0;  // client pawn advances state (5s after the host's)
-    const int BeatPhase_Damage_Slot0 = 2;  // host pawn takes damage
-    const int BeatPhase_Damage_Slot1 = 7;  // client pawn takes damage
+    const int BeatPhase_State_Slot0  = 5;
+    const int BeatPhase_State_Slot1  = 0;
+    const int BeatPhase_Damage_Slot0 = 2;
+    const int BeatPhase_Damage_Slot1 = 7;
 
     // The server-only director is found from anywhere via this EntityTag; pawns carry PlayerPawnTag.
     const FName DirectorTag   = n"TAG_NetGym_Director";

@@ -108,6 +108,10 @@ class UCk_NetGym_TwoPlayer_EntityScript : UCk_EntityScript_WithActor_UE
     private void DisplayTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
     {
         auto SelfEntity = ck::ToEntity(this);
+        auto Pawn = Cast<ACk_NetGym_TwoPlayer_Pawn>(
+            utils_owning_actor::TryGet_EntityOwningActor(SelfEntity));
+        if (!ck::IsValid(Pawn))
+        { return; }
 
         auto Role = CkGym_Common::Get_NetworkRoleTitle(SelfEntity);
         auto HP = ck::IsValid(_Health)
@@ -117,14 +121,15 @@ class UCk_NetGym_TwoPlayer_EntityScript : UCk_EntityScript_WithActor_UE
             ? Get_StateDisplayName(_StateMachine.Get_CurrentStateClass())
             : "?";
 
-        // Is THIS pawn the one locally controlled on this world? Drives slot + colour.
+        // Local control is a viewer badge only. The server's replicated numeric
+        // slot selects the row and cadence on both listen and dedicated worlds.
         auto LocalResult = utils_net::Get_IsEntityLocallyControlled_ByPlayer(SelfEntity);
         // Get_IsEntityLocallyControlled_ByPlayer returns the LocallyControlled result enum.
         auto IsLocal = LocalResult == ECk_Utils_Net_IsLocallyControlled_Result::IsLocallyControlled;
 
         // Owning client kicks off the SM once it is locally controlling the pawn (possession
         // established). One-shot. Non-owning worlds receive the started SM via replication.
-        if (IsLocal && !_StartRequested && ck::IsValid(_StateMachine))
+        if (IsLocal && Pawn.RosterReady && !_StartRequested && ck::IsValid(_StateMachine))
         {
             _StateMachine.Request_Start();
             _StartRequested = true;
@@ -132,7 +137,10 @@ class UCk_NetGym_TwoPlayer_EntityScript : UCk_EntityScript_WithActor_UE
 
         auto Tint = IsLocal ? FLinearColor(0.2f, 1.0f, 0.2f) : FLinearColor(1.0f, 0.9f, 0.2f);
         auto Tag = IsLocal ? "P-LOCAL" : "P-REMOTE";
-        auto Label = f"[{Tag}] HP={HP} SM={StateName}";
+        auto SlotLabel = Pawn.PlayerSlot == CkNetGym::PlayerSlot_Unassigned
+            ? "unassigned" : f"{Pawn.PlayerSlot}";
+        auto RosterLabel = Pawn.RosterReady ? "ready" : "waiting";
+        auto Label = f"[slot {SlotLabel} {Tag} {RosterLabel}] HP={HP} SM={StateName}";
 
         // --- Floating world-space text above the pawn ---
         auto TH = SelfEntity.As_Transform();
@@ -142,8 +150,9 @@ class UCk_NetGym_TwoPlayer_EntityScript : UCk_EntityScript_WithActor_UE
             UCk_Utils_DebugDraw_UE::DrawDebugString(Loc + FVector(0.0, 0.0, 120.0), Label, Tint, 0.0f);
         }
 
-        // --- On-screen text: two fixed slots (local = top, remote = below) ---
-        auto ScreenY = IsLocal ? 60.0f : 90.0f;
+        // --- On-screen text: stable replicated slots, independent of viewpoint ---
+        auto ScreenY = Pawn.PlayerSlot == CkNetGym::PlayerSlot_0 ? 60.0f
+            : Pawn.PlayerSlot == CkNetGym::PlayerSlot_1 ? 90.0f : 120.0f;
         UCk_Utils_DebugDraw_Screen_UE::DrawDebugText_OnScreen(
             FVector2D(40.0, ScreenY), f"({Role}) {Label}", Tint, 1.2f);
     }
