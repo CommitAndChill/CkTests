@@ -84,7 +84,7 @@ private:
     UPROPERTY(Replicated) TObjectPtr<AGameStateBase> SourceIdentity;
 public:
     ACk_SceneNodeGym_ScopeActor_UE();
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     int32 Get_ActorGeneration() const { return IsInGameThread() ? Generation : 0; }
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
@@ -103,19 +103,19 @@ class CKTESTS_API ACk_SceneNodeGym_SourceActor_UE : public AActor
 
 private:
     TWeakObjectPtr<UCk_SceneNodeGym_ActorLedger_UE> Ledger;
-    UPROPERTY(Replicated) int32 Role = -1;
+    UPROPERTY(Replicated) int32 ActorRole = -1;
     UPROPERTY(Replicated) int32 Generation = 0;
     UPROPERTY(Replicated) TObjectPtr<AGameStateBase> SourceIdentity;
 
 public:
     ACk_SceneNodeGym_SourceActor_UE();
-    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     UCk_SceneNodeGym_ActorLedger_UE* Get_ActorLedger() const;
 
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
-    int32 Get_ActorRole() const { return IsInGameThread() ? Role : -1; }
+    int32 Get_ActorRole() const { return IsInGameThread() ? ActorRole : -1; }
 
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     int32 Get_ActorGeneration() const { return IsInGameThread() ? Generation : 0; }

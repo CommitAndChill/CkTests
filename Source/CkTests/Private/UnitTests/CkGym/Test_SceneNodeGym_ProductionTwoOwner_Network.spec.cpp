@@ -15,9 +15,11 @@
 #include "CkEcsExt/SceneNode/CkSceneNode_Fragment.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkTimer/CkTimer_Fragment.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/StaticMesh.h"
@@ -113,7 +115,7 @@ namespace ck_scene_node_production_two_owner
                 TObjectPtr<UCk_Fragment_EntityReplicationDriver_Rep>>() ||
             Entity.Has_Any<ck::FFragment_SceneNode, ck::SceneNodeParent,
                 ck::FFragment_SceneNode_UnrealAnchor, ck::FTag_RepFragments_PendingApply,
-                ck::FFragment_EntityScript_PendingRetry>() ||
+                ck::FTag_EntityScript_PendingReplicationRetry>() ||
             UCk_Utils_OwningActor_UE::TryGet_EntityOwningActor(Entity) != Actor)
         { return false; }
         if (Entity.Has<ck::FFragment_Transform_Requests>())
@@ -146,7 +148,8 @@ namespace ck_scene_node_production_two_owner
 
     struct FFixture;
     void RecordProduction(FFixture& F, UWorld* World);
-    bool ProductionProof(const FFixture& F, int32 Generation);
+    bool ProductionProof(const FFixture& F, int32 Generation, FString& Diagnostic);
+    FString ClientInstallDiagnostic(const FFixture& F, int32 Owner);
     struct FStationWitness
     {
         TWeakObjectPtr<UWorld> World;
@@ -207,14 +210,24 @@ namespace ck_scene_node_production_two_owner
         FStationWitness StationWitnesses[3];
         bool bStationsFrozen = false;
         FString Detail;
+        FString PresentationDiagnostic;
         int32 PoseGeneration = 0;
         TArray<FTransform> AuthorityPoses[17];
+        FTransform InitialAuthorityPose[17];
+        bool HasInitialAuthorityPose[17] = {};
         FCk_Handle LastEntities[3][17];
         int32 LastEntityGeneration[3][17] = {};
         int32 NativeMatches[2][17] = {};
         int32 MeshMatches[2][17] = {};
         int32 MovedMatches[2][17] = {};
+        int32 EligiblePoseComparisons[2][17] = {};
+        int32 AppliedPoseSkips[2][17] = {};
+        FTransform LastClientPose[2][17];
+        bool HasLastClientPose[2][17] = {};
+        FTransform LastMovedPose[2][17];
+        bool HasLastMovedPose[2][17] = {};
         uint64 LastPoseFrame[2][17] = {};
+        FString LatestInstallReadout[2];
 
         ~FFixture() { Restore(); }
         void Restore()
@@ -375,6 +388,11 @@ namespace ck_scene_node_production_two_owner
         void RecordHistory(UWorld* W)
         {
             RecordProduction(*this, W);
+            for (int32 Owner = 0; Owner < 2; ++Owner)
+            {
+                if (W == Worlds[Owner + 1].Get())
+                { LatestInstallReadout[Owner] = ClientInstallDiagnostic(*this, Owner); }
+            }
             if (!IsValid(W) || W != Worlds[0].Get() || !SampleType || !Snapshot ||
                 !IsValid(States[0].Get()) || W->GetGameState() != States[0].Get())
             { return; }
@@ -400,6 +418,26 @@ namespace ck_scene_node_production_two_owner
     bool PoseMoved(const FTransform& A, const FTransform& B)
     { return FVector::Dist(A.GetLocation(), B.GetLocation()) > 5.0 ||
         FMath::RadiansToDegrees(A.GetRotation().AngularDistance(B.GetRotation())) > 2.0; }
+    bool NoClientSceneNodeOrTimerTree(const FCk_Handle& Root)
+    {
+        if (!ck::IsValid(Root)) { return false; }
+        TSet<FCk_Handle> Seen;
+        TArray<FCk_Handle> Pending{Root};
+        while (!Pending.IsEmpty())
+        {
+            const auto Current = Pending.Pop(EAllowShrinking::No);
+            if (!ck::IsValid(Current) || Seen.Contains(Current)) { return false; }
+            Seen.Add(Current);
+            if (Current.Has_Any<ck::FFragment_SceneNode, ck::SceneNodeParent,
+                    ck::FFragment_SceneNode_UnrealAnchor, ck::FFragment_Timer>())
+            { return false; }
+            for (const auto& Child : UCk_Utils_EntityLifetime_UE::Get_LifetimeDependents(Current))
+            {
+                if (ck::IsValid(Child, ck::IsValid_Policy_IncludePendingKill{})) { Pending.Add(Child); }
+            }
+        }
+        return true;
+    }
     void RecordProduction(FFixture& F, UWorld* W)
     {
         const int32 Index = W == F.Worlds[0].Get() ? 0 : W == F.Worlds[1].Get() ? 1 :
@@ -414,8 +452,11 @@ namespace ck_scene_node_production_two_owner
             for (int32 Slot = 0; Slot < 17; ++Slot)
             {
                 F.AuthorityPoses[Slot].Reset();
+                F.HasInitialAuthorityPose[Slot] = false;
                 for (int32 Client = 0; Client < 2; ++Client)
                 { F.NativeMatches[Client][Slot] = F.MeshMatches[Client][Slot] = F.MovedMatches[Client][Slot] = 0;
+                  F.EligiblePoseComparisons[Client][Slot] = F.AppliedPoseSkips[Client][Slot] = 0;
+                  F.HasLastClientPose[Client][Slot] = F.HasLastMovedPose[Client][Slot] = false;
                   F.LastPoseFrame[Client][Slot] = 0; }
             }
         }
@@ -428,42 +469,118 @@ namespace ck_scene_node_production_two_owner
             auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(*It);
             if (!ck::IsValid(Entity) || !Entity.Has<ck::FFragment_Transform>()) { continue; }
             if (F.LastEntityGeneration[Index][Slot] != 0 && F.LastEntityGeneration[Index][Slot] != Generation &&
-                ck::IsValid(F.LastEntities[Index][Slot], ck::IsValid_Policy_IncludePendingKill{})) { continue; }
+                (F.LastEntities[Index][Slot] == Entity ||
+                 ck::IsValid(F.LastEntities[Index][Slot], ck::IsValid_Policy_IncludePendingKill{})))
+            { continue; }
             F.LastEntities[Index][Slot] = Entity;
             F.LastEntityGeneration[Index][Slot] = Generation;
             const auto Pose = Entity.Get<ck::FFragment_Transform>().Get_Transform();
             if (Index == 0)
             {
-                if (F.AuthorityPoses[Slot].Num() < 512) { F.AuthorityPoses[Slot].Add(Pose); }
+                if (!F.HasInitialAuthorityPose[Slot])
+                { F.InitialAuthorityPose[Slot] = Pose; F.HasInitialAuthorityPose[Slot] = true; }
+                if (F.AuthorityPoses[Slot].Num() == 512)
+                { F.AuthorityPoses[Slot].RemoveAt(0, 1, EAllowShrinking::No); }
+                F.AuthorityPoses[Slot].Add(Pose);
                 continue;
             }
-            if (F.LastPoseFrame[Index - 1][Slot] == GFrameCounter || !AppliedPose(*It, Entity)) { continue; }
+            F.LastClientPose[Index - 1][Slot] = Pose;
+            F.HasLastClientPose[Index - 1][Slot] = true;
+            if (F.LastPoseFrame[Index - 1][Slot] == GFrameCounter) { continue; }
+            if (!AppliedPose(*It, Entity))
+            { ++F.AppliedPoseSkips[Index - 1][Slot]; continue; }
+            ++F.EligiblePoseComparisons[Index - 1][Slot];
             bool Native = false, Mesh = false, Moved = false;
             const auto Visible = It->GetRootComponent()->GetComponentTransform();
             for (const auto& SourcePose : F.AuthorityPoses[Slot])
             {
                 Native |= PoseNear(Pose, SourcePose);
                 Mesh |= PoseNear(Visible, SourcePose);
-                Moved |= PoseNear(Pose, SourcePose) && PoseMoved(SourcePose, F.AuthorityPoses[Slot][0]);
+                Moved |= F.HasInitialAuthorityPose[Slot] && PoseNear(Pose, SourcePose) &&
+                    PoseMoved(SourcePose, F.InitialAuthorityPose[Slot]);
             }
             if (Native) { ++F.NativeMatches[Index - 1][Slot]; }
             if (Mesh) { ++F.MeshMatches[Index - 1][Slot]; }
-            if (Moved && Mesh) { ++F.MovedMatches[Index - 1][Slot]; }
+            if (Moved && Mesh && (!F.HasLastMovedPose[Index - 1][Slot] ||
+                !PoseNear(Pose, F.LastMovedPose[Index - 1][Slot])))
+            {
+                ++F.MovedMatches[Index - 1][Slot];
+                F.LastMovedPose[Index - 1][Slot] = Pose;
+                F.HasLastMovedPose[Index - 1][Slot] = true;
+            }
             F.LastPoseFrame[Index - 1][Slot] = GFrameCounter;
         }
     }
-    bool ProductionProof(const FFixture& F, int32 Generation)
+    FString PoseReadout(const FTransform& Pose)
     {
-        if (F.PoseGeneration != Generation) { return false; }
+        return FString::Printf(TEXT("L=%s R=%s S=%s"),
+            *Pose.GetLocation().ToString(), *Pose.GetRotation().Rotator().ToString(),
+            *Pose.GetScale3D().ToString());
+    }
+    FString Role17PoseDiagnostic(const FFixture& F, int32 Client)
+    {
+        constexpr int32 Slot = 16;
+        const auto& History = F.AuthorityPoses[Slot];
+        FString Result = FString::Printf(
+            TEXT(" authorityHistory=%d authorityEntityGen=%d eligible=%d appliedSkips=%d latestAuthority=[%s] latestClient=[%s]"),
+            History.Num(), F.LastEntityGeneration[0][Slot],
+            F.EligiblePoseComparisons[Client][Slot], F.AppliedPoseSkips[Client][Slot],
+            History.IsEmpty() ? TEXT("none") : *PoseReadout(History.Last()),
+            F.HasLastClientPose[Client][Slot] ? *PoseReadout(F.LastClientPose[Client][Slot]) : TEXT("none"));
+        if (History.IsEmpty() || !F.HasLastClientPose[Client][Slot])
+        { return Result + TEXT(" nearest=unavailable"); }
+        const FTransform& ClientPose = F.LastClientPose[Client][Slot];
+        int32 NearestIndex = INDEX_NONE;
+        double NearestScore = 0.0;
+        double NearestLocation = 0.0, NearestAngle = 0.0, NearestScale = 0.0;
+        for (int32 I = 0; I < History.Num(); ++I)
+        {
+            const FTransform& SourcePose = History[I];
+            const double Location = FVector::Dist(ClientPose.GetLocation(), SourcePose.GetLocation());
+            const double Angle = FMath::RadiansToDegrees(
+                ClientPose.GetRotation().AngularDistance(SourcePose.GetRotation()));
+            const double Scale = FVector::Dist(ClientPose.GetScale3D(), SourcePose.GetScale3D());
+            const double Score = FMath::Max(FMath::Max(Location / 5.0, Angle / 2.0), Scale / 0.02);
+            if (!FMath::IsFinite(Score) || (NearestIndex != INDEX_NONE && Score >= NearestScore))
+            { continue; }
+            NearestIndex = I; NearestScore = Score;
+            NearestLocation = Location; NearestAngle = Angle; NearestScale = Scale;
+        }
+        if (NearestIndex == INDEX_NONE) { return Result + TEXT(" nearest=unavailable"); }
+        return Result + FString::Printf(
+            TEXT(" nearestIndex=%d nearestAuthority=[%s] nearestDeltaL=%.3fcm nearestDeltaR=%.3fdeg nearestDeltaS=%.5f"),
+            NearestIndex, *PoseReadout(History[NearestIndex]),
+            NearestLocation, NearestAngle, NearestScale);
+    }
+    bool ProductionProof(const FFixture& F, int32 Generation, FString& Diagnostic)
+    {
+        if (F.PoseGeneration != Generation)
+        { Diagnostic = FString::Printf(TEXT("pose-generation=%d expected=%d"), F.PoseGeneration, Generation); return false; }
         for (int32 Client = 0; Client < 2; ++Client)
         {
             for (int32 Slot = 0; Slot < 17; ++Slot)
             {
                 if (F.NativeMatches[Client][Slot] < 2 || F.MeshMatches[Client][Slot] < 2 ||
-                    F.LastEntityGeneration[Client + 1][Slot] != Generation) { return false; }
+                    F.LastEntityGeneration[Client + 1][Slot] != Generation)
+                {
+                    Diagnostic = FString::Printf(TEXT("client%d role%d native=%d mesh=%d moved=%d entityGen=%d expected=%d"),
+                        Client, Slot + 1, F.NativeMatches[Client][Slot], F.MeshMatches[Client][Slot],
+                        F.MovedMatches[Client][Slot], F.LastEntityGeneration[Client + 1][Slot], Generation);
+                    if (Slot == 16) { Diagnostic += Role17PoseDiagnostic(F, Client); }
+                    return false;
+                }
             }
             for (const int32 Role : {2, 4, 6, 7, 8, 9, 11, 12, 14, 15, 17})
-            { if (F.MovedMatches[Client][Role - 1] < 2) { return false; } }
+            {
+                if (F.MovedMatches[Client][Role - 1] < 2)
+                {
+                    Diagnostic = FString::Printf(TEXT("client%d role%d native=%d mesh=%d moved=%d entityGen=%d expected=%d"),
+                        Client, Role, F.NativeMatches[Client][Role - 1], F.MeshMatches[Client][Role - 1],
+                        F.MovedMatches[Client][Role - 1], F.LastEntityGeneration[Client + 1][Role - 1], Generation);
+                    if (Role == 17) { Diagnostic += Role17PoseDiagnostic(F, Client); }
+                    return false;
+                }
+            }
         }
         return true;
     }
@@ -543,7 +660,7 @@ namespace ck_scene_node_production_two_owner
         if (Slot == 5)
         {
             return TEXT("SceneNode follows a moving Unreal mesh component at a relative offset.\n")
-                TEXT("Uses CreateAndAttachToUnrealComponent(offset) + runtime Request_UpdateOffset.");
+                TEXT("Composes an existing replicated Transform with an Unreal component anchor.");
         }
         return {};
     }
@@ -589,9 +706,11 @@ namespace ck_scene_node_production_two_owner
         return true; // Stop manual publication at one complete source frame.
     }
 
-    bool Visuals(const FFixture& F, int32 World, const void* Value)
+    bool Visuals(const FFixture& F, int32 World, const void* Value,
+        FString& Diagnostic)
     {
-        if (!F.Context() || World < 0 || World > 2 || !Value) { return false; }
+        if (!F.Context() || World < 0 || World > 2 || !Value)
+        { Diagnostic = TEXT("world-context-or-sample"); return false; }
         auto* GS = F.States[World].Get();
         auto* Ledger = World == 0 ? Cast<UCk_SceneNodeGym_ActorLedger_UE>(
             F.Actors->GetObjectPropertyValue_InContainer(GS)) : nullptr;
@@ -604,19 +723,20 @@ namespace ck_scene_node_production_two_owner
                 F.Graph->GetObjectPropertyValue_InContainer(GS) == nullptr ||
                 F.Motion->GetObjectPropertyValue_InContainer(GS) == nullptr ||
                 F.Sampler->GetObjectPropertyValue_InContainer(GS) == nullptr)
-            { return false; }
+            { Diagnostic = TEXT("authority-records"); return false; }
         }
         else if (F.Actors->GetObjectPropertyValue_InContainer(GS) != nullptr ||
             F.Roots->GetObjectPropertyValue_InContainer(GS) != nullptr ||
             F.Graph->GetObjectPropertyValue_InContainer(GS) != nullptr ||
             F.Motion->GetObjectPropertyValue_InContainer(GS) != nullptr ||
             F.Sampler->GetObjectPropertyValue_InContainer(GS) != nullptr)
-        { return false; }
+        { Diagnostic = TEXT("client-has-authority-records"); return false; }
         if ((World == 0 && (!IsValid(Ledger) ||
                 !UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryProve_CurrentCohort(Ledger, true))) ||
             (World > 0 && (!IsValid(Receipt) ||
                 UCk_SceneNodeGym_RemoteVisualRuntime_UE::Get_State(Receipt) !=
-                    ECk_SceneNodeGym_RemoteVisualState::Ready))) { return false; }
+                    ECk_SceneNodeGym_RemoteVisualState::Ready)))
+        { Diagnostic = TEXT("ledger-or-remote-receipt-state"); return false; }
         FCkSceneNodeGym_Frame NativeFrame;
         if (World == 0)
         {
@@ -629,13 +749,14 @@ namespace ck_scene_node_production_two_owner
                 !UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                     ActualSampler, NativeFrame) || NativeFrame.WorldPoses.Num() != 17 ||
                 NativeFrame.Generation != Int(F.SampleType, Value, TEXT("Generation")))
-            { return false; }
+            { Diagnostic = TEXT("authority-motion-or-sampler-frame"); return false; }
         }
         int32 SourceActorCount = 0;
 
         for (TActorIterator<ACk_SceneNodeGym_SourceActor_UE> It(F.Worlds[World].Get()); It; ++It)
         { if (IsValid(*It) && !It->IsActorBeingDestroyed()) { ++SourceActorCount; } }
-        if (SourceActorCount != 17) { return false; }
+        if (SourceActorCount != 17)
+        { Diagnostic = FString::Printf(TEXT("source-actor-count=%d"), SourceActorCount); return false; }
         for (int32 Role = 0; Role <= 17; ++Role)
         {
             AActor* Actor = nullptr;
@@ -647,7 +768,7 @@ namespace ck_scene_node_production_two_owner
             if (!Found || !IsValid(Actor) || Actor->GetWorld() != F.Worlds[World].Get() ||
                 (Role > 0 && !IsValid(Actor->GetRootComponent())) ||
                 (Role == 0 && Actor->GetOwner() != GS))
-            { return false; }
+            { Diagnostic = FString::Printf(TEXT("role%d actor-identity-or-root"), Role); return false; }
             if (Role > 0)
             {
                 AActor* Scope = nullptr;
@@ -656,13 +777,35 @@ namespace ck_scene_node_production_two_owner
                         Ledger, 0, Scope) :
                     UCk_SceneNodeGym_RemoteVisualRuntime_UE::TryGet_FinishedRole(
                         Receipt, 0, Scope)) || Actor->GetOwner() != Scope)
-                { return false; }
+                { Diagnostic = FString::Printf(TEXT("role%d scope-owner"), Role); return false; }
                 auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor);
                 if (!ck::IsValid(Entity) || !Entity.Has<ck::FFragment_Transform>() ||
-                    !Actor->GetIsReplicated() || Actor->IsReplicatingMovement()) { return false; }
+                    !Actor->GetIsReplicated() || Actor->IsReplicatingMovement())
+                { Diagnostic = FString::Printf(TEXT("role%d actor-bridge entity=%d transform=%d replicated=%d movement=%d"),
+                    Role, ck::IsValid(Entity) ? 1 : 0,
+                    ck::IsValid(Entity) && Entity.Has<ck::FFragment_Transform>() ? 1 : 0,
+                    Actor->GetIsReplicated() ? 1 : 0, Actor->IsReplicatingMovement() ? 1 : 0); return false; }
+                TObjectPtr<UStaticMeshComponent> Mesh = Cast<UStaticMeshComponent>(Actor->GetRootComponent());
+                TObjectPtr<UTextRenderComponent> Text = Actor->FindComponentByClass<UTextRenderComponent>();
+                if (!IsValid(Mesh.Get()) || Mesh->GetOwner() != Actor || !Mesh->IsVisible() ||
+                    !IsValid(Text.Get()) || Text->GetOwner() != Actor || !Text->IsVisible())
+                {
+                    Diagnostic = FString::Printf(TEXT("role%d mesh=%d meshOwner=%d meshVisible=%d text=%d textOwner=%d textVisible=%d clientTree=not-evaluated"),
+                        Role, IsValid(Mesh.Get()) ? 1 : 0,
+                        IsValid(Mesh.Get()) && Mesh->GetOwner() == Actor ? 1 : 0,
+                        IsValid(Mesh.Get()) && Mesh->IsVisible() ? 1 : 0,
+                        IsValid(Text.Get()) ? 1 : 0,
+                        IsValid(Text.Get()) && Text->GetOwner() == Actor ? 1 : 0,
+                        IsValid(Text.Get()) && Text->IsVisible() ? 1 : 0);
+                    return false;
+                }
+                if (World > 0 && !NoClientSceneNodeOrTimerTree(Entity))
+                { Diagnostic = FString::Printf(TEXT("role%d clientTreeClear=0"), Role); return false; }
                 const auto Actual = Entity.Get<ck::FFragment_Transform>().Get_Transform();
-                if (!Actor->GetRootComponent()->GetComponentTransform().Equals(Actual)) { return false; }
-                if (World > 0 && !AppliedPose(Actor, Entity)) { return false; }
+                if (!Actor->GetRootComponent()->GetComponentTransform().Equals(Actual))
+                { Diagnostic = FString::Printf(TEXT("role%d root-pose-mismatch"), Role); return false; }
+                if (World > 0 && !AppliedPose(Actor, Entity))
+                { Diagnostic = FString::Printf(TEXT("role%d fixture-applied-pose"), Role); return false; }
             }
         }
         return true;
@@ -681,50 +824,59 @@ namespace ck_scene_node_production_two_owner
         return true;
     }
 
-    bool Stations(const FFixture& F, APlayerController* PC, const void* Sample)
+    bool Stations(const FFixture& F, APlayerController* PC, const void* Sample,
+        FString& Diagnostic)
     {
         if (!IsValid(PC) || !Sample ||
-            PC->FindFunction(F.Stations->GetFName()) != F.Stations) { return false; }
+            PC->FindFunction(F.Stations->GetFName()) != F.Stations)
+        { Diagnostic = TEXT("controller-or-sample"); return false; }
         FStructOnScope Args(F.Stations);
         PC->ProcessEvent(F.Stations, Args.GetStructMemory());
         const auto* Return = Field<FArrayProperty>(F.Stations, TEXT("ReturnValue"));
         if (!Return || !CastField<FStructProperty>(Return->Inner) ||
             CastField<FStructProperty>(Return->Inner)->Struct != FCk_Handle::StaticStruct())
-        { return false; }
+        { Diagnostic = TEXT("station-return-schema"); return false; }
         FScriptArrayHelper A(Return, Return->ContainerPtrToValuePtr<void>(Args.GetStructMemory()));
-        if (A.Num() != 6) { return false; }
+        if (A.Num() != 6)
+        { Diagnostic = FString::Printf(TEXT("station-count=%d"), A.Num()); return false; }
         TSet<FCk_Handle> Distinct;
         for (int32 I = 0; I < 6; ++I)
         {
             const auto& H = *reinterpret_cast<const FCk_Handle*>(A.GetRawPtr(I));
-            if (!ck::IsValid(H) || Distinct.Contains(H)) { return false; }
+            if (!ck::IsValid(H) || Distinct.Contains(H))
+            { Diagnostic = FString::Printf(TEXT("slot%d invalid-or-duplicate"), I); return false; }
             auto* Script = UCk_Utils_EntityScript_UE::TryGet_EntityScript(H);
             if (!IsValid(Script) ||
                 Script->GetClass() != F.StationClass ||
-                Script->GetWorld() != PC->GetWorld()) { return false; }
+                    Script->GetWorld() != PC->GetWorld())
+            { Diagnostic = FString::Printf(TEXT("slot%d script-class-or-world"), I); return false; }
             Distinct.Add(H);
             UFunction* Geometry = Script->FindFunction(TEXT("TryGet_VisibleGeometry"));
             const auto* Out = Field<FStructProperty>(Geometry, TEXT("Out"));
             const auto* OK = Field<FBoolProperty>(Geometry, TEXT("ReturnValue"));
             if (!Geometry || !Out || Out->Struct != F.GeometryType || !OK ||
-                !Geometry->HasAllFunctionFlags(FUNC_BlueprintPure)) { return false; }
+                !Geometry->HasAllFunctionFlags(FUNC_BlueprintPure))
+            { Diagnostic = FString::Printf(TEXT("slot%d geometry-function-schema"), I); return false; }
             FStructOnScope G(Geometry);
             Script->ProcessEvent(Geometry, G.GetStructMemory());
-            if (!OK->GetPropertyValue_InContainer(G.GetStructMemory())) { return false; }
+            if (!OK->GetPropertyValue_InContainer(G.GetStructMemory()))
+            { Diagnostic = FString::Printf(TEXT("slot%d geometry-unavailable"), I); return false; }
             const auto* Pieces = Field<FArrayProperty>(F.GeometryType, TEXT("Pieces"));
             const auto* Anchors = Field<FArrayProperty>(F.GeometryType, TEXT("Anchors"));
             if (!Pieces || !Anchors || !CastField<FStructProperty>(Pieces->Inner) ||
                 CastField<FStructProperty>(Pieces->Inner)->Struct !=
-                    FCkGym_StationVisiblePiece::StaticStruct()) { return false; }
+                    FCkGym_StationVisiblePiece::StaticStruct())
+            { Diagnostic = FString::Printf(TEXT("slot%d geometry-pieces-schema"), I); return false; }
             const void* Data = Out->ContainerPtrToValuePtr<void>(G.GetStructMemory());
             FScriptArrayHelper P(Pieces, Pieces->ContainerPtrToValuePtr<void>(Data));
             FScriptArrayHelper B(Anchors, Anchors->ContainerPtrToValuePtr<void>(Data));
-            if (P.Num() != 10 || B.Num() != 7) { return false; }
+            if (P.Num() != 10 || B.Num() != 7)
+            { Diagnostic = FString::Printf(TEXT("slot%d geometry-count pieces=%d anchors=%d"), I, P.Num(), B.Num()); return false; }
             FString Base, Body, Instructions;
             if (!SnapshotText(F, Sample, TEXT("BaseTitles"), I, Base) ||
                 !SnapshotText(F, Sample, TEXT("Bodies"), I, Body) ||
                 !SnapshotText(F, Sample, TEXT("Instructions"), I, Instructions))
-            { return false; }
+            { Diagnostic = FString::Printf(TEXT("slot%d snapshot-text-unavailable"), I); return false; }
             const FString Role = PC->GetWorld()->GetNetMode() == NM_Client ?
                 TEXT("CLIENT") : TEXT("CLIENT+HOST");
             const auto& Title = *reinterpret_cast<const FCkGym_StationVisiblePiece*>(P.GetRawPtr(6));
@@ -744,9 +896,30 @@ namespace ck_scene_node_production_two_owner
                 Description.Text != Body ||
                 (Instructions.IsEmpty() ? Floor.Visible :
                     (!Floor.Visible || Floor.HiddenInGame || Floor.Text != Instructions)))
-            { return false; }
+            {
+                Diagnostic = FString::Printf(TEXT("slot%d geometry-or-text panel=%d titleRole=%d descriptionRole=%d floorRole=%d "
+                    "titleVisible=%d descriptionVisible=%d floorVisible=%d titleText=%d body=%d descriptionText=%d instructions=%d"),
+                    I, Panel.Equals(ExpectedPanel, 0.0) ? 1 : 0,
+                    Title.Role == ECkGym_StationVisibleRole::TitleText ? 1 : 0,
+                    Description.Role == ECkGym_StationVisibleRole::DescriptionText ? 1 : 0,
+                    Floor.Role == ECkGym_StationVisibleRole::FloorDescriptionText ? 1 : 0,
+                    Title.Visible && !Title.HiddenInGame ? 1 : 0,
+                    Description.Visible && !Description.HiddenInGame ? 1 : 0,
+                    Floor.Visible && !Floor.HiddenInGame ? 1 : 0,
+                    Title.Text == Base + TEXT(" (") + Role + TEXT(")") ? 1 : 0,
+                    I < 4 || Body == ExpectedStaticBody(I) ? 1 : 0,
+                    Description.Text == Body ? 1 : 0,
+                    Instructions.IsEmpty() ? !Floor.Visible :
+                        Floor.Visible && !Floor.HiddenInGame && Floor.Text == Instructions ? 1 : 0);
+                return false;
+            }
         }
         return true;
+    }
+    bool Stations(const FFixture& F, APlayerController* PC, const void* Sample)
+    {
+        FString Ignored;
+        return Stations(F, PC, Sample, Ignored);
     }
 
     bool ReadStationWitness(const FFixture& F, APlayerController* PC,
@@ -867,24 +1040,45 @@ namespace ck_scene_node_production_two_owner
 
     bool Presented(FFixture& F, int32 Generation)
     {
+        F.PresentationDiagnostic.Reset();
+        FString Diagnostic;
         const void* Source = F.Sample(0);
-        if (!Active(F, Source, Generation) || !Visuals(F, 0, Source)) { return false; }
+        if (!Active(F, Source, Generation))
+        { F.PresentationDiagnostic = TEXT("source Active"); return false; }
+        if (!Visuals(F, 0, Source, Diagnostic))
+        { F.PresentationDiagnostic = FString::Printf(TEXT("source Visuals: %s"), *Diagnostic); return false; }
         for (int32 I = 0; I < 2; ++I)
         {
             const void* Client = F.Sample(I + 1);
-            if (!Active(F, Client, Generation) ||
-                !WireSnapshot(F.SampleType, Source, Client) ||
-                !InstalledSample(F, F.Local[I].Get(), Client) ||
-                !BoolGetter(F.Local[I].Get(), F.Presentation) ||
-                !Visuals(F, I + 1, Client) ||
-                !Stations(F, F.Local[I].Get(), Client) ||
-                CapturedStationCount(F, F.Remote[I].Get()) != 0) { return false; }
+            if (!Active(F, Client, Generation))
+            { F.PresentationDiagnostic = FString::Printf(TEXT("client%d Active"), I); return false; }
+            if (!WireSnapshot(F.SampleType, Source, Client))
+            { F.PresentationDiagnostic = FString::Printf(TEXT("client%d WireSnapshot"), I); return false; }
+            if (!InstalledSample(F, F.Local[I].Get(), Client))
+            { F.PresentationDiagnostic = FString::Printf(TEXT("client%d InstalledSample"), I); return false; }
+            if (!BoolGetter(F.Local[I].Get(), F.Presentation))
+            { F.PresentationDiagnostic = FString::Printf(TEXT("client%d PresentationReady"), I); return false; }
+            if (!Visuals(F, I + 1, Client, Diagnostic))
+            { F.PresentationDiagnostic = FString::Printf(TEXT("client%d Visuals: %s"), I, *Diagnostic); return false; }
+            if (!Stations(F, F.Local[I].Get(), Client, Diagnostic))
+            { F.PresentationDiagnostic = FString::Printf(TEXT("client%d Stations: %s"), I, *Diagnostic); return false; }
+            if (CapturedStationCount(F, F.Remote[I].Get()) != 0)
+            { F.PresentationDiagnostic = FString::Printf(TEXT("client%d remote station count"), I); return false; }
         }
-        if (!F.Dedicated &&
-            (!BoolGetter(F.Host.Get(), F.Presentation) ||
-             !InstalledSample(F, F.Host.Get(), Source) ||
-             !Stations(F, F.Host.Get(), Source))) { return false; }
-        return ProveStationIdentities(F, Generation) && ProductionProof(F, Generation);
+        if (!F.Dedicated)
+        {
+            if (!BoolGetter(F.Host.Get(), F.Presentation))
+            { F.PresentationDiagnostic = TEXT("host PresentationReady"); return false; }
+            if (!InstalledSample(F, F.Host.Get(), Source))
+            { F.PresentationDiagnostic = TEXT("host InstalledSample"); return false; }
+            if (!Stations(F, F.Host.Get(), Source, Diagnostic))
+            { F.PresentationDiagnostic = FString::Printf(TEXT("host Stations: %s"), *Diagnostic); return false; }
+        }
+        if (!ProveStationIdentities(F, Generation))
+        { F.PresentationDiagnostic = TEXT("ProveStationIdentities"); return false; }
+        if (!ProductionProof(F, Generation, Diagnostic))
+        { F.PresentationDiagnostic = FString::Printf(TEXT("ProductionProof: %s"), *Diagnostic); return false; }
+        return true;
     }
 
     bool OwnerLiveWhilePublishing(FFixture& F, int32 Owner,
@@ -948,6 +1142,58 @@ namespace ck_scene_node_production_two_owner
             *Reason->GetPropertyValue_InContainer(S));
     }
 
+    FString ClientInstallDiagnostic(const FFixture& F, int32 Owner)
+    {
+        if (Owner < 0 || Owner > 1) { return TEXT("owner-invalid"); }
+        const int32 Index = Owner + 1;
+        const TWeakObjectPtr<UWorld> World = F.Worlds[Index];
+        const TWeakObjectPtr<AGameStateBase> State = F.States[Index];
+        if (!World.IsValid() || !State.IsValid() || State->GetWorld() != World.Get() ||
+            World->GetGameState() != State.Get() || !F.SampleType || !F.RemoteVisuals)
+        { return TEXT("client-context-unavailable"); }
+        if (!F.Sample(Index) || !Field<FInt64Property>(F.SampleType, TEXT("Sequence")) ||
+            !Field<FInt64Property>(F.SampleType, TEXT("FrameSerial")))
+        { return TEXT("received-sample-unavailable"); }
+        const FInt64Property& Seq = *Field<FInt64Property>(F.SampleType, TEXT("Sequence"));
+        const FInt64Property& Frame = *Field<FInt64Property>(F.SampleType, TEXT("FrameSerial"));
+        const int32 Generation = Int(F.SampleType, F.Sample(Index), TEXT("Generation"));
+        const TWeakObjectPtr<UCk_SceneNodeGym_RemoteVisuals_UE> Receipt =
+            Cast<UCk_SceneNodeGym_RemoteVisuals_UE>(
+                F.RemoteVisuals->GetObjectPropertyValue_InContainer(State.Get()));
+        FString First = TEXT("all17-applied");
+        for (int32 Role = 1; Role <= 17; ++Role)
+        {
+            TWeakObjectPtr<ACk_SceneNodeGym_SourceActor_UE> Candidate;
+            int32 Matches = 0;
+            for (TActorIterator<ACk_SceneNodeGym_SourceActor_UE> It(World.Get()); It; ++It)
+            {
+                if (It->Get_ActorSource() != State.Get() ||
+                    It->Get_ActorGeneration() != Generation ||
+                    It->Get_ActorRole() != Role) { continue; }
+                Candidate = *It;
+                ++Matches;
+            }
+            if (Matches != 1 || !Candidate.IsValid())
+            {
+                First = FString::Printf(TEXT("role%d actor-matches=%d"), Role, Matches);
+                break;
+            }
+            const FString Reason = UCk_SceneNodeGym_RemoteVisualRuntime_UE::
+                DescribeAppliedPose(TWeakObjectPtr<const AActor>{Candidate.Get()});
+            if (Reason != TEXT("applied-pose-conformant"))
+            {
+                First = FString::Printf(TEXT("role%d %s"), Role, *Reason);
+                break;
+            }
+        }
+        return FString::Printf(TEXT("recvGen=%d recvSeq=%lld recvFrame=%lld installedSeq=%lld installedFrame=%lld first=%s"),
+            Generation, Seq.GetPropertyValue_InContainer(F.Sample(Index)),
+            Frame.GetPropertyValue_InContainer(F.Sample(Index)),
+            Receipt.IsValid() ? UCk_SceneNodeGym_RemoteVisualRuntime_UE::Get_InstalledSequence(Receipt.Get()) : -1,
+            Receipt.IsValid() ? UCk_SceneNodeGym_RemoteVisualRuntime_UE::Get_InstalledFrameSerial(Receipt.Get()) : -1,
+            *First);
+    }
+
     FString OwnerDiagnostic(const FFixture& F, int32 Owner)
     {
         if (Owner < 0 || Owner > 1) { return TEXT("index-invalid"); }
@@ -980,11 +1226,13 @@ namespace ck_scene_node_production_two_owner
             TEXT("receipt-unavailable");
         return FString::Printf(
             TEXT("installedGen=%d installedSeq=%lld stations=%d localReason='%s' "
-                 "remoteState=%d remoteGen=%d remoteSeq=%lld remoteReason='%s'"),
+                 "remoteState=%d remoteGen=%d remoteSeq=%lld remoteReason='%s' "
+                 "poll=[%s] lastPostTick=[%s]"),
             S ? Int(F.SampleType, S, TEXT("Generation")) : -1,
             S && Seq ? Seq->GetPropertyValue_InContainer(S) : -1,
             Count, *LocalReason, RemoteState, RemoteGeneration,
-            RemoteSequence, *RemoteReason);
+            RemoteSequence, *RemoteReason,
+            *ClientInstallDiagnostic(F, Owner), *F.LatestInstallReadout[Owner]);
     }
 
     FString RemoteClassDiagnostic(const TCHAR* Path)
@@ -1062,6 +1310,10 @@ namespace ck_scene_node_production_two_owner
             if (S.Check()) { ++Index; Began = -1; return Index >= Steps.Num(); }
             if (S.Wait && F->Detail.IsEmpty() && FPlatformTime::Seconds() - Began < 45)
             { return false; }
+            if (F->Detail.IsEmpty() &&
+                S.Name == TEXT("both owners converge on frozen source frame"))
+            { F->Detail = F->SawTickGuard ? F->PresentationDiagnostic :
+                TEXT("SawTickGuard=0; Presented not evaluated"); }
             const FString Observed = FailureDiagnostic(*F);
             const FString Why = FString::Printf(
                 TEXT("SceneNode production two-owner phase %d failed: %s %s | %s"),

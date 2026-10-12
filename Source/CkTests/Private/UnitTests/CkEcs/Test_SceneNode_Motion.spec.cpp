@@ -15,6 +15,7 @@
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
 #include "CkEcs/Net/CkNet_Fragment.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 #include "CkEcsExt/SceneNode/CkSceneNode_Fragment.h"
@@ -90,9 +91,13 @@ namespace ck_scene_node_motion_test
         TArray<int32> FirstFrameIssues;
         int32 ObservedFrames = 0;
         int32 PassiveWritesAfterInvalidation = 0;
-        bool bSawInSample = false;
-        bool bReentrantGetterRejected = false;
-        bool bReentrantLossDestroyed = false;
+        int32 PassiveWritesAtClosure = 0;
+        FCk_Handle LostActorEntity;
+        bool bCapturedExpectedLostEntity = false;
+        FString InvalidationLastDiagnostic;
+        bool bSawTransformUpdated = false;
+        bool bActorLossGetterRejected = false;
+        bool bActorLossDestroyed = false;
         bool bFrameObservationFailed = false;
         FString FrameFailure;
         FTransform LaterPassivePose;
@@ -341,6 +346,78 @@ namespace ck_scene_node_motion_test
         return Known.Num() == 23 &&
             UCk_SceneNodeGym_QueueRuntime_UE::Get_AreKnownQueuesDrained(
                 Known, S.WorldRoot);
+    }
+
+    bool KnownSurvivorQueuesDrainedAfterActorLoss(const FState& S)
+    {
+        if (!S.bCapturedExpectedLostEntity ||
+            S.LostActorEntity == FCk_Handle{} ||
+            S.LostActorEntity != S.NodeHandles[1] ||
+            !ck::IsValid(S.WorldRoot) ||
+            UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                S.LostActorEntity))
+        { return false; }
+        const auto Registry = S.WorldRoot.Get_RegistryView();
+        const auto RegistryHandle = Registry.Get_RegistryHandle();
+        if (S.WorldRoot != FCk_Handle{Registry.Get_TransientEntity(),
+                RegistryHandle} ||
+            S.LostActorEntity.Get_RegistryView().Get_RegistryHandle() !=
+                RegistryHandle)
+        { return false; }
+        TArray<FCk_Handle> Known;
+        Known.Reserve(23);
+        for (const auto& Root : S.RootHandles) { Known.Add(Root); }
+        for (const auto& Node : S.NodeHandles) { Known.Add(Node); }
+        for (const auto& Slot : S.Frozen) { Known.Add(Slot.Raw); }
+        if (Known.Num() != 23) { return false; }
+        int32 LostMatches = 0;
+        TArray<FCk_Handle> Survivors;
+        Survivors.Reserve(22);
+        for (const auto& H : Known)
+        {
+            if (H == S.LostActorEntity) { ++LostMatches; }
+            else { Survivors.Add(H); }
+        }
+        return LostMatches == 1 && Survivors.Num() == 22 &&
+            UCk_SceneNodeGym_QueueRuntime_UE::Get_AreKnownQueuesDrained(
+                Survivors, S.WorldRoot);
+    }
+
+    FString SamplerInvalidationDiagnostics(const FState& S)
+    {
+        uint64 Published = 0;
+        int64 Serial = 0;
+        bool bSampling = false;
+        bool bClosed = false;
+        const bool bCaptured = FCk_SceneNodeFrameSampler_TestAccess::TryCapture(
+            S.Sampler.Get(), Published, Serial, bSampling, bClosed);
+        TArray<FCk_Handle> Known;
+        Known.Reserve(23);
+        for (const auto& Root : S.RootHandles) { Known.Add(Root); }
+        for (const auto& Node : S.NodeHandles) { Known.Add(Node); }
+        for (const auto& Slot : S.Frozen) { Known.Add(Slot.Raw); }
+        int32 FirstUndrained = -1;
+        for (int32 I = 0; I < Known.Num(); ++I)
+        {
+            if (S.bCapturedExpectedLostEntity &&
+                Known[I] == S.LostActorEntity)
+            { continue; }
+            TArray<FCk_Handle> Single;
+            Single.Add(Known[I]);
+            if (!UCk_SceneNodeGym_QueueRuntime_UE::Get_AreKnownQueuesDrained(
+                    Single, S.WorldRoot))
+            { FirstUndrained = I; break; }
+        }
+        return FString::Printf(TEXT("transformUpdated=%d capturedExpectedLost=%d lostAllocated=%d actorDestroyed=%d freshGetterRejected=%d samplerCaptured=%d closed=%d sampling=%d hasPublishedFrame=%d hasSerial=%d motionActive=%d motionStopped=%d worldRootValid=%d knownCount=%d firstUndrainedSurvivor=%d survivorQueuesDrained=%d"),
+            S.bSawTransformUpdated, S.bCapturedExpectedLostEntity,
+            UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                S.LostActorEntity), S.bActorLossDestroyed,
+            S.bActorLossGetterRejected, bCaptured, bClosed, bSampling,
+            Published > 0, Serial > 0,
+            UCk_SceneNodeGym_MotionRuntime_UE::Get_IsActive(S.Motion.Get()),
+            UCk_SceneNodeGym_MotionRuntime_UE::Get_IsStopped(S.Motion.Get()),
+            ck::IsValid(S.WorldRoot), Known.Num(), FirstUndrained,
+            KnownSurvivorQueuesDrainedAfterActorLoss(S));
     }
 
     bool AllSixQueuedResume(const FState& S)
@@ -964,6 +1041,46 @@ namespace ck_scene_node_motion_test
             : !bQuiescenceObserved && !bDestroyIssued;
     }
 
+    FString RetirementFinalDiagnostics(const FState& S)
+    {
+        int32 FirstAllocatedKnown = -1;
+        for (int32 I = 0; I < S.RetirementKnown.Num(); ++I)
+        {
+            if (UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(
+                    S.RetirementKnown[I]))
+            { FirstAllocatedKnown = I; break; }
+        }
+        int32 FirstPresentActorRole = -1;
+        for (int32 Role = 0; Role < S.RetirementActors.Num(); ++Role)
+        {
+            if (ActorSerialInWorld(S.World.Get(), S.RetirementActors[Role]))
+            { FirstPresentActorRole = Role; break; }
+        }
+        TArray<FCk_Handle> Known;
+        TArray<FCk_Handle> Parents;
+        TArray<TWeakObjectPtr<AActor>> Actors;
+        bool bQuiescenceObserved = false;
+        bool bDestroyIssued = false;
+        const bool bReceiptCaptured = FCk_SceneNodeRetirement_TestAccess::TryCapture(
+            S.Retirement.Get(), Known, Parents, Actors,
+            bQuiescenceObserved, bDestroyIssued);
+        FCkSceneNodeGym_Frame Empty = PoisonedFrame();
+        const bool bPublished = UCk_SceneNodeGym_FrameSamplerRuntime_UE::
+            TryCopyLatestFrame(S.Sampler.Get(), Empty);
+        const bool bClearedSampler = !bPublished && IsClearedFrame(Empty);
+        const auto State = UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
+            S.Retirement.Get());
+        const FString Reason = UCk_SceneNodeGym_RetirementRuntime_UE::
+            Get_FailureReason(S.Retirement.Get()).ToString();
+        return FString::Printf(TEXT("state=%d reason=%s firstAllocatedKnown=%d firstPresentActorRole=%d receiptCaptured=%d receiptFrozen=%d quiescence=%d destroyIssued=%d rawIdentity=%d samplerCleared=%d reentrantRole2=%d reentrantPrerequisites=%d reentrantUnknown=%d"),
+            static_cast<int32>(State), *Reason, FirstAllocatedKnown,
+            FirstPresentActorRole, bReceiptCaptured,
+            RetirementReceiptMatchesFrozen(S, true), bQuiescenceObserved,
+            bDestroyIssued, RawIdentityRetained(S), bClearedSampler,
+            S.bReentrantRoleTwoDestroyed, S.bReentrantPrerequisitesMet,
+            S.bReentrantUnknownSpawned);
+    }
+
     bool RejectSuccessorWithoutMutation(const FState& S,
         AGameStateBase* ExpectedSource,
         UCk_SceneNodeGym_Retirement_UE* CandidateReceipt,
@@ -1008,7 +1125,7 @@ namespace ck_scene_node_motion_test
     enum class ESamplerCase : uint8
     {
         Production,
-        ReentrantActorLoss,
+        TransformUpdatedActorLoss,
         UnregisteredChild
     };
 
@@ -1179,7 +1296,7 @@ namespace ck_scene_node_motion_test
             if (!IsValid(Role2) || !IsValid(Role2->Cube) ||
                 !Role2->Cube->IsRegistered())
             { Fail(Test, TEXT("FrameSampler role-two visual was not live")); return; }
-            if (Case == ESamplerCase::ReentrantActorLoss)
+            if (Case == ESamplerCase::TransformUpdatedActorLoss)
             {
                 S->ObservedComponent = Role2->Cube;
                 const TWeakPtr<FState> WeakS = S;
@@ -1189,49 +1306,48 @@ namespace ck_scene_node_motion_test
                 {
                     const auto S = WeakS.Pin();
                     if (!S.IsValid()) { return; }
-                    if (S->bSawInSample || !S->Sampler.IsValid() ||
+                    if (S->bSawTransformUpdated || !S->Sampler.IsValid() ||
                         Changed != S->ObservedComponent.Get())
                     { return; }
-                    uint64 Published = 0;
-                    int64 Serial = 0;
-                    bool bSampling = false;
-                    bool bClosed = true;
-                    if (!FCk_SceneNodeFrameSampler_TestAccess::TryCapture(
-                            S->Sampler.Get(), Published, Serial, bSampling, bClosed) ||
-                        !bSampling || bClosed)
-                    { return; }
-                    S->bSawInSample = true;
+                    S->bSawTransformUpdated = true;
+                    const TWeakObjectPtr<ACk_SceneNode_ActorLedgerProbe> Later =
+                        S->Visuals.IsValidIndex(3) ? S->Visuals[3]
+                            : TWeakObjectPtr<ACk_SceneNode_ActorLedgerProbe>();
+                    S->LostActorEntity = IsValid(Later.Get())
+                        ? UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(
+                            Later.Get()) : FCk_Handle{};
+                    if (S->LostActorEntity != FCk_Handle{} &&
+                        ck::IsValid(S->LostActorEntity) &&
+                        S->LostActorEntity == S->NodeHandles[1] &&
+                        ck::IsValid(S->WorldRoot))
+                    {
+                        const auto Registry = S->WorldRoot.Get_RegistryView();
+                        const auto RegistryHandle = Registry.Get_RegistryHandle();
+                        S->bCapturedExpectedLostEntity =
+                            S->WorldRoot == FCk_Handle{
+                                Registry.Get_TransientEntity(), RegistryHandle} &&
+                            S->LostActorEntity.Get_RegistryView().
+                                Get_RegistryHandle() == RegistryHandle;
+                    }
+                    if (!S->bCapturedExpectedLostEntity) { return; }
+                    S->bActorLossDestroyed = IsValid(Later.Get()) &&
+                        Later->Destroy();
                     FCkSceneNodeGym_Frame Empty = PoisonedFrame();
                     FCkSceneNodeGym_SourceDisplayData EmptySource = PoisonedSourceDisplay();
-                    S->bReentrantGetterRejected =
+                    S->bActorLossGetterRejected = S->bActorLossDestroyed &&
                         !UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                             S->Sampler.Get(), Empty) && IsClearedFrame(Empty) &&
                         !UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestSourceDisplayData(
                             S->Sampler.Get(), EmptySource) &&
                         IsClearedSourceDisplay(EmptySource);
-                    auto* LaterPassive = S->Visuals.IsValidIndex(5)
-                        ? S->Visuals[5].Get() : nullptr;
-                    if (IsValid(LaterPassive) && IsValid(LaterPassive->Cube) &&
-                        LaterPassive->Cube->IsRegistered())
-                    {
-                        S->LaterPassivePose =
-                            LaterPassive->Cube->GetComponentTransform();
-                        S->bLaterPassiveCaptured =
-                            S->LaterPassivePose.IsValid();
-                    }
-                    S->bLaterPassiveCaptured = S->bLaterPassiveCaptured &&
-                        CaptureRemainingPassivePoses(*S, 2, 4,
-                            S->FrozenPassivePoses);
-                    auto* Later = S->Visuals.IsValidIndex(3)
-                        ? S->Visuals[3].Get() : nullptr;
-                    S->bReentrantLossDestroyed = IsValid(Later) && Later->Destroy();
                 });
             }
             else
             {
-                auto* Role4 = S->Visuals.IsValidIndex(3)
-                    ? S->Visuals[3].Get() : nullptr;
-                if (!IsValid(Role4) || !IsValid(Role4->Cube) ||
+                const TWeakObjectPtr<ACk_SceneNode_ActorLedgerProbe> Role4 =
+                    S->Visuals.IsValidIndex(3) ? S->Visuals[3]
+                        : TWeakObjectPtr<ACk_SceneNode_ActorLedgerProbe>();
+                if (!IsValid(Role4.Get()) || !IsValid(Role4->Cube) ||
                     !Role4->Cube->IsRegistered())
                 { Fail(Test, TEXT("later passive visual missing before unregister")); return; }
                 S->ObservedComponent = Role4->Cube;
@@ -1242,10 +1358,6 @@ namespace ck_scene_node_motion_test
                         const auto S = WeakS.Pin();
                         if (S.IsValid()) { ++S->PassiveWritesAfterInvalidation; }
                     });
-                S->LaterPassivePose = Role4->Cube->GetComponentTransform();
-                S->bLaterPassiveCaptured = S->LaterPassivePose.IsValid() &&
-                    CaptureRemainingPassivePoses(*S, 2, 0,
-                        S->FrozenPassivePoses);
                 Role2->Cube->UnregisterComponent();
                 FCkSceneNodeGym_Frame Empty = PoisonedFrame();
                 if (Role2->Cube->IsRegistered() ||
@@ -1308,14 +1420,33 @@ namespace ck_scene_node_motion_test
         else
         {
             ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
-                FCk_NetAutoTest_Condition::CreateLambda([S, Case]()
+                FCk_NetAutoTest_Condition::CreateLambda([Test, S, Case]()
             {
-                return ck::auto_test::net::Get_HasSessionFailed() ||
-                    (Case == ESamplerCase::ReentrantActorLoss && S->bSawInSample) ||
-                    (S->Sampler.IsValid() &&
-                     !UCk_SceneNodeGym_MotionRuntime_UE::Get_IsActive(
-                         S->Motion.Get()));
-            }), 20.0, TEXT("real invalidation reaches sampler production callback")));
+                if (ck::auto_test::net::Get_HasSessionFailed()) { return true; }
+                uint64 Published = 0;
+                int64 Serial = 0;
+                bool bSampling = true;
+                bool bClosed = false;
+                const bool bClosedAndDrained = S->Sampler.IsValid() &&
+                    FCk_SceneNodeFrameSampler_TestAccess::TryCapture(
+                        S->Sampler.Get(), Published, Serial, bSampling, bClosed) &&
+                    bClosed && !bSampling &&
+                    (Case == ESamplerCase::TransformUpdatedActorLoss
+                        ? KnownSurvivorQueuesDrainedAfterActorLoss(*S)
+                        : KnownQueuesDrained(*S));
+                if (!bClosedAndDrained &&
+                    Case == ESamplerCase::TransformUpdatedActorLoss)
+                {
+                    const FString Diagnostic = SamplerInvalidationDiagnostics(*S);
+                    if (Diagnostic != S->InvalidationLastDiagnostic)
+                    {
+                        S->InvalidationLastDiagnostic = Diagnostic;
+                        Test->AddInfo(FString::Printf(
+                            TEXT("actor-loss invalidation progress: %s"), *Diagnostic));
+                    }
+                }
+                return bClosedAndDrained;
+            }), 20.0, TEXT("invalid sampler closes and known production queues drain")));
             ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
                 FCk_NetAutoTest_ServerAction::CreateLambda([Test, S, Case](UWorld* World)
             {
@@ -1325,22 +1456,38 @@ namespace ck_scene_node_motion_test
                 int64 Serial = 0;
                 bool bSampling = false;
                 bool bClosed = false;
+                const bool bActorLoss = Case == ESamplerCase::TransformUpdatedActorLoss;
+                const TWeakObjectPtr<ACk_SceneNode_ActorLedgerProbe> LaterPassive =
+                    S->Visuals.IsValidIndex(bActorLoss ? 5 : 3)
+                    ? S->Visuals[bActorLoss ? 5 : 3]
+                    : TWeakObjectPtr<ACk_SceneNode_ActorLedgerProbe>();
+                S->bLaterPassiveCaptured = IsValid(LaterPassive.Get()) &&
+                    IsValid(LaterPassive->Cube) &&
+                    LaterPassive->Cube->IsRegistered();
+                if (S->bLaterPassiveCaptured)
+                {
+                    S->LaterPassivePose = LaterPassive->Cube->GetComponentTransform();
+                    S->bLaterPassiveCaptured = S->LaterPassivePose.IsValid() &&
+                        CaptureRemainingPassivePoses(*S, 2, bActorLoss ? 4 : 0,
+                            S->FrozenPassivePoses);
+                }
+                S->PassiveWritesAtClosure = S->PassiveWritesAfterInvalidation;
                 if (World != S->World.Get() || !RawIdentityRetained(*S) ||
                     !FCk_SceneNodeFrameSampler_TestAccess::TryCapture(
                         S->Sampler.Get(), Published, Serial, bSampling, bClosed) ||
                     !bClosed || bSampling ||
+                    (bActorLoss
+                        ? !KnownSurvivorQueuesDrainedAfterActorLoss(*S)
+                        : !KnownQueuesDrained(*S)) ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                         S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
                         S->Motion.Get()) != nullptr ||
                     !S->bLaterPassiveCaptured ||
-                    (Case == ESamplerCase::ReentrantActorLoss &&
-                     (!S->bSawInSample || !S->bReentrantGetterRejected ||
-                      !S->bReentrantLossDestroyed)) ||
-                    (Case == ESamplerCase::UnregisteredChild &&
-                     S->PassiveWritesAfterInvalidation != 0))
+                    (bActorLoss &&
+                     (!S->bSawTransformUpdated || !S->bActorLossGetterRejected ||
+                       !S->bActorLossDestroyed)))
                 { Fail(Test, TEXT("invalid sampler published, retried or wrote a later passive visual")); }
-                RemoveSamplerObservers(*S);
                 S->StableFrame = GFrameCounter;
             })));
             ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(Test,
@@ -1353,25 +1500,29 @@ namespace ck_scene_node_motion_test
             {
                 FCkSceneNodeGym_Frame Empty = PoisonedFrame();
                 if (ck::auto_test::net::Get_HasSessionFailed()) { return; }
-                auto* LaterPassive = S->Visuals.IsValidIndex(
-                    S->bReentrantLossDestroyed ? 5 : 3)
-                    ? S->Visuals[S->bReentrantLossDestroyed ? 5 : 3].Get()
-                    : nullptr;
+                const TWeakObjectPtr<ACk_SceneNode_ActorLedgerProbe> LaterPassive =
+                    S->Visuals.IsValidIndex(S->bActorLossDestroyed ? 5 : 3)
+                    ? S->Visuals[S->bActorLossDestroyed ? 5 : 3]
+                    : TWeakObjectPtr<ACk_SceneNode_ActorLedgerProbe>();
                 if (World != S->World.Get() || !RawIdentityRetained(*S) ||
-                    !S->bLaterPassiveCaptured || !IsValid(LaterPassive) ||
+                    !S->bLaterPassiveCaptured || !IsValid(LaterPassive.Get()) ||
                     !IsValid(LaterPassive->Cube) ||
                     !LaterPassive->Cube->IsRegistered() ||
                     !LaterPassive->Cube->GetComponentTransform().Equals(
                         S->LaterPassivePose, 0.0) ||
                     !SameRemainingPassivePoses(*S, 2,
-                        S->bReentrantLossDestroyed ? 4 : 0,
+                        S->bActorLossDestroyed ? 4 : 0,
                         S->FrozenPassivePoses) ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                         S->Sampler.Get(), Empty) || !IsClearedFrame(Empty) ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryBegin(
                         S->Motion.Get()) != nullptr ||
-                    S->PassiveWritesAfterInvalidation != 0)
+                    S->PassiveWritesAfterInvalidation != S->PassiveWritesAtClosure ||
+                    (S->bActorLossDestroyed
+                        ? !KnownSurvivorQueuesDrainedAfterActorLoss(*S)
+                        : !KnownQueuesDrained(*S)))
                 { Fail(Test, TEXT("invalid sampler recovered publication after two frames")); }
+                RemoveSamplerObservers(*S);
             })));
         }
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -1622,9 +1773,11 @@ namespace ck_scene_node_motion_test
                 return ck::auto_test::net::Get_HasSessionFailed() ||
                     (S->Retirement.IsValid() &&
                      UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
-                         S->Retirement.Get()) !=
-                         ECk_SceneNodeGym_RetirementState::Pending);
-            }), 25.0, TEXT("real Role2 destruction injects unknown scope-owned actor")));
+                         S->Retirement.Get()) ==
+                         ECk_SceneNodeGym_RetirementState::Unproven &&
+                     AllRetirementEntitiesGone(*S) &&
+                     ReentrantResidualActorsSurvive(*S));
+            }), 25.0, TEXT("reentrant retirement finishes known cascade and retains unknown actor")));
             ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
                 FCk_NetAutoTest_ServerAction::CreateLambda([Test, S](UWorld* World)
             {
@@ -1647,7 +1800,8 @@ namespace ck_scene_node_motion_test
                     !RawIdentityRetained(*S, &Slots) || Slots.Num() != 6 ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                         S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
-                { Fail(Test, TEXT("reentrant unknown actor did not stop retirement after Role2")); return; }
+                { Fail(Test, *FString::Printf(TEXT("reentrant unknown actor did not stop retirement after Role2: %s"),
+                    *RetirementFinalDiagnostics(*S))); return; }
                 S->RetirementTickAtStop = S->RetirementWorldTicks;
             })));
         }
@@ -1680,7 +1834,8 @@ namespace ck_scene_node_motion_test
                     !RawIdentityRetained(*S, &Slots) || Slots.Num() != 6 ||
                     UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                         S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
-                { Fail(Test, TEXT("normal retirement lacked complete forty-one-plus-eighteen absence")); return; }
+                { Fail(Test, *FString::Printf(TEXT("normal retirement lacked complete forty-one-plus-eighteen absence: %s"),
+                    *RetirementFinalDiagnostics(*S))); return; }
                 S->RetirementTickAtStop = S->RetirementWorldTicks;
             })));
         }
@@ -1702,7 +1857,8 @@ namespace ck_scene_node_motion_test
                 Slots.Num() != 6 || S->RetirementIssuedAtClose.Num() != 6 ||
                 UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                     S->Sampler.Get(), Empty) || !IsClearedFrame(Empty))
-            { Fail(Test, TEXT("retirement changed a frozen creator or republished")); return; }
+            { Fail(Test, *FString::Printf(TEXT("retirement changed a frozen creator or republished: %s"),
+                *RetirementFinalDiagnostics(*S))); return; }
             for (int32 I = 0; I < 6; ++I)
             { if (Slots[I].IssuedMotionUpdateCount != S->RetirementIssuedAtClose[I])
               { Fail(Test, TEXT("producer issued motion after retirement closure")); return; } }
@@ -1731,14 +1887,16 @@ namespace ck_scene_node_motion_test
                     !NoManualActorDestroyRequested(*S) ||
                     !RejectSuccessorWithoutMutation(*S, S->Source.Get(),
                         S->Retirement.Get(), MakeSuccessorVisualClasses()))
-                { Fail(Test, TEXT("reentrant retirement destroyed a later actor or resumed")); }
+                { Fail(Test, *FString::Printf(TEXT("reentrant retirement destroyed a later actor or resumed: %s"),
+                    *RetirementFinalDiagnostics(*S))); }
             }
             else if (UCk_SceneNodeGym_RetirementRuntime_UE::Get_State(
                     S->Retirement.Get()) !=
                     ECk_SceneNodeGym_RetirementState::Complete ||
                 !AllRetirementEntitiesGone(*S) ||
                 !AllRetirementActorsWorldAbsent(*S))
-            { Fail(Test, TEXT("completed retirement reintroduced an entity or actor")); }
+            { Fail(Test, *FString::Printf(TEXT("completed retirement reintroduced an entity or actor: %s"),
+                *RetirementFinalDiagnostics(*S))); }
             RemoveSamplerObservers(*S);
         })));
         if (bSuccessorProduction)
@@ -1969,7 +2127,8 @@ namespace ck_scene_node_motion_test
                     !AllRetirementActorsWorldAbsent(*S))
                 { Fail(Test, Next->bFrameObservationFailed
                     ? *Next->FrameFailure
-                    : TEXT("successor generation-two actors, motion or complete frame failed")); }
+                    : *FString::Printf(TEXT("successor generation-two actors, motion or complete frame failed: %s"),
+                        *RetirementFinalDiagnostics(*S))); }
                 RemoveSamplerObservers(*Next);
             })));
         }
@@ -2368,14 +2527,14 @@ bool FCkSceneNodeFrameSamplerProduction::RunTest(const FString& Parameters)
     return true;
 }
 
-CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeFrameSamplerReentrantActorLoss,
-    "Ck.SceneNode.Network.Motion.FrameSampler.ReentrantActorLoss",
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeFrameSamplerTransformUpdatedActorLoss,
+    "Ck.SceneNode.Network.Motion.FrameSampler.TransformUpdatedActorLoss",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
-bool FCkSceneNodeFrameSamplerReentrantActorLoss::RunTest(
+bool FCkSceneNodeFrameSamplerTransformUpdatedActorLoss::RunTest(
     const FString& Parameters)
 {
     ck_scene_node_motion_test::RunSampler(this, Parameters,
-        ck_scene_node_motion_test::ESamplerCase::ReentrantActorLoss);
+        ck_scene_node_motion_test::ESamplerCase::TransformUpdatedActorLoss);
     return true;
 }
 

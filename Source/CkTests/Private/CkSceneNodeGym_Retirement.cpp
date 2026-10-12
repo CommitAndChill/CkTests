@@ -478,7 +478,18 @@ bool UCk_SceneNodeGym_RetirementRuntime_UE::HasSafeSweepContext(
         { return false; }
     }
     if (!HasNoUnknownScopedActors(R)) { return false; }
-    auto* const Ledger = R->Ledger.Get();
+    // WithActor teardown owns all seventeen visual destructions. The scope may only
+    // retire after a complete level census proves every captured visual serial absent.
+    int32 PresentVisuals = 0;
+    const bool LevelCensusComplete = ck_scene_node_gym_retirement::ForEachLoadedActor(
+        R->World.Get(), [&](TWeakObjectPtr<AActor> Actor)
+        {
+            for (int32 Role = 1; Role < ck_scene_node_gym_retirement::ActorCount; ++Role)
+            {
+                if (R->Actors[Role].HasSameIndexAndSerialNumber(Actor)) { ++PresentVisuals; }
+            }
+        });
+    if (!LevelCensusComplete || PresentVisuals != 0) { return false; }
     AActor* Scope = nullptr;
     if (!HasKnownActorInWorld(R, 0, Scope))
     { return R->DestroyRequested.Num() == ck_scene_node_gym_retirement::ActorCount &&
@@ -490,24 +501,6 @@ bool UCk_SceneNodeGym_RetirementRuntime_UE::HasSafeSweepContext(
          Scope->GetOwner() != R->Source.Get() || !Scope->GetIsReplicated() ||
          Scope->IsReplicatingMovement()))
     { return false; }
-    for (int32 Role = 1; Role < ck_scene_node_gym_retirement::ActorCount; ++Role)
-    {
-        if (ck_scene_node_gym_retirement::IsRootRole(Role)) { continue; }
-        AActor* Actor = nullptr;
-        const bool Present = HasKnownActorInWorld(R, Role, Actor);
-        if (R->DestroyRequested[Role]) { continue; }
-        if (!Present || !ck_scene_node_gym_retirement::Live(Actor) ||
-            Actor->IsActorBeingDestroyed() || Actor->GetWorld() != R->World.Get() ||
-            Actor->GetOwner() != Scope ||
-            Actor->GetClass() != Ledger->VisualClasses[Role - 1].Get() ||
-            !Actor->GetIsReplicated() || Actor->IsReplicatingMovement())
-        { return false; }
-        const auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Actor);
-        if (!ck_scene_node_gym_retirement::Live(Visual) ||
-            Visual->Ledger.Get() != Ledger || Visual->Role != Role ||
-            Visual->Generation != R->Generation)
-        { return false; }
-    }
     return true;
 }
 

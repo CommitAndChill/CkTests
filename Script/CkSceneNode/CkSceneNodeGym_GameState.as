@@ -6,6 +6,13 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
     default NetUpdateFrequency = 15.0;
     UPROPERTY(Replicated) FCkSceneNodeGym_Snapshot Snapshot;
 
+    UFUNCTION(BlueprintOverride)
+    void BeginPlay()
+    {
+        // Replication application and Transform output complete in PrePhysics.
+        SetTickGroup(ETickingGroup::TG_PostUpdateWork);
+    }
+
     // Strong reflected references: the native records themselves retain raw
     // creation evidence and remain available after a failed admission.
     UPROPERTY() private UCk_SceneNodeGym_ActorLedger_UE _Actors;
@@ -34,10 +41,10 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
         if (_Ending || !HasAuthority() || IsActorBeingDestroyed() ||
             !Get_HasPublishedCatalog() ||
             GetClass() != ACk_SceneNodeGym_GameState) { return false; }
-        auto World = GetWorld();
-        if (ck::Is_NOT_Valid(World) || World.GetGameState() != this) { return false; }
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld) || CurrentWorld.GetGameState() != this) { return false; }
         auto Mode = Gameplay::GetGameMode();
-        if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != World ||
+        if (ck::Is_NOT_Valid(Mode) || Mode.GetWorld() != CurrentWorld ||
             Mode.GetClass() != ACk_SceneNodeGym_GameMode) { return false; }
         auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
         auto Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
@@ -177,19 +184,19 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
         StartActorsAndRoots(1);
     }
 
-    private bool Get_HasExactRebuildOwner(APlayerController Owner, APawn Pawn,
+    private bool Get_HasExactRebuildOwner(APlayerController RequestOwner, APawn Pawn,
         int32 RequestSerial, int32 ExpectedGeneration)
     {
-        if (!Get_HasWorldIdentity() || ck::Is_NOT_Valid(Owner) ||
-            Owner.GetClass() != ACk_SceneNodeGym_PlayerController ||
-            Owner.IsActorBeingDestroyed() || !Owner.HasAuthority() ||
-            Owner.GetWorld() != GetWorld() || ck::Is_NOT_Valid(Pawn) ||
+        if (!Get_HasWorldIdentity() || ck::Is_NOT_Valid(RequestOwner) ||
+            RequestOwner.GetClass() != ACk_SceneNodeGym_PlayerController ||
+            RequestOwner.IsActorBeingDestroyed() || !RequestOwner.HasAuthority() ||
+            RequestOwner.GetWorld() != GetWorld() || ck::Is_NOT_Valid(Pawn) ||
             Pawn.IsActorBeingDestroyed() || Pawn.GetWorld() != GetWorld() ||
             Cast<ACk_Gym_Base_Pawn>(Pawn) == nullptr)
         { return false; }
-        auto ExactOwner = Cast<ACk_SceneNodeGym_PlayerController>(Owner);
-        return ck::IsValid(ExactOwner) && Pawn.GetController() == Owner &&
-            Owner.GetControlledPawn() == Pawn &&
+        auto ExactOwner = Cast<ACk_SceneNodeGym_PlayerController>(RequestOwner);
+        return ck::IsValid(ExactOwner) && Pawn.GetController() == RequestOwner &&
+            RequestOwner.GetControlledPawn() == Pawn &&
             ExactOwner.Get_HasReservedSceneNodeControl(
                 RequestSerial, ExpectedGeneration, Pawn);
     }
@@ -197,12 +204,12 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
     // True admits one shared retirement, not completion of the next generation.
     // The requesting owner never owns the authority simulation.
     UFUNCTION(BlueprintCallable)
-    bool Request_Rebuild(APlayerController Owner, APawn Pawn,
+    bool Request_Rebuild(APlayerController RequestOwner, APawn Pawn,
         int32 RequestSerial, int32 ExpectedGeneration)
     {
         if (_Failed || _Ending || _Starting || _RetiringShared || !_Armed ||
             RequestSerial <= 0 ||
-            !Get_HasExactRebuildOwner(Owner, Pawn, RequestSerial, ExpectedGeneration) ||
+            !Get_HasExactRebuildOwner(RequestOwner, Pawn, RequestSerial, ExpectedGeneration) ||
             Snapshot.Lifecycle != ECkSceneNodeGym_Lifecycle::Active ||
             !CkSceneNodeGymShared::Get_IsValidSnapshot(Snapshot) ||
             ExpectedGeneration != Snapshot.Generation ||
@@ -220,7 +227,7 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
         Retiring.Sequence = Snapshot.Sequence + 1;
         Retiring.Lifecycle = ECkSceneNodeGym_Lifecycle::Retiring;
         if (!CkSceneNodeGymShared::Get_IsValidPublicationAdvance(Snapshot, Retiring) ||
-            !Get_HasExactRebuildOwner(Owner, Pawn, RequestSerial, ExpectedGeneration))
+            !Get_HasExactRebuildOwner(RequestOwner, Pawn, RequestSerial, ExpectedGeneration))
         { return false; }
 
         // Publish the whole value-only retirement state before native closes
@@ -460,14 +467,16 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
     private bool _RemoteAttempted = false;
     private bool _RemoteRetiring = false;
     private float _RemoteRetireStartedAt = 0.0f;
+    private int32 _RemoteAdmissionGeneration = 0;
+    private float _RemoteAdmissionStartedAt = 0.0f;
 
     private bool Get_HasClientIdentity()
     {
         if (_Ending || HasAuthority() || IsActorBeingDestroyed() ||
             GetClass() != ACk_SceneNodeGym_GameState) { return false; }
-        auto World = GetWorld();
-        if (!ck::IsValid(World) || World.GetNetMode() != ENetMode::NM_Client ||
-            World.GetGameState() != this || !Get_HasPublishedCatalog()) { return false; }
+        auto CurrentWorld = GetWorld();
+        if (!ck::IsValid(CurrentWorld) || CurrentWorld.GetNetMode() != ENetMode::NM_Client ||
+            CurrentWorld.GetGameState() != this || !Get_HasPublishedCatalog()) { return false; }
         auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
         int32 Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
         if (Index < 0 || Index >= Registry.Num()) { return false; }
@@ -566,6 +575,9 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
                 { Request_FailProjection(); return; }
             }
         }
+        if (ck::IsValid(_RemoteVisuals) &&
+            !UCk_SceneNodeGym_RemoteVisualRuntime_UE::Request_Advance(_RemoteVisuals))
+        { Request_FailProjection(); return; }
         if (ck::IsValid(_RemoteVisuals) && _RemoteRetiring)
         {
             auto State = UCk_SceneNodeGym_RemoteVisualRuntime_UE::Get_State(_RemoteVisuals);
@@ -575,6 +587,14 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
             if (State != ECk_SceneNodeGym_RemoteVisualState::Complete) { return; }
         }
         if (!Active) { return; }
+        if (_RemoteAdmissionGeneration != Sample.Generation)
+        {
+            _RemoteAdmissionGeneration = Sample.Generation;
+            _RemoteAdmissionStartedAt = float(System::GetGameTimeInSeconds());
+        }
+        if ((!ck::IsValid(_RemoteVisuals) || _RemoteRetiring) &&
+            float(System::GetGameTimeInSeconds()) - _RemoteAdmissionStartedAt > 25.0f)
+        { Request_FailProjection(); return; }
         auto Frame = Get_Frame(Sample);
         if (!ck::IsValid(_RemoteVisuals))
         {
@@ -598,7 +618,7 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
             if (!ck::IsValid(Next)) { return; }
             _RemoteRetiring = false;
         }
-        else if (_InstalledSample.Sequence != Sample.Sequence)
+        else if (UCk_SceneNodeGym_RemoteVisualRuntime_UE::Get_InstalledSequence(_RemoteVisuals) != Sample.Sequence)
         {
             _InstalledSample = FCkSceneNodeGym_Snapshot();
             _Projecting = true;
@@ -616,7 +636,7 @@ class ACk_SceneNodeGym_GameState : ACkGym_GameState_UE
             !ck::IsValid(_RemoteVisuals) ||
             !UCk_SceneNodeGym_RemoteVisualRuntime_UE::Get_IsInstalledConformant(
                 _RemoteVisuals, Sample.Sequence, Frame))
-        { return; }
+        { _InstalledSample = FCkSceneNodeGym_Snapshot(); return; }
         _InstalledSample = Sample;
     }
 

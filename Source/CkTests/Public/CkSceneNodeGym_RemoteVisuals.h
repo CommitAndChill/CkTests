@@ -75,6 +75,9 @@ public:
     static void Request_SetVisualVisible(AActor* Actor, bool Visible);
     UFUNCTION(BlueprintCallable, Category="Ck|Tests|Gym|SceneNode")
     static bool Request_Retire(UCk_SceneNodeGym_RemoteVisuals_UE* Receipt);
+    // Explicit structural closure and physical retirement observation, including frozen metadata.
+    UFUNCTION(BlueprintCallable, Category="Ck|Tests|Gym|SceneNode")
+    static bool Request_Advance(UCk_SceneNodeGym_RemoteVisuals_UE* Receipt);
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     static ECk_SceneNodeGym_RemoteVisualState Get_State(const UCk_SceneNodeGym_RemoteVisuals_UE* Receipt);
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
@@ -85,6 +88,10 @@ public:
     static int64 Get_InstalledSequence(const UCk_SceneNodeGym_RemoteVisuals_UE* Receipt);
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     static int64 Get_InstalledFrameSerial(const UCk_SceneNodeGym_RemoteVisuals_UE* Receipt);
+#if WITH_DEV_AUTOMATION_TESTS
+    // Read-only explanation of the production applied-pose prerequisite.
+    static FString DescribeAppliedPose(TWeakObjectPtr<const AActor> Actor);
+#endif
     UFUNCTION(BlueprintCallable, Category="Ck|Tests|Gym|SceneNode")
     static UCk_SceneNodeGym_RemoteVisuals_UE* TryBeginSuccessor(AGameStateBase* ClientState,
         UCk_SceneNodeGym_RemoteVisuals_UE* CompleteReceipt,

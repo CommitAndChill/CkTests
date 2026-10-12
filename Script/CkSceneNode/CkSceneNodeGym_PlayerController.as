@@ -51,10 +51,10 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
 
     private bool Get_HasCurrentState(ACk_SceneNodeGym_GameState State) const
     {
-        auto World = GetWorld();
-        return !_Ending && !IsActorBeingDestroyed() && ck::IsValid(World) &&
+        auto CurrentWorld = GetWorld();
+        return !_Ending && !IsActorBeingDestroyed() && ck::IsValid(CurrentWorld) &&
             ck::IsValid(State) && State.GetClass() == ACk_SceneNodeGym_GameState &&
-            State.GetWorld() == World && World.GetGameState() == State &&
+            State.GetWorld() == CurrentWorld && CurrentWorld.GetGameState() == State &&
             State.Get_HasPublishedCatalog();
     }
 
@@ -62,9 +62,9 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
     {
         // Base PC invokes this only after its real controller ECS admission.
         _ControllerAdmitted = true;
-        auto World = GetWorld();
-        if (ck::Is_NOT_Valid(World)) { return; }
-        auto State = Cast<ACk_SceneNodeGym_GameState>(World.GetGameState());
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld)) { return; }
+        auto State = Cast<ACk_SceneNodeGym_GameState>(CurrentWorld.GetGameState());
         if (HasAuthority() && Get_HasCurrentState(State))
         { State.Request_EnsureSharedDemo(); }
     }
@@ -77,12 +77,12 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
     {
         if (!_ControllerAdmitted || !HasAuthority() || !_SessionBound ||
             _OwnerSessionLost) { return; }
-        auto World = GetWorld();
-        bool Exact = !_Ending && ck::IsValid(World) &&
+        auto CurrentWorld = GetWorld();
+        bool Exact = !_Ending && ck::IsValid(CurrentWorld) &&
             Get_HasCurrentState(_SessionState) && ck::IsValid(_SessionPawn);
         if (Exact)
         {
-            Exact = _SessionPawn.GetWorld() == World &&
+            Exact = _SessionPawn.GetWorld() == CurrentWorld &&
                 _SessionPawn.GetController() == this &&
                 GetControlledPawn() == _SessionPawn;
         }
@@ -108,9 +108,9 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
             _PresentationLost || _LocalFailed || _LocalStarting ||
             _LocalRetiring || _LocalRetirementUnproven ||
             !_PresentationBound || _PendingSerial != 0) { return false; }
-        auto World = GetWorld();
-        if (ck::Is_NOT_Valid(World)) { return false; }
-        auto State = Cast<ACk_SceneNodeGym_GameState>(World.GetGameState());
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld)) { return false; }
+        auto State = Cast<ACk_SceneNodeGym_GameState>(CurrentWorld.GetGameState());
         auto Pawn = GetControlledPawn();
         if (!Get_HasLocalContext(State, Pawn) ||
             !_StationCohort.Get_HasExactReadyCohort())
@@ -144,9 +144,9 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
     void Request_ControlActivated(int32 InRowIndex) override
     {
         if (InRowIndex != 0 || !Get_CanRequestControl()) { return; }
-        auto World = GetWorld();
-        if (ck::Is_NOT_Valid(World)) { return; }
-        auto State = Cast<ACk_SceneNodeGym_GameState>(World.GetGameState());
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld)) { return; }
+        auto State = Cast<ACk_SceneNodeGym_GameState>(CurrentWorld.GetGameState());
         if (!Get_HasCurrentState(State)) { return; }
         FCkSceneNodeGym_Snapshot Sample;
         if (!State.TryGet_PresentationSample(Sample) ||
@@ -186,15 +186,15 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
         FCkSceneNodeGym_ControlAck Ack;
         Ack.RequestSerial = Serial; Ack.Generation = Generation;
         LastControlAck = Ack;
-        auto World = GetWorld();
-        if (ck::Is_NOT_Valid(World))
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld))
         { Ack.Result = 3; LastControlAck = Ack; ForceNetUpdate(); return; }
-        auto State = Cast<ACk_SceneNodeGym_GameState>(World.GetGameState());
+        auto State = Cast<ACk_SceneNodeGym_GameState>(CurrentWorld.GetGameState());
         auto Pawn = GetControlledPawn();
         auto Registry = UCk_Utils_GymRegistry_UE::Get_GymRegistry();
         auto Index = UCk_Utils_GymRegistry_UE::Get_CurrentGymIndex();
         if (!Get_HasCurrentState(State) ||
-            ck::Is_NOT_Valid(Pawn) || Pawn.GetWorld() != World ||
+            ck::Is_NOT_Valid(Pawn) || Pawn.GetWorld() != CurrentWorld ||
             Pawn.GetController() != this || GetControlledPawn() != Pawn ||
             Index < 0 || Index >= Registry.Num() ||
             Registry[Index].DisplayName != "Scene Node" ||
@@ -217,7 +217,7 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
             _ReservedSerial == Serial && _ReservedGeneration == Generation &&
             _ReservedPawn == Pawn && _ReservedState == State &&
             _SessionPawn == Pawn && _SessionState == State &&
-            ck::IsValid(Pawn) && Pawn.GetWorld() == World &&
+            ck::IsValid(Pawn) && Pawn.GetWorld() == CurrentWorld &&
             Pawn.GetController() == this && GetControlledPawn() == Pawn;
         // The reservation is valid only for the synchronous admission call.
         _ReservedSerial = 0; _ReservedGeneration = 0;
@@ -348,9 +348,9 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
 
     private FString Get_ViewerRole() const
     {
-        auto World = GetWorld();
-        if (!IsLocalController() || ck::Is_NOT_Valid(World)) { return ""; }
-        auto Mode = World.GetNetMode();
+        auto CurrentWorld = GetWorld();
+        if (!IsLocalController() || ck::Is_NOT_Valid(CurrentWorld)) { return ""; }
+        auto Mode = CurrentWorld.GetNetMode();
         if (Mode == ENetMode::NM_Client) { return "CLIENT"; }
         if (Mode == ENetMode::NM_ListenServer) { return "CLIENT+HOST"; }
         if (Mode == ENetMode::NM_Standalone) { return "HOST"; }
@@ -497,13 +497,13 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
     UFUNCTION(BlueprintPure)
     bool Get_SceneNodePresentationReady() const
     {
-        auto World = GetWorld();
+        auto CurrentWorld = GetWorld();
         if (!IsLocalController() || _Ending || _PresentationLost ||
             _LocalFailed || _LocalStarting || _LocalRetiring ||
             _LocalRetirementUnproven || !_PresentationBound ||
-            ck::Is_NOT_Valid(World) || _ShownSequence <= 0)
+            ck::Is_NOT_Valid(CurrentWorld) || _ShownSequence <= 0)
         { return false; }
-        auto State = Cast<ACk_SceneNodeGym_GameState>(World.GetGameState());
+        auto State = Cast<ACk_SceneNodeGym_GameState>(CurrentWorld.GetGameState());
         if (!Get_HasLocalContext(State, _PresentationPawn)) { return false; }
         FCkSceneNodeGym_Snapshot Current;
         if (!State.TryGet_PresentationSample(Current) ||
@@ -531,10 +531,10 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
         { _PresentationLost = true; _LocalFailed = true; Request_RetireLocal(); return; }
         if (_Ending || !IsLocalController() || _PresentationLost)
         { Request_RetireLocal(); return; }
-        auto World = GetWorld();
-        if (ck::Is_NOT_Valid(World)) { Request_RetireLocal(); return; }
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld)) { Request_RetireLocal(); return; }
         auto Pawn = GetControlledPawn();
-        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetWorld() != World ||
+        if (ck::Is_NOT_Valid(Pawn) || Pawn.GetWorld() != CurrentWorld ||
             Pawn.GetController() != this ||
             (_PresentationBound && _PresentationPawn != Pawn))
         {
@@ -545,7 +545,7 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
         { _PresentationBound = true; _PresentationPawn = Pawn; }
         if (_PendingSerial > 0 && LastControlAck.RequestSerial == _PendingSerial &&
             LastControlAck.Result > 0) { _PendingSerial = 0; }
-        auto State = Cast<ACk_SceneNodeGym_GameState>(World.GetGameState());
+        auto State = Cast<ACk_SceneNodeGym_GameState>(CurrentWorld.GetGameState());
         if (!Get_HasCurrentState(State))
         {
             if (_BoundState != nullptr)
@@ -557,7 +557,12 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
             _PresentationLost = true; _LocalFailed = true;
             Request_RetireLocal(); return;
         }
-        if (_BoundState == nullptr) { _BoundState = State; }
+        if (_BoundState == nullptr)
+        {
+            _BoundState = State;
+            // Observe the shared receipt after its post-ECS installation tick.
+            AddTickPrerequisiteActor(_BoundState);
+        }
         auto Wire = State.Snapshot;
         if (!CkSceneNodeGymShared::Get_IsValidSnapshot(Wire))
         { Request_FailLocal("SceneNode received snapshot rejected"); return; }
@@ -619,6 +624,12 @@ class ACk_SceneNodeGym_PlayerController : ACk_Gym_Base_PlayerController
     void EndPlay(EEndPlayReason Reason)
     {
         _Ending = true;
+        if (ck::IsValid(_BoundState) && !_BoundState.IsActorBeingDestroyed())
+        {
+            auto CurrentWorld = GetWorld();
+            if (ck::IsValid(CurrentWorld) && _BoundState.GetWorld() == CurrentWorld)
+            { RemoveTickPrerequisiteActor(_BoundState); }
+        }
         Request_RetireLocal();
         Super::EndPlay(Reason);
     }

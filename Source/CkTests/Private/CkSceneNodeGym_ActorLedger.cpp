@@ -1,4 +1,5 @@
 #include "CkSceneNodeGym_ActorLedger.h"
+#include "CkSceneNodeGym_RemoteVisuals.h"
 
 #include "Components/SceneComponent.h"
 #include "Engine/Level.h"
@@ -137,6 +138,10 @@ void UCk_SceneNodeGym_ActorLedger_UE::Close(FName Reason)
 {
     if (!bClosed && FirstClosureReason.IsNone()) { FirstClosureReason = Reason; }
     bClosed = true;
+    for (int32 Role = 1; Role < Roles.Num(); ++Role)
+    {
+        UCk_SceneNodeGym_RemoteVisualRuntime_UE::Request_SetVisualVisible(Roles[Role].Actor.Get(), false);
+    }
 }
 
 void UCk_SceneNodeGym_ActorLedger_UE::OnActorDestroyed(AActor* Actor)
@@ -230,9 +235,9 @@ ACk_SceneNodeGym_ScopeActor_UE::ACk_SceneNodeGym_ScopeActor_UE()
 }
 
 void ACk_SceneNodeGym_ScopeActor_UE::GetLifetimeReplicatedProps(
-    TArray<FLifetimeProperty>& Out) const
+    TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(Out);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(ACk_SceneNodeGym_ScopeActor_UE, Generation);
     DOREPLIFETIME(ACk_SceneNodeGym_ScopeActor_UE, SourceIdentity);
 }
@@ -247,10 +252,10 @@ ACk_SceneNodeGym_SourceActor_UE::ACk_SceneNodeGym_SourceActor_UE()
 }
 
 void ACk_SceneNodeGym_SourceActor_UE::GetLifetimeReplicatedProps(
-    TArray<FLifetimeProperty>& Out) const
+    TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(Out);
-    DOREPLIFETIME(ACk_SceneNodeGym_SourceActor_UE, Role);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(ACk_SceneNodeGym_SourceActor_UE, ActorRole);
     DOREPLIFETIME(ACk_SceneNodeGym_SourceActor_UE, Generation);
     DOREPLIFETIME(ACk_SceneNodeGym_SourceActor_UE, SourceIdentity);
 }
@@ -590,7 +595,7 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TrySpawnConfiguredRole(
                 if (Visual == nullptr)
                 { Current->Close(TEXT("PreSpawnClassMismatch")); return; }
                 Visual->Ledger = Current;
-                Visual->Role = Role;
+                Visual->ActorRole = Role;
                 Visual->Generation = Current->Generation;
                 Visual->SourceIdentity = Current->Source.Get();
             }
@@ -618,7 +623,7 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TrySpawnConfiguredRole(
     {
         auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Spawned);
         if (!IsValid(Visual) || Visual->Ledger.Get() != Ledger ||
-            Visual->Role != Role || Visual->Generation != Ledger->Generation ||
+            Visual->ActorRole != Role || Visual->Generation != Ledger->Generation ||
             Visual->SourceIdentity != Ledger->Source.Get())
         { Ledger->Close(TEXT("DeferredClaimMismatch")); Ledger->ActiveRole = -1; return false; }
     }
@@ -689,7 +694,7 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasExactCapturedRoles(
         {
             const auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Actor);
             if (!IsValid(Visual) || Visual->Ledger.Get() != Ledger ||
-                Visual->Role != Role || Visual->Generation != Ledger->Generation ||
+                Visual->ActorRole != Role || Visual->Generation != Ledger->Generation ||
                 Visual->SourceIdentity != Source)
             { return false; }
         }
@@ -791,7 +796,7 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryGet_FinishedRole(
     {
         const auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Candidate);
         if (!IsValid(Visual) || Visual->Ledger.Get() != Ledger ||
-            Visual->Role != Role || Visual->Generation != Ledger->Generation ||
+            Visual->ActorRole != Role || Visual->Generation != Ledger->Generation ||
             Visual->SourceIdentity != Source)
         { return false; }
     }

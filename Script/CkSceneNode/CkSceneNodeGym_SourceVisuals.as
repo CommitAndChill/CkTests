@@ -55,9 +55,9 @@ class ACk_SceneNodeGym_SourceParent : ACk_SceneNodeGym_SourceActor_UE
         if (Get_ActorGeneration() <= 0 ||
             Label.IsEmpty()) { return; }
         if (ck::Is_NOT_Valid(TextRenderer)) { return; }
-        auto World = GetWorld();
-        if (ck::Is_NOT_Valid(World) || TextRenderer.GetOwner() != this ||
-            TextRenderer.GetWorld() != World) { return; }
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld) || TextRenderer.GetOwner() != this ||
+            TextRenderer.GetWorld() != CurrentWorld) { return; }
         TextRenderer.SetText(ck::Text(Label));
     }
 }
@@ -91,9 +91,9 @@ class ACk_SceneNodeGym_SourceChild : ACk_SceneNodeGym_SourceActor_UE
         if (Get_ActorGeneration() <= 0 ||
             Label.IsEmpty()) { return; }
         if (ck::Is_NOT_Valid(TextRenderer)) { return; }
-        auto World = GetWorld();
-        if (ck::Is_NOT_Valid(World) || TextRenderer.GetOwner() != this ||
-            TextRenderer.GetWorld() != World) { return; }
+        auto CurrentWorld = GetWorld();
+        if (ck::Is_NOT_Valid(CurrentWorld) || TextRenderer.GetOwner() != this ||
+            TextRenderer.GetWorld() != CurrentWorld) { return; }
         TextRenderer.SetText(ck::Text(Label));
     }
 }

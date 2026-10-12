@@ -5,6 +5,7 @@
 #include "CkSceneNodeGym_ActorLedger.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "Engine/World.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/GameModeBase.h"
 #include "UObject/SoftObjectPath.h"
@@ -48,7 +49,7 @@ namespace ck_scene_remote_test
         const auto* Property = IsValid(Source) ? FindFProperty<FObjectPropertyBase>(Source->GetClass(), TEXT("_RemoteVisuals")) : nullptr;
         return Property ? Cast<UCk_SceneNodeGym_RemoteVisuals_UE>(Property->GetObjectPropertyValue_InContainer(Source)) : nullptr;
     }
-    bool Run(FAutomationTestBase& Test, const FString& Parameters, bool Unknown)
+    bool Run(FAutomationTestBase& Test, const FString& Parameters, bool Unknown, bool NestedFrozen = false)
     {
         FCkSceneNodeGym_Frame Metadata;
         Test.TestTrue(TEXT("metadata receipt rejects all pose payloads and invalid headers"),
@@ -73,7 +74,7 @@ namespace ck_scene_remote_test
                 !UCk_SceneNodeGym_RemoteVisualRuntime_UE::Get_IsInstalledConformant(R, Sequence, Frame)) { return false; }
             S->Receipt = R; S->Restore(); return true;
         }), 45.0f, TEXT("bind real source actor channels and applied Transform outputs")));
-        Test.AddCommand(new FCk_Latent_RunOnClient(0, FCk_NetAutoTest_ServerAction::CreateLambda([&Test, S, Unknown](UWorld* W)
+        Test.AddCommand(new FCk_Latent_RunOnClient(0, FCk_NetAutoTest_ServerAction::CreateLambda([&Test, S, Unknown, NestedFrozen](UWorld* W)
         {
             auto* R = S->Receipt.Get();
             int64 Sequence = 0; FCkSceneNodeGym_Frame Frame;
@@ -84,12 +85,14 @@ namespace ck_scene_remote_test
             Test.TestTrue(TEXT("scope is identity-only replicated source provenance"),
                 IsValid(Scope) && Scope->GetClass() == ACk_SceneNodeGym_ScopeActor_UE::StaticClass() && Scope->GetIsReplicated());
             FActorSpawnParameters Params;
-            if (Unknown) { Params.Owner = Scope; }
+            if (Unknown) { Params.Owner = NestedFrozen ? Captured[1].Get() : Scope; }
             auto* Extra = W->SpawnActor<AActor>(AActor::StaticClass(), FTransform::Identity, Params);
             S->Extra = Extra;
             if (!Unknown) { Extra->Destroy(); } // Unrelated pending destruction cannot poison the cohort.
             ++Frame.FrameSerial;
-            const bool Installed = UCk_SceneNodeGym_RemoteVisualRuntime_UE::TryInstall(R, Sequence + 1, Frame);
+            const bool Installed = NestedFrozen
+                ? UCk_SceneNodeGym_RemoteVisualRuntime_UE::Request_Advance(R)
+                : UCk_SceneNodeGym_RemoteVisualRuntime_UE::TryInstall(R, Sequence + 1, Frame);
             if (Unknown)
             {
                 Test.TestTrue(TEXT("unknown scoped actor closes receipt and is never adopted or destroyed"),
@@ -110,6 +113,13 @@ namespace ck_scene_remote_test
                 Test.TestTrue(TEXT("receipt retains exact live actor serial; no local destruction"),
                     Captured[Role].HasSameIndexAndSerialNumber(S->Actors[Role]) &&
                     Captured[Role].IsValid() && !Captured[Role]->IsActorBeingDestroyed());
+                if (Role > 0)
+                {
+                    const TWeakObjectPtr<UStaticMeshComponent> Mesh =
+                        Cast<UStaticMeshComponent>(Captured[Role]->GetRootComponent());
+                    Test.TestTrue(TEXT("closure hides exact owned production mesh"),
+                        Mesh.IsValid() && Mesh->GetOwner() == Captured[Role].Get() && !Mesh->IsVisible());
+                }
             }
         })));
         Test.AddCommand(new FCk_Latent_EndPIE());
@@ -131,4 +141,9 @@ CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeRemoteUnrelatedPending,
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FCkSceneNodeRemoteUnrelatedPending::RunTest(const FString& Parameters)
 { return ck_scene_remote_test::Run(*this, Parameters, false); }
+CK_IMPLEMENT_NET_AUTOMATION_TEST(FCkSceneNodeRemoteNestedFrozen,
+    "Ck.SceneNode.Network.Gym.Remote.NestedUnknownFrozenClosure",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FCkSceneNodeRemoteNestedFrozen::RunTest(const FString& Parameters)
+{ return ck_scene_remote_test::Run(*this, Parameters, true, true); }
 #endif

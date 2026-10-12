@@ -20,7 +20,7 @@ namespace CkSceneNodeGymCatalog
 		else if (InSlot == 5)
 		{
 			Description.Add(FText::FromString("SceneNode follows a moving Unreal mesh component at a relative offset."));
-			Description.Add(FText::FromString("Uses CreateAndAttachToUnrealComponent(offset) + runtime Request_UpdateOffset."));
+			Description.Add(FText::FromString("Composes an existing replicated Transform with an Unreal component anchor."));
 		}
 		return Description;
 	}
