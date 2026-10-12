@@ -135,7 +135,7 @@ namespace ck_test_groundnav_dynamic_path_request
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
     FCkTest_GroundNav_DynamicPathRequest,
-    "CkTests.UnitTests.CkGroundNav.Path.DynamicPathRequest",
+    "CkTests.UnitTests.CkGroundNav.Path.DynamicPathRequest.Core",
     kCkUnitTestFlags)
 
 bool FCkTest_GroundNav_DynamicPathRequest::RunTest(const FString& Parameters)
