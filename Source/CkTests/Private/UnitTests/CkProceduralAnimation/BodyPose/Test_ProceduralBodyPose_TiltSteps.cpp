@@ -359,11 +359,11 @@ namespace ck_test_procedural_body_pose_tilt_steps
     auto
         DoEnqueue_Walkers(
             FAutomationTestBase* InTest,
-            const TSharedRef<FState>& InState)
+            const TSharedRef<FState>& InState, const FString& InTopology)
         -> void
     {
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), InTopology));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
             [InTest, InState](UWorld* InWorld)
             {
@@ -655,14 +655,14 @@ namespace ck_test_procedural_body_pose_tilt_steps
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralBodyPoseTiltStepsTest,
     "Ck.ProceduralAnimation.BodyPose.PresentationStaysSmoothThroughBodyTiltSteps",
     ck_test_procedural_body_pose_tilt_steps::TestFlags)
 
 auto
     FCkProceduralBodyPoseTiltStepsTest::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_body_pose_tilt_steps;
@@ -682,7 +682,7 @@ auto
     { return false; }
 
     const auto State = MakeSteppedWalkers();
-    DoEnqueue_Walkers(this, State);
+    DoEnqueue_Walkers(this, State, Parameters);
     DoEnqueue_PitchSteps(State, StepFrames);
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
@@ -735,20 +735,20 @@ auto
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralBodyPoseSustainedRotationTest,
     "Ck.ProceduralAnimation.BodyPose.PresentationLagIsBoundedThroughSustainedRotation",
     ck_test_procedural_body_pose_tilt_steps::TestFlags)
 
 auto
     FCkProceduralBodyPoseSustainedRotationTest::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_body_pose_tilt_steps;
 
     const auto State = MakeSteppedWalkers();
-    DoEnqueue_Walkers(this, State);
+    DoEnqueue_Walkers(this, State, Parameters);
     DoEnqueue_SustainedRotation(State);
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
@@ -804,14 +804,14 @@ auto
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralBodyPoseSupportTiltJumpTest,
     "Ck.ProceduralAnimation.BodyPose.PresentationEasesSupportTiltJumpWithBodyStill",
     ck_test_procedural_body_pose_tilt_steps::TestFlags)
 
 auto
     FCkProceduralBodyPoseSupportTiltJumpTest::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_body_pose_tilt_steps;
@@ -821,7 +821,7 @@ auto
     Walker.SupportMaxTilt = SupportJumpDegrees;
     State->Walkers.Add(Walker);
 
-    DoEnqueue_Walkers(this, State);
+    DoEnqueue_Walkers(this, State, Parameters);
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [State](UWorld* InWorld)
         {

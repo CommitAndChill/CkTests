@@ -478,14 +478,14 @@ namespace ck_test_procedural_gait_snapshot_pie
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralGaitLandingProbeLiftsOntoAStepTest,
     "Ck.ProceduralAnimation.Gait.LandingProbeLiftsASwingOntoAStep",
     ck_test_procedural_gait_snapshot_pie::TestFlags)
 
 auto
     FCkProceduralGaitLandingProbeLiftsOntoAStepTest::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_gait_snapshot_pie;
@@ -493,8 +493,8 @@ auto
     const auto State = MakeShared<FLiftState>();
     State->ProbeUp = FCk_ProceduralGait_Probe{}.Get_Up();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, PieReadySeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [State](UWorld* InWorld)
         {
@@ -591,14 +591,14 @@ auto
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralGaitYawLeadTurnsTheQueryTest,
     "Ck.ProceduralAnimation.Gait.YawLeadTurnsTheQueryAboutTheBody",
     ck_test_procedural_gait_snapshot_pie::TestFlags)
 
 auto
     FCkProceduralGaitYawLeadTurnsTheQueryTest::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_gait_snapshot_pie;
@@ -607,8 +607,8 @@ auto
     State->Phases[0].Direction = 1.0;
     State->Phases[1].Direction = -1.0;
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, PieReadySeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld* InWorld)
         {
@@ -690,14 +690,14 @@ auto
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralSurfaceMotionSnapshotShowsPendingContactTest,
     "Ck.ProceduralAnimation.SurfaceMotion.SnapshotShowsThePendingContact",
     ck_test_procedural_gait_snapshot_pie::TestFlags)
 
 auto
     FCkProceduralSurfaceMotionSnapshotShowsPendingContactTest::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_gait_snapshot_pie;
@@ -707,8 +707,8 @@ auto
     const auto ConfirmTime = Spec.Get_Contact().Get_ConfirmTime().Get_Seconds();
     const auto Clearance = Spec.Get_Contact().Get_Clearance();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, PieReadySeconds));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [State](UWorld* InWorld)
         {

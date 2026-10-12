@@ -521,5 +521,6 @@ class ACk_ProceduralAnimationGym_PlayerController : ACk_Gym_Base_PlayerControlle
         {
             _Courses[Index].Request_Destroy();
         }
+        Super::EndPlay(InReason);
     }
 }

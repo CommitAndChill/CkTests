@@ -4,6 +4,8 @@
 // Preserve all three roster walkers; low-progress windows retain full Spider snapshots.
 class UCk_AutoTest_ProceduralAnimation_PillarCrossingRenderedTraversal : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
+    default _RequiresRenderer = true;
     default _TimeoutSeconds = 100.0f;
     default _AutoStageOriginField = false;
 

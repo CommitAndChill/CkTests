@@ -155,14 +155,14 @@ namespace ck_test_procedural_gait_cadence_floor
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralGaitCadenceFloorFromReachTest,
     "Ck.ProceduralAnimation.Gait.CadenceFloorFromReach",
     ck_test_procedural_gait_cadence_floor::TestFlags)
 
 auto
     FCkProceduralGaitCadenceFloorFromReachTest::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_gait_cadence_floor;
@@ -172,8 +172,8 @@ auto
     const auto StepDuration = FCk_Time{0.3};
     const auto State = MakeShared<FState>();
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State, AddCycle, StepDuration](UWorld* InWorld)
         {

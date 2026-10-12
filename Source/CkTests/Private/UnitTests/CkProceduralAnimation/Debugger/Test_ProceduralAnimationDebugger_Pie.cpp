@@ -229,14 +229,14 @@ namespace ck_test_procedural_animation_debugger_pie
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralAnimationDebugger_RealGymSnapshotAndLifecycle,
     "Ck.ProceduralAnimation.Debugger.PIE.RealGymSnapshotAndLifecycle",
     ck_test_procedural_animation_debugger_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
 
 auto
     FCkProceduralAnimationDebugger_RealGymSnapshotAndLifecycle::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_animation_debugger_pie;
@@ -267,8 +267,8 @@ auto
         [State->Panel.ToSharedRef()];
     FSlateApplication::Get().AddWindow(State->Host.ToSharedRef(), true);
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld* InWorld)
         {
@@ -639,14 +639,14 @@ auto
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralAnimationDebugger_LegActions,
     "Ck.ProceduralAnimation.Debugger.PIE.LegActions",
     ck_test_procedural_animation_debugger_pie::TestFlags | EAutomationTestFlags::NonNullRHI)
 
 auto
     FCkProceduralAnimationDebugger_LegActions::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_animation_debugger_pie;
@@ -664,8 +664,8 @@ auto
         [State->Panel.ToSharedRef()];
     FSlateApplication::Get().AddWindow(State->Host.ToSharedRef(), true);
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [State](UWorld* InWorld)
         {

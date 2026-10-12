@@ -5,6 +5,8 @@
 // (--no-nullrhi); under -nullrhi it still passes and the captures are black.
 class UCk_AutoTest_PaViz_Visual : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
+    default _RequiresRenderer = true;
     default _TimeoutSeconds = 75.0f;
     default _AutoStageOriginField = false;
     private FCkPaViz_ShotPlan _Shots;
@@ -98,6 +100,7 @@ class UCk_AutoTest_PaViz_Visual : UCk_AutoTest_Base
     UFUNCTION()
     private void Step_Finish(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
+        Assert_Equals_Int(_Shots.Taken, _Shots.PlanTaken.Num(), "Every planned visual shot was captured");
         System::ExecuteConsoleCommand("viewmode lit");
         _Shots.Finish();
     }

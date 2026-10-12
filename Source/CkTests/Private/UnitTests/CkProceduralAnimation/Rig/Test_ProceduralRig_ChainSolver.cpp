@@ -142,14 +142,14 @@ namespace ck_test_procedural_rig_chain_solver
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkProceduralRigChainSolverTest,
     "Ck.ProceduralAnimation.Rig.AutoPicksCurveAndExplicitSolversApply",
     ck_test_procedural_rig_chain_solver::TestFlags)
 
 auto
     FCkProceduralRigChainSolverTest::
-    RunTest(const FString&)
+    RunTest(const FString& Parameters)
     -> bool
 {
     using namespace ck_test_procedural_rig_chain_solver;
@@ -157,8 +157,8 @@ auto
     const auto State = MakeShared<FState>();
     AddExpectedError(TEXT("Procedural animation Add_Walker rejected body"), EAutomationExpectedErrorFlags::Contains, 0);
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), Parameters));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld* InWorld)
         {
