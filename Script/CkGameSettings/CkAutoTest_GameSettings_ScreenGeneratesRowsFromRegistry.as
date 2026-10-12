@@ -9,6 +9,7 @@
 // resolution contract itself is covered host-independently by Ck.CkGameSettings.UI.RowClassResolution.
 class UCk_AutoTest_GameSettings_ScreenGeneratesRowsFromRegistry : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
     private UCk_GameSettingsUI_ScreenWidget _Screen;
 
     UFUNCTION(BlueprintOverride)
