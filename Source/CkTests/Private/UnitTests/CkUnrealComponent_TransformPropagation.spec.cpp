@@ -81,12 +81,12 @@ namespace ck_tests_unreal_component_transform
 
 namespace ck_tests_unreal_component_transform
 {
-    auto QueueEnableTransformPush(FAutomationTestBase* InTest) -> void
+    auto QueueEnableTransformPush(FAutomationTestBase* InTest, const FString& InTopology) -> void
     {
         auto State = MakeShared<FTestState>();
 
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), InTopology));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
             FCk_NetAutoTest_ServerAction::CreateLambda([InTest, State](UWorld* InWorld) -> void
@@ -216,7 +216,7 @@ namespace ck_tests_unreal_component_transform
 
 namespace ck_tests_unreal_component_transform
 {
-    auto QueueTransformPropagation(FAutomationTestBase* InTest, const TOptional<int32> InCpuWorkMode) -> void
+    auto QueueTransformPropagation(FAutomationTestBase* InTest, const TOptional<int32> InCpuWorkMode, const FString& InTopology) -> void
     {
         auto State = MakeShared<FTestState>();
         if (InCpuWorkMode.IsSet())
@@ -237,8 +237,8 @@ namespace ck_tests_unreal_component_transform
             }
         }
 
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry"), InTopology));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
 
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
             FCk_NetAutoTest_ServerAction::CreateLambda([InTest, State](UWorld* InWorld) -> void
@@ -376,7 +376,7 @@ namespace ck_tests_unreal_component_transform
     }
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkUnrealComponent_TransformPropagation_DirtyOwnersOnly,
     "Ck.UnrealComponent.TransformPropagation.DirtyOwnersOnly",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -387,30 +387,30 @@ bool FCkUnrealComponent_TransformPropagation_DirtyOwnersOnly::RunTest(const FStr
         EAutomationExpectedErrorFlags::Contains, /*Occurrences=*/-1);
     AddExpectedError(TEXT("Cannot enable transform-push on invalid UnrealComponent"),
         EAutomationExpectedErrorFlags::Contains, /*Occurrences=*/-1);
-    ck_tests_unreal_component_transform::QueueEnableTransformPush(this);
-    ck_tests_unreal_component_transform::QueueTransformPropagation(this, {});
+    ck_tests_unreal_component_transform::QueueEnableTransformPush(this, Parameters);
+    ck_tests_unreal_component_transform::QueueTransformPropagation(this, {}, Parameters);
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkUnrealComponent_CpuWork_ComponentPropagationOff,
     "CkTests.UnitTests.CkProfile.CpuWork.ComponentPropagationOff",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FCkUnrealComponent_CpuWork_ComponentPropagationOff::RunTest(const FString& Parameters)
 {
-    ck_tests_unreal_component_transform::QueueTransformPropagation(this, 0);
+    ck_tests_unreal_component_transform::QueueTransformPropagation(this, 0, Parameters);
     return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkUnrealComponent_CpuWork_ComponentPropagationOn,
     "CkTests.UnitTests.CkProfile.CpuWork.ComponentPropagationOn",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FCkUnrealComponent_CpuWork_ComponentPropagationOn::RunTest(const FString& Parameters)
 {
-    ck_tests_unreal_component_transform::QueueTransformPropagation(this, 1);
+    ck_tests_unreal_component_transform::QueueTransformPropagation(this, 1, Parameters);
     return true;
 }
 
