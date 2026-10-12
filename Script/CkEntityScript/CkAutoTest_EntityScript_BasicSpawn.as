@@ -5,7 +5,7 @@
 //============================================================================
 //
 // Smoke test for the AS entity-script spawn flow:
-//   1. Build SpawnParams via the auto-generated ::Params() static.
+//   1. Build SpawnParams with the explicit reflected payload struct.
 //   2. utils_entity_script::Request_SpawnEntity returns a valid pending
 //      handle.
 //   3. Promise_OnConstructed callback fires.
@@ -23,7 +23,7 @@ class UCk_AutoTest_EntityScript_BasicSpawn : UCk_AutoTest_Base
         auto _CkPerfScope = ck::ScopedStat();
         auto Owner = InHandle;
 
-        auto SpawnParams = UCk_EntityScript_EntityScriptGym_Spawn::Params();
+        auto SpawnParams = FEntityScriptGym_SpawnParams();
         SpawnParams.InitialTransform = FTransform::Identity;
         SpawnParams.TestName = n"";
         SpawnParams.TestInt = 0;

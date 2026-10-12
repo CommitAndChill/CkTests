@@ -14,8 +14,7 @@
 //      round-tripped intact.
 //
 // This catches regressions in the spawn-params marshalling path (AS class
-// instantiation, ExposeOnSpawn reflection, the auto-generated Params()
-// helper) that BasicSpawn alone wouldn't notice.
+// instantiation and ExposeOnSpawn reflection) that BasicSpawn alone wouldn't notice.
 //============================================================================
 
 class UCk_AutoTest_EntityScript_SpawnParamsRoundTrip : UCk_AutoTest_Base
@@ -30,7 +29,7 @@ class UCk_AutoTest_EntityScript_SpawnParamsRoundTrip : UCk_AutoTest_Base
         auto _CkPerfScope = ck::ScopedStat();
         auto Owner = InHandle;
 
-        auto SpawnParams = UCk_EntityScript_EntityScriptGym_Spawn::Params();
+        auto SpawnParams = FEntityScriptGym_SpawnParams();
         SpawnParams.InitialTransform = FTransform::Identity;
         SpawnParams.TestName = _ExpectedName;
         SpawnParams.TestInt = _ExpectedInt;
