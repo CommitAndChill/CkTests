@@ -46,7 +46,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_DataReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_DataReplicates,
     "Ck.Dynamic.Net.AS_DynamicFragment_DataReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -63,7 +63,7 @@ bool FCkDynamicNet_AS_DynamicFragment_DataReplicates::RunTest(const FString& Par
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -110,7 +110,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_DriverCarrierChannelOwned = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_DriverCarrierChannelOwned,
     "Ck.Dynamic.Net.AS_DynamicFragment_DriverCarrierChannelOwned",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -127,7 +127,7 @@ bool FCkDynamicNet_AS_DynamicFragment_DriverCarrierChannelOwned::RunTest(const F
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -174,7 +174,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_DriverCarrierOnNotify = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_DriverCarrierOnNotify,
     "Ck.Dynamic.Net.AS_DynamicFragment_DriverCarrierOnNotify",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -191,7 +191,7 @@ bool FCkDynamicNet_AS_DynamicFragment_DriverCarrierOnNotify::RunTest(const FStri
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -238,7 +238,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_DriverCarrierReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_DriverCarrierReplicates,
     "Ck.Dynamic.Net.AS_DynamicFragment_DriverCarrierReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -255,7 +255,7 @@ bool FCkDynamicNet_AS_DynamicFragment_DriverCarrierReplicates::RunTest(const FSt
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -302,7 +302,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_DynHandleOnNotify = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_DynHandleOnNotify,
     "Ck.Dynamic.Net.AS_DynamicFragment_DynHandleOnNotify",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -319,7 +319,7 @@ bool FCkDynamicNet_AS_DynamicFragment_DynHandleOnNotify::RunTest(const FString& 
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -366,7 +366,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_DynHandleReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_DynHandleReplicates,
     "Ck.Dynamic.Net.AS_DynamicFragment_DynHandleReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -383,7 +383,7 @@ bool FCkDynamicNet_AS_DynamicFragment_DynHandleReplicates::RunTest(const FString
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -430,7 +430,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_RawHandleReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_RawHandleReplicates,
     "Ck.Dynamic.Net.AS_DynamicFragment_RawHandleReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -447,7 +447,7 @@ bool FCkDynamicNet_AS_DynamicFragment_RawHandleReplicates::RunTest(const FString
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -494,7 +494,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_RepNotifyFires = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_RepNotifyFires,
     "Ck.Dynamic.Net.AS_DynamicFragment_RepNotifyFires",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -511,7 +511,7 @@ bool FCkDynamicNet_AS_DynamicFragment_RepNotifyFires::RunTest(const FString& Par
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -558,7 +558,7 @@ namespace
     constexpr auto kTimeoutSeconds_DynamicFragment_UpdateReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkDynamicNet_AS_DynamicFragment_UpdateReplicates,
     "Ck.Dynamic.Net.AS_DynamicFragment_UpdateReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -575,7 +575,7 @@ bool FCkDynamicNet_AS_DynamicFragment_UpdateReplicates::RunTest(const FString& P
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(

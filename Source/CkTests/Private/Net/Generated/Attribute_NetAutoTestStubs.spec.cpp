@@ -46,7 +46,7 @@ namespace
     constexpr auto kTimeoutSeconds_Byte_AlternatingOverrideTracksOnClient = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Byte_AlternatingOverrideTracksOnClient,
     "Ck.Attribute.Net.AS_Byte_AlternatingOverrideTracksOnClient",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -63,7 +63,7 @@ bool FCkAttributeNet_AS_Byte_AlternatingOverrideTracksOnClient::RunTest(const FS
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -110,7 +110,7 @@ namespace
     constexpr auto kTimeoutSeconds_Byte_ModifierAddReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Byte_ModifierAddReplicates,
     "Ck.Attribute.Net.AS_Byte_ModifierAddReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -127,7 +127,7 @@ bool FCkAttributeNet_AS_Byte_ModifierAddReplicates::RunTest(const FString& Param
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -174,7 +174,7 @@ namespace
     constexpr auto kTimeoutSeconds_Byte_OverrideReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Byte_OverrideReplicates,
     "Ck.Attribute.Net.AS_Byte_OverrideReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -191,7 +191,7 @@ bool FCkAttributeNet_AS_Byte_OverrideReplicates::RunTest(const FString& Paramete
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -238,7 +238,7 @@ namespace
     constexpr auto kTimeoutSeconds_Float_InitialValueReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Float_InitialValueReplicates,
     "Ck.Attribute.Net.AS_Float_InitialValueReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -255,7 +255,7 @@ bool FCkAttributeNet_AS_Float_InitialValueReplicates::RunTest(const FString& Par
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -293,7 +293,7 @@ bool FCkAttributeNet_AS_Float_InitialValueReplicates::RunTest(const FString& Par
 
 // --------------------------------------------------------------------------------------------------------------------
 
-// Auto-generated from AS class Ck_AutoTest_Net_Float_Local_AddWorksOnBothWorlds (Replicated-mode).
+// Auto-generated from AS class Ck_AutoTest_Net_Float_Local_AddWorksOnBothWorlds (ServerAndClientsIndependent-mode).
 // DO NOT EDIT - regenerated on editor startup and every successful AS recompile.
 
 namespace
@@ -302,7 +302,7 @@ namespace
     constexpr auto kTimeoutSeconds_Float_Local_AddWorksOnBothWorlds = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Float_Local_AddWorksOnBothWorlds,
     "Ck.Attribute.Net.AS_Float_Local_AddWorksOnBothWorlds",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -315,31 +315,13 @@ bool FCkAttributeNet_AS_Float_Local_AddWorksOnBothWorlds::RunTest(const FString&
     constexpr auto NumPIEClients = 2;
     constexpr auto ExpectedTotalWorlds = 2;
     constexpr auto ReadyTimeoutSeconds = 30.0f;
-    constexpr auto FramesAfterSpawn = 30;
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer) -> void
-        {
-            auto SpawnInfo = FActorSpawnParameters{};
-            SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-            const auto SubjectClassPath = FSoftClassPath(TEXT("/Script/CkTests.Ck_AutoTest_NetSubject"));
-            auto* SubjectClass = SubjectClassPath.TryLoadClass<ACk_AutoTest_NetSubject>();
-            if (SubjectClass == nullptr)
-            { AddError(TEXT("AS-test harness: failed to resolve NetSubject class via FSoftClassPath")); return; }
-            auto* Subject = InServer->SpawnActor<ACk_AutoTest_NetSubject>(
-                SubjectClass, FTransform::Identity, SpawnInfo);
-            if (Subject == nullptr)
-            { AddError(TEXT("AS-test harness: server-side SpawnActor returned null")); }
-        })));
-
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesAfterSpawn));
-
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunAsTestOnAllWorlds(this, FString{kAsClassPath_Float_Local_AddWorksOnBothWorlds}, kTimeoutSeconds_Float_Local_AddWorksOnBothWorlds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunAsTestOnAllWorlds(this, FString{kAsClassPath_Float_Local_AddWorksOnBothWorlds}, kTimeoutSeconds_Float_Local_AddWorksOnBothWorlds, true));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
 
@@ -366,7 +348,7 @@ namespace
     constexpr auto kTimeoutSeconds_Integer_ModifierAddReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Integer_ModifierAddReplicates,
     "Ck.Attribute.Net.AS_Integer_ModifierAddReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -383,7 +365,7 @@ bool FCkAttributeNet_AS_Integer_ModifierAddReplicates::RunTest(const FString& Pa
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -430,7 +412,7 @@ namespace
     constexpr auto kTimeoutSeconds_Integer_OverrideReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Integer_OverrideReplicates,
     "Ck.Attribute.Net.AS_Integer_OverrideReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -447,7 +429,7 @@ bool FCkAttributeNet_AS_Integer_OverrideReplicates::RunTest(const FString& Param
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -494,7 +476,7 @@ namespace
     constexpr auto kTimeoutSeconds_Integer_RefillReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Integer_RefillReplicates,
     "Ck.Attribute.Net.AS_Integer_RefillReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -511,7 +493,7 @@ bool FCkAttributeNet_AS_Integer_RefillReplicates::RunTest(const FString& Paramet
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -558,7 +540,7 @@ namespace
     constexpr auto kTimeoutSeconds_Vector_ModifierAddReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Vector_ModifierAddReplicates,
     "Ck.Attribute.Net.AS_Vector_ModifierAddReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -575,7 +557,7 @@ bool FCkAttributeNet_AS_Vector_ModifierAddReplicates::RunTest(const FString& Par
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
@@ -622,7 +604,7 @@ namespace
     constexpr auto kTimeoutSeconds_Vector_OverrideReplicates = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkAttributeNet_AS_Vector_OverrideReplicates,
     "Ck.Attribute.Net.AS_Vector_OverrideReplicates",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -639,7 +621,7 @@ bool FCkAttributeNet_AS_Vector_OverrideReplicates::RunTest(const FString& Parame
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(

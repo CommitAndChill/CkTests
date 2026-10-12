@@ -46,7 +46,7 @@ namespace
     constexpr auto kTimeoutSeconds_RewindHistory_RecordsOnAuthorityOnly = 30.0f;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+CK_IMPLEMENT_NET_AUTOMATION_TEST(
     FCkLagCompensationNet_AS_RewindHistory_RecordsOnAuthorityOnly,
     "Ck.LagCompensation.Net.AS_RewindHistory_RecordsOnAuthorityOnly",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -63,7 +63,7 @@ bool FCkLagCompensationNet_AS_RewindHistory_RecordsOnAuthorityOnly::RunTest(cons
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(NumPIEClients, MapPath, Parameters));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
