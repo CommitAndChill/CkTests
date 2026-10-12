@@ -16,6 +16,8 @@
 
 class UCk_AutoTest_IskmRenderer_BatchedVisual : UCk_AutoTest_Base
 {
+    default _RequiresLocalPlayer = true;
+    default _RequiresRenderer = true;
     private float _Elapsed = 0.0f;
     private bool _Shot1 = false;
     private bool _Shot2 = false;
