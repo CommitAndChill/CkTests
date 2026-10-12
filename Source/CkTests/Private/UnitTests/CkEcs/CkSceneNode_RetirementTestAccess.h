@@ -21,7 +21,7 @@ struct FCk_SceneNodeRetirement_TestAccess
         TArray<FCk_Handle> Known = Receipt->Known;
         TArray<FCk_Handle> Parents = Receipt->ExpectedParents;
         TArray<TWeakObjectPtr<AActor>> Actors = Receipt->Actors;
-        if (Known.Num() != 30 || Parents.Num() != 30 || Actors.Num() != 18)
+        if (Known.Num() != 41 || Parents.Num() != 41 || Actors.Num() != 18)
         { return false; }
         OutKnown = MoveTemp(Known);
         OutParents = MoveTemp(Parents);

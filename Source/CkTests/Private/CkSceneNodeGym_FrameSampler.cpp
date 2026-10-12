@@ -29,12 +29,12 @@ namespace CkSceneNodeFrameSamplerPrivate
             !Object->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed);
     }
 
-    bool HasPassiveRoot(const AActor* Actor, const UStaticMeshComponent* Root,
+    bool HasProductionRoot(const AActor* Actor, const UStaticMeshComponent* Root,
         const UWorld* World)
     {
         return Live(Actor) && !Actor->IsActorBeingDestroyed() &&
-            Actor->GetWorld() == World && !Actor->GetIsReplicated() &&
-            !Actor->IsReplicatingMovement() && Actor->GetRemoteRole() == ROLE_None &&
+            Actor->GetWorld() == World && Actor->GetIsReplicated() &&
+            !Actor->IsReplicatingMovement() &&
             Live(Root) && Actor->GetRootComponent() == Root &&
             Root->GetOwner() == Actor && Root->GetWorld() == World &&
             Root->IsRegistered() &&
@@ -218,7 +218,7 @@ void UCk_SceneNodeGym_FrameSamplerRuntime_UE::Sample(
                 Ledger, Role, Actor) || !CkSceneNodeFrameSamplerPrivate::Live(Actor))
         { Fail(Sampler); return; }
         auto* const Root = Cast<UStaticMeshComponent>(Actor->GetRootComponent());
-        if (!CkSceneNodeFrameSamplerPrivate::HasPassiveRoot(Actor, Root, InWorld))
+        if (!CkSceneNodeFrameSamplerPrivate::HasProductionRoot(Actor, Root, InWorld))
         { Fail(Sampler); return; }
         const FTransform Pose = Root->GetComponentTransform();
         if (!Pose.IsValid()) { Fail(Sampler); return; }
@@ -262,17 +262,12 @@ void UCk_SceneNodeGym_FrameSamplerRuntime_UE::Sample(
         { Fail(Sampler); return; }
     }
 
-    // Actor writes can invoke external callbacks. The only atomic operation
-    // here is the eventual value-frame commit, never the sequence of writes.
+    // Transform SyncToActor is the sole visual writer. A sample only observes
+    // the production output after the world actor tick.
     for (int32 I = 0; I < CkSceneNodeFrameSamplerPrivate::NodeCount; ++I)
     {
         if (!HasCurrentContext(Sampler) ||
-            !CkSceneNodeFrameSamplerPrivate::HasPassiveRoot(Actors[CkSceneNodeFrameSamplerPrivate::NodeRole[I] - 1],
-                Components[CkSceneNodeFrameSamplerPrivate::NodeRole[I] - 1], InWorld) ||
-            !Actors[CkSceneNodeFrameSamplerPrivate::NodeRole[I] - 1]->SetActorTransform(NodePoses[I], false,
-                nullptr, ETeleportType::TeleportPhysics) ||
-            !HasCurrentContext(Sampler) ||
-            !CkSceneNodeFrameSamplerPrivate::HasPassiveRoot(Actors[CkSceneNodeFrameSamplerPrivate::NodeRole[I] - 1],
+            !CkSceneNodeFrameSamplerPrivate::HasProductionRoot(Actors[CkSceneNodeFrameSamplerPrivate::NodeRole[I] - 1],
                 Components[CkSceneNodeFrameSamplerPrivate::NodeRole[I] - 1], InWorld) ||
             !Components[CkSceneNodeFrameSamplerPrivate::NodeRole[I] - 1]->GetComponentTransform().IsValid() ||
             !Components[CkSceneNodeFrameSamplerPrivate::NodeRole[I] - 1]->GetComponentTransform().Equals(
@@ -292,7 +287,7 @@ void UCk_SceneNodeGym_FrameSamplerRuntime_UE::Sample(
     if (!HasCurrentContext(Sampler)) { Fail(Sampler); return; }
     for (int32 I = 0; I < CkSceneNodeFrameSamplerPrivate::RootCount; ++I)
     {
-        if (!CkSceneNodeFrameSamplerPrivate::HasPassiveRoot(Actors[CkSceneNodeFrameSamplerPrivate::RootRole[I] - 1],
+        if (!CkSceneNodeFrameSamplerPrivate::HasProductionRoot(Actors[CkSceneNodeFrameSamplerPrivate::RootRole[I] - 1],
                 Components[CkSceneNodeFrameSamplerPrivate::RootRole[I] - 1], InWorld) ||
             !RootPoses[I].Equals(
                 Components[CkSceneNodeFrameSamplerPrivate::RootRole[I] - 1]->GetComponentTransform(),
@@ -312,7 +307,7 @@ void UCk_SceneNodeGym_FrameSamplerRuntime_UE::Sample(
     }
     for (int32 Role = 1; Role <= CkSceneNodeFrameSamplerPrivate::VisualCount; ++Role)
     {
-        if (!CkSceneNodeFrameSamplerPrivate::HasPassiveRoot(Actors[Role - 1], Components[Role - 1], InWorld))
+        if (!CkSceneNodeFrameSamplerPrivate::HasProductionRoot(Actors[Role - 1], Components[Role - 1], InWorld))
         { Fail(Sampler); return; }
         const FTransform Pose = Components[Role - 1]->GetComponentTransform();
         if (!Pose.IsValid()) { Fail(Sampler); return; }
@@ -395,7 +390,7 @@ bool UCk_SceneNodeGym_FrameSamplerRuntime_UE::TryCopyLatestFrame(
                 Ledger, Role, Actor) || !CkSceneNodeFrameSamplerPrivate::Live(Actor))
         { return false; }
         auto* const Root = Cast<UStaticMeshComponent>(Actor->GetRootComponent());
-        if (!CkSceneNodeFrameSamplerPrivate::HasPassiveRoot(Actor, Root, World) ||
+        if (!CkSceneNodeFrameSamplerPrivate::HasProductionRoot(Actor, Root, World) ||
             !Root->GetComponentTransform().IsValid())
         { return false; }
     }

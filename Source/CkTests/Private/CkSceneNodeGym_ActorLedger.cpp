@@ -8,6 +8,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "HAL/IConsoleManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 #include <cfloat>
 
@@ -51,7 +52,7 @@ namespace CkSceneNodeActorLedgerPrivate
         const AActor* const Default = Cast<AActor>(Type->GetDefaultObject(false));
         if (!IsValid(Default) ||
             Default->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
-            Default->GetIsReplicated() ||
+            !Default->GetIsReplicated() ||
             Default->IsReplicatingMovement())
         { return false; }
         const USceneComponent* const Root = Default->GetRootComponent();
@@ -220,10 +221,38 @@ void UCk_SceneNodeGym_ActorLedger_UE::BeginDestroy()
     Super::BeginDestroy();
 }
 
+ACk_SceneNodeGym_ScopeActor_UE::ACk_SceneNodeGym_ScopeActor_UE()
+{
+    bReplicates = true;
+    bAlwaysRelevant = true;
+    bOnlyRelevantToOwner = false;
+    SetReplicateMovement(false);
+}
+
+void ACk_SceneNodeGym_ScopeActor_UE::GetLifetimeReplicatedProps(
+    TArray<FLifetimeProperty>& Out) const
+{
+    Super::GetLifetimeReplicatedProps(Out);
+    DOREPLIFETIME(ACk_SceneNodeGym_ScopeActor_UE, Generation);
+    DOREPLIFETIME(ACk_SceneNodeGym_ScopeActor_UE, SourceIdentity);
+}
+
 ACk_SceneNodeGym_SourceActor_UE::ACk_SceneNodeGym_SourceActor_UE()
 {
-    bReplicates = false;
+    bReplicates = true;
+    bAlwaysRelevant = true;
+    bOnlyRelevantToOwner = false;
+    bReplicateUsingRegisteredSubObjectList = true;
     SetReplicateMovement(false);
+}
+
+void ACk_SceneNodeGym_SourceActor_UE::GetLifetimeReplicatedProps(
+    TArray<FLifetimeProperty>& Out) const
+{
+    Super::GetLifetimeReplicatedProps(Out);
+    DOREPLIFETIME(ACk_SceneNodeGym_SourceActor_UE, Role);
+    DOREPLIFETIME(ACk_SceneNodeGym_SourceActor_UE, Generation);
+    DOREPLIFETIME(ACk_SceneNodeGym_SourceActor_UE, SourceIdentity);
 }
 
 UCk_SceneNodeGym_ActorLedger_UE* ACk_SceneNodeGym_SourceActor_UE::Get_ActorLedger() const
@@ -344,7 +373,8 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasSafeVisualClasses(
             !CkSceneNodeActorLedgerPrivate::HasSafeClassDefault(Type))
         { return false; }
     }
-    return CkSceneNodeActorLedgerPrivate::HasSafeClassDefault(AActor::StaticClass());
+    return CkSceneNodeActorLedgerPrivate::HasSafeClassDefault(
+        ACk_SceneNodeGym_ScopeActor_UE::StaticClass());
 }
 
 bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasNoLedgerComponents(
@@ -519,7 +549,8 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TrySpawnConfiguredRole(
     AActor* const Owner = Role == 0
         ? static_cast<AActor*>(Ledger->Source.Get()) : Ledger->Roles[0].Actor.Get();
     UClass* const ExpectedClass = Role == 0
-        ? AActor::StaticClass() : Ledger->VisualClasses[Role - 1].Get();
+        ? ACk_SceneNodeGym_ScopeActor_UE::StaticClass()
+        : Ledger->VisualClasses[Role - 1].Get();
     if (!IsValid(World) || !IsValid(Owner) || !IsValid(ExpectedClass) ||
         Owner->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
         Owner->IsActorBeingDestroyed() || Owner->GetWorld() != World ||
@@ -545,7 +576,15 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TrySpawnConfiguredRole(
             { Current->bOpaqueAllocation = true; Current->Close(TEXT("PreSpawnCaptureConflict")); return; }
             Captured.Actor = Raw; // before insertion into the level actor list
             Captured.bCaptured = true;
-            if (Role > 0)
+            if (Role == 0)
+            {
+                auto* const Scope = Cast<ACk_SceneNodeGym_ScopeActor_UE>(Raw);
+                if (Scope == nullptr)
+                { Current->Close(TEXT("PreSpawnClassMismatch")); return; }
+                Scope->Generation = Current->Generation;
+                Scope->SourceIdentity = Current->Source.Get();
+            }
+            else
             {
                 auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Raw);
                 if (Visual == nullptr)
@@ -553,6 +592,7 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TrySpawnConfiguredRole(
                 Visual->Ledger = Current;
                 Visual->Role = Role;
                 Visual->Generation = Current->Generation;
+                Visual->SourceIdentity = Current->Source.Get();
             }
         }
     };
@@ -578,11 +618,11 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TrySpawnConfiguredRole(
     {
         auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Spawned);
         if (!IsValid(Visual) || Visual->Ledger.Get() != Ledger ||
-            Visual->Role != Role || Visual->Generation != Ledger->Generation)
+            Visual->Role != Role || Visual->Generation != Ledger->Generation ||
+            Visual->SourceIdentity != Ledger->Source.Get())
         { Ledger->Close(TEXT("DeferredClaimMismatch")); Ledger->ActiveRole = -1; return false; }
     }
-    if (Spawned->GetIsReplicated() || Spawned->IsReplicatingMovement() ||
-        Spawned->GetRemoteRole() != ROLE_None ||
+    if (!Spawned->GetIsReplicated() || Spawned->IsReplicatingMovement() ||
         !CkSceneNodeActorLedgerPrivate::HasDelayedSpawnNotification())
     { Ledger->Close(TEXT("DeferredReplicationMismatch")); Ledger->ActiveRole = -1; return false; }
 
@@ -595,8 +635,7 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TrySpawnConfiguredRole(
         Spawned->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
         Spawned->IsActorBeingDestroyed() || Spawned->GetClass() != ExpectedClass ||
         Spawned->GetWorld() != World || Spawned->GetOwner() != Owner ||
-        Spawned->GetIsReplicated() || Spawned->IsReplicatingMovement() ||
-        Spawned->GetRemoteRole() != ROLE_None ||
+        !Spawned->GetIsReplicated() || Spawned->IsReplicatingMovement() ||
         !CkSceneNodeActorLedgerPrivate::IsInLoadedLevel(World, Spawned))
     { Ledger->Close(TEXT("FinishActorMismatch")); return false; }
     Slot.bFinished = true;
@@ -633,19 +672,25 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::HasExactCapturedRoles(
             Actor->IsActorBeingDestroyed() ||
             Slot.bDestroyedObserved || Slot.bRemovedObserved ||
             Actor->GetWorld() != World || !CkSceneNodeActorLedgerPrivate::IsInLoadedLevel(World, Actor) ||
-            Actor->GetClass() != (Role == 0 ? AActor::StaticClass()
+            Actor->GetClass() != (Role == 0 ? ACk_SceneNodeGym_ScopeActor_UE::StaticClass()
                 : Ledger->VisualClasses[Role - 1].Get()) ||
             Actor->GetOwner() != (Role == 0 ? static_cast<AActor*>(Source) : Scope) ||
-            Actor->GetIsReplicated() || Actor->IsReplicatingMovement() ||
-            Actor->GetRemoteRole() != ROLE_None ||
+            !Actor->GetIsReplicated() || Actor->IsReplicatingMovement() ||
             (bRequireComplete && !Slot.bFinished) ||
             (!Slot.bFinishing && Slot.bFinishNotified && !Slot.bFinished))
         { return false; }
-        if (Role > 0)
+        if (Role == 0)
+        {
+            const auto* const Identity = Cast<ACk_SceneNodeGym_ScopeActor_UE>(Actor);
+            if (!IsValid(Identity) || Identity->Generation != Ledger->Generation ||
+                Identity->SourceIdentity != Source) { return false; }
+        }
+        else
         {
             const auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Actor);
             if (!IsValid(Visual) || Visual->Ledger.Get() != Ledger ||
-                Visual->Role != Role || Visual->Generation != Ledger->Generation)
+                Visual->Role != Role || Visual->Generation != Ledger->Generation ||
+                Visual->SourceIdentity != Source)
             { return false; }
         }
         for (int32 Prior = 0; Prior < Role; ++Prior)
@@ -721,27 +766,33 @@ bool UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryGet_FinishedRole(
         Candidate->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
         Candidate->IsActorBeingDestroyed() ||
         Candidate->GetWorld() != World || !CkSceneNodeActorLedgerPrivate::IsInLoadedLevel(World, Candidate) ||
-        Candidate->GetClass() != (Role == 0 ? AActor::StaticClass()
+        Candidate->GetClass() != (Role == 0 ? ACk_SceneNodeGym_ScopeActor_UE::StaticClass()
             : Ledger->VisualClasses[Role - 1].Get()) ||
-        Candidate->GetIsReplicated() || Candidate->IsReplicatingMovement() ||
-        Candidate->GetRemoteRole() != ROLE_None)
+        !Candidate->GetIsReplicated() || Candidate->IsReplicatingMovement())
     { return false; }
     if (Role > 0 && (!IsValid(Scope) ||
         Scope->HasAnyFlags(RF_BeginDestroyed | RF_FinishDestroyed) ||
         Scope->IsActorBeingDestroyed() ||
-        Scope->GetClass() != AActor::StaticClass() || Scope->GetWorld() != World ||
-        Scope->GetOwner() != Source || Scope->GetIsReplicated() ||
-        Scope->IsReplicatingMovement() || Scope->GetRemoteRole() != ROLE_None ||
+        Scope->GetClass() != ACk_SceneNodeGym_ScopeActor_UE::StaticClass() || Scope->GetWorld() != World ||
+        Scope->GetOwner() != Source || !Scope->GetIsReplicated() ||
+        Scope->IsReplicatingMovement() ||
         !CkSceneNodeActorLedgerPrivate::IsInLoadedLevel(World, Scope)))
     { return false; }
     if (Candidate->GetOwner() != (Role == 0
         ? static_cast<AActor*>(Source) : Scope))
     { return false; }
-    if (Role > 0)
+    if (Role == 0)
+    {
+        const auto* const Identity = Cast<ACk_SceneNodeGym_ScopeActor_UE>(Candidate);
+        if (!IsValid(Identity) || Identity->Generation != Ledger->Generation ||
+            Identity->SourceIdentity != Source) { return false; }
+    }
+    else
     {
         const auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Candidate);
         if (!IsValid(Visual) || Visual->Ledger.Get() != Ledger ||
-            Visual->Role != Role || Visual->Generation != Ledger->Generation)
+            Visual->Role != Role || Visual->Generation != Ledger->Generation ||
+            Visual->SourceIdentity != Source)
         { return false; }
     }
     OutActor = Candidate;

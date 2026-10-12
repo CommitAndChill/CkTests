@@ -37,13 +37,13 @@ void ACk_SceneNode_ActorLedgerProbe::BeginPlay()
         CapturedCountAtBeginPlay > 0 &&
         IsValid(Scope) && IsValid(Source) && IsValid(GetWorld()) &&
         Source == GetWorld()->GetGameState() &&
-        !GetIsReplicated() && IsValid(Cube) &&
+        GetIsReplicated() && !IsReplicatingMovement() && IsValid(Cube) &&
         Cube->IsRegistered() && Cube->IsVisible() && !Cube->bHiddenInGame &&
         IsValid(Cube->GetStaticMesh());
 }
 
 ACk_SceneNode_ActorLedgerReplicatedProbe::ACk_SceneNode_ActorLedgerReplicatedProbe()
-{ bReplicates = true; }
+{ SetReplicateMovement(true); }
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 namespace ck_scene_actor_ledger_test
@@ -102,7 +102,8 @@ bool FCkSceneNodeActorLedger::RunTest(const FString& Parameters)
         S->Source = Source;
         // The production admission reads already-constructed CDOs without
         // creating them as a side effect of a purity check.
-        const auto* ScopeCDO = AActor::StaticClass()->GetDefaultObject<AActor>();
+        const auto* ScopeCDO = ACk_SceneNodeGym_ScopeActor_UE::StaticClass()
+            ->GetDefaultObject<ACk_SceneNodeGym_ScopeActor_UE>();
         const auto* ProbeCDO =
             ACk_SceneNode_ActorLedgerProbe::StaticClass()
                 ->GetDefaultObject<ACk_SceneNode_ActorLedgerProbe>();
@@ -112,8 +113,9 @@ bool FCkSceneNodeActorLedger::RunTest(const FString& Parameters)
         if (!TestTrue(TEXT("real probe classes have constructed default objects"),
             IsValid(ScopeCDO) && IsValid(ProbeCDO) && IsValid(ReplicatedCDO) &&
             IsValid(ProbeCDO->Cube) && IsValid(ProbeCDO->Cube->GetStaticMesh()) &&
-            !ScopeCDO->GetIsReplicated() && !ProbeCDO->GetIsReplicated() &&
-            ReplicatedCDO->GetIsReplicated()))
+            ScopeCDO->GetIsReplicated() && !ScopeCDO->IsReplicatingMovement() &&
+            ProbeCDO->GetIsReplicated() && !ProbeCDO->IsReplicatingMovement() &&
+            ReplicatedCDO->GetIsReplicated() && ReplicatedCDO->IsReplicatingMovement()))
         { return; }
         auto FrozenClasses = MakeClasses();
         int32 RawAllocations = 0;
@@ -126,8 +128,8 @@ bool FCkSceneNodeActorLedger::RunTest(const FString& Parameters)
         BadCount.SetNum(16);
         auto BadClass = FrozenClasses;
         BadClass[0] = AActor::StaticClass();
-        auto BadReplicated = FrozenClasses;
-        BadReplicated[0] = ACk_SceneNode_ActorLedgerReplicatedProbe::StaticClass();
+        auto BadMovement = FrozenClasses;
+        BadMovement[0] = ACk_SceneNode_ActorLedgerReplicatedProbe::StaticClass();
         const int32 BeforeInvalid = RawAllocations;
         const bool NullSourceRejected =
             UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryBeginActorGeneration(
@@ -145,12 +147,12 @@ bool FCkSceneNodeActorLedger::RunTest(const FString& Parameters)
         const bool BadClassRejected =
             UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryBeginActorGeneration(
                 Source, 1, BadClass) == nullptr;
-        const bool ReplicatedClassRejected =
+        const bool MovementClassRejected =
             UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryBeginActorGeneration(
-                Source, 1, BadReplicated) == nullptr;
+                Source, 1, BadMovement) == nullptr;
         TestTrue(TEXT("bad source, generation, visual cardinality/class/CDO reject preallocation"),
             NullSourceRejected && ClientSourceRejected && BadGenerationRejected &&
-            BadCountRejected && BadClassRejected && ReplicatedClassRejected &&
+            BadCountRejected && BadClassRejected && MovementClassRejected &&
             RawAllocations == BeforeInvalid);
         auto* Ledger = UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryBeginActorGeneration(
             Source, 1, FrozenClasses);
@@ -175,11 +177,14 @@ bool FCkSceneNodeActorLedger::RunTest(const FString& Parameters)
             RawAllocations == BeforeMalformed &&
             UCk_SceneNodeGym_ActorLedgerRuntime_UE::Get_IsOpen(Ledger));
         AActor* Scope = nullptr;
-        if (!TestTrue(TEXT("role zero is exact plain scope owned by authority GameState"),
+        if (!TestTrue(TEXT("role zero is exact replicated identity scope owned by authority GameState"),
             UCk_SceneNodeGym_ActorLedgerRuntime_UE::TrySpawnConfiguredRole(
                 Ledger, 0, FTransform::Identity, Scope) && IsValid(Scope) &&
-            Scope->GetClass() == AActor::StaticClass() && Scope->GetOwner() == Source &&
-            !Scope->GetIsReplicated() &&
+            Scope->GetClass() == ACk_SceneNodeGym_ScopeActor_UE::StaticClass() &&
+            Scope->GetOwner() == Source && Scope->GetIsReplicated() &&
+            !Scope->IsReplicatingMovement() &&
+            Cast<ACk_SceneNodeGym_ScopeActor_UE>(Scope)->Get_ActorGeneration() == 1 &&
+            Cast<ACk_SceneNodeGym_ScopeActor_UE>(Scope)->Get_ActorSource() == Source &&
             UCk_SceneNodeGym_ActorLedgerRuntime_UE::Get_CapturedCount(Ledger) == 1))
         { return; }
         S->Scope = Scope;
@@ -197,7 +202,8 @@ bool FCkSceneNodeActorLedger::RunTest(const FString& Parameters)
                     Ledger, Role, FTransform(FVector(Role * 10.0, 0.0, 0.0)), Finished) &&
                 IsValid(Finished) &&
                 Finished->GetClass() == ACk_SceneNode_ActorLedgerProbe::StaticClass() &&
-                Finished->GetOwner() == Scope && !Finished->GetIsReplicated() &&
+                Finished->GetOwner() == Scope && Finished->GetIsReplicated() &&
+                !Finished->IsReplicatingMovement() &&
                 UCk_SceneNodeGym_ActorLedgerRuntime_UE::Get_CapturedCount(Ledger) == Role + 1))
             { return; }
             auto* Probe = Cast<ACk_SceneNode_ActorLedgerProbe>(Finished);
@@ -207,6 +213,7 @@ bool FCkSceneNodeActorLedger::RunTest(const FString& Parameters)
                 Probe->bObservedNativeClaimAtBeginPlay &&
                 Probe->CapturedCountAtBeginPlay == Role + 1 &&
                 Probe->Get_ActorRole() == Role && Probe->Get_ActorGeneration() == 1 &&
+                Probe->Get_ActorSource() == Source &&
                 Probe->Get_ActorLedger() == Ledger && IsValid(Probe->Cube) &&
                 Probe->Cube->IsRegistered() && Probe->Cube->IsVisible() &&
                 !Probe->Cube->bHiddenInGame && IsValid(Probe->Cube->GetStaticMesh()) &&

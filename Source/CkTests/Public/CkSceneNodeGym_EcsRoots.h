@@ -14,15 +14,14 @@ class UCk_SceneNodeGym_EcsRootsRuntime_UE;
 class UCk_SceneNodeGym_NodeGraph_UE;
 class UCk_SceneNodeGym_NodeGraphRuntime_UE;
 
-// This is the only SceneNode source script class admitted by this recorder.
-// Unlike generic WithActor, its CDO is nonreplicated before spawn injection.
+// Each source visual has an actor-backed production replicated Transform.
 UCLASS(Blueprintable, meta=(CkSpawnParams="FCk_EntityScript_WithActor_SpawnParams"))
 class CKTESTS_API UCk_SceneNodeGym_WithActorScript_UE : public UCk_EntityScript_WithActor_UE
 {
     GENERATED_BODY()
 public:
     ECk_Replication Get_EffectiveReplication() const override final
-    { return ECk_Replication::DoesNotReplicate; }
+    { return ECk_Replication::Replicates; }
 };
 
 UCLASS()
@@ -88,7 +87,7 @@ public:
         UCk_SceneNodeGym_ActorLedger_UE* Ledger,
         TSubclassOf<UCk_SceneNodeGym_WithActorScript_UE> ScriptClass);
 
-    // Six request-drain receipts and current root/actor binding. Not a
+    // Seventeen request-drain receipts and current actor/Transform binding. Not a
     // construction-finished, geometry, complete-closure, or readiness proof.
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     static bool Get_IsConstructionComplete(const UCk_SceneNodeGym_EcsRoots_UE* Receipt);

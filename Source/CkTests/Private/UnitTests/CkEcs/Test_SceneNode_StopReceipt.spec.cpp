@@ -304,10 +304,13 @@ bool FCkSceneNodeStopReceipt::RunTest(const FString& Parameters)
         auto* const SourceActorCDO =
             ACk_SceneNodeGym_SourceActor_UE::StaticClass()
                 ->GetDefaultObject<ACk_SceneNodeGym_SourceActor_UE>();
-        auto* const ScopeCDO = AActor::StaticClass()->GetDefaultObject<AActor>();
+        auto* const ScopeCDO = ACk_SceneNodeGym_ScopeActor_UE::StaticClass()
+            ->GetDefaultObject<ACk_SceneNodeGym_ScopeActor_UE>();
         if (!TestTrue(TEXT("actual native actor classes have default objects"),
-            IsValid(SourceActorCDO) && !SourceActorCDO->GetIsReplicated() &&
-            IsValid(ScopeCDO) && !ScopeCDO->GetIsReplicated()))
+            IsValid(SourceActorCDO) && SourceActorCDO->GetIsReplicated() &&
+            !SourceActorCDO->IsReplicatingMovement() &&
+            IsValid(ScopeCDO) && ScopeCDO->GetIsReplicated() &&
+            !ScopeCDO->IsReplicatingMovement()))
         { return; }
         TArray<TSubclassOf<AActor>> Classes;
         Classes.Init(ACk_SceneNodeGym_SourceActor_UE::StaticClass(), 17);
@@ -528,10 +531,13 @@ bool FCkSceneNodeStopReceiptPendingReset::RunTest(const FString& Parameters)
         auto* const SourceActorCDO =
             ACk_SceneNodeGym_SourceActor_UE::StaticClass()
                 ->GetDefaultObject<ACk_SceneNodeGym_SourceActor_UE>();
-        auto* const ScopeCDO = AActor::StaticClass()->GetDefaultObject<AActor>();
+        auto* const ScopeCDO = ACk_SceneNodeGym_ScopeActor_UE::StaticClass()
+            ->GetDefaultObject<ACk_SceneNodeGym_ScopeActor_UE>();
         if (!TestTrue(TEXT("actual native actor classes have default objects"),
-            IsValid(SourceActorCDO) && !SourceActorCDO->GetIsReplicated() &&
-            IsValid(ScopeCDO) && !ScopeCDO->GetIsReplicated()))
+            IsValid(SourceActorCDO) && SourceActorCDO->GetIsReplicated() &&
+            !SourceActorCDO->IsReplicatingMovement() &&
+            IsValid(ScopeCDO) && ScopeCDO->GetIsReplicated() &&
+            !ScopeCDO->IsReplicatingMovement()))
         { return; }
         TArray<TSubclassOf<AActor>> Classes;
         Classes.Init(ACk_SceneNodeGym_SourceActor_UE::StaticClass(), 17);

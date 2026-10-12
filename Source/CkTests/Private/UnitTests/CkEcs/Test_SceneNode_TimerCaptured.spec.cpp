@@ -300,10 +300,13 @@ bool FCkSceneNodeTimerCapturedAdmission::RunTest(const FString& Parameters)
         auto* Source = World->GetGameState();
         auto* SourceCDO = ACk_SceneNodeGym_SourceActor_UE::StaticClass()
             ->GetDefaultObject<ACk_SceneNodeGym_SourceActor_UE>();
-        auto* ScopeCDO = AActor::StaticClass()->GetDefaultObject<AActor>();
+        auto* ScopeCDO = ACk_SceneNodeGym_ScopeActor_UE::StaticClass()
+            ->GetDefaultObject<ACk_SceneNodeGym_ScopeActor_UE>();
         if (!TestTrue(TEXT("actual source and scope actor classes materialized"),
-            IsValid(SourceCDO) && !SourceCDO->GetIsReplicated() &&
-            IsValid(ScopeCDO))) { return; }
+            IsValid(SourceCDO) && SourceCDO->GetIsReplicated() &&
+            !SourceCDO->IsReplicatingMovement() &&
+            IsValid(ScopeCDO) && ScopeCDO->GetIsReplicated() &&
+            !ScopeCDO->IsReplicatingMovement())) { return; }
         TArray<TSubclassOf<AActor>> Classes;
         Classes.Init(ACk_SceneNodeGym_SourceActor_UE::StaticClass(), 17);
         auto* Ledger = UCk_SceneNodeGym_ActorLedgerRuntime_UE::

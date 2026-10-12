@@ -69,10 +69,10 @@ namespace CkSceneNodeNodeGraphPrivate
                 ECk_EntityLifetime_DestructionPhase::BeginDestroy);
     }
 
-    bool IsNonreplicatedNode(const FCk_Handle& Node)
+    bool IsReplicatedNode(const FCk_Handle& Node)
     {
         if (!Node.Has<ck::FFragment_Net_Params>() ||
-            Node.Has<TObjectPtr<UCk_Fragment_EntityReplicationDriver_Rep>>())
+            !Node.Has<TObjectPtr<UCk_Fragment_EntityReplicationDriver_Rep>>())
         { return false; }
         const auto& Settings = Node.Get<ck::FFragment_Net_Params>()
             .Get_ConnectionSettings();
@@ -84,7 +84,7 @@ namespace CkSceneNodeNodeGraphPrivate
         const bool WantClient =
             Settings.Get_NetMode() == ECk_Net_NetModeType::Client ||
             Settings.Get_NetMode() == ECk_Net_NetModeType::ClientAndHost;
-        return Settings.Get_Replication() == ECk_Replication::DoesNotReplicate &&
+        return Settings.Get_Replication() == ECk_Replication::Replicates &&
             Node.Has<ck::FTag_HasAuthority>() == WantAuthority &&
             Node.Has<ck::FTag_NetMode_IsHost>() == WantHost &&
             Node.Has<ck::FTag_NetMode_IsClient>() == WantClient;
@@ -185,22 +185,28 @@ UCk_SceneNodeGym_NodeGraph_UE* UCk_SceneNodeGym_NodeGraphRuntime_UE::TryBegin(
         Slot.Parent = Slot.ParentNodeSlot == INDEX_NONE
             ? RootHandles[Slot.RootSlot]
             : Graph->Slots[Slot.ParentNodeSlot].Raw;
+        Slot.Raw = Roots->Slots[6 + I].Target;
         if (!ck::IsValid(Slot.Parent) ||
             !Slot.Parent.Has<ck::FFragment_Transform>() ||
-            !UCk_Utils_EntityLifetime_UE::Get_CanCreateEntity(Slot.Parent))
+            !ck::IsValid(Slot.Raw) ||
+            !Slot.Raw.Has_All<ck::FFragment_Transform,
+                ck::FFragment_Transform_RootComponent,
+                ck::FTag_Transform_Movable>() ||
+            Slot.Raw.Has_Any<ck::FFragment_SceneNode, ck::SceneNodeParent,
+                ck::FFragment_RecordEntry, ck::FFragment_SceneNode_Requests,
+                ck::FFragment_Transform_Requests,
+                ck::FTag_Transform_ExternallyDriven>() ||
+            !CkSceneNodeNodeGraphPrivate::FreshChild(Slot.Raw, Slot.Parent))
         { Fail(Graph, false); return Graph; }
-        Slot.bAllocationAttempted = true;
-        Slot.Raw = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Slot.Parent);
-        // The raw return is retained before any feature write or callback.
-        if (!HasContext(Graph) || !CkSceneNodeNodeGraphPrivate::FreshChild(Slot.Raw, Slot.Parent))
-        { Fail(Graph, true); return Graph; }
+        Slot.bAllocationAttempted = Roots->Slots[6 + I].bAllocationAttempted;
         FCk_Handle_Transform TypedParent = UCk_Utils_Transform_UE::Cast(Slot.Parent);
+        FCk_Handle_Transform TypedChild = UCk_Utils_Transform_UE::Cast(Slot.Raw);
         FCk_Handle_SceneNode Composed;
         const bool Added = I == 10
-            ? UCk_Utils_SceneNode_UE::TryAdd_AnchorToUnrealComponent(
-                Slot.Raw, TypedParent, Anchor, Slot.InitialOffset, Composed)
-            : UCk_Utils_SceneNode_UE::TryAdd_Anchor(
-                Slot.Raw, TypedParent, Slot.InitialOffset, Composed);
+            ? UCk_Utils_SceneNode_UE::TryAdd_AnchorToExistingTransform(
+                TypedChild, TypedParent, Anchor, Slot.InitialOffset, Composed)
+            : (Composed = UCk_Utils_SceneNode_UE::Add(
+                TypedChild, TypedParent, Slot.InitialOffset), ck::IsValid(Composed));
         // TryAdd publishes a synchronous editor observer after its commit.
         if (!HasContext(Graph) || Graph->Anchor.Get() != Anchor ||
             AnchorActor->GetRootComponent() != Anchor ||
@@ -256,6 +262,7 @@ bool UCk_SceneNodeGym_NodeGraphRuntime_UE::HasCurrentTopology(
         const FCk_Handle Parent = CkSceneNodeNodeGraphPrivate::ParentNode[I] == INDEX_NONE
             ? RootHandles[CkSceneNodeNodeGraphPrivate::RootSlot[I]] : Graph->Slots[CkSceneNodeNodeGraphPrivate::ParentNode[I]].Raw;
         if (Slot.Parent != Parent || !CkSceneNodeNodeGraphPrivate::FreshChild(Slot.Raw, Parent) ||
+            Slot.Raw != Roots->Slots[6 + I].Target ||
             !Slot.Raw.Has_All<ck::FFragment_Transform,
                 ck::FFragment_SceneNode, ck::SceneNodeParent,
                 ck::FFragment_SceneNode_PropagationState>() ||
@@ -264,12 +271,12 @@ bool UCk_SceneNodeGym_NodeGraphRuntime_UE::HasCurrentTopology(
                     ck::FFragment_SceneNode_Requests,
                     ck::FFragment_Transform_Requests>()) ||
             Slot.Raw.Has<ck::FFragment_Timer>() ||
-            Slot.Raw.Has_Any<ck::FFragment_Transform_RootComponent,
-                ck::FFragment_Transform_MeshSocket,
+            !Slot.Raw.Has_All<ck::FFragment_Transform_RootComponent,
                 ck::FTag_Transform_ExternallyDriven>() ||
+            Slot.Raw.Has<ck::FFragment_Transform_MeshSocket>() ||
             !Slot.Raw.Get<ck::FFragment_SceneNode>()
                 .Get_RelativeTransform().IsValid() ||
-            !CkSceneNodeNodeGraphPrivate::IsNonreplicatedNode(Slot.Raw) ||
+            !CkSceneNodeNodeGraphPrivate::IsReplicatedNode(Slot.Raw) ||
             FCk_Handle(Slot.Raw.Get<ck::SceneNodeParent>().Get_Entity()) != Parent ||
             Slot.Raw.Has<ck::FFragment_SceneNode_UnrealAnchor>() != (I == 10) ||
             Slot.Raw.Has<ck::FTag_SceneNode_Layer0>() != (CkSceneNodeNodeGraphPrivate::ParentNode[I] == INDEX_NONE) ||

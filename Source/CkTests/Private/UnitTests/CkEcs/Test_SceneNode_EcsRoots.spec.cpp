@@ -5,6 +5,7 @@
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/ContextOwner/CkContextOwner_Utils.h"
 #include "CkEcs/EntityScript/CkEntityScript_Fragment.h"
 #include "CkEcs/EntityScript/CkEntityScript_Utils.h"
 #include "CkEcs/Net/CkNet_Fragment.h"
@@ -24,7 +25,31 @@
 
 namespace ck_scene_ecs_roots_test
 {
-    constexpr int32 ActorRoles[6] = {1, 3, 5, 10, 13, 16};
+    constexpr int32 ActorRoles[17] = {
+        1, 3, 5, 10, 13, 16, 2, 4, 6, 7, 8, 9, 11, 12, 14, 15, 17};
+    constexpr int32 NodeRootSlots[11] = {0, 1, 2, 2, 2, 2, 3, 3, 4, 4, 5};
+    constexpr int32 NodeParentSlots[11] = {
+        INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE, INDEX_NONE,
+        INDEX_NONE, INDEX_NONE, 6, INDEX_NONE, 8, INDEX_NONE};
+    FCk_Handle ExpectedParent(const TArray<FCk_SceneNodeEcsRoots_TestAccess::FSlot>& Slots,
+        const FCk_Handle& GenerationOwner, int32 Index)
+    {
+        if (Index < 6) { return GenerationOwner; }
+        const int32 NodeIndex = Index - 6;
+        return NodeParentSlots[NodeIndex] == INDEX_NONE
+            ? Slots[NodeRootSlots[NodeIndex]].Target
+            : Slots[6 + NodeParentSlots[NodeIndex]].Target;
+    }
+    int32 RawCarrierCount(const FCk_Handle& Target, const FCk_Handle& Carrier)
+    {
+        if (!ck::IsValid(Target) ||
+            !Target.Has<ck::FFragment_LifetimeDependents>()) { return 0; }
+        int32 Count = 0;
+        for (const auto& Child : Target.Get<ck::FFragment_LifetimeDependents>()
+            .Get_Entities())
+        { Count += Child == Carrier ? 1 : 0; }
+        return Count;
+    }
 
     struct FState
     {
@@ -115,13 +140,15 @@ bool FCkSceneNodeEcsRoots::RunTest(const FString& Parameters)
             ->GetDefaultObject<ACk_SceneNode_ActorLedgerProbe>();
         const auto* ScriptCDO = UCk_SceneNodeGym_WithActorScript_UE::StaticClass()
             ->GetDefaultObject<UCk_SceneNodeGym_WithActorScript_UE>();
-        const auto* ScopeCDO = AActor::StaticClass()->GetDefaultObject<AActor>();
+        const auto* ScopeCDO = ACk_SceneNodeGym_ScopeActor_UE::StaticClass()
+            ->GetDefaultObject<ACk_SceneNodeGym_ScopeActor_UE>();
         if (!IsValid(ProbeCDO) || !IsValid(ProbeCDO->Cube) ||
             !IsValid(ProbeCDO->Cube->GetStaticMesh()) ||
             !IsValid(ScriptCDO) || !IsValid(ScopeCDO) ||
-            ProbeCDO->GetIsReplicated() || ScopeCDO->GetIsReplicated() ||
-            ScriptCDO->Get_EffectiveReplication() != ECk_Replication::DoesNotReplicate)
-        { Fail(TEXT("EcsRoots requires materialized nonreplicated native class CDOs")); return; }
+            !ProbeCDO->GetIsReplicated() || ProbeCDO->IsReplicatingMovement() ||
+            !ScopeCDO->GetIsReplicated() || ScopeCDO->IsReplicatingMovement() ||
+            ScriptCDO->Get_EffectiveReplication() != ECk_Replication::Replicates)
+        { Fail(TEXT("EcsRoots requires materialized production replicated class CDOs")); return; }
         State->WorldRoot =
             UCk_Utils_EcsWorld_Subsystem_UE::TryGet_TransientEntityForWorld(*World);
         if (!ck::IsValid(State->WorldRoot))
@@ -209,12 +236,12 @@ bool FCkSceneNodeEcsRoots::RunTest(const FString& Parameters)
         if (!IsValid(Receipt) ||
             !FCk_SceneNodeEcsRoots_TestAccess::TryCapture(
                 Receipt, RecordedWorld, GenerationOwner, Slots) ||
-            RecordedWorld != State->WorldRoot || Slots.Num() != 6 ||
+            RecordedWorld != State->WorldRoot || Slots.Num() != 17 ||
             !ck::IsValid(GenerationOwner) ||
             !GenerationOwner.Has<ck::FFragment_LifetimeOwner>() ||
             GenerationOwner.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != State->WorldRoot ||
-            Population(State->WorldRoot) != BeforeDefaultClass + 13)
-        { Fail(TEXT("EcsRoots failed to retain exactly thirteen real allocator returns")); return; }
+            Population(State->WorldRoot) != BeforeDefaultClass + 35)
+        { Fail(TEXT("EcsRoots failed to retain exactly thirty-five real allocator returns")); return; }
         State->GenerationOwner = GenerationOwner;
         State->FrozenSlots = Slots;
         if (UCk_Utils_EntityLifetime_UE::Get_LifetimeDependents(GenerationOwner).Num() != 6 ||
@@ -222,30 +249,34 @@ bool FCkSceneNodeEcsRoots::RunTest(const FString& Parameters)
             UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_SucceededCount(Receipt) != 0 ||
             UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsFailed(Receipt) ||
             UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsUnproven(Receipt))
-        { Fail(TEXT("new EcsRoots receipt is not an exact pending six-request record")); return; }
-        for (int32 I = 0; I < 6; ++I)
+        { Fail(TEXT("new EcsRoots receipt is not an exact pending seventeen-request record")); return; }
+        for (int32 I = 0; I < 17; ++I)
         {
             const auto& Slot = Slots[I];
             auto* Actor = State->Visuals[ActorRoles[I] - 1].Get();
+            const FCk_Handle Parent = ExpectedParent(Slots, GenerationOwner, I);
             if (!IsValid(Actor) ||
                 !Slot.bIssued || !Slot.bReturned || !Slot.bAllocationAttempted ||
                 Slot.bCallback || Slot.bSucceeded ||
                 !ck::IsValid(Slot.Target) || !ck::IsValid(Slot.Carrier) ||
                 Slot.Pending.Get_EntityUnderConstruction() != Slot.Target ||
                 !Slot.Target.Has<ck::FFragment_LifetimeOwner>() ||
-                Slot.Target.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != GenerationOwner ||
+                Slot.Target.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != Parent ||
+                !UCk_Utils_ContextOwner_UE::Has(Slot.Target) ||
+                UCk_Utils_ContextOwner_UE::Get_ContextOwner(Slot.Target) != Slot.Target ||
                 !Slot.Carrier.Has<ck::FFragment_LifetimeOwner>() ||
                 Slot.Carrier.Get<ck::FFragment_LifetimeOwner>().Get_Entity() != Slot.Target ||
                 !Slot.Carrier.Has<ck::FFragment_EntityScript_RequestSpawnEntity>() ||
-                UCk_Utils_EntityLifetime_UE::Get_LifetimeDependents(Slot.Target).Num() != 1 ||
-                UCk_Utils_EntityLifetime_UE::Get_LifetimeDependents(Slot.Target)[0] != Slot.Carrier)
+                RawCarrierCount(Slot.Target, Slot.Carrier) != 1 ||
+                !UCk_Utils_EntityLifetime_UE::Get_LifetimeDependents(
+                    Slot.Target).Contains(Slot.Carrier))
             { Fail(TEXT("one root/carrier identity, direct parent or queued callback state is wrong")); return; }
             const auto& Request = Slot.Carrier.Get<ck::FFragment_EntityScript_RequestSpawnEntity>();
             const auto* Payload = Request.Get_SpawnParams()
                 .GetPtr<FCk_EntityScript_WithActor_SpawnParams>();
             if (Request.Get_NewEntity() != Slot.Target ||
-                Request.Get_Owner() != GenerationOwner ||
-                Request.Get_ContextOwner() != GenerationOwner ||
+                Request.Get_Owner() != Parent ||
+                Request.Get_ContextOwner() != Parent ||
                 Request.Get_EntityScriptClassArchetype().Get() != ScriptCDO ||
                 Request.Get_DestroyTargetOnFailure() || !Payload ||
                 Payload->Get_OwningActor().Get() != Actor ||
@@ -253,9 +284,9 @@ bool FCkSceneNodeEcsRoots::RunTest(const FString& Parameters)
                 !Slot.Target.Has<ck::FFragment_Net_Params>() ||
                 Slot.Target.Get<ck::FFragment_Net_Params>()
                     .Get_ConnectionSettings().Get_Replication() !=
-                    ECk_Replication::DoesNotReplicate ||
+                    ECk_Replication::Replicates ||
                 UCk_Utils_EntityReplicationDriver_UE::Has(Slot.Target))
-            { Fail(TEXT("one queued WithActor request payload or source-only boundary is wrong")); return; }
+            { Fail(TEXT("one queued WithActor request payload or replicated admission is wrong")); return; }
         }
         const int32 BeforeSecond = Population(State->WorldRoot);
         if (UCk_SceneNodeGym_EcsRootsRuntime_UE::TryBegin(
@@ -271,8 +302,8 @@ bool FCkSceneNodeEcsRoots::RunTest(const FString& Parameters)
         const auto* Receipt = State->Receipt.Get();
         if (!IsValid(Receipt)) { return false; }
         return UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsConstructionComplete(Receipt) &&
-            UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_SucceededCount(Receipt) == 6;
-    }), 20.0, TEXT("six real queued WithActor requests drain into exact actor-linked roots")));
+            UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_SucceededCount(Receipt) == 17;
+    }), 20.0, TEXT("seventeen real queued WithActor requests drain into exact actor-linked transforms")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* World)
     {
@@ -289,7 +320,7 @@ bool FCkSceneNodeEcsRoots::RunTest(const FString& Parameters)
             !UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsFailed(Receipt) &&
             !UCk_SceneNodeGym_EcsRootsRuntime_UE::Get_IsUnproven(Receipt)))
         { Fail(TEXT("EcsRoots lost its exact source context after real request drain")); return; }
-        for (int32 I = 0; I < 6; ++I)
+        for (int32 I = 0; I < 17; ++I)
         {
             const auto& Slot = State->FrozenSlots[I];
             auto* Actor = State->Visuals[ActorRoles[I] - 1].Get();
@@ -299,22 +330,23 @@ bool FCkSceneNodeEcsRoots::RunTest(const FString& Parameters)
                     UCk_Utils_EntityScript_UE::TryGet_EntityScript(Slot.Target))
                 : nullptr;
             if (!IsValid(Actor) || !IsValid(Script) ||
-                !UCk_SceneNodeGym_EcsRootsRuntime_UE::TryGet_CompletedRoot(
-                    Receipt, I, Completed) || Completed != Slot.Target ||
+                (I < 6 && (!UCk_SceneNodeGym_EcsRootsRuntime_UE::TryGet_CompletedRoot(
+                    Receipt, I, Completed) || Completed != Slot.Target)) ||
                 !ck::IsValid(Slot.Target, ck::IsValid_Policy_IncludePendingKill{}) ||
                 ck::IsValid(Slot.Carrier, ck::IsValid_Policy_IncludePendingKill{}) ||
+                RawCarrierCount(Slot.Target, Slot.Carrier) != 1 ||
                 Script->GetClass() != UCk_SceneNodeGym_WithActorScript_UE::StaticClass() ||
                 Script->Get_AssociatedEntity() != Slot.Target ||
                 Script->Get_OwningActor().Get() != Actor ||
-                Script->Get_EffectiveReplication() != ECk_Replication::DoesNotReplicate ||
+                Script->Get_EffectiveReplication() != ECk_Replication::Replicates ||
                 !UCk_Utils_OwningActor_UE::Has(Slot.Target) ||
                 UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor) != Slot.Target ||
                 !Slot.Target.Has<ck::FFragment_Transform>() ||
                 !Slot.Target.Has<ck::FFragment_Transform_RootComponent>() ||
                 Slot.Target.Get<ck::FFragment_Transform_RootComponent>()
                     .Get_RootComponent().Get() != Actor->GetRootComponent() ||
-                UCk_Utils_EntityReplicationDriver_UE::Has(Slot.Target))
-            { Fail(*FString::Printf(TEXT("WithActor root %d missed a real binding or exact retained carrier retirement"), I)); return; }
+                !UCk_Utils_EntityReplicationDriver_UE::Has(Slot.Target))
+            { Fail(*FString::Printf(TEXT("WithActor transform %d missed a real binding or exact retained carrier retirement"), I)); return; }
         }
         // A known actor loss invalidates current construction proof. Its own
         // EntityOwningActor component may independently retire the linked ECS

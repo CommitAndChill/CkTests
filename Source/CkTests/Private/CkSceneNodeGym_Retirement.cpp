@@ -20,7 +20,7 @@
 
 namespace ck_scene_node_gym_retirement
 {
-    constexpr int32 KnownCount = 30;
+    constexpr int32 KnownCount = 41;
     constexpr int32 ActorCount = 18;
     constexpr int32 LiveCount = 24;
     constexpr FCk_Time MaxWait = FCk_Time{20.0};
@@ -153,7 +153,7 @@ bool UCk_SceneNodeGym_RetirementRuntime_UE::FreezeCompleted(
     // Active Motion already proves current graph topology without requiring dormant queues.
     // All 23 known queues must drain after the six real Stop receipts, before owner destruction.
     if (!ck_scene_node_gym_retirement::Live(Graph) || !ck_scene_node_gym_retirement::Live(Roots) || !ck_scene_node_gym_retirement::Live(Ledger) || !ck_scene_node_gym_retirement::Live(Sampler) ||
-        Graph->Slots.Num() != 11 || Roots->Slots.Num() != 6 ||
+        Graph->Slots.Num() != 11 || Roots->Slots.Num() != 17 ||
         Ledger->bOpaqueAllocation || Ledger->bUnknownOwnedActor ||
         Ledger->bWorldTeardown ||
         !UCk_SceneNodeGym_ActorLedgerRuntime_UE::TryProve_CurrentCohort(
@@ -190,12 +190,14 @@ bool UCk_SceneNodeGym_RetirementRuntime_UE::FreezeCompleted(
         R->ExpectedParents.Add(Parent);
     };
     Add(Roots->GenerationOwner, R->WorldRoot);
-    for (const auto& Slot : Roots->Slots)
-    { Add(Slot.Target, Roots->GenerationOwner); }
+    for (int32 I = 0; I < Roots->Slots.Num(); ++I)
+    {
+        const FCk_Handle Parent = I < 6 ? Roots->GenerationOwner
+            : Graph->Slots[I - 6].Parent;
+        Add(Roots->Slots[I].Target, Parent);
+    }
     for (const auto& Slot : Roots->Slots)
     { Add(Slot.Carrier, Slot.Target); }
-    for (const auto& Slot : Graph->Slots)
-    { Add(Slot.Raw, Slot.Parent); }
     for (const auto& Slot : M->Slots)
     { Add(Slot.Raw, Slot.Root); }
     if (R->Known.Num() != ck_scene_node_gym_retirement::KnownCount || R->ExpectedParents.Num() != ck_scene_node_gym_retirement::KnownCount)
@@ -322,9 +324,9 @@ bool UCk_SceneNodeGym_RetirementRuntime_UE::HasExactAllocatedClosure(
         const auto H = R->Known[I];
         const bool Allocated =
             UCk_EntityScriptGym_Spawn_Runtime_UE::Get_IsEntityAllocated(H);
-        if (I >= 7 && I < 13)
+        if (I >= 18 && I < 35)
         {
-            if (Allocated) { return false; } // six completed request carriers
+            if (Allocated) { return false; } // seventeen completed request carriers
             continue;
         }
         if (bBeforeDestroy && !Allocated) { return false; }
@@ -484,9 +486,9 @@ bool UCk_SceneNodeGym_RetirementRuntime_UE::HasSafeSweepContext(
     if (!R->DestroyRequested[0] &&
         (!ck_scene_node_gym_retirement::Live(Scope) ||
          Scope->IsActorBeingDestroyed() || Scope->GetWorld() != R->World.Get() ||
-         Scope->GetClass() != AActor::StaticClass() ||
-         Scope->GetOwner() != R->Source.Get() || Scope->GetIsReplicated() ||
-         Scope->IsReplicatingMovement() || Scope->GetRemoteRole() != ROLE_None))
+         Scope->GetClass() != ACk_SceneNodeGym_ScopeActor_UE::StaticClass() ||
+         Scope->GetOwner() != R->Source.Get() || !Scope->GetIsReplicated() ||
+         Scope->IsReplicatingMovement()))
     { return false; }
     for (int32 Role = 1; Role < ck_scene_node_gym_retirement::ActorCount; ++Role)
     {
@@ -498,8 +500,7 @@ bool UCk_SceneNodeGym_RetirementRuntime_UE::HasSafeSweepContext(
             Actor->IsActorBeingDestroyed() || Actor->GetWorld() != R->World.Get() ||
             Actor->GetOwner() != Scope ||
             Actor->GetClass() != Ledger->VisualClasses[Role - 1].Get() ||
-            Actor->GetIsReplicated() || Actor->IsReplicatingMovement() ||
-            Actor->GetRemoteRole() != ROLE_None)
+            !Actor->GetIsReplicated() || Actor->IsReplicatingMovement())
         { return false; }
         const auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Actor);
         if (!ck_scene_node_gym_retirement::Live(Visual) ||
@@ -545,8 +546,9 @@ void UCk_SceneNodeGym_RetirementRuntime_UE::Observe(
         }
         TArray<FCk_Handle> Live23;
         Live23.Reserve(23);
-        for (int32 I = 1; I <= 6; ++I) { Live23.Add(R->Known[I]); }
-        for (int32 I = 13; I < ck_scene_node_gym_retirement::KnownCount; ++I) { Live23.Add(R->Known[I]); }
+        for (int32 I = 1; I <= 17; ++I) { Live23.Add(R->Known[I]); }
+        for (int32 I = 35; I < ck_scene_node_gym_retirement::KnownCount; ++I)
+        { Live23.Add(R->Known[I]); }
         if (!UCk_SceneNodeGym_QueueRuntime_UE::Get_AreKnownQueuesDrained(
                 Live23, R->WorldRoot) ||
             !HasExactAllocatedClosure(R, true) ||
@@ -581,46 +583,9 @@ void UCk_SceneNodeGym_RetirementRuntime_UE::Observe(
     if (!HasNoUnknownScopedActors(R))
     { Fail(R, TEXT("UnknownScopedActor")); return; }
 
-    // The six source actors are destroyed by their ECS OwningActor teardown
-    // processor. Never issue an actor Destroy for one of those six.
-    for (const int32 RootRole : ck_scene_node_gym_retirement::RootRoles)
-    {
-        AActor* Found = nullptr;
-        if (HasKnownActorInWorld(R, RootRole, Found))
-        { return; }
-    }
-    for (int32 Role = 1; Role < ck_scene_node_gym_retirement::ActorCount; ++Role)
-    {
-        if (ck_scene_node_gym_retirement::IsRootRole(Role)) { continue; }
-        if (!HasSafeSweepContext(R))
-        { Fail(R, TEXT("SweepContextChanged")); return; }
-        AActor* Actor = nullptr;
-        if (!HasKnownActorInWorld(R, Role, Actor))
-        {
-            if (!R->DestroyRequested[Role])
-            { Fail(R, TEXT("UnrequestedVisualLoss")); return; }
-            continue;
-        }
-        if (R->DestroyRequested[Role]) { continue; }
-        auto* const Ledger = R->Ledger.Get();
-        AActor* Scope = nullptr;
-        if (!HasKnownActorInWorld(R, 0, Scope) || !ck_scene_node_gym_retirement::Live(Actor) ||
-            Actor->IsActorBeingDestroyed() || !ck_scene_node_gym_retirement::Live(Scope) ||
-            Actor->GetWorld() != R->World.Get() || Actor->GetOwner() != Scope ||
-            Actor->GetClass() != Ledger->VisualClasses[Role - 1].Get() ||
-            Actor->GetIsReplicated() || Actor->IsReplicatingMovement() ||
-            Actor->GetRemoteRole() != ROLE_None)
-        { Fail(R, TEXT("VisualIdentityChanged")); return; }
-        auto* const Visual = Cast<ACk_SceneNodeGym_SourceActor_UE>(Actor);
-        if (!ck_scene_node_gym_retirement::Live(Visual) || Visual->Ledger.Get() != Ledger ||
-            Visual->Role != Role || Visual->Generation != R->Generation)
-        { Fail(R, TEXT("VisualClaimChanged")); return; }
-        R->DestroyRequested[Role] = true;
-        if (!Actor->Destroy())
-        { Fail(R, TEXT("VisualDestroyRejected")); return; }
-        if (!HasSafeSweepContext(R))
-        { Fail(R, TEXT("PostVisualDestroyChanged")); return; }
-    }
+    // All seventeen visual actors are tied to production WithActor entities.
+    // Their owning-actor teardown processor destroys them after ECS retirement.
+    // Wait for that actual cascade before destroying the identity-only scope.
     for (int32 Role = 1; Role < ck_scene_node_gym_retirement::ActorCount; ++Role)
     {
         AActor* Found = nullptr;
@@ -637,9 +602,8 @@ void UCk_SceneNodeGym_RetirementRuntime_UE::Observe(
             if (!ck_scene_node_gym_retirement::Live(Scope) || Scope->IsActorBeingDestroyed() ||
                 Scope->GetWorld() != R->World.Get() ||
                 Scope->GetOwner() != R->Source.Get() ||
-                Scope->GetClass() != AActor::StaticClass() ||
-                Scope->GetIsReplicated() || Scope->IsReplicatingMovement() ||
-                Scope->GetRemoteRole() != ROLE_None)
+                Scope->GetClass() != ACk_SceneNodeGym_ScopeActor_UE::StaticClass() ||
+                !Scope->GetIsReplicated() || Scope->IsReplicatingMovement())
             { Fail(R, TEXT("ScopeIdentityChanged")); return; }
             R->DestroyRequested[0] = true;
             if (!Scope->Destroy())

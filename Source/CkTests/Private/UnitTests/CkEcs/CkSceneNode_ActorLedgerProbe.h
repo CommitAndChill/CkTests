@@ -21,7 +21,7 @@ public:
     int32 CapturedCountAtBeginPlay = -1;
 };
 
-// A frozen visual class whose CDO violates the nonreplicated recipe.
+// A frozen visual class whose CDO enables competing actor movement replication.
 UCLASS()
 class ACk_SceneNode_ActorLedgerReplicatedProbe final : public ACk_SceneNodeGym_SourceActor_UE
 {

@@ -73,8 +73,26 @@ private:
     virtual void BeginDestroy() override;
 };
 
-// A future authored parent/child cube derives from this base. The native claim
-// is set before FinishSpawning, so BeginPlay can read it; scripts cannot write it.
+// Identity-only generation scope. It owns no ECS script or visual component.
+UCLASS()
+class CKTESTS_API ACk_SceneNodeGym_ScopeActor_UE final : public AActor
+{
+    GENERATED_BODY()
+    friend class UCk_SceneNodeGym_ActorLedgerRuntime_UE;
+private:
+    UPROPERTY(Replicated) int32 Generation = 0;
+    UPROPERTY(Replicated) TObjectPtr<AGameStateBase> SourceIdentity;
+public:
+    ACk_SceneNodeGym_ScopeActor_UE();
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
+    UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
+    int32 Get_ActorGeneration() const { return IsInGameThread() ? Generation : 0; }
+    UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
+    AGameStateBase* Get_ActorSource() const
+    { return IsInGameThread() ? SourceIdentity.Get() : nullptr; }
+};
+
+// The native claim is set before FinishSpawning, so BeginPlay can read it.
 UCLASS(Blueprintable)
 class CKTESTS_API ACk_SceneNodeGym_SourceActor_UE : public AActor
 {
@@ -85,11 +103,13 @@ class CKTESTS_API ACk_SceneNodeGym_SourceActor_UE : public AActor
 
 private:
     TWeakObjectPtr<UCk_SceneNodeGym_ActorLedger_UE> Ledger;
-    int32 Role = -1;
-    int32 Generation = 0;
+    UPROPERTY(Replicated) int32 Role = -1;
+    UPROPERTY(Replicated) int32 Generation = 0;
+    UPROPERTY(Replicated) TObjectPtr<AGameStateBase> SourceIdentity;
 
 public:
     ACk_SceneNodeGym_SourceActor_UE();
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
 
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     UCk_SceneNodeGym_ActorLedger_UE* Get_ActorLedger() const;
@@ -99,6 +119,10 @@ public:
 
     UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
     int32 Get_ActorGeneration() const { return IsInGameThread() ? Generation : 0; }
+
+    UFUNCTION(BlueprintPure, Category="Ck|Tests|Gym|SceneNode")
+    AGameStateBase* Get_ActorSource() const
+    { return IsInGameThread() ? SourceIdentity.Get() : nullptr; }
 };
 
 UCLASS()
@@ -112,7 +136,7 @@ class CKTESTS_API UCk_SceneNodeGym_ActorLedgerRuntime_UE : public UBlueprintFunc
     friend class UCk_SceneNodeGym_RetirementRuntime_UE;
 
 public:
-    // VisualClasses fixes roles 1..17; role 0 is the plain nonvisual AActor scope.
+    // VisualClasses fixes roles 1..17; role 0 is the replicated identity scope.
     // The source retains the returned component even if the caller drops it.
     // A private weak Source serial claim prevents a second initial begin even
     // if that component is removed. Only a completed retirement can reserve
@@ -123,7 +147,7 @@ public:
         const TArray<TSubclassOf<AActor>>& VisualClasses);
 
     // One atomic native operation: capture a raw AActor identity before level
-    // insertion, configure the native claim/nonreplication, then FinishSpawning.
+    // insertion, configure the native claim and replication identity, then FinishSpawning.
     // No unfinished actor escapes this call. False clears OutActor, retaining
     // every captured weak serial inside the closed ledger.
     UFUNCTION(BlueprintCallable, Category="Ck|Tests|Gym|SceneNode")
