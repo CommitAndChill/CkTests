@@ -17,6 +17,12 @@ class UCk_AutoTest_ProceduralAnimation_PostsCentipedeReturns : UCk_AutoTest_Base
     private bool _WasBlocked = false;
     private bool _SawReverse = false;
     private float _LastTraceAt = -1.0;
+    private float _FirstTraversalPollAt = -1.0;
+    private bool _DidLogTraversalBoundary = false;
+    private float _LastForwardX = -100000.0;
+    private float _LastForwardAt = -1.0;
+    private float _FirstBlockedSnapshotAt = -1.0;
+    private int32 _BlockedSnapshots = 0;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
@@ -87,6 +93,28 @@ class UCk_AutoTest_ProceduralAnimation_PostsCentipedeReturns : UCk_AutoTest_Base
         }
     }
 
+    void LogBlockedSnapshot(float InNow, FString InEvent)
+    {
+        auto Crawler = _Fixture.Crawlers[0];
+        auto Local = utils_transform::Get_EntityCurrentLocation(Crawler.Handles.Root) - Crawler.Layout.Origin;
+        auto BodyUp = utils_transform::Get_EntityCurrentTransform(Crawler.Handles.Root).GetRotation().GetUpVector();
+        auto Motion = Crawler.Handles.Motion;
+        auto Context = f"[POSTS-BLOCKED] {InEvent} t {InNow - _FirstTraversalPollAt :.2} local ({Local.X :.2},{Local.Y :.2},{Local.Z :.2}) up ({BodyUp.X :.3},{BodyUp.Y :.3},{BodyUp.Z :.3}) stage {Crawler.Progress.RouteStage} pace {utils_surface_motion::Get_ReachPaceScale(Motion) :.3}/{int32(utils_surface_motion::Get_ReachPaceState(Motion))} support {int32(utils_surface_motion::Get_Support(Motion))} query {int32(utils_surface_motion::Get_ContactQuery(Motion))} obstruction {int32(utils_surface_motion::Get_Obstruction(Motion))} gaitClock {utils_procedural_gait::Get_GaitClock(Crawler.Handles.Gait) :.3} requestedSpeed {ck_procedural_gym::TravelSpeed :.1} blockedSamples {_BlockedSamples}";
+        for (auto Index = 0; Index < Math::Min(Crawler.Handles.Legs.Num(), 16); Index++)
+        {
+            auto ContextPrefix = Index == 0 ? f"{Context} " : "";
+            auto Leg = Crawler.Handles.Legs[Index];
+            if (ck::Is_NOT_Valid(Leg))
+            {
+                LogDisplay(f"[POSTS-BLOCKED-LEG] {InEvent} {ContextPrefix}index {Index} invalid");
+                continue;
+            }
+            auto Snapshot = UCk_Utils_AutoTest_UE::Get_ProceduralAnimationLegSnapshot(
+                Crawler.Handles.Root, utils_procedural_leg::Get_Id(Leg), Crawler.Layout.Origin);
+            LogDisplay(f"[POSTS-BLOCKED-LEG] {InEvent} {ContextPrefix}index {Index} {Snapshot}");
+        }
+    }
+
     UFUNCTION()
     private void Check_Traversal(FCk_Handle InHandle, FCk_SharedBool OutResult, FInstancedStruct InPayload)
     {
@@ -98,6 +126,37 @@ class UCk_AutoTest_ProceduralAnimation_PostsCentipedeReturns : UCk_AutoTest_Base
         }
         Sample();
         auto Now = float(System::GetGameTimeInSeconds());
+        if (_FirstTraversalPollAt < 0.0)
+        {
+            _FirstTraversalPollAt = Now;
+        }
+        if (_Fixture.Get_AllReady() && _Fixture.Crawlers.Num() == 1)
+        {
+            auto Crawler = _Fixture.Crawlers[0];
+            auto LocalX = utils_transform::Get_EntityCurrentLocation(Crawler.Handles.Root).X - Crawler.Layout.Origin.X;
+            if (_LastForwardAt < 0.0 || LocalX > _LastForwardX + 0.5)
+            {
+                _LastForwardX = LocalX;
+                _LastForwardAt = Now;
+            }
+            if (_BlockedSnapshots == 0 && Now - _LastForwardAt >= 1.0)
+            {
+                _BlockedSnapshots = 1;
+                _FirstBlockedSnapshotAt = Now;
+                LogBlockedSnapshot(Now, "onset");
+            }
+            else if (_BlockedSnapshots >= 1 && _BlockedSnapshots <= 3)
+            {
+                auto Event = f"after{_BlockedSnapshots}";
+                _BlockedSnapshots++;
+                LogBlockedSnapshot(Now, Event);
+            }
+            else if (_BlockedSnapshots == 4 && Now - _FirstBlockedSnapshotAt >= 5.0)
+            {
+                _BlockedSnapshots = 5;
+                LogBlockedSnapshot(Now, "later5s");
+            }
+        }
         if (_LastTraceAt < 0.0 || Now - _LastTraceAt >= 5.0)
         {
             _LastTraceAt = Now;
@@ -108,6 +167,21 @@ class UCk_AutoTest_ProceduralAnimation_PostsCentipedeReturns : UCk_AutoTest_Base
         }
         auto Complete = _Fixture.Crawlers.Num() == 1 && _Fixture.Crawlers[0].Get_HasCompletedCourse() &&
             _Fixture.Get_HasObservedWalking();
+        if (Complete == false && _DidLogTraversalBoundary == false && Now - _FirstTraversalPollAt >= 119.5)
+        {
+            _DidLogTraversalBoundary = true;
+            if (_Fixture.Crawlers.Num() != 1 || _Fixture.Get_AllReady() == false)
+            {
+                LogDisplay(f"[POSTS-CENTIPEDE-BOUNDARY] count {_Fixture.Crawlers.Num()}, verdict {_Fixture.Get_Verdict()}");
+            }
+            else
+            {
+                auto Crawler = _Fixture.Crawlers[0];
+                auto Local = utils_transform::Get_EntityCurrentLocation(Crawler.Handles.Root) - Crawler.Layout.Origin;
+                auto Grounded = utils_surface_motion::Get_Support(Crawler.Handles.Motion) == ECk_SurfaceMotion_Support::Grounded;
+                LogDisplay(f"[POSTS-CENTIPEDE-BOUNDARY] stage {Crawler.Progress.RouteStage}, laps {Crawler.Progress.Traversals}, local ({Local.X :.1}, {Local.Y :.1}, {Local.Z :.1}), x range {_MaxX :.1} to {_MinXAfterTurn :.1}, replanted {Crawler.Get_ReplantedCount()}/{Crawler.Layout.LegCount}, grounded {Grounded}, invalid {Crawler.Evidence.InvalidOutput}, blocked {_BlockedSamples}, blocked clock {_BlockedClockPairs} pairs/{_BlockedClockProgress :.2} cycles, trusted plants {_TrustedPlantedSamples}");
+            }
+        }
         auto Result = OutResult;
         Result.Set(Complete);
     }

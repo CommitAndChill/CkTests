@@ -3,6 +3,7 @@
 #include "CkGoap/Planner/CkGoap_Planner_Fragment.h"
 #include "CkProceduralAnimation/Debug/CkProceduralAnimation_Debug.h"
 #include "CkProceduralAnimation/Leg/CkProceduralLeg_Utils.h"
+#include "CkProceduralAnimation/SurfaceMotion/CkSurfaceMotion_Fragment.h"
 
 #include <HAL/IConsoleManager.h>
 #include <Misc/ScopeExit.h>
@@ -249,6 +250,15 @@ FString
         Query.X, Query.Y, Query.Z, Ideal.X, Ideal.Y, Ideal.Z, Position.X, Position.Y, Position.Z,
         Leg->Get_ChosenFoothold(), Leg->Get_Footholds().Num());
     const auto& Probe = Leg->Get_Probe();
+    const auto ProbeStart = Probe.Get_Start() - InOrigin;
+    const auto ProbeEnd = Probe.Get_End() - InOrigin;
+    const auto ProbeHit = Probe.Get_HitPosition() - InOrigin;
+    const auto ProbeNormal = Probe.Get_HitNormal();
+    Summary += FString::Printf(TEXT(" probeRay start (%.3f,%.3f,%.3f) end (%.3f,%.3f,%.3f)")
+        TEXT(" hit %d fraction %.6f attempts %d point (%.3f,%.3f,%.3f) normal (%.6f,%.6f,%.6f)"),
+        ProbeStart.X, ProbeStart.Y, ProbeStart.Z, ProbeEnd.X, ProbeEnd.Y, ProbeEnd.Z,
+        Probe.Get_Hit(), Probe.Get_HitFraction(), Probe.Get_AttemptCount(),
+        ProbeHit.X, ProbeHit.Y, ProbeHit.Z, ProbeNormal.X, ProbeNormal.Y, ProbeNormal.Z);
     const auto SwingTarget = Foot.Get_SwingTarget() - InOrigin;
     const auto Landing = Leg->Get_LandingPointWorld() - InOrigin;
     Summary += FString::Printf(TEXT(" error %.3f threshold %.3f phase %.3f alpha %.3f occluded %d")
@@ -260,6 +270,17 @@ FString
         Landing.X, Landing.Y, Landing.Z, SwingTarget.X, SwingTarget.Y, SwingTarget.Z,
         Leg->Get_Rig().Get_CrossingLinks(), Leg->Get_Rig().Get_SwivelDegrees(),
         static_cast<int32>(Leg->Get_Rig().Get_Clearance()), Leg->Get_Rig().Get_SiblingCrossingLinks());
+    const auto HasMotionSupport = ck::IsValid(InBody) && InBody.Has<ck::FFragment_SurfaceMotion_Support>();
+    if (HasMotionSupport)
+    {
+        const auto& Support = InBody.Get<ck::FFragment_SurfaceMotion_Support>();
+        const auto FrameMatches = Support.Get_EvaluatedFrame() == Sample.Get_FrameNumber();
+        const auto BodyMatches = Support.Get_EvaluatedBody().Equals(Gait.Get_BodyTransform(), 1.0e-3);
+        Summary += FString::Printf(TEXT(" feedbackFrame %llu frameMatch %d bodyMatch %d count %d attemptedSpeed %.3f trials %d rays %d"),
+            static_cast<unsigned long long>(Support.Get_EvaluatedFrame()), FrameMatches, BodyMatches,
+            Support.Get_ReachPaceFeedback().Num(), Support.Get_AttemptedStanceSpeed(),
+            Support.Get_ReachPaceTrials(), Support.Get_ReachPaceRays());
+    }
     const auto LegHandle = UCk_Utils_ProceduralLeg_UE::TryGet_Leg(InBody, InLegId);
     if (ck::IsValid(LegHandle))
     {
@@ -276,6 +297,34 @@ FString
         Summary += FString::Printf(TEXT(" simReach %.3f posedReach %.3f maxReach %.3f minReach %.3f"),
             FVector::Dist(Foot.Get_Position(), Target.Get_HipWorld()),
             FVector::Dist(Foot.Get_Position(), PosedBody.TransformPosition(HipLocal)), Reach, FMath::Max(0.0, 2.0 * Longest - Reach));
+        if (HasMotionSupport)
+        {
+            const auto& Feedback = InBody.Get<ck::FFragment_SurfaceMotion_Support>().Get_ReachPaceFeedback();
+            const auto PublishedFoot = UCk_Utils_ProceduralLeg_UE::Get_Foot(LegHandle);
+            auto MatchedFeedback = 0;
+            for (const auto& Entry : Feedback)
+            {
+                if (NOT (Entry.Get_Leg() == LegHandle))
+                { continue; }
+
+                ++MatchedFeedback;
+                const auto PlantMatches = PublishedFoot.Get_Phase() == ECk_ProceduralLeg_FootPhase::Planted
+                    && PublishedFoot.Get_Contact() == ECk_ProceduralLeg_FootContact::Trusted
+                    && PublishedFoot.Get_Position().Equals(Entry.Get_FootWorld(), 1.0e-3);
+                const auto TrialSimReach = FVector::Dist(Entry.Get_FootWorld(), Entry.Get_TrialHipWorld());
+                const auto TargetSimReach = FVector::Dist(Target.Get_IdealTarget(), Entry.Get_TrialHipWorld());
+                const auto& TrialPosedHip = Entry.Get_TrialPosedHipWorld();
+                const auto TrialPosedReach = TrialPosedHip.IsSet()
+                    ? FVector::Dist(Entry.Get_FootWorld(), TrialPosedHip.GetValue()) : 0.0;
+                const auto TargetPosedReach = TrialPosedHip.IsSet()
+                    ? FVector::Dist(Target.Get_IdealTarget(), TrialPosedHip.GetValue()) : 0.0;
+                Summary += FString::Printf(TEXT(" feedbackMatch %d plantMatches %d trialReach %.3f/%.3f")
+                    TEXT(" targetTrialReach %.3f/%.3f posed %d maxReach %.3f"), MatchedFeedback, PlantMatches,
+                    TrialSimReach, TrialPosedReach, TargetSimReach, TargetPosedReach, TrialPosedHip.IsSet(), Reach);
+            }
+            if (MatchedFeedback == 0)
+            { Summary += TEXT(" feedbackMatch 0"); }
+        }
         const auto& Segments = Leg->Get_Rig().Get_Segments();
         constexpr auto MaxSegments = 64;
         const auto SegmentCount = FMath::Min(FMath::Min(Segments.Num(), Lengths.Num()), MaxSegments);
