@@ -38,7 +38,7 @@ namespace ck_test_procedural_gait_snapshot_pie
     constexpr auto BodyHeight = 60.0;
 
     auto
-        MakeRig()
+        MakeRig(double InFrontFootLead = 0.0)
         -> UCk_ProceduralRig_Data*
     {
         auto Legs = TArray<FCk_ProceduralLeg_Spec>{};
@@ -47,7 +47,7 @@ namespace ck_test_procedural_gait_snapshot_pie
         {
             const auto& Corner = Corners[Index];
             auto Placement = FCk_ProceduralLeg_Placement{FVector{Corner.X, Corner.Y, 0.0},
-                FVector{Corner.X, Corner.Y * 2.0, -BodyHeight}};
+                FVector{Corner.X + (Corner.X > 0.0 ? InFrontFootLead : 0.0), Corner.Y * 2.0, -BodyHeight}};
             Placement.Set_PhaseOffset(Index == 0 || Index == 3 ? 0.0f : 0.5f);
             Legs.Emplace(FName{*FString::Printf(TEXT("Leg%d"), Index)}, Placement, FCk_ProceduralLeg_ChainGeometry{TArray<float>{60.0f, 80.0f}});
         }
@@ -111,7 +111,8 @@ namespace ck_test_procedural_gait_snapshot_pie
         DoAdd_Walker(
             FAutomationTestBase* InTest,
             UWorld* InWorld,
-            const FVector& InLocation)
+            const FVector& InLocation,
+            double InFrontFootLead = 0.0)
         -> FWalker
     {
         auto Walker = FWalker{};
@@ -120,7 +121,8 @@ namespace ck_test_procedural_gait_snapshot_pie
         { return Walker; }
 
         Walker.Body = UCk_Utils_Transform_UE::Add(Walker.Root, FTransform{InLocation}, ECk_Replication::DoesNotReplicate);
-        Walker.Gait = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Walker.Body, MakeRig(), NewObject<UCk_ProceduralGait_Data>(), {}).Get_Gait();
+        Walker.Gait = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Walker.Body, MakeRig(InFrontFootLead),
+            NewObject<UCk_ProceduralGait_Data>(), {}).Get_Gait();
         InTest->TestTrue(TEXT("The walker admits its gait"), ck::IsValid(Walker.Gait));
         return Walker;
     }
@@ -214,6 +216,7 @@ namespace ck_test_procedural_gait_snapshot_pie
         double ProbeUp = 0.0;
 
         TArray<bool> WasSwinging;
+        // Last observed swing sample for each leg. The landing probe is cleared on a later planted solve.
         TArray<bool> LiftPending;
         TArray<FVector> LastSwingFoot;
 
@@ -305,17 +308,18 @@ namespace ck_test_procedural_gait_snapshot_pie
             {
                 if (Probed)
                 { ++InState.ProbedSwingSamples; }
-                // Whether the swing is lifting as of this frame: the ground reported under its landing point is the block
-                // top while its target lies below. A swing whose target later rises onto the top itself stops lifting.
-                InState.LiftPending[Index] = ProbeFoundTheTop && Foot.Get_SwingTarget().Z < TopZ - 1.0;
-                InState.LiftSamples += InState.LiftPending[Index] ? 1 : 0;
+                // Keep a top-under-landing opportunity until this swing plants. The touchdown snapshot can have no probe.
+                const auto LiftSeenThisSample = ProbeFoundTheTop && Foot.Get_SwingTarget().Z < TopZ - 1.0;
+                InState.LiftPending[Index] = InState.LiftPending[Index] || LiftSeenThisSample;
+                InState.LiftSamples += LiftSeenThisSample ? 1 : 0;
                 InState.LastSwingFoot[Index] = Foot.Get_Position();
             }
             else if (InState.WasSwinging[Index])
             {
                 // Every touchdown whose landing ground is the block top lands on it or above it (a climbing stroke's
                 // overshoot rises past the top), unless the report came too late and the solver counted the miss.
-                if (ProbeFoundTheTop)
+                const auto PlantIsOverBlock = Get_IsOverABlock(Foot.Get_PlantedPosition().X - LiftOrigin.X);
+                if (ProbeFoundTheTop || PlantIsOverBlock)
                 {
                     ++InState.TouchdownsOverTheTop;
                     const auto Depth = TopZ - Foot.Get_PlantedPosition().Z;
@@ -327,12 +331,12 @@ namespace ck_test_procedural_gait_snapshot_pie
                     }
                 }
 
-                if (InState.LiftPending[Index] && ProbeFoundTheTop)
+                if (InState.LiftPending[Index])
                 {
                     ++InState.LiftedTouchdowns;
                     const auto PlantError = FMath::Abs(Foot.Get_PlantedPosition().Z - TopZ);
                     InState.WorstLiftedPlantError = FMath::Max(InState.WorstLiftedPlantError, PlantError);
-                    InState.LiftedTouchdownsOnTop += PlantError <= PositionTolerance ? 1 : 0;
+                    InState.LiftedTouchdownsOnTop += PlantIsOverBlock && PlantError <= PositionTolerance ? 1 : 0;
 
                     const auto& LastFoot = InState.LastSwingFoot[Index];
                     if (Get_IsOverABlock(LastFoot.X - LiftOrigin.X))
@@ -436,6 +440,9 @@ namespace ck_test_procedural_gait_snapshot_pie
         FCourse Course;
         FDelegateHandle Drive;
         uint64 LastSequence = 0;
+        int32 FacePlantSamplesWhileFloor = 0;
+        int32 TrustedFaceTouchdownsWhileFloor = 0;
+        bool FrontLegWasSwinging[2] = {false, false};
         int32 PendingSamples = 0;
         int32 PendingWallSamples = 0;
         double MaxCandidateSeen = 0.0;
@@ -457,6 +464,25 @@ namespace ck_test_procedural_gait_snapshot_pie
         InState.LastSequence = Sequence;
         const auto& Motion = Snapshot.Get_Motion();
         const auto SupportNormal = Snapshot.Get_Gait().Get_SupportNormal();
+        const auto FloorSupport = FVector::DotProduct(SupportNormal, FVector::UpVector) >= NormalDot;
+        auto HasFacePlant = false;
+        for (const auto& Leg : Snapshot.Get_Legs())
+        {
+            const auto LegIndex = Leg.Get_Id() == FName{TEXT("Leg0")} ? 0
+                : Leg.Get_Id() == FName{TEXT("Leg1")} ? 1 : INDEX_NONE;
+            if (LegIndex == INDEX_NONE)
+            { continue; }
+
+            const auto& Foot = Leg.Get_Foot();
+            const auto FacePlant = Foot.Get_Planted() && Foot.Get_ContactTrusted()
+                && FVector::DotProduct(Foot.Get_Normal(), FVector::BackwardVector) >= NormalDot
+                && FMath::Abs(Foot.Get_Position().X - (WallOrigin.X + WallX)) <= 1.0;
+            if (FacePlant && FloorSupport && InState.FrontLegWasSwinging[LegIndex])
+            { ++InState.TrustedFaceTouchdownsWhileFloor; }
+            InState.FrontLegWasSwinging[LegIndex] = NOT Foot.Get_Planted();
+            HasFacePlant |= FacePlant;
+        }
+        InState.FacePlantSamplesWhileFloor += HasFacePlant && FloorSupport ? 1 : 0;
         if (FVector::DotProduct(SupportNormal, FVector::BackwardVector) >= NormalDot)
         {
             InState.WallAdopted = true;
@@ -721,7 +747,7 @@ auto
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State, Spec, Clearance](UWorld* InWorld)
         {
-            State->Walker = DoAdd_Walker(this, InWorld, WallOrigin + FVector{0.0, 0.0, Clearance});
+            State->Walker = DoAdd_Walker(this, InWorld, WallOrigin + FVector{0.0, 0.0, Clearance}, 35.0);
             auto Motion = UCk_Utils_SurfaceMotion_UE::Add(State->Walker.Body, Spec);
             TestTrue(TEXT("The walker admits its surface motion"), ck::IsValid(Motion));
         })));
@@ -753,6 +779,10 @@ auto
                 "%.4f s (confirm time %.4f s)"), State->PendingSamples, State->PendingWallSamples, State->MaxCandidateSeen, ConfirmTime));
 
             TestTrue(TEXT("The body adopts the wall"), State->WallAdopted);
+            TestTrue(FString::Printf(TEXT("A front leg swings and touches down trusted on the observed wall while the body "
+                "still has floor support (%d touchdowns, %d planted solves)"),
+                State->TrustedFaceTouchdownsWhileFloor, State->FacePlantSamplesWhileFloor),
+                State->TrustedFaceTouchdownsWhileFloor > 0);
             TestTrue(FString::Printf(TEXT("Before the wall is adopted, the snapshot shows it pending: its normal, the time it has been seen, "
                 "and the floor still the support (%d solves)"), State->PendingWallSamplesBeforeAdoption),
                 State->PendingWallSamplesBeforeAdoption > 0);

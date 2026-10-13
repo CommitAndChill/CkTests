@@ -2,6 +2,8 @@
 
 #include "../../CkUnitTest_Common.h"
 
+#include <limits>
+
 #if WITH_DEV_AUTOMATION_TESTS
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -140,6 +142,74 @@ namespace ck_test_procedural_surface_motion
     {
         return FTransform{FRotationMatrix::MakeFromZX(InSupportNormal, InTravelTangent).ToQuat(), InPosition};
     }
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralSurfaceMotionCrestAcquisitionTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.CrestObservationWaitsForATrustedPlant",
+    ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkProceduralSurfaceMotionCrestAcquisitionTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_surface_motion;
+
+    constexpr auto TopZ = 150.0;
+    const auto World = TArray<FSolid>{MakeBox(FVector{0.0, -500.0, -100.0}, FVector{300.0, 500.0, TopZ})};
+    const auto WallPlants = TArray<ck::FProceduralSurfacePlantedContact>{
+        ck::FProceduralSurfacePlantedContact{FVector{0.0, 0.0, TopZ - 20.0}, FVector::BackwardVector}};
+    const auto TopPlants = TArray<ck::FProceduralSurfacePlantedContact>{
+        ck::FProceduralSurfacePlantedContact{FVector{20.0, 0.0, TopZ}, FVector::UpVector}};
+    const auto EmptyPlants = TArray<ck::FProceduralSurfacePlantedContact>{};
+    const auto NarrowWorld = TArray<FSolid>{World[0], MakeBox(FVector{0.0, -500.0, TopZ + Clearance * 0.5},
+        FVector{300.0, 500.0, TopZ + Clearance * 0.5 + 10.0})};
+    enum class ECrestCase { Empty, WallPlant, TopPlant, Standalone, Stopped, Slide, Away, Miss, NarrowRoom };
+
+    for (const auto Variant : {ECrestCase::Empty, ECrestCase::WallPlant, ECrestCase::TopPlant, ECrestCase::Standalone,
+        ECrestCase::Stopped, ECrestCase::Slide, ECrestCase::Away, ECrestCase::Miss, ECrestCase::NarrowRoom})
+    {
+        auto Body = MakeBody(FVector{-Clearance, 0.0, TopZ + 15.0}, FVector::BackwardVector, FVector::UpVector);
+        auto State = MakeState(FVector::BackwardVector, FVector::UpVector, true);
+        State.Set_ClimbAcquisition(TOptional<ck::FProceduralSurfaceHit>{
+            ck::FProceduralSurfaceHit{}.Set_Hit(true).Set_Position(FVector{999.0, 0.0, 0.0})});
+        auto Settings = MakeSettings();
+        if (Variant == ECrestCase::Slide) { Settings.Set_WallPolicy(ck::EProceduralSurfaceWallPolicy::Slide); }
+        const auto& Plants = Variant == ECrestCase::WallPlant ? WallPlants : (Variant == ECrestCase::TopPlant ? TopPlants : EmptyPlants);
+        const auto Contacts = Variant == ECrestCase::Standalone ? TOptional<TArrayView<const ck::FProceduralSurfacePlantedContact>>{}
+            : TOptional<TArrayView<const ck::FProceduralSurfacePlantedContact>>{TArrayView<const ck::FProceduralSurfacePlantedContact>{Plants}};
+        const auto Cast = [&](const FVector& InStart, const FVector& InEnd)
+        { return Variant == ECrestCase::Miss ? ck::FProceduralSurfaceHit{}
+            : RayCast(Variant == ECrestCase::NarrowRoom ? NarrowWorld : World, InStart, InEnd); };
+        ck::StepProceduralSurfaceMotion(Settings, Variant == ECrestCase::Away ? FVector::BackwardVector : FVector::ForwardVector,
+            Variant == ECrestCase::Stopped ? 0.0f : Speed, Step, Cast, NoFeet, Body, State, 1.0f, Contacts);
+
+        const auto Prefix = FString::Printf(TEXT("Crest variant %d: "), static_cast<int32>(Variant));
+        const auto ExpectedObservation = Variant == ECrestCase::Empty || Variant == ECrestCase::WallPlant;
+        TestEqual(Prefix + TEXT("only a current room-valid crest missing its top plant supplies acquisition"),
+            State.Get_ClimbAcquisition().IsSet(), ExpectedObservation);
+        if (State.Get_ClimbAcquisition().IsSet())
+        {
+            const auto& Observation = State.Get_ClimbAcquisition().GetValue();
+            TestTrue(Prefix + TEXT("the observation carries the actual top hit and normal"), Observation.Get_Hit()
+                && Observation.Get_Fraction() > 0.0f && FMath::IsNearlyEqual(Observation.Get_Position().Z, TopZ, DistanceTolerance)
+                && Observation.Get_Normal().Equals(FVector::UpVector, DistanceTolerance));
+            TestTrue(Prefix + TEXT("observing the top neither adopts it nor claims trusted support"),
+                State.Get_SupportNormal().Equals(FVector::BackwardVector, DistanceTolerance) && NOT State.Get_ContactTrusted());
+            TestEqual(Prefix + TEXT("the crest observation does not fabricate a wall obstruction"),
+                State.Get_Obstruction(), ck::EProceduralSurfaceObstruction::None);
+        }
+        if (Variant == ECrestCase::TopPlant || Variant == ECrestCase::Standalone)
+        {
+            TestTrue(Prefix + TEXT("an actual top plant or standalone motion retains normal fan adoption"),
+                State.Get_ContactTrusted() && State.Get_ContactSource() == ck::EProceduralSurfaceContactSource::Fan
+                && State.Get_SupportNormal().Equals(FVector::UpVector, DistanceTolerance));
+        }
+    }
+    return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -396,6 +466,180 @@ auto
         Seen.Get_Seconds(), ConfirmTime.Get_Seconds()),
         Seen.Get_Seconds() >= ConfirmTime.Get_Seconds() - TimeTolerance
         && Seen.Get_Seconds() <= (ConfirmTime + Step).Get_Seconds() + TimeTolerance);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralSurfaceMotionClimbRequiresMatchingPlantTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.ClimbRequiresAPlantOnTheObservedFace",
+    ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkProceduralSurfaceMotionClimbRequiresMatchingPlantTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_surface_motion;
+
+    const auto World = MakeFloorAndWall();
+    const auto Cast = [&](const FVector& InStart, const FVector& InEnd) { return RayCast(World, InStart, InEnd); };
+    const auto WallPoint = FVector{WallX, 0.0, Clearance};
+    const auto NaN = std::numeric_limits<double>::quiet_NaN();
+    const auto Infinity = std::numeric_limits<double>::infinity();
+    const auto Labels = TArray<FString>{TEXT("empty"), TEXT("wrong normal"), TEXT("parallel face"),
+        TEXT("zero normal"), TEXT("NaN normal"), TEXT("infinite normal"), TEXT("NaN position")};
+
+    for (auto Case = 0; Case < Labels.Num(); ++Case)
+    {
+        auto Plants = TArray<ck::FProceduralSurfacePlantedContact>{};
+        if (Case == 1)
+        { Plants.Add(ck::FProceduralSurfacePlantedContact{WallPoint, FVector::UpVector}); }
+        else if (Case == 2)
+        { Plants.Add(ck::FProceduralSurfacePlantedContact{WallPoint + FVector{2.0, 0.0, 0.0}, FVector::BackwardVector}); }
+        else if (Case == 3)
+        { Plants.Add(ck::FProceduralSurfacePlantedContact{WallPoint, FVector::ZeroVector}); }
+        else if (Case == 4)
+        { Plants.Add(ck::FProceduralSurfacePlantedContact{WallPoint, FVector{NaN, 0.0, 0.0}}); }
+        else if (Case == 5)
+        { Plants.Add(ck::FProceduralSurfacePlantedContact{WallPoint, FVector{Infinity, 0.0, 0.0}}); }
+        else if (Case == 6)
+        { Plants.Add(ck::FProceduralSurfacePlantedContact{FVector{NaN, 0.0, 0.0}, FVector::BackwardVector}); }
+
+        const auto Contacts = TOptional<TArrayView<const ck::FProceduralSurfacePlantedContact>>{
+            TArrayView<const ck::FProceduralSurfacePlantedContact>{Plants}};
+        auto Body = MakeBody(FVector{-50.0, 0.0, Clearance}, FVector::UpVector, FVector::ForwardVector);
+        auto State = MakeState(FVector::UpVector, FVector::ForwardVector, true);
+        constexpr auto Substeps = 120;
+        for (auto Index = 0; Index < Substeps; ++Index)
+        { ck::StepProceduralSurfaceMotion(MakeSettings(), FVector::ForwardVector, Speed, Step, Cast, NoFeet, Body, State, 1.0f, Contacts); }
+
+        const auto Position = Body.GetLocation();
+        if (NOT TestTrue(FString::Printf(TEXT("%s: body reaches and holds the wall standoff (x %.4f, z %.4f)"),
+                *Labels[Case], Position.X, Position.Z),
+                Position.X >= WallX - Clearance - 1.0 && Position.X <= WallX - Clearance + DistanceTolerance
+                && FMath::IsNearlyEqual(Position.Z, Clearance, DistanceTolerance)))
+        { return false; }
+        if (NOT TestTrue(FString::Printf(TEXT("%s: floor support and presentation stay upright (normal %s)"),
+                *Labels[Case], *State.Get_SupportNormal().ToString()),
+                State.Get_Grounded() && State.Get_ContactTrusted()
+                && State.Get_SupportNormal().Equals(FVector::UpVector, DistanceTolerance)
+                && Body.GetRotation().GetAxisZ().Equals(FVector::UpVector, DistanceTolerance)
+                && State.Get_Obstruction() == ck::EProceduralSurfaceObstruction::Wall
+                && State.Get_ContactSource() != ck::EProceduralSurfaceContactSource::Forward
+                && State.Get_CandidateSeen() == FCk_Time{}))
+        { return false; }
+    }
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralSurfaceMotionClimbPlantConfirmationTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.ClimbPlantMustPersistThroughConfirmation",
+    ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkProceduralSurfaceMotionClimbPlantConfirmationTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_surface_motion;
+
+    const auto World = MakeFloorAndWall();
+    const auto Cast = [&](const FVector& InStart, const FVector& InEnd) { return RayCast(World, InStart, InEnd); };
+    auto Body = MakeBody(FVector{-50.0, 0.0, Clearance}, FVector::UpVector, FVector::ForwardVector);
+    auto State = MakeState(FVector::UpVector, FVector::ForwardVector, true);
+    const auto EmptyPlants = TArray<ck::FProceduralSurfacePlantedContact>{};
+    const auto WallPlants = TArray<ck::FProceduralSurfacePlantedContact>{
+        ck::FProceduralSurfacePlantedContact{FVector{WallX, 0.0, Clearance}, FVector::BackwardVector}};
+    const auto Empty = TOptional<TArrayView<const ck::FProceduralSurfacePlantedContact>>{
+        TArrayView<const ck::FProceduralSurfacePlantedContact>{EmptyPlants}};
+    const auto Planted = TOptional<TArrayView<const ck::FProceduralSurfacePlantedContact>>{
+        TArrayView<const ck::FProceduralSurfacePlantedContact>{WallPlants}};
+    const auto Advance = [&](const TOptional<TArrayView<const ck::FProceduralSurfacePlantedContact>>& InPlants)
+    { ck::StepProceduralSurfaceMotion(MakeSettings(), FVector::ForwardVector, Speed, Step, Cast, NoFeet, Body, State, 1.0f, InPlants); };
+
+    for (auto Index = 0; Index < 120; ++Index)
+    { Advance(Empty); }
+    if (NOT TestTrue(TEXT("Precondition: without a plant the body waits at the wall on the floor"),
+            Body.GetLocation().X >= WallX - Clearance - 1.0
+            && State.Get_SupportNormal().Equals(FVector::UpVector, DistanceTolerance)))
+    { return false; }
+
+    for (auto Index = 0; Index < 4; ++Index)
+    { Advance(Planted); }
+    if (NOT TestTrue(TEXT("The real wall plant starts confirmation without immediately adopting the wall"),
+            State.Get_CandidateSeen() > FCk_Time{}
+            && State.Get_SupportNormal().Equals(FVector::UpVector, DistanceTolerance)))
+    { return false; }
+
+    for (auto Index = 0; Index < 12; ++Index)
+    { Advance(Empty); }
+    if (NOT TestTrue(TEXT("Withdrawing the plant cancels the pending wall confirmation"),
+            State.Get_CandidateSeen() == FCk_Time{}
+            && State.Get_SupportNormal().Equals(FVector::UpVector, DistanceTolerance)
+            && State.Get_Obstruction() == ck::EProceduralSurfaceObstruction::Wall
+            && Body.GetLocation().X <= WallX - Clearance + DistanceTolerance))
+    { return false; }
+
+    auto AdoptedAt = int32{INDEX_NONE};
+    for (auto Index = 0; Index < 24 && AdoptedAt == INDEX_NONE; ++Index)
+    {
+        Advance(Planted);
+        if (State.Get_SupportNormal().Equals(FVector::BackwardVector, DistanceTolerance))
+        { AdoptedAt = Index; }
+    }
+    if (NOT TestTrue(TEXT("A sustained matching wall plant allows the ordinary face adoption"), AdoptedAt != INDEX_NONE))
+    { return false; }
+
+    const auto ConfirmedFor = Step * (AdoptedAt + 1);
+    TestTrue(FString::Printf(TEXT("After withdrawal the wall needs a fresh confirmation (%.4f s)"), ConfirmedFor.Get_Seconds()),
+        ConfirmedFor.Get_Seconds() >= ConfirmTime.Get_Seconds() - TimeTolerance
+        && ConfirmedFor.Get_Seconds() <= (ConfirmTime + Step).Get_Seconds() + TimeTolerance);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralSurfaceMotionSlideIgnoresWallPlantTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.SlideKeepsTheWallEvenWithAPlantedFoot",
+    ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkProceduralSurfaceMotionSlideIgnoresWallPlantTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_surface_motion;
+
+    const auto World = MakeFloorAndWall();
+    const auto Cast = [&](const FVector& InStart, const FVector& InEnd) { return RayCast(World, InStart, InEnd); };
+    const auto Settings = MakeSettings().Set_WallPolicy(ck::EProceduralSurfaceWallPolicy::Slide);
+    const auto Plants = TArray<ck::FProceduralSurfacePlantedContact>{
+        ck::FProceduralSurfacePlantedContact{FVector{WallX, 0.0, Clearance}, FVector::BackwardVector}};
+    const auto Contacts = TOptional<TArrayView<const ck::FProceduralSurfacePlantedContact>>{
+        TArrayView<const ck::FProceduralSurfacePlantedContact>{Plants}};
+    auto Body = MakeBody(FVector{-50.0, 0.0, Clearance}, FVector::UpVector, FVector::ForwardVector);
+    auto State = MakeState(FVector::UpVector, FVector::ForwardVector, true);
+
+    for (auto Index = 0; Index < 120; ++Index)
+    { ck::StepProceduralSurfaceMotion(Settings, FVector::ForwardVector, Speed, Step, Cast, NoFeet, Body, State, 1.0f, Contacts); }
+
+    TestTrue(FString::Printf(TEXT("Slide holds the planted body's wall standoff (x %.4f)"), Body.GetLocation().X),
+        Body.GetLocation().X >= WallX - Clearance - 1.0 && Body.GetLocation().X <= WallX - Clearance + DistanceTolerance);
+    TestTrue(TEXT("Slide leaves the body upright on trusted floor contact despite the face plant"),
+        State.Get_Grounded() && State.Get_ContactTrusted()
+        && State.Get_SupportNormal().Equals(FVector::UpVector, DistanceTolerance)
+        && Body.GetRotation().GetAxisZ().Equals(FVector::UpVector, DistanceTolerance)
+        && State.Get_Obstruction() == ck::EProceduralSurfaceObstruction::Wall
+        && State.Get_ContactSource() != ck::EProceduralSurfaceContactSource::Forward);
 
     return true;
 }
@@ -1828,10 +2072,15 @@ auto
     if (NOT TestTrue(FString::Printf(TEXT("Precondition: the body follows the wall (first sighting %d, obstruction %d)"), FirstSighting,
             static_cast<int32>(State.Get_Obstruction())), FirstSighting != INDEX_NONE && State.Get_Obstruction() == ck::EProceduralSurfaceObstruction::Wall))
     { return false; }
+    TestTrue(FString::Printf(TEXT("The followed obstruction point lies on the observed wall (point %s)"),
+        *State.Get_ObstructionPoint().ToString()),
+        FMath::Abs(FVector::DotProduct(State.Get_ObstructionPoint() - ObliqueWallPoint, Get_ObliqueWallNormal())) <= DistanceTolerance);
 
     ck::StepProceduralSurfaceMotion(Settings, AlongWall, Speed, Step, Cast, NoFeet, Body, State);
     TestTrue(FString::Printf(TEXT("On the first substep steered along the wall the obstruction ends (%d)"), static_cast<int32>(State.Get_Obstruction())),
         State.Get_Obstruction() == ck::EProceduralSurfaceObstruction::None);
+    TestTrue(TEXT("The first steering-away substep clears the obsolete wall point"),
+        State.Get_ObstructionPoint() == FVector::ZeroVector);
 
     const auto Start = Body.GetLocation();
     for (auto Index = 0; Index < HalfSecondOfSubsteps; ++Index)
@@ -1844,6 +2093,51 @@ auto
     const auto WalkedSpeed = FVector::DotProduct(Body.GetLocation() - Start, AlongWall) / (Step * HalfSecondOfSubsteps).Get_Seconds();
     TestTrue(FString::Printf(TEXT("The body walks along the wall at its full speed (%.2f cm/s against %.2f)"), WalkedSpeed, static_cast<double>(Speed)),
         FMath::Abs(WalkedSpeed - Speed) <= SpeedTolerance * Speed);
+
+    // The accepted support is the right wall (+X). Steering +X has no component along that wall, so the held travel
+    // tangent points down into the floor. A real forward cast finds the floor (+Z) while the down cast holds the wall.
+    constexpr auto RightWallX = 150.0;
+    const auto FloorAndRightWall = TArray<FSolid>{
+        MakeHalfSpace(FVector::UpVector, FVector::ZeroVector),
+        MakeBox(FVector{-300.0, -500.0, -100.0}, FVector{RightWallX, 500.0, 300.0})};
+    const auto RightWallCast = [&](const FVector& InStart, const FVector& InEnd)
+    { return RayCast(FloorAndRightWall, InStart, InEnd); };
+    const auto ClimbSettings = MakeWallSettings(Clearance, 0.0f, ck::EProceduralSurfaceWallPolicy::Climb);
+    const auto EmptyPlants = TArray<ck::FProceduralSurfacePlantedContact>{};
+    const auto EngagedPlants = TOptional<TArrayView<const ck::FProceduralSurfacePlantedContact>>{
+        TArrayView<const ck::FProceduralSurfacePlantedContact>{EmptyPlants}};
+    const auto RightWallBody = MakeBody(FVector{RightWallX + Clearance, 0.0, Clearance + 1.0},
+        FVector::ForwardVector, FVector::DownVector);
+    const auto RightWallState = MakeState(FVector::ForwardVector, FVector::DownVector, true);
+
+    auto BlockedBody = RightWallBody;
+    auto BlockedState = RightWallState;
+    BlockedState.Set_StepForward(FVector::RightVector);
+    ck::StepProceduralSurfaceMotion(ClimbSettings, FVector::ForwardVector, Speed, Step, RightWallCast, NoFeet,
+        BlockedBody, BlockedState, 1.0f, EngagedPlants);
+    TestTrue(TEXT("The blocked wall-following step sees the real floor as a wall obstruction"),
+        BlockedState.Get_Obstruction() == ck::EProceduralSurfaceObstruction::Wall
+        && BlockedState.Get_ObstructionNormal().Equals(FVector::UpVector, DistanceTolerance)
+        && BlockedState.Get_SupportNormal().Equals(FVector::ForwardVector, DistanceTolerance));
+    TestTrue(TEXT("Raw steering is parallel to the obstructing floor, but effective forward points into it"),
+        FMath::IsNearlyZero(FVector::DotProduct(FVector::ForwardVector, BlockedState.Get_ObstructionNormal()), DistanceTolerance)
+        && FVector::DotProduct(BlockedState.Get_StepForward(), BlockedState.Get_ObstructionNormal()) < -0.9);
+
+    auto ReversedBody = RightWallBody;
+    auto ReversedState = RightWallState;
+    ReversedState.Set_StepForward(FVector::DownVector);
+    ck::StepProceduralSurfaceMotion(ClimbSettings, FVector::UpVector, Speed, Step, RightWallCast, NoFeet,
+        ReversedBody, ReversedState, 1.0f, EngagedPlants);
+    TestTrue(TEXT("Strong steering projected onto the wall replaces the stale downward tangent"),
+        ReversedState.Get_StepForward().Equals(FVector::UpVector, DistanceTolerance));
+
+    auto StoppedBody = RightWallBody;
+    auto StoppedState = RightWallState;
+    StoppedState.Set_StepForward(FVector::RightVector);
+    ck::StepProceduralSurfaceMotion(ClimbSettings, FVector::ZeroVector, 0.0f, Step, RightWallCast, NoFeet,
+        StoppedBody, StoppedState, 1.0f, EngagedPlants);
+    TestTrue(TEXT("A stopped step replaces an old effective forward with its current fallback"),
+        StoppedState.Get_StepForward().Equals(FVector::DownVector, DistanceTolerance));
 
     return true;
 }
@@ -1896,6 +2190,14 @@ auto
     TestTrue(FString::Printf(TEXT("Over 1 s against the wall the body moves %.4f cm, under %.0f"), Moved, StillTolerance), Moved < StillTolerance);
     TestTrue(FString::Printf(TEXT("The body stands at least one clearance from the wall (x %.3f)"), Body.GetLocation().X),
         Body.GetLocation().X <= WallX - Clearance + DistanceTolerance);
+    TestTrue(FString::Printf(TEXT("The head-on obstruction point lies on the observed wall (point %s)"),
+        *State.Get_ObstructionPoint().ToString()),
+        FMath::Abs(State.Get_ObstructionPoint().X - WallX) <= DistanceTolerance);
+    ck::StepProceduralSurfaceMotion(Settings, FVector::ForwardVector, 0.0f, Step, Cast, NoFeet, Body, State);
+    TestTrue(TEXT("Stopping steering withdraws the wall obstruction"),
+        State.Get_Obstruction() == ck::EProceduralSurfaceObstruction::None);
+    TestTrue(TEXT("Stopping steering clears the obsolete wall point"),
+        State.Get_ObstructionPoint() == FVector::ZeroVector);
 
     return true;
 }
@@ -2434,6 +2736,10 @@ auto
     TestTrue(TEXT("Turn-only reach pacing reports the attempted hip motion without moving the plant out of reach"),
         Outcome.Get_Scale() < 1.0f && Outcome.Get_AttemptedStanceSpeed() > 0.0f
         && State.Get_Grounded() && FVector::Dist(Body.TransformPosition(HipLocal), FootWorld) <= Reach + 0.01);
+    TestTrue(TEXT("Paced motion publishes the accepted trial's effective forward"),
+        State.Get_StepForward().Equals(FVector::RightVector, DistanceTolerance)
+        && State.Get_StepForward().Equals(ZeroState.Get_StepForward(), DistanceTolerance)
+        && State.Get_StepForward().Equals(FullState.Get_StepForward(), DistanceTolerance));
     return true;
 }
 
