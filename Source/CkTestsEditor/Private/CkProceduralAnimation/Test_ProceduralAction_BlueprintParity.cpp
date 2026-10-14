@@ -409,10 +409,13 @@ auto
         "Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
     auto* BodyPulse = LoadObject<UCk_ProceduralAction_Data>(nullptr, BodyPulsePath);
     auto* ClipPin = MakeSpec->FindPin(TEXT("_Clip"));
+    auto* DeliveryPin = MakeSpec->FindPin(TEXT("_Delivery"));
     if (NOT TestNotNull(TEXT("saved BodyPulse clip"), BodyPulse)
-        || NOT TestNotNull(TEXT("play spec clip pin"), ClipPin))
+        || NOT TestNotNull(TEXT("play spec clip pin"), ClipPin)
+        || NOT TestNotNull(TEXT("play spec delivery pin"), DeliveryPin))
     { return false; }
     Graph->GetSchema()->TrySetDefaultValue(*ClipPin, BodyPulse->GetPathName());
+    Graph->GetSchema()->TrySetDefaultValue(*DeliveryPin, TEXT("Explicit"));
     const auto Connected =
         DoConnect(*Graph, Event->FindPin(UEdGraphSchema_K2::PN_Then),
             Loaded->FindPin(UEdGraphSchema_K2::PN_Execute))
