@@ -2,7 +2,7 @@
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
-#include "CkProceduralAnimationEditor/CkProceduralActionRecordedStore.h"
+#include "CkProceduralAnimation/Action/CkProceduralAction_RecordedStore.h"
 
 namespace ck_test_procedural_action_recorded_store
 {
@@ -35,7 +35,7 @@ namespace ck_test_procedural_action_recorded_store
         const auto Sample = FCk_ProceduralAction_Sample{
             {}, Pose, ECk_ProceduralAction_SampleEvidence::Evaluated};
         const auto Receipt = FCk_ProceduralAction_Receipt{
-            true, {}, {}, Pose, Pose, TArray<FCk_ProceduralAction_Sample>{Sample}, {}, 0};
+            true, {}, {}, Pose, Pose, TArray<FCk_ProceduralAction_Sample>{Sample}, {}};
         return FCk_ProceduralAction_Record{InIdentity, InSequence,
             ECk_ProceduralAction_RecordKind::AcceptedPose, Receipt, {}, {}};
     }

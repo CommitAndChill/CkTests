@@ -10,12 +10,11 @@ namespace ck_test_procedural_action_preview_space
 
     auto
         MakeSlot(
-            ECk_ProceduralAction_TrackSpace InSpace,
-            FName InAnchor = NAME_None)
+            ECk_ProceduralAction_TrackSpace InSpace)
         -> ck::procedural_action::FCompiledSlot
     {
-        return {FName{TEXT("Arm")}, ECk_ProceduralAction_InitialSource::CapturedAcceptedPose,
-            false, false, FTransform::Identity, InSpace, InAnchor};
+        return ck::procedural_action::FCompiledSlot{FName{TEXT("Arm")},
+            ECk_ProceduralAction_InitialSource::CapturedAcceptedPose, InSpace};
     }
 }
 
@@ -53,14 +52,6 @@ auto
     TestTrue(TEXT("normalized position uses rest endpoint frame"), World.Equals(FVector{170.0, 0.0, 0.0}));
     TestTrue(TEXT("gizmo inverse conversion returns track coordinate"),
         ck::procedural_action_editor::ToTrackPosition(Frame, Scale, World).Equals(FVector{0.5, 0.0, 0.0}));
-    Config->Set_AnchorBindings(TArray<FCk_ProceduralAction_AnchorBinding>{
-        FCk_ProceduralAction_AnchorBinding{FName{TEXT("Fixture")}, FTransform{FVector{0.0, 50.0, 0.0}}}});
-    TestTrue(TEXT("named anchor resolves"),
-        ck::procedural_action_editor::ResolveSlotFrame(*Config,
-            MakeSlot(ECk_ProceduralAction_TrackSpace::AnchorAtStart, FName{TEXT("Fixture")}),
-            FTransform::Identity, Frame, Scale));
-    TestTrue(TEXT("anchor frame is the declared preview binding"),
-        Frame.GetTranslation().Equals(FVector{0.0, 50.0, 0.0}));
     return NOT HasAnyErrors();
 }
 

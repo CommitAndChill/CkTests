@@ -82,10 +82,6 @@ auto
             auto Policy = FCk_ProceduralLimbControl_Return{};
             Policy.Set_Duration(FCk_Time{0.05});
             Policy.Set_Timeout(Timeout);
-            auto Motion = FCk_ProceduralLimbControl_MotionBudget{};
-            Motion.Set_MaxEndpointTravelCm(0.75f);
-            Motion.Set_MaxSegmentAngularStepDegrees(3.0f);
-            Policy.Set_Motion(Motion);
             auto Entry = FCk_ProceduralArticulation_Pose{};
             auto InvalidPolicy = Policy;
             InvalidPolicy.Set_ContactToleranceCm(-1.0f);
@@ -113,14 +109,6 @@ auto
                 ECk_ProceduralLimbControl_ReturnState::Returning);
             TestTrue(TEXT("Root return work is discoverable without an action entity"),
                 FCk_ProceduralLimbControl_Control::HasReturnWork(State->Subject));
-            auto PinnedMotion = FCk_ProceduralLimbControl_MotionBudget{};
-            Policy.Set_Motion(FCk_ProceduralLimbControl_MotionBudget{});
-            TestTrue(TEXT("Return exposes its captured geometry budget"),
-                FCk_ProceduralLimbControl_Control::Get_ReturnMotionBudget(State->Subject, Token, PinnedMotion));
-            TestEqual(TEXT("Caller policy changes cannot alter admitted travel limit"),
-                PinnedMotion.Get_MaxEndpointTravelCm(), 0.75f);
-            TestEqual(TEXT("Caller policy changes cannot alter admitted angular limit"),
-                PinnedMotion.Get_MaxSegmentAngularStepDegrees(), 3.0f);
             auto Actual = FCk_ProceduralArticulation_Pose{};
             TestTrue(TEXT("Return exposes actual settled geometry without an action entity"),
                 FCk_ProceduralLimbControl_Control::Get_ReturnActualPose(State->Subject, Token, Actual));

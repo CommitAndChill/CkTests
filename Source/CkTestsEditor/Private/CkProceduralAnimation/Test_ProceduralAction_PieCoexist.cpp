@@ -1,5 +1,8 @@
 #include "CkProceduralAnimation/Action/CkProceduralAction_Data.h"
-#include "CkProceduralAnimationEditor/CkProceduralActionEditor_UserSettings.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionEditorModel.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionEditorModes.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionPreview_Config.h"
+#include "CkProceduralAnimationEditor/CkProceduralAction_EditorToolkit.h"
 
 #include "CoreGlobals.h"
 #include "Editor.h"
@@ -7,13 +10,9 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Framework/Application/SlateUser.h"
 #include "Framework/Docking/TabManager.h"
 #include "GameFramework/GameModeBase.h"
 #include "HAL/PlatformTime.h"
-#include "InputCoreTypes.h"
-#include "Input/Events.h"
-#include "Layout/WidgetPath.h"
 #include "PlayInEditorDataTypes.h"
 #include "Settings/LevelEditorPlaySettings.h"
 #include "Subsystems/AssetEditorSubsystem.h"
@@ -23,13 +22,9 @@
 #include "UObject/SoftObjectPath.h"
 #include "UObject/StrongObjectPtr.h"
 #include "Widgets/Docking/SDockTab.h"
-#include "Widgets/Input/SButton.h"
-#include "Widgets/SWindow.h"
-#include "Widgets/Text/STextBlock.h"
 
 namespace ck_test_procedural_action_pie_coexist
 {
-    const FName EditorTabId{TEXT("CkProceduralAction_Editor")};
     const TCHAR* ClipPath = TEXT("/CkFoundation/ProceduralAnimation/Examples/"
         "Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
     const TCHAR* PreviewPath = TEXT("/CkFoundation/ProceduralAnimation/Examples/"
@@ -99,117 +94,15 @@ namespace ck_test_procedural_action_pie_coexist
     }
 
     auto
-        HasText(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InText,
-            int32 InDepth = 0)
-        -> bool
+        FindToolkit(
+            UAssetEditorSubsystem* InEditors,
+            UCk_ProceduralAction_Data* InClip)
+        -> FCk_ProceduralAction_EditorToolkit*
     {
-        if (InDepth > 64)
-        { return false; }
-        if (InWidget->GetType() == FName{TEXT("STextBlock")}
-            && StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString() == InText)
-        { return true; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (HasText(Children->GetChildAt(Index), InText, InDepth + 1))
-            { return true; }
-        }
-        return false;
-    }
-
-    auto
-        HasTextContaining(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InText,
-            int32 InDepth = 0)
-        -> bool
-    {
-        if (InDepth > 64)
-        { return false; }
-        if (InWidget->GetType() == FName{TEXT("STextBlock")}
-            && StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString().Contains(InText))
-        { return true; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (HasTextContaining(Children->GetChildAt(Index), InText, InDepth + 1))
-            { return true; }
-        }
-        return false;
-    }
-
-    auto
-        FindButton(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InText,
-            int32 InDepth = 0)
-        -> TSharedPtr<SWidget>
-    {
-        if (InDepth > 64)
-        { return {}; }
-        if (InWidget->GetType() == FName{TEXT("SButton")}
-            && HasText(InWidget, InText))
-        { return InWidget; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (const auto Found = FindButton(Children->GetChildAt(Index), InText, InDepth + 1))
-            { return Found; }
-        }
-        return {};
-    }
-
-    auto
-        ClickButton(
-            const TSharedRef<SWidget>& InContent,
-            const FString& InText,
-            FAutomationTestBase* InTest = nullptr)
-        -> bool
-    {
-        const auto Button = FindButton(InContent, InText);
-        if (NOT Button.IsValid() || NOT Button->IsEnabled())
-        { return false; }
-        auto& Slate = FSlateApplication::Get();
-        auto Path = FWidgetPath{};
-        if (NOT Slate.FindPathToWidget(Button.ToSharedRef(), Path) || NOT Path.IsValid())
-        { return false; }
-        const auto Window = Slate.FindWidgetWindow(Button.ToSharedRef());
-        if (NOT Window.IsValid() || NOT Window->GetNativeWindow().IsValid())
-        { return false; }
-        const auto Position = FVector2D{Path.Widgets.Last().Geometry.GetAbsolutePositionAtCoordinates(
-            FVector2D{0.5, 0.5})};
-        if (InTest != nullptr)
-        {
-            const auto HitPath = Slate.LocateWindowUnderMouse(Position,
-                Slate.GetInteractiveTopLevelWindows(), false, 0);
-            const auto CursorUser = Slate.GetCursorUser();
-            const auto Captor = CursorUser->GetCursorCaptor();
-            const auto ActiveWindow = Slate.GetActiveTopLevelWindow();
-            InTest->AddInfo(FString::Printf(
-                TEXT("PIE routed %s hit: targetInPath=%d capture=%d captor=%s hitWindow=%s activeWindow=%s buttonWindow=%s center=(%.1f,%.1f)"),
-                *InText, HitPath.ContainsWidget(Button.Get()),
-                CursorUser->HasCapture(FSlateApplication::CursorPointerIndex),
-                Captor.IsValid() ? *Captor->GetType().ToString() : TEXT("none"),
-                HitPath.IsValid() ? *HitPath.GetWindow()->GetTitle().ToString() : TEXT("none"),
-                ActiveWindow.IsValid() ? *ActiveWindow->GetTitle().ToString() : TEXT("none"),
-                *Window->GetTitle().ToString(), Position.X, Position.Y));
-            if (NOT HitPath.ContainsWidget(Button.Get()))
-            { return false; }
-        }
-        const auto Released = TSet<FKey>{};
-        const auto Pressed = TSet<FKey>{EKeys::LeftMouseButton};
-        Slate.SetCursorPos(Position);
-        Slate.ProcessMouseMoveEvent(FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Released, EKeys::Invalid, 0.0f, FModifierKeysState{}});
-        const auto Down = FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Pressed, EKeys::LeftMouseButton, 0.0f, FModifierKeysState{}};
-        const auto Up = FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Released, EKeys::LeftMouseButton, 0.0f, FModifierKeysState{}};
-        const bool bDownHandled = Slate.ProcessMouseButtonDownEvent(Window->GetNativeWindow(), Down);
-        const bool bUpHandled = Slate.ProcessMouseButtonUpEvent(Up);
-        return bDownHandled && bUpHandled;
+        auto* Instance = InEditors != nullptr && InClip != nullptr ? InEditors->FindEditorForAsset(InClip, false) : nullptr;
+        if (Instance == nullptr || Instance->GetEditorName() != FCk_ProceduralAction_EditorToolkit::ToolkitName)
+        { return nullptr; }
+        return static_cast<FCk_ProceduralAction_EditorToolkit*>(Instance);
     }
 
     struct FState
@@ -219,7 +112,7 @@ namespace ck_test_procedural_action_pie_coexist
         TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         TStrongObjectPtr<ULevelEditorPlaySettings> PlaySettings;
         TStrongObjectPtr<UWorld> EntrySourceWorld;
-        FString PreviousPreviewPath;
+        FCk_ProceduralAction_EditorSubject PreviousSubject;
         UWorld* SolverWorld = nullptr;
         TSharedPtr<SDockTab> EditorTab;
         double SolverTimeBeforePie = 0.0;
@@ -235,6 +128,16 @@ namespace ck_test_procedural_action_pie_coexist
         bool PreviewOverrideApplied = false;
         bool OwnsEntrySourceWorld = false;
         bool ForcedTeardown = false;
+
+        auto Toolkit() const -> FCk_ProceduralAction_EditorToolkit*
+        { return FindToolkit(Editors.Get(), Clip.Get()); }
+
+        auto IsTransportPlaying() const -> bool
+        {
+            const auto* Editor = Toolkit();
+            const auto* Modes = Editor != nullptr ? Editor->Get_Modes() : nullptr;
+            return Editor != nullptr && Editor->Get_Model()->Get_IsPlaying() && Modes != nullptr && Modes->GetSolver() != nullptr;
+        }
 
         auto AdvanceStage() -> void
         {
@@ -269,8 +172,7 @@ namespace ck_test_procedural_action_pie_coexist
             { GUnrealEd->RequestEndPlayMap(); }
             if (PreviewOverrideApplied && Clip.IsValid())
             {
-                GetMutableDefault<UCk_ProceduralActionEditor_UserSettings>()->SetPreviewPath(
-                    Clip->GetPathName(), PreviousPreviewPath);
+                Clip->Set_EditorSubject(PreviousSubject);
                 PreviewOverrideApplied = false;
             }
             EditorTab.Reset();
@@ -328,63 +230,38 @@ namespace ck_test_procedural_action_pie_coexist
             _State->DeadlineSeconds = FPlatformTime::Seconds() + 10.0;
         }
 
-        auto RoutePlayDuringPie(const TCHAR* InAssertion) -> bool
+        // Plays the Solver from the toolkit while PIE runs, then waits for the toolkit's ticker to drive it.
+        auto PlayDuringPie(const TCHAR* InAssertion) -> bool
         {
             auto* PieWorld = GetPieWorld();
             if (PieWorld == nullptr || NOT PieWorld->HasBegunPlay()
                 || GetSolverWorld() != _State->SolverWorld)
             { return false; }
-            auto* Editor = _State->Editors.IsValid() && _State->Clip.IsValid()
-                ? _State->Editors->FindEditorForAsset(_State->Clip.Get(), false) : nullptr;
-            if (Editor == nullptr || Editor->GetAssociatedTabManager() == nullptr
-                || NOT _State->EditorTab.IsValid())
+            auto* Editor = _State->Toolkit();
+            if (Editor == nullptr || NOT _State->EditorTab.IsValid())
             {
                 BeginFailureTeardown(TEXT("action toolkit closed while PIE was starting"));
                 return false;
             }
-            auto& Slate = FSlateApplication::Get();
             if (_State->PlayRouteStage == 0)
             {
-                Editor->FocusWindow(_State->Clip.Get());
-                if (const auto OwnerTab = Editor->GetAssociatedTabManager()->GetOwnerTab())
-                { OwnerTab->ActivateInParent(ETabActivationCause::SetDirectly); }
-                _State->EditorTab->ActivateInParent(ETabActivationCause::SetDirectly);
-                const auto Window = Slate.FindWidgetWindow(_State->EditorTab.ToSharedRef());
-                if (NOT Window.IsValid())
-                { BeginFailureTeardown(TEXT("action toolkit has no Slate window during PIE")); return false; }
-                Window->BringToFront(true);
                 _State->SolverTimeBeforePie = _State->SolverWorld->GetTimeSeconds();
+                if (NOT Editor->Get_Model()->Get_IsPlaying())
+                { Editor->TogglePlay(); }
                 _State->PlayRouteFrame = GFrameCounter;
                 _State->PlayRouteStage = 1;
                 return false;
             }
-            if (GFrameCounter <= _State->PlayRouteFrame)
+            constexpr auto TickerFrames = uint64{30};
+            const auto Playing = _State->IsTransportPlaying();
+            if (NOT Playing && GFrameCounter <= _State->PlayRouteFrame + TickerFrames)
             { return false; }
-            if (_State->PlayRouteStage == 1)
+            if (NOT _State->Test->TestTrue(InAssertion, Playing))
             {
-                const auto Window = Slate.FindWidgetWindow(_State->EditorTab.ToSharedRef());
-                if (NOT Window.IsValid() || NOT Window->GetNativeWindow().IsValid())
-                { BeginFailureTeardown(TEXT("action toolkit Slate window disappeared during PIE")); return false; }
-                // PIE can leave its window above the toolkit in Slate's hit-test order even
-                // after the native BringToFront call. Route the same activation a user performs when
-                // selecting the toolkit, then let the normal pointer path prove the button is exposed.
-                Window->BringToFront(true);
-                Slate.ProcessWindowActivatedEvent(FWindowActivateEvent{
-                    FWindowActivateEvent::EA_Activate, Window.ToSharedRef()});
-                if (NOT ClickButton(_State->EditorTab->GetContent(), TEXT("Play solved preview"), _State->Test))
-                { return false; }
-                _State->PlayRouteFrame = GFrameCounter;
-                _State->PlayRouteStage = 2;
-                return false;
-            }
-            if (NOT _State->Test->TestTrue(InAssertion,
-                HasText(_State->EditorTab->GetContent(), TEXT("Pause"))))
-            {
-                const auto ActiveWindow = Slate.GetActiveTopLevelWindow();
                 BeginFailureTeardown(FString::Printf(
-                    TEXT("routed Play did not change transport after a Slate frame; PIE begun=%d activeWindow=%s"),
-                    PieWorld->HasBegunPlay(),
-                    ActiveWindow.IsValid() ? *ActiveWindow->GetTitle().ToString() : TEXT("none")));
+                    TEXT("Play did not reach the Solver transport within %llu frames; PIE begun=%d status=%s"),
+                    static_cast<unsigned long long>(TickerFrames), PieWorld->HasBegunPlay(),
+                    *Editor->Get_StatusText().ToString()));
                 return false;
             }
             _State->PlayRouteStage = 0;
@@ -422,24 +299,22 @@ namespace ck_test_procedural_action_pie_coexist
             if (FPlatformTime::Seconds() > _State->DeadlineSeconds)
             {
                 BeginFailureTeardown(FString::Printf(
-                    TEXT("Action toolkit PIE coexistence timed out at stage %d; solver=%d PIE=%d; frames=%llu->%llu; solverTime=%.3f->%.3f; transportPause=%d."),
+                    TEXT("Action toolkit PIE coexistence timed out at stage %d; solver=%d PIE=%d; frames=%llu->%llu; solverTime=%.3f->%.3f; transportPlaying=%d."),
                     _State->Stage, GetSolverWorld() != nullptr, GetPieWorld() != nullptr,
                     static_cast<unsigned long long>(_State->StageStartedFrame),
                     static_cast<unsigned long long>(GFrameCounter),
                     _State->StageStartedSolverTime,
                     GetSolverWorld() != nullptr ? GetSolverWorld()->GetTimeSeconds() : -1.0,
-                    _State->EditorTab.IsValid()
-                        && HasText(_State->EditorTab->GetContent(), TEXT("Pause"))));
+                    _State->IsTransportPlaying()));
                 return false;
             }
             if (_State->Stage == 0)
             {
-                auto* Editor = _State->Editors.IsValid() && _State->Clip.IsValid()
-                    ? _State->Editors->FindEditorForAsset(_State->Clip.Get(), false) : nullptr;
+                auto* Editor = _State->Toolkit();
                 if (Editor == nullptr || Editor->GetAssociatedTabManager() == nullptr)
                 { return false; }
                 _State->EditorTab = Editor->GetAssociatedTabManager()->FindExistingLiveTab(
-                    FTabId{EditorTabId});
+                    FTabId{FCk_ProceduralAction_EditorToolkit::ViewportTabId});
                 if (NOT _State->EditorTab.IsValid())
                 { return false; }
                 Editor->FocusWindow(_State->Clip.Get());
@@ -451,7 +326,11 @@ namespace ck_test_procedural_action_pie_coexist
             }
             if (_State->Stage == 1)
             {
-                if (NOT ClickButton(_State->EditorTab->GetContent(), TEXT("Solver (restart)")))
+                auto* Editor = _State->Toolkit();
+                if (Editor == nullptr)
+                { BeginFailureTeardown(TEXT("action toolkit closed before the Solver started")); return false; }
+                Editor->Get_Model()->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Solved);
+                if (NOT Editor->RestartSolver())
                 { return false; }
                 _State->AdvanceStage();
                 return false;
@@ -479,7 +358,7 @@ namespace ck_test_procedural_action_pie_coexist
                 _State->Test->TestTrue(TEXT("PIE and private Solver world coexist"),
                     GetSolverWorld() == _State->SolverWorld
                     && GetPieWorld() != _State->SolverWorld);
-                if (NOT RoutePlayDuringPie(TEXT("routed Play enables Solver transport during PIE")))
+                if (NOT PlayDuringPie(TEXT("Play enables Solver transport during PIE")))
                 { return false; }
                 _State->AdvanceStage();
                 return false;
@@ -502,13 +381,13 @@ namespace ck_test_procedural_action_pie_coexist
                 if (NOT _State->IsPieTeardownSettled() || GetSolverWorld() != nullptr)
                 { return false; }
                 _State->PlayRequested = false;
-                auto* Editor = _State->Editors->FindEditorForAsset(_State->Clip.Get(), false);
+                auto* Editor = _State->Toolkit();
                 if (NOT _State->Test->TestTrue(TEXT("PIE stop preserves the authored toolkit"),
                     Editor != nullptr && _State->EditorTab.IsValid())
                     || NOT _State->Test->TestTrue(TEXT("PIE stop displays a truthful Solver restart status"),
-                        HasTextContaining(_State->EditorTab->GetContent(), TEXT("Restart Solver"))))
+                        Editor->Get_StatusText().ToString().Contains(TEXT("Restart Solver"))))
                 { BeginFailureTeardown(TEXT("toolkit or restart status missing after PIE stop")); return false; }
-                if (NOT ClickButton(_State->EditorTab->GetContent(), TEXT("Solver (restart)")))
+                if (NOT Editor->RestartSolver())
                 { return false; }
                 _State->AdvanceStage();
                 return false;
@@ -533,7 +412,7 @@ namespace ck_test_procedural_action_pie_coexist
             {
                 if (GetPieWorld() == nullptr || NOT GetPieWorld()->HasBegunPlay())
                 { return false; }
-                if (NOT RoutePlayDuringPie(TEXT("routed Play resumes Solver during second PIE session")))
+                if (NOT PlayDuringPie(TEXT("Play resumes Solver during second PIE session")))
                 { return false; }
                 _State->AdvanceStage();
                 return false;
@@ -603,9 +482,10 @@ auto
     { return false; }
     if (State->Editors->FindEditorForAsset(State->Clip.Get(), false) != nullptr)
     { AddError(TEXT("PIE coexistence refuses to borrow an already open asset toolkit.")); return false; }
-    auto* Settings = GetMutableDefault<UCk_ProceduralActionEditor_UserSettings>();
-    State->PreviousPreviewPath = Settings->GetPreviewPath(State->Clip->GetPathName());
-    Settings->SetPreviewPath(State->Clip->GetPathName(), PreviewPath);
+    State->PreviousSubject = State->Clip->Get_EditorSubject();
+    auto Subject = FCk_ProceduralAction_EditorSubject{};
+    Subject.Set_Scenario(TSoftObjectPtr<UObject>{FSoftObjectPath{PreviewPath}});
+    State->Clip->Set_EditorSubject(Subject);
     State->PreviewOverrideApplied = true;
     State->PlaySettings.Reset(NewObject<ULevelEditorPlaySettings>(GetTransientPackage()));
     if (NOT TestTrue(TEXT("isolated PIE settings exist"), State->PlaySettings.IsValid()))

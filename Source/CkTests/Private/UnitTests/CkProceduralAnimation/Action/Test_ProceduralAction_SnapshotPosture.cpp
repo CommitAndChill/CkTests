@@ -17,6 +17,7 @@ namespace ck_test_procedural_action_snapshot
 {
     constexpr auto TestFlags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter;
     constexpr auto WaitSeconds = 10.0;
+    constexpr auto BodyPulsePath = TEXT("/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
 
     struct FState
     {
@@ -77,14 +78,21 @@ FCkProceduralActionTransientSnapshotPostureTest::RunTest(
         [this, State](UWorld* InWorld)
         {
             auto OldSubject = BuildBodySubject(InWorld, State->OldRoot);
-            State->OldPlayer = UCk_Utils_ProceduralActionPlayer_UE::Add(
-                OldSubject, FCk_ProceduralActionPlayer_Spec{});
+            auto PlayerSpec = FCk_ProceduralActionPlayer_Spec{};
+            auto Tuning = PlayerSpec.Get_Tuning();
+            auto Playback = Tuning.Get_Playback();
+            Playback.Set_PlayRate(0.1f);
+            Tuning.Set_Playback(Playback);
+            PlayerSpec.Set_Tuning(Tuning);
+            auto Capacity = PlayerSpec.Get_Capacity();
+            Capacity.Set_RecordsPerInstance(512);
+            PlayerSpec.Set_Capacity(Capacity);
+            State->OldPlayer = UCk_Utils_ProceduralActionPlayer_UE::Add(OldSubject, PlayerSpec);
             auto Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->OldRoot);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{}};
-            Control.Set_BodyChannel(ECk_EnableDisable::Enable);
-            Control.Set_InputTimeout(FCk_Time{30.0});
-            State->OldAction = UCk_Utils_ProceduralAction_UE::Create_Manual(
-                Scope, State->OldPlayer, Control);
+            auto* Clip = LoadObject<UCk_ProceduralAction_Data>(nullptr, BodyPulsePath);
+            if (NOT TestNotNull(TEXT("BodyPulse clip loads"), Clip)) { return; }
+            State->OldAction = UCk_Utils_ProceduralAction_UE::Create_FromClip(Scope, State->OldPlayer,
+                FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Clip}});
             State->OldIdentity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->OldAction);
             TestTrue(TEXT("Old execution has a real action"), ck::IsValid(State->OldAction));
         })));
@@ -93,7 +101,7 @@ FCkProceduralActionTransientSnapshotPostureTest::RunTest(
         {
             return ck::IsValid(State->OldAction)
                 && UCk_Utils_ProceduralAction_UE::Get_State(State->OldAction)
-                    == ECk_ProceduralAction_State::Ready;
+                    == ECk_ProceduralAction_State::Playing;
         }), WaitSeconds, TEXT("Old action acquires body claim")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld* InWorld)

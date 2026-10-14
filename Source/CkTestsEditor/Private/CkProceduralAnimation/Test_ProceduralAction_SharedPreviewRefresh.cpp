@@ -3,8 +3,9 @@
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
 #include "CkProceduralAnimation/Action/CkProceduralAction_Data.h"
-#include "CkProceduralAnimationEditor/CkProceduralActionEditor_UserSettings.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionEditorModes.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionPreview_Config.h"
+#include "CkProceduralAnimationEditor/CkProceduralAction_EditorToolkit.h"
 
 #include "Editor.h"
 #include "Engine/Engine.h"
@@ -12,19 +13,16 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Docking/TabManager.h"
 #include "HAL/PlatformTime.h"
-#include "InputCoreTypes.h"
-#include "Layout/WidgetPath.h"
 #include "Subsystems/AssetEditorSubsystem.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Docking/SDockTab.h"
-#include "Widgets/Input/SButton.h"
-#include "Widgets/SWindow.h"
 #include "Widgets/Text/STextBlock.h"
 
 namespace ck_test_procedural_action_shared_preview_refresh
 {
-    const FName TabId{TEXT("CkProceduralAction_Editor")};
+    const FName StatusTag{TEXT("CkActionEditor.Status")};
+    const FName TransportTag{TEXT("CkActionEditor.Transport")};
     const TCHAR* BodyPath = TEXT("/CkFoundation/ProceduralAnimation/Examples/"
         "Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
     const TCHAR* LimbPath = TEXT("/CkFoundation/ProceduralAnimation/Examples/"
@@ -33,77 +31,63 @@ namespace ck_test_procedural_action_shared_preview_refresh
         "Ck_ProceduralAction_BodyPulse_Preview_DA.Ck_ProceduralAction_BodyPulse_Preview_DA");
 
     auto
-        ContainsText(
+        FindTagged(
             const TSharedRef<SWidget>& InWidget,
-            const FString& InFragment,
-            int32 InDepth = 0)
-        -> bool
-    {
-        if (InDepth > 64)
-        { return false; }
-        if (InWidget->GetType() == FName{TEXT("STextBlock")}
-            && StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString().Contains(InFragment))
-        { return true; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (ContainsText(Children->GetChildAt(Index), InFragment, InDepth + 1))
-            { return true; }
-        }
-        return false;
-    }
-
-    auto
-        FindButton(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InLabel,
+            FName InTag,
             int32 InDepth = 0)
         -> TSharedPtr<SWidget>
     {
         if (InDepth > 64)
         { return {}; }
-        if (InWidget->GetType() == FName{TEXT("SButton")}
-            && ContainsText(InWidget, InLabel))
+        if (InWidget->GetTag() == InTag)
         { return InWidget; }
         auto* Children = InWidget->GetChildren();
         for (auto Index = 0; Index < Children->Num(); ++Index)
         {
-            if (const auto Button = FindButton(Children->GetChildAt(Index), InLabel, InDepth + 1))
-            { return Button; }
+            if (const auto Found = FindTagged(Children->GetChildAt(Index), InTag, InDepth + 1))
+            { return Found; }
         }
         return {};
     }
 
     auto
-        ClickButton(
-            const TSharedRef<SWidget>& InContent,
-            const FString& InLabel)
-        -> bool
+        FindToolkit(
+            UAssetEditorSubsystem* InEditors,
+            UCk_ProceduralAction_Data* InClip)
+        -> FCk_ProceduralAction_EditorToolkit*
     {
-        const auto Button = FindButton(InContent, InLabel);
-        if (NOT Button.IsValid() || NOT Button->IsEnabled())
-        { return false; }
-        auto& Slate = FSlateApplication::Get();
-        auto Path = FWidgetPath{};
-        if (NOT Slate.FindPathToWidget(Button.ToSharedRef(), Path) || NOT Path.IsValid())
-        { return false; }
-        const auto Window = Slate.FindWidgetWindow(Button.ToSharedRef());
-        if (NOT Window.IsValid() || NOT Window->GetNativeWindow().IsValid())
-        { return false; }
-        const auto Position = FVector2D{Path.Widgets.Last().Geometry.GetAbsolutePositionAtCoordinates(
-            FVector2D{0.5, 0.5})};
-        const auto Released = TSet<FKey>{};
-        const auto Pressed = TSet<FKey>{EKeys::LeftMouseButton};
-        Slate.SetCursorPos(Position);
-        Slate.ProcessMouseMoveEvent(FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Released, EKeys::Invalid, 0.0f, FModifierKeysState{}});
-        const auto Down = FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Pressed, EKeys::LeftMouseButton, 0.0f, FModifierKeysState{}};
-        const auto Up = FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Released, EKeys::LeftMouseButton, 0.0f, FModifierKeysState{}};
-        const auto DownHandled = Slate.ProcessMouseButtonDownEvent(Window->GetNativeWindow(), Down);
-        const auto UpHandled = Slate.ProcessMouseButtonUpEvent(Up);
-        return DownHandled && UpHandled;
+        auto* Instance = InEditors != nullptr && InClip != nullptr ? InEditors->FindEditorForAsset(InClip, false) : nullptr;
+        if (Instance == nullptr || Instance->GetEditorName() != FCk_ProceduralAction_EditorToolkit::ToolkitName)
+        { return nullptr; }
+        return static_cast<FCk_ProceduralAction_EditorToolkit*>(Instance);
+    }
+
+    auto
+        FindTab(
+            FCk_ProceduralAction_EditorToolkit& InToolkit,
+            FName InTabId)
+        -> TSharedPtr<SDockTab>
+    {
+        const auto TabManager = InToolkit.GetAssociatedTabManager();
+        return TabManager.IsValid() ? TabManager->FindExistingLiveTab(FTabId{InTabId}) : TSharedPtr<SDockTab>{};
+    }
+
+    auto
+        StatusOf(
+            const FCk_ProceduralAction_EditorToolkit* InToolkit)
+        -> FString
+    { return InToolkit != nullptr ? InToolkit->Get_StatusText().ToString() : FString{}; }
+
+    // The viewport HUD line, which shows the same status the toolkit reports.
+    auto
+        HudStatusOf(
+            FCk_ProceduralAction_EditorToolkit& InToolkit)
+        -> FString
+    {
+        const auto Tab = FindTab(InToolkit, FCk_ProceduralAction_EditorToolkit::ViewportTabId);
+        const auto Hud = Tab.IsValid() ? FindTagged(Tab->GetContent(), StatusTag) : TSharedPtr<SWidget>{};
+        return Hud.IsValid() && Hud->GetType() == FName{TEXT("STextBlock")}
+            ? StaticCastSharedPtr<STextBlock>(Hud)->GetText().ToString() : FString{};
     }
 
     struct FState
@@ -115,10 +99,8 @@ namespace ck_test_procedural_action_shared_preview_refresh
         TStrongObjectPtr<UCk_ProceduralActionPreview_Config> Preview;
         TArray<FCk_ProceduralActionPreview_Obstacle> OriginalObstacles;
         TArray<FCk_ProceduralAction_Phase> OriginalBodyPhases;
-        FString OriginalBodyPath;
-        FString OriginalLimbPath;
-        TSharedPtr<SDockTab> BodyTab;
-        TSharedPtr<SDockTab> LimbTab;
+        FCk_ProceduralAction_EditorSubject OriginalBodySubject;
+        FCk_ProceduralAction_EditorSubject OriginalLimbSubject;
         double DeadlineSeconds = 0.0;
         uint64 BodyActivationFrame = 0;
         int32 Stage = 0;
@@ -154,19 +136,18 @@ namespace ck_test_procedural_action_shared_preview_refresh
             }
             if (OwnsEditors && Editors.IsValid())
             {
-                if (Body.IsValid()) { Editors->CloseAllEditorsForAsset(Body.Get()); }
-                if (Limb.IsValid()) { Editors->CloseAllEditorsForAsset(Limb.Get()); }
+                if (Body.IsValid())
+                { Editors->CloseAllEditorsForAsset(Body.Get()); }
+                if (Limb.IsValid())
+                { Editors->CloseAllEditorsForAsset(Limb.Get()); }
                 OwnsEditors = false;
             }
             if (SettingsChanged && Body.IsValid() && Limb.IsValid())
             {
-                auto* Settings = GetMutableDefault<UCk_ProceduralActionEditor_UserSettings>();
-                Settings->SetPreviewPath(Body->GetPathName(), OriginalBodyPath);
-                Settings->SetPreviewPath(Limb->GetPathName(), OriginalLimbPath);
+                Body->Set_EditorSubject(OriginalBodySubject);
+                Limb->Set_EditorSubject(OriginalLimbSubject);
                 SettingsChanged = false;
             }
-            BodyTab.Reset();
-            LimbTab.Reset();
         }
 
         ~FState() { Cleanup(); }
@@ -186,21 +167,17 @@ namespace ck_test_procedural_action_shared_preview_refresh
                 _State->Cleanup();
                 return true;
             }
+            auto* Body = FindToolkit(_State->Editors.Get(), _State->Body.Get());
+            auto* Limb = FindToolkit(_State->Editors.Get(), _State->Limb.Get());
             if (_State->Stage == 0)
             {
-                auto* BodyEditor = _State->Editors->FindEditorForAsset(_State->Body.Get(), false);
-                auto* LimbEditor = _State->Editors->FindEditorForAsset(_State->Limb.Get(), false);
-                if (BodyEditor == nullptr || LimbEditor == nullptr
-                    || BodyEditor->GetAssociatedTabManager() == nullptr
-                    || LimbEditor->GetAssociatedTabManager() == nullptr)
-                { return false; }
-                _State->BodyTab = BodyEditor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{TabId});
-                _State->LimbTab = LimbEditor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{TabId});
-                if (NOT _State->BodyTab.IsValid() || NOT _State->LimbTab.IsValid())
+                if (Body == nullptr || Limb == nullptr
+                    || NOT FindTab(*Body, FCk_ProceduralAction_EditorToolkit::ViewportTabId).IsValid()
+                    || NOT FindTab(*Limb, FCk_ProceduralAction_EditorToolkit::ViewportTabId).IsValid())
                 { return false; }
                 _State->Test->TestFalse(TEXT("shared preview begins with valid obstacle settings"),
-                    ContainsText(_State->BodyTab->GetContent(), TEXT("obstacle 0"))
-                    || ContainsText(_State->LimbTab->GetContent(), TEXT("obstacle 0")));
+                    StatusOf(Body).Contains(TEXT("positive half extents"))
+                    || StatusOf(Limb).Contains(TEXT("positive half extents")));
                 auto Invalid = _State->OriginalObstacles;
                 auto Obstacle = FCk_ProceduralActionPreview_Obstacle{};
                 Obstacle.Set_HalfExtents(FVector{0.0, 5.0, 5.0});
@@ -211,11 +188,19 @@ namespace ck_test_procedural_action_shared_preview_refresh
                 ++_State->Stage;
                 return false;
             }
+            if (Body == nullptr || Limb == nullptr)
+            {
+                _State->Test->AddError(TEXT("a toolkit closed during the shared preview refresh"));
+                _State->Cleanup();
+                return true;
+            }
             if (_State->Stage == 1)
             {
-                if (NOT ContainsText(_State->BodyTab->GetContent(), TEXT("positive half extents"))
-                    || NOT ContainsText(_State->LimbTab->GetContent(), TEXT("positive half extents")))
+                if (NOT StatusOf(Body).Contains(TEXT("positive half extents"))
+                    || NOT StatusOf(Limb).Contains(TEXT("positive half extents")))
                 { return false; }
+                _State->Test->TestTrue(TEXT("the viewport HUD shows the invalid preview status"),
+                    HudStatusOf(*Body).Contains(TEXT("positive half extents")));
                 _State->Preview->Set_StaticObstacles(_State->OriginalObstacles);
                 _State->NotifyChanged();
                 ++_State->Stage;
@@ -223,15 +208,13 @@ namespace ck_test_procedural_action_shared_preview_refresh
             }
             if (_State->Stage == 2)
             {
-                if (ContainsText(_State->BodyTab->GetContent(), TEXT("positive half extents")))
+                if (StatusOf(Body).Contains(TEXT("positive half extents")))
                 { return false; }
-                auto* BodyEditor = _State->Editors->FindEditorForAsset(_State->Body.Get(), false);
-                if (NOT _State->Test->TestNotNull(TEXT("Body editor remains mounted"), BodyEditor))
-                { _State->Cleanup(); return true; }
-                BodyEditor->FocusWindow(_State->Body.Get());
-                if (const auto OwnerTab = BodyEditor->GetAssociatedTabManager()->GetOwnerTab())
+                Body->FocusWindow(_State->Body.Get());
+                if (const auto OwnerTab = Body->GetAssociatedTabManager()->GetOwnerTab())
                 { OwnerTab->ActivateInParent(ETabActivationCause::SetDirectly); }
-                _State->BodyTab->ActivateInParent(ETabActivationCause::SetDirectly);
+                if (const auto ViewportTab = FindTab(*Body, FCk_ProceduralAction_EditorToolkit::ViewportTabId))
+                { ViewportTab->ActivateInParent(ETabActivationCause::SetDirectly); }
                 _State->BodyActivationFrame = GFrameCounter;
                 _State->Stage = 21;
                 return false;
@@ -240,24 +223,22 @@ namespace ck_test_procedural_action_shared_preview_refresh
             {
                 if (GFrameCounter <= _State->BodyActivationFrame)
                 { return false; }
-                const auto Button = FindButton(_State->BodyTab->GetContent(), TEXT("Solver (restart)"));
-                if (NOT _State->Test->TestTrue(TEXT("Solver transport exists"), Button.IsValid())
-                    || NOT _State->Test->TestTrue(TEXT("routed click starts Body Solver"),
-                        ClickButton(_State->BodyTab->GetContent(), TEXT("Solver (restart)"))))
+                const auto TimelineTab = FindTab(*Body, FCk_ProceduralAction_EditorToolkit::TimelineTabId);
+                if (NOT _State->Test->TestTrue(TEXT("Solver transport exists"),
+                        TimelineTab.IsValid() && FindTagged(TimelineTab->GetContent(), TransportTag).IsValid())
+                    || NOT _State->Test->TestTrue(TEXT("RestartSolver starts the Body Solver"), Body->RestartSolver()))
                 { _State->Cleanup(); return true; }
                 _State->Stage = 3;
                 return false;
             }
             if (_State->Stage == 3)
             {
-                if (NOT ContainsText(_State->BodyTab->GetContent(), TEXT("SOLVER:")))
+                if (NOT StatusOf(Body).Contains(TEXT("SOLVER:")))
                 { return false; }
-                for (const auto& Context : GEngine->GetWorldContexts())
-                {
-                    if (Context.WorldType == EWorldType::GamePreview && Context.World() != nullptr
-                        && Context.World()->GetName().StartsWith(TEXT("CkProceduralActionSolverWorld")))
-                    { _State->SolverWorld = Context.World(); break; }
-                }
+                // Each open tab in Solved runs its own Solver world; take the Body tab's.
+                const auto* BodyModes = Body->Get_Modes();
+                _State->SolverWorld = BodyModes != nullptr && BodyModes->GetSolver() != nullptr
+                    ? BodyModes->GetSolver()->GetWorld() : nullptr;
                 if (NOT _State->Test->TestTrue(TEXT("Solver owns a private production world"),
                     _State->SolverWorld != nullptr))
                 { _State->Cleanup(); return true; }
@@ -272,11 +253,16 @@ namespace ck_test_procedural_action_shared_preview_refresh
                 ++_State->Stage;
                 return false;
             }
-            if (NOT ContainsText(_State->BodyTab->GetContent(), TEXT("Restart Solver")))
-            { return false; }
+            // A clip edit restarts the Solver on the new revision: the old private world goes and a new one solves.
             auto WorldContextStillPresent = false;
             for (const auto& Context : GEngine->GetWorldContexts())
             { WorldContextStillPresent |= Context.World() == _State->SolverWorld; }
+            const auto* Modes = Body->Get_Modes();
+            if (WorldContextStillPresent || Modes == nullptr || Modes->GetSolver() == nullptr
+                || NOT StatusOf(Body).Contains(TEXT("SOLVER:")))
+            { return false; }
+            _State->Test->TestTrue(TEXT("the viewport HUD shows the restarted Solver"),
+                HudStatusOf(*Body).Contains(TEXT("SOLVER:")));
             _State->Test->TestFalse(TEXT("clip edit releases the old private world context"),
                 WorldContextStillPresent);
             _State->Cleanup();
@@ -319,11 +305,12 @@ auto
     State->OriginalDirty = State->Preview->GetOutermost()->IsDirty();
     State->OriginalBodyPhases = State->Body->Get_Phases();
     State->OriginalBodyDirty = State->Body->GetOutermost()->IsDirty();
-    auto* Settings = GetMutableDefault<UCk_ProceduralActionEditor_UserSettings>();
-    State->OriginalBodyPath = Settings->GetPreviewPath(State->Body->GetPathName());
-    State->OriginalLimbPath = Settings->GetPreviewPath(State->Limb->GetPathName());
-    Settings->SetPreviewPath(State->Body->GetPathName(), PreviewPath);
-    Settings->SetPreviewPath(State->Limb->GetPathName(), PreviewPath);
+    State->OriginalBodySubject = State->Body->Get_EditorSubject();
+    State->OriginalLimbSubject = State->Limb->Get_EditorSubject();
+    auto Shared = FCk_ProceduralAction_EditorSubject{};
+    Shared.Set_Scenario(TSoftObjectPtr<UObject>{State->Preview.Get()});
+    State->Body->Set_EditorSubject(Shared);
+    State->Limb->Set_EditorSubject(Shared);
     State->SettingsChanged = true;
     State->OwnsEditors = true;
     if (NOT TestTrue(TEXT("two independent toolkits open with one referenced preview"),

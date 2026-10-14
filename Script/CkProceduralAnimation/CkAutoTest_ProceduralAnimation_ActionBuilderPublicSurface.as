@@ -1,6 +1,6 @@
 // Language=angelscript
 
-// A clip assembled in script from a Reach recipe and one extra pose plays through the production loaded-clip path.
+// A clip assembled in script from a Reach recipe and one extra pose plays through Create_FromClip.
 class UCk_AutoTest_ProceduralAnimation_ActionBuilderPublicSurface : UCk_AutoTest_Base
 {
     default _TimeoutSeconds = 15.0f;
@@ -90,9 +90,9 @@ class UCk_AutoTest_ProceduralAnimation_ActionBuilderPublicSurface : UCk_AutoTest
         _Player = utils_procedural_action_player::Add(_Subject, FCk_ProceduralActionPlayer_Spec());
         auto Bindings = TArray<FCk_ProceduralAction_SlotBinding>();
         Bindings.Add(FCk_ProceduralAction_SlotBinding(n"Reach", n"Arm"));
-        auto Loaded = FCk_ProceduralAction_LoadedPlaySpec(_Clip);
-        Loaded.Set_SlotBindings(Bindings);
-        _Action = utils_procedural_action::Create_FromLoadedClip(Owner, _Player, Loaded);
+        auto Spec = FCk_ProceduralAction_PlaySpec(TSoftObjectPtr<UCk_ProceduralAction_Data>(_Clip));
+        Spec.Set_SlotBindings(Bindings);
+        _Action = utils_procedural_action::Create_FromClip(Owner, _Player, Spec);
         Assert_True(ck::IsValid(_Action), "The built clip reserves an action");
         if (ck::IsValid(_Action)) { _Identity = _Action.Get_Identity(); }
     }

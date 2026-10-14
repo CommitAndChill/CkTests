@@ -16,6 +16,8 @@
 #include "CkProceduralAnimation/LimbControl/CkProceduralLimbControl_Fragment_Data.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 
+#include "CkTest_ProceduralActionClipFixture.h"
+
 #include "Engine/World.h"
 #include "Misc/AutomationTest.h"
 
@@ -27,6 +29,21 @@ namespace ck_test_procedural_action_scaled_parts
     const auto LegId = FName{TEXT("Leg0")};
     const auto SegmentScale = FVector{1.5, 0.75, 2.0};
     const auto TerminalScale = FVector{0.8, 1.25, 1.1};
+    // Slow enough that the parts barely move between an accepted receipt and the frame that reads it.
+    const auto ClipDuration = FCk_Time{10.0};
+    // Nothing consumes the streams, so each needs room for every frame the clip plays.
+    constexpr auto HeldRecords = 1024;
+
+    auto
+        MakePlayerSpec()
+        -> FCk_ProceduralActionPlayer_Spec
+    {
+        auto Spec = FCk_ProceduralActionPlayer_Spec{};
+        auto Capacity = Spec.Get_Capacity();
+        Capacity.Set_RecordsPerInstance(HeldRecords);
+        Spec.Set_Capacity(Capacity);
+        return Spec;
+    }
 
     struct FState
     {
@@ -39,6 +56,7 @@ namespace ck_test_procedural_action_scaled_parts
         FCk_Handle_ProceduralActionPlayer Player;
         FCk_Handle Scope;
         FCk_Handle_ProceduralAction Action;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         FCk_Handle Floor;
         FCk_Handle_JoltBody FloorBody;
     };
@@ -91,7 +109,7 @@ namespace ck_test_procedural_action_scaled_parts
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkProceduralActionScaledDedicatedPartsTest,
-    "Ck.ProceduralAnimation.Action.Manual.ScaledDedicatedPartsPreserveVisuals",
+    "Ck.ProceduralAnimation.Action.Clip.ScaledDedicatedPartsPreserveVisuals",
     ck_test_procedural_action_scaled_parts::TestFlags)
 
 auto
@@ -137,32 +155,13 @@ FCkProceduralActionScaledDedicatedPartsTest::RunTest(
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
-            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(
-                State->Subject, FCk_ProceduralActionPlayer_Spec{});
+            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, MakePlayerSpec());
             TestTrue(TEXT("Scaled dedicated player attaches"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Body);
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope,
-                State->Player, FCk_ProceduralAction_ControlSpec{TArray<FName>{LimbId}});
+            State->Clip = ck_test_procedural_action_clip_fixture::MakeNodClip(TArray<FName>{LimbId}, ClipDuration);
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
+                ck_test_procedural_action_clip_fixture::MakePlay(State->Clip.Get(), TArray<FName>{LimbId}));
             TestTrue(TEXT("Scaled dedicated action reserves"), ck::IsValid(State->Action));
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            return ck::IsValid(State->Action)
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action)
-                    == ECk_ProceduralAction_State::Ready;
-        }), WaitSeconds, TEXT("Scaled dedicated action captures settled entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [State](UWorld*)
-        {
-            auto Target = FCk_ProceduralAction_LimbTarget{LimbId,
-                FTransform{FQuat::Identity,
-                    FVector{FMath::Sqrt(100.0 * 100.0 - 0.5 * 0.5), 0.5, 0.0}}};
-            Target.Set_Space(ECk_ProceduralAction_TrackSpace::RootAtStart);
-            auto Batch = FCk_ProceduralAction_PoseBatch{};
-            Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-            UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(State->Action,
-                FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -181,7 +180,7 @@ FCkProceduralActionScaledDedicatedPartsTest::RunTest(
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkProceduralActionScaledLegacyPartsTest,
-    "Ck.ProceduralAnimation.Action.Manual.ScaledLegacyPartsPreserveVisuals",
+    "Ck.ProceduralAnimation.Action.Clip.ScaledLegacyPartsPreserveVisuals",
     ck_test_procedural_action_scaled_parts::TestFlags)
 
 auto
@@ -269,45 +268,15 @@ FCkProceduralActionScaledLegacyPartsTest::RunTest(
                 ECk_ProceduralLimbControl_SupportMode::CountOnly, 3};
             Support.Set_SupportHoldTimeout(FCk_Time{0.5});
             Locomotion.Set_Support(Support);
-            auto PlayerSpec = FCk_ProceduralActionPlayer_Spec{};
+            auto PlayerSpec = MakePlayerSpec();
             PlayerSpec.Set_Locomotion(Locomotion);
             State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, PlayerSpec);
             TestTrue(TEXT("Scaled legacy player attaches"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope,
-                State->Player, Control);
+            State->Clip = ck_test_procedural_action_clip_fixture::MakeNodClip(TArray<FName>{LegId}, ClipDuration);
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
+                ck_test_procedural_action_clip_fixture::MakePlay(State->Clip.Get(), TArray<FName>{LegId}));
             TestTrue(TEXT("Scaled legacy action reserves"), ck::IsValid(State->Action));
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            return ck::IsValid(State->Action)
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action)
-                    == ECk_ProceduralAction_State::Ready;
-        }), WaitSeconds, TEXT("Scaled legacy action borrows settled walking limb")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State](UWorld*)
-        {
-            const auto Leg = UCk_Utils_ProceduralLeg_UE::TryGet_Leg(State->Root, LegId);
-            const auto Foot = UCk_Utils_ProceduralLeg_UE::Get_Foot(Leg);
-            const auto RootWorld = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(State->Body);
-            const auto TargetWorld = Foot.Get_Position() + FVector{0.25, 0.0, 0.0};
-            auto Target = FCk_ProceduralAction_LimbTarget{LegId,
-                FTransform{RootWorld.InverseTransformRotation(Foot.Get_Rotation()),
-                    RootWorld.InverseTransformPosition(TargetWorld)}};
-            Target.Set_Space(ECk_ProceduralAction_TrackSpace::RootAtStart);
-            auto Layout = FCk_ProceduralLimb_Layout{};
-            const auto Limb = UCk_Utils_ProceduralArticulation_UE::Get_Limb(State->Subject, LegId);
-            if (NOT TestTrue(TEXT("Scaled legacy target uses its existing authored bend plane"),
-                UCk_Utils_ProceduralLimb_UE::Try_GetLayout(Limb, Layout)))
-            { return; }
-            Target.Set_BendDirection(Layout.Get_BendLocal().GetSafeNormal());
-            auto Batch = FCk_ProceduralAction_PoseBatch{};
-            Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-            UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(State->Action,
-                FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]

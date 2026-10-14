@@ -105,9 +105,9 @@ auto
         NewObject<UCk_ProceduralActionPreview_Config>(GetTransientPackage())};
     auto Slot = FCk_ProceduralAction_Slot{SlotId};
     Slot.Set_InitialSource(ECk_ProceduralAction_InitialSource::AuthoredRest);
+    Slot.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
     Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
     auto Track = FCk_ProceduralAction_LimbTrack{SlotId};
-    Track.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
     auto Phase = FCk_ProceduralAction_Phase{FName{TEXT("Hold")}, FCk_Time{0.5}};
     Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
     Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
@@ -136,23 +136,12 @@ auto
         Session.GetPose().Get_Limbs()[0].Get_HasBend()))
     { return false; }
 
-    Track.Set_Space(ECk_ProceduralAction_TrackSpace::BodyLocal);
-    Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
-    Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
+    Slot.Set_Space(ECk_ProceduralAction_TrackSpace::BodyLocal);
+    Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
     Session.Refresh();
     if (NOT TestTrue(TEXT("body-local source resolves topology rest relative to root"),
         Session.CanPlay() && Session.GetPose().Get_Limbs().Num() == 1
             && Session.GetPose().Get_Limbs()[0].Get_Position().Equals(FVector{20.0, 0.0, 0.0})))
-    { return false; }
-
-    Slot.Set_HasExplicitRestTarget(true);
-    Slot.Set_ExplicitRestTarget(FTransform::Identity);
-    Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
-    Session.Refresh();
-    if (NOT TestTrue(TEXT("explicit rest remains playable without a captured preview bend"),
-        Session.CanPlay() && Session.GetPose().Get_Limbs().Num() == 1)
-        || NOT TestFalse(TEXT("explicit rest ignores captured preview bend seed"),
-            Session.GetPose().Get_Limbs()[0].Get_HasBend()))
     { return false; }
 
     Track.Set_BendKeys(TArray<FCk_ProceduralAction_VectorKey>{
@@ -169,8 +158,6 @@ auto
     Track.Set_BendKeys(TArray<FCk_ProceduralAction_VectorKey>{});
     Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
     Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
-    Slot.Set_HasExplicitRestTarget(false);
-    Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
 
     Preview->Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{});
     Session.Refresh();
@@ -182,7 +169,11 @@ auto
     Slot.Set_InitialSource(ECk_ProceduralAction_InitialSource::CapturedAcceptedPose);
     Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
     Session.Refresh();
-    return TestFalse(TEXT("captured source still requires an explicit preview seed"), Session.CanPlay());
+    if (NOT TestTrue(TEXT("a bound captured slot previews from its limb's rest when no start is authored"), Session.CanPlay()))
+    { return false; }
+    Preview->Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{});
+    Session.Refresh();
+    return TestFalse(TEXT("an unbound captured slot has no start to preview from"), Session.CanPlay());
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_AuthoringSession_AppearanceScale,

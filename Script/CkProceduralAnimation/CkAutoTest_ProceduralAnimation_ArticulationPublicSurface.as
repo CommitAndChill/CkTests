@@ -91,11 +91,10 @@ class UCk_AutoTest_ProceduralAnimation_ArticulationPublicSurface : UCk_AutoTest_
             && _Articulation.Get_UnplantedLimbIds().Num() == 0,
             "Namespace and mixin report no unplanted limb on a zero-limb body");
 
-        _Player = utils_procedural_action_player::Add(_Articulation,
-            utils_procedural_action_player::Make_DedicatedPlayerSpec(FCk_ProceduralAction_Tuning()));
+        _Player = utils_procedural_action_player::Add(_Articulation, FCk_ProceduralActionPlayer_Spec());
         if (ck::IsValid(_Player) == false)
         {
-            FinishFailure("Dedicated preset must compose a player on the zero-limb body");
+            FinishFailure("A default player spec must compose a player on the zero-limb body");
             return;
         }
         _Articulation.Request_RecoverUnplantedLimbs(FCk_Request_ProceduralArticulation_RecoverUnplantedLimbs(),

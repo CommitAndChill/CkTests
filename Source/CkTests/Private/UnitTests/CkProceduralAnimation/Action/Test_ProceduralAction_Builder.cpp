@@ -306,11 +306,11 @@ FCkProceduralActionBuilderMultiLimbTest::RunTest(
     UCk_Utils_ProceduralActionBuilder_UE::Add_Phase(Draft, FCk_ProceduralAction_Phase{FName{TEXT("Reach")}, FCk_Time{0.4}});
     UCk_Utils_ProceduralActionBuilder_UE::Add_Phase(Draft, FCk_ProceduralAction_Phase{FName{TEXT("Return")}, FCk_Time{0.4}});
     TestEqual(TEXT("Right slot frame is root-relative"), UCk_Utils_ProceduralActionBuilder_UE::Set_SlotFrame(
-        Draft, FName{TEXT("Right")}, ECk_ProceduralAction_TrackSpace::RootAtStart, NAME_None).Get_Status(), Valid);
-    TestEqual(TEXT("Anchor space without anchor rejects"), UCk_Utils_ProceduralActionBuilder_UE::Set_SlotFrame(
-        Draft, FName{TEXT("Left")}, ECk_ProceduralAction_TrackSpace::AnchorAtStart, NAME_None).Get_Status(), Invalid);
+        Draft, FName{TEXT("Right")}, ECk_ProceduralAction_TrackSpace::RootAtStart).Get_Status(), Valid);
+    TestEqual(TEXT("Unsupported space rejects"), UCk_Utils_ProceduralActionBuilder_UE::Set_SlotFrame(
+        Draft, FName{TEXT("Left")}, static_cast<ECk_ProceduralAction_TrackSpace>(0xFF)).Get_Status(), Invalid);
     TestEqual(TEXT("Unknown slot frame rejects"), UCk_Utils_ProceduralActionBuilder_UE::Set_SlotFrame(
-        Draft, FName{TEXT("Tail")}, ECk_ProceduralAction_TrackSpace::BodyLocal, NAME_None).Get_Status(), Invalid);
+        Draft, FName{TEXT("Tail")}, ECk_ProceduralAction_TrackSpace::BodyLocal).Get_Status(), Invalid);
 
     const auto Turned = FQuat{FVector::UpVector, UE_HALF_PI};
     auto MakeLimbs = [&](double InX, bool InTurned)
@@ -674,11 +674,15 @@ FCkProceduralActionBuilderWriteIntoTest::RunTest(
     TestEqual(TEXT("Write_Into rejects a null destination"),
         UCk_Utils_ProceduralActionBuilder_UE::Write_Into(Unkeyed, nullptr).Get_Status(), Invalid);
     auto* WrongVersion = NewObject<UCk_ProceduralAction_Data>(GetTransientPackage());
-    WrongVersion->Set_CompatibilityVersion(2);
+    WrongVersion->Set_CompatibilityVersion(1);
     const auto VersionReport = UCk_Utils_ProceduralActionBuilder_UE::Write_Into(Unkeyed, WrongVersion);
     TestEqual(TEXT("Write_Into rejects an unknown compatibility version"), VersionReport.Get_Status(), Invalid);
     TestTrue(TEXT("The version rejection names the field"),
         HasDiagnostic(VersionReport, TEXT("Version"), TEXT("Destination.CompatibilityVersion")));
+    TestTrue(TEXT("The version rejection expects the current version"), VersionReport.Get_Diagnostics().ContainsByPredicate(
+        [](const FCk_ProceduralAction_Diagnostic& InDiagnostic)
+        { return InDiagnostic.Get_Code() == FName{TEXT("Version")} && InDiagnostic.Get_Expected() == TEXT("2")
+            && InDiagnostic.Get_Actual() == TEXT("1"); }));
     TestTrue(TEXT("The rejected destination keeps no phases"), WrongVersion->Get_Phases().IsEmpty());
     return true;
 }

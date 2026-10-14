@@ -50,7 +50,7 @@ namespace ck_test_procedural_rig_dedicated_pole
     {
         const auto Target = ck::FProceduralRig_WorldTarget{LimbId,
             FTransform{FQuat::Identity, RootPose.GetLocation() + FVector{InReach, 0.0, 0.0}},
-            TOptional<FVector>{}};
+            TOptional<FVector>{}, TOptional<FQuat>{}};
         const auto Targets = TArray<ck::FProceduralRig_WorldTarget>{Target};
         auto Chains = TArray<ck::FProceduralRig_SelectedChain>{};
         if (NOT ck::FProcessor_ProceduralRig_Update::EvaluateDedicatedCandidate(

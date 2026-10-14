@@ -176,8 +176,8 @@ FCkProceduralActionZeroDeltaWorldTest::RunTest(
             FVector{1.0, 0.0, 0.0}, FQuat::Identity}});
     Clip->Set_Phases({Phase});
     auto Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Root);
-    State->Action = UCk_Utils_ProceduralAction_UE::Create_FromLoadedClip(
-        Scope, Player, FCk_ProceduralAction_LoadedPlaySpec{Clip.Get()});
+    State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(
+        Scope, Player, FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Clip.Get()}});
     if (NOT TestTrue(TEXT("Loaded action reserves against private Game world"),
         ck::IsValid(State->Action)))
     { return false; }

@@ -1,7 +1,12 @@
 #include "Misc/AutomationTest.h"
 
 #include "CkProceduralAnimation/Action/CkProceduralAction_Data.h"
-#include "CkProceduralAnimationEditor/CkProceduralActionEditor_UserSettings.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionAuthoringSession.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionEditorModel.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionEditorModes.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionPreview_Config.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionSelectionProxy.h"
+#include "CkProceduralAnimationEditor/CkProceduralAction_EditorToolkit.h"
 
 #include "Editor.h"
 #include "Editor/Transactor.h"
@@ -20,8 +25,6 @@
 #include "UObject/GarbageCollection.h"
 #include "UObject/StrongObjectPtr.h"
 #include "Widgets/Docking/SDockTab.h"
-#include "Widgets/Input/SSlider.h"
-#include "Widgets/Layout/SScrollBox.h"
 #include "SEditorViewport.h"
 #include "UnrealWidget.h"
 #include "Widgets/SWindow.h"
@@ -31,53 +34,17 @@ namespace ck_test_procedural_action_mounted_toolkit
 {
     constexpr auto TestFlags = EAutomationTestFlags::EditorContext
         | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI;
-    const FName EditorTabId{TEXT("CkProceduralAction_Editor")};
+    constexpr auto MaxSettleFrames = 60;
     const TCHAR* BodyPulsePath = TEXT("/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
     const TCHAR* LimbNodPath = TEXT("/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_LimbNod_DA.Ck_ProceduralAction_LimbNod_DA");
     const TCHAR* BodyPreviewPath = TEXT("/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_BodyPulse_Preview_DA.Ck_ProceduralAction_BodyPulse_Preview_DA");
     const TCHAR* LimbPreviewPath = TEXT("/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_LimbNod_Preview_DA.Ck_ProceduralAction_LimbNod_Preview_DA");
-
-    auto
-        HasText(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InText,
-            int32 InDepth = 0)
-        -> bool
-    {
-        if (InDepth > 64)
-        { return false; }
-        if (InWidget->GetType() == FName{TEXT("STextBlock")}
-            && StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString().Contains(InText))
-        { return true; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (HasText(Children->GetChildAt(Index), InText, InDepth + 1))
-            { return true; }
-        }
-        return false;
-    }
-
-    auto
-        FindButton(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InText,
-            int32 InDepth = 0)
-        -> TSharedPtr<SWidget>
-    {
-        if (InDepth > 64)
-        { return {}; }
-        if (InWidget->GetType() == FName{TEXT("SButton")}
-            && HasText(InWidget, InText))
-        { return InWidget; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (const auto Button = FindButton(Children->GetChildAt(Index), InText, InDepth + 1))
-            { return Button; }
-        }
-        return {};
-    }
+    const FName ViewportTag{TEXT("CkActionEditor.Viewport")};
+    const FName StatusTag{TEXT("CkActionEditor.Status")};
+    const FName DetailsTag{TEXT("CkActionEditor.Details")};
+    const FName TimelineTag{TEXT("CkActionEditor.Timeline")};
+    const FName TransportTag{TEXT("CkActionEditor.Transport")};
+    const FName TransportTimeTag{TEXT("CkActionEditor.TransportTime")};
 
     auto
         FindTaggedWidget(
@@ -100,154 +67,80 @@ namespace ck_test_procedural_action_mounted_toolkit
     }
 
     auto
-        FindTextWidget(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InText,
-            int32 InDepth = 0)
+        FindToolkit(
+            UAssetEditorSubsystem* InEditors,
+            UCk_ProceduralAction_Data* InClip)
+        -> FCk_ProceduralAction_EditorToolkit*
+    {
+        auto* Instance = InEditors != nullptr && InClip != nullptr ? InEditors->FindEditorForAsset(InClip, false) : nullptr;
+        if (Instance == nullptr || Instance->GetEditorName() != FCk_ProceduralAction_EditorToolkit::ToolkitName)
+        { return nullptr; }
+        return static_cast<FCk_ProceduralAction_EditorToolkit*>(Instance);
+    }
+
+    auto
+        FindTab(
+            FCk_ProceduralAction_EditorToolkit& InToolkit,
+            FName InTabId)
+        -> TSharedPtr<SDockTab>
+    {
+        const auto TabManager = InToolkit.GetAssociatedTabManager();
+        return TabManager.IsValid() ? TabManager->FindExistingLiveTab(FTabId{InTabId}) : TSharedPtr<SDockTab>{};
+    }
+
+    auto
+        FindInToolkit(
+            FCk_ProceduralAction_EditorToolkit& InToolkit,
+            FName InTag)
         -> TSharedPtr<SWidget>
     {
-        if (InDepth > 64)
-        { return {}; }
-        if (InWidget->GetType() == FName{TEXT("STextBlock")}
-            && StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString() == InText)
-        { return InWidget; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
+        for (const auto TabId : {FCk_ProceduralAction_EditorToolkit::ViewportTabId, FCk_ProceduralAction_EditorToolkit::ChannelsTabId,
+            FCk_ProceduralAction_EditorToolkit::DetailsTabId, FCk_ProceduralAction_EditorToolkit::TimelineTabId,
+            FCk_ProceduralAction_EditorToolkit::CurvesTabId})
         {
-            if (const auto TextWidget = FindTextWidget(Children->GetChildAt(Index), InText, InDepth + 1))
-            { return TextWidget; }
+            const auto Tab = FindTab(InToolkit, TabId);
+            if (NOT Tab.IsValid())
+            { continue; }
+            if (const auto Found = FindTaggedWidget(Tab->GetContent(), InTag))
+            { return Found; }
         }
         return {};
     }
 
     auto
-        ContainsWidget(
-            const TSharedRef<SWidget>& InRoot,
-            const TSharedRef<SWidget>& InTarget,
-            int32 InDepth = 0)
-        -> bool
+        TextOfTagged(
+            FCk_ProceduralAction_EditorToolkit& InToolkit,
+            FName InTag)
+        -> FString
     {
-        if (InRoot == InTarget)
-        { return true; }
-        if (InDepth > 64)
-        { return false; }
-        auto* Children = InRoot->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (ContainsWidget(Children->GetChildAt(Index), InTarget, InDepth + 1))
-            { return true; }
-        }
-        return false;
+        const auto Widget = FindInToolkit(InToolkit, InTag);
+        return Widget.IsValid() && Widget->GetType() == FName{TEXT("STextBlock")}
+            ? StaticCastSharedPtr<STextBlock>(Widget)->GetText().ToString() : FString{};
     }
 
     auto
-        FindOwningScrollBox(
-            const TSharedRef<SWidget>& InRoot,
-            const TSharedRef<SWidget>& InTarget,
-            int32 InDepth = 0)
-        -> TSharedPtr<SScrollBox>
+        ActivateTab(
+            FCk_ProceduralAction_EditorToolkit& InToolkit,
+            UCk_ProceduralAction_Data* InClip,
+            FName InTabId)
+        -> void
     {
-        if (InDepth > 64)
-        { return {}; }
-        auto* Children = InRoot->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (const auto Nested = FindOwningScrollBox(Children->GetChildAt(Index),
-                InTarget, InDepth + 1))
-            { return Nested; }
-        }
-        if (InRoot->GetType() == FName{TEXT("SScrollBox")}
-            && ContainsWidget(InRoot, InTarget))
-        { return StaticCastSharedRef<SScrollBox>(InRoot); }
-        return {};
+        InToolkit.FocusWindow(InClip);
+        const auto TabManager = InToolkit.GetAssociatedTabManager();
+        if (const auto OwnerTab = TabManager.IsValid() ? TabManager->GetOwnerTab() : TSharedPtr<SDockTab>{})
+        { OwnerTab->ActivateInParent(ETabActivationCause::SetDirectly); }
+        if (const auto Tab = FindTab(InToolkit, InTabId))
+        { Tab->ActivateInParent(ETabActivationCause::SetDirectly); }
     }
 
     auto
-        FindDetailsByIndex(
-            const TSharedRef<SWidget>& InRoot,
-            int32 InIndex,
-            int32& InOutSeen,
-            int32 InDepth = 0)
-        -> TSharedPtr<SWidget>
-    {
-        if (InDepth > 64)
-        { return {}; }
-        if (InRoot->GetType() == FName{TEXT("SDetailsView")})
-        {
-            if (InOutSeen++ == InIndex)
-            { return InRoot; }
-        }
-        auto* Children = InRoot->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (const auto Details = FindDetailsByIndex(Children->GetChildAt(Index),
-                InIndex, InOutSeen, InDepth + 1))
-            { return Details; }
-        }
-        return {};
-    }
-
-    auto
-        FindPreviewDetails(
-            const TSharedRef<SWidget>& InRoot)
-        -> TSharedPtr<SWidget>
-    {
-        auto Seen = 0;
-        return FindDetailsByIndex(InRoot, 1, Seen);
-    }
-
-    auto
-        IsCenterInside(
-            const TSharedRef<SWidget>& InWidget,
-            const TSharedRef<SWidget>& InViewport)
-        -> bool
-    {
-        const auto Center = InWidget->GetTickSpaceGeometry()
-            .GetAbsolutePositionAtCoordinates(FVector2D{0.5, 0.5});
-        const auto Geometry = InViewport->GetTickSpaceGeometry();
-        const auto TopLeft = Geometry.GetAbsolutePosition();
-        const auto BottomRight = Geometry.GetAbsolutePositionAtCoordinates(FVector2D{1.0, 1.0});
-        return Center.X >= TopLeft.X && Center.X <= BottomRight.X
-            && Center.Y >= TopLeft.Y && Center.Y <= BottomRight.Y;
-    }
-
-    auto
-        ScrollDownThroughSlate(
-            const TSharedRef<SWidget>& InWidget)
-        -> bool
-    {
-        auto& Slate = FSlateApplication::Get();
-        auto Path = FWidgetPath{};
-        if (NOT Slate.FindPathToWidget(InWidget, Path) || NOT Path.IsValid())
-        { return false; }
-        const auto Position = FVector2D{Path.Widgets.Last().Geometry
-            .GetAbsolutePositionAtCoordinates(FVector2D{0.5, 0.5})};
-        Slate.SetCursorPos(Position);
-        Slate.ProcessMouseMoveEvent(FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, TSet<FKey>{}, EKeys::Invalid, 0.0f, FModifierKeysState{}});
-        return Slate.ProcessMouseWheelOrGestureEvent(
-            FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-                Position, Position, TSet<FKey>{}, EKeys::Invalid, -12.0f,
-                FModifierKeysState{}}, nullptr);
-    }
-
-    auto
-        FindAuthoredViewport(
-            const TSharedRef<SWidget>& InWidget,
-            int32 InDepth = 0)
+        FindViewport(
+            FCk_ProceduralAction_EditorToolkit& InToolkit)
         -> TSharedPtr<SEditorViewport>
     {
-        if (InDepth > 64)
-        { return {}; }
-        if (InWidget->GetType() == FName{TEXT("SCkProceduralAction_AuthoredViewport")})
-        { return StaticCastSharedRef<SEditorViewport>(InWidget); }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (const auto Viewport = FindAuthoredViewport(Children->GetChildAt(Index), InDepth + 1))
-            { return Viewport; }
-        }
-        return {};
+        const auto Widget = FindInToolkit(InToolkit, ViewportTag);
+        return Widget.IsValid() && Widget->GetType() == FName{TEXT("SCkProceduralAction_Viewport")}
+            ? StaticCastSharedPtr<SEditorViewport>(Widget) : TSharedPtr<SEditorViewport>{};
     }
 
     auto
@@ -424,29 +317,8 @@ namespace ck_test_procedural_action_mounted_toolkit
     }
 
     auto
-        FindTransportSlider(
-            const TSharedRef<SWidget>& InWidget)
-        -> TSharedPtr<SSlider>
-    {
-        const auto Tagged = FindTaggedWidget(InWidget,
-            FName{TEXT("CkActionEditorTransportTime")});
-        return Tagged.IsValid() && Tagged->GetType() == FName{TEXT("SSlider")}
-            ? StaticCastSharedPtr<SSlider>(Tagged) : TSharedPtr<SSlider>{};
-    }
-
-    struct FClickObservation
-    {
-        bool HoverBeforeDown = false;
-        bool HoverAfterDown = false;
-        bool CapturedAfterDown = false;
-        bool ReleaseHandled = false;
-    };
-
-    auto
         ClickWidget(
-            const TSharedRef<SWidget>& InWidget,
-            bool InRequireReleaseHandled = true,
-            FClickObservation* OutObservation = nullptr)
+            const TSharedRef<SWidget>& InWidget)
         -> bool
     {
         if (NOT InWidget->IsEnabled())
@@ -465,8 +337,6 @@ namespace ck_test_procedural_action_mounted_toolkit
         Slate.SetCursorPos(Position);
         Slate.ProcessMouseMoveEvent(FPointerEvent{0, FSlateApplication::CursorPointerIndex,
             Position, Position, Released, EKeys::Invalid, 0.0f, FModifierKeysState{}});
-        if (OutObservation != nullptr)
-        { OutObservation->HoverBeforeDown = InWidget->IsHovered(); }
         const auto Down = FPointerEvent{0, FSlateApplication::CursorPointerIndex,
             Position, Position, Pressed,
             EKeys::LeftMouseButton, 0.0f, FModifierKeysState{}};
@@ -474,54 +344,9 @@ namespace ck_test_procedural_action_mounted_toolkit
             Position, Position, Released,
             EKeys::LeftMouseButton, 0.0f, FModifierKeysState{}};
         const auto PressHandled = Slate.ProcessMouseButtonDownEvent(Window->GetNativeWindow(), Down);
-        if (OutObservation != nullptr)
-        {
-            OutObservation->HoverAfterDown = InWidget->IsHovered();
-            OutObservation->CapturedAfterDown = InWidget->HasMouseCapture();
-        }
-        const auto ReleaseHandled = Slate.ProcessMouseButtonUpEvent(Up);
-        if (OutObservation != nullptr)
-        { OutObservation->ReleaseHandled = ReleaseHandled; }
-        return PressHandled && (NOT InRequireReleaseHandled || ReleaseHandled);
+        Slate.ProcessMouseButtonUpEvent(Up);
+        return PressHandled;
     }
-
-    auto
-        ClickButton(
-            const TSharedRef<SWidget>& InRoot,
-            const FString& InLabel)
-        -> bool
-    {
-        const auto Button = FindButton(InRoot, InLabel);
-        return Button.IsValid() && ClickWidget(Button.ToSharedRef());
-    }
-
-    auto
-        ClickTagged(
-            const TSharedRef<SWidget>& InRoot,
-            const TCHAR* InTag)
-        -> bool
-    {
-        const auto Widget = FindTaggedWidget(InRoot, FName{InTag});
-        return Widget.IsValid() && ClickWidget(Widget.ToSharedRef(), false);
-    }
-
-    // The raw Details and the recorded diagnostics live in the collapsed Advanced area of the pose workspace.
-    auto
-        IsAdvancedOpen(
-            const TSharedRef<SWidget>& InRoot)
-        -> bool
-    {
-        auto Seen = 0;
-        const auto Details = FindDetailsByIndex(InRoot, 0, Seen);
-        auto Path = FWidgetPath{};
-        return Details.IsValid() && FSlateApplication::Get().FindPathToWidget(Details.ToSharedRef(), Path) && Path.IsValid();
-    }
-
-    auto
-        ToggleAdvanced(
-            const TSharedRef<SWidget>& InRoot)
-        -> bool
-    { return ClickTagged(InRoot, TEXT("CkActionEditorAdvancedHeader")); }
 
     auto
         SaveCapture(
@@ -594,9 +419,9 @@ namespace ck_test_procedural_action_mounted_toolkit
         FAutomationTestBase* Test = nullptr;
         TStrongObjectPtr<UCk_ProceduralAction_Data> BodyPulse;
         TStrongObjectPtr<UCk_ProceduralAction_Data> LimbNod;
+        TStrongObjectPtr<UCk_ProceduralActionPreview_Config> BodyPreview;
+        TStrongObjectPtr<UCk_ProceduralActionPreview_Config> LimbPreview;
         TWeakObjectPtr<UAssetEditorSubsystem> Editors;
-        TSharedPtr<SDockTab> BodyTab;
-        TSharedPtr<SDockTab> LimbTab;
         TArray<FColor> AuthoredPixels;
         TArray<FColor> EarlyPlaybackPixels;
         TWeakPtr<SEditorViewport> BodyViewport;
@@ -604,43 +429,52 @@ namespace ck_test_procedural_action_mounted_toolkit
         double EarlyCaptureSeconds = 0.0;
         double DeadlineSeconds = 0.0;
         int32 Stage = 0;
+        int32 SettleFrames = 0;
         FString LastWaitReason;
-        FString PreviousBodyPreview;
-        FString PreviousLimbPreview;
+        FCk_ProceduralAction_EditorSubject PreviousBodySubject;
+        FCk_ProceduralAction_EditorSubject PreviousLimbSubject;
         bool SettingsCaptured = false;
-        bool PlacementExpanded = false;
-        bool RootFrameObserved = false;
-        bool AppearanceClicked = false;
-        int32 AppearanceScrollAttempts = 0;
-        int32 AppearanceRevealScrollAttempts = 0;
-        bool SlotScrollRequested = false;
-        bool AdvancedClosedForPlayback = false;
+        FName LimbSlot;
         FAxisDragState AxisDrag;
         FVector GizmoBefore = FVector::ZeroVector;
         FGuid UndoBeforeGizmo;
         bool GizmoAttempted = false;
 
-        auto HasChangedGizmoKey() const -> bool
+        // True once InCondition holds, or once it has been given MaxSettleFrames editor frames; the caller asserts after.
+        auto Settle(bool InCondition, const FString& InReason) -> bool
         {
-            if (NOT GizmoAttempted || NOT LimbNod.IsValid()
-                || LimbNod->Get_Phases().IsEmpty()
-                || LimbNod->Get_Phases()[0].Get_LimbTracks().IsEmpty()
-                || LimbNod->Get_Phases()[0].Get_LimbTracks()[0].Get_PositionKeys().IsEmpty())
+            if (InCondition)
+            { SettleFrames = 0; return true; }
+            LastWaitReason = InReason;
+            if (++SettleFrames < MaxSettleFrames)
             { return false; }
-            return NOT LimbNod->Get_Phases()[0].Get_LimbTracks()[0]
-                .Get_PositionKeys()[0].Get_Value().Equals(GizmoBefore);
+            SettleFrames = 0;
+            return true;
         }
 
+        auto GizmoKey() const -> const FCk_ProceduralAction_VectorKey*
+        {
+            if (NOT LimbNod.IsValid() || LimbNod->Get_Phases().IsEmpty()
+                || LimbNod->Get_Phases()[0].Get_LimbTracks().IsEmpty()
+                || LimbNod->Get_Phases()[0].Get_LimbTracks()[0].Get_PositionKeys().IsEmpty())
+            { return nullptr; }
+            return &LimbNod->Get_Phases()[0].Get_LimbTracks()[0].Get_PositionKeys()[0];
+        }
+
+        auto HasChangedGizmoKey() const -> bool
+        {
+            const auto* Key = GizmoKey();
+            return GizmoAttempted && Key != nullptr && NOT Key->Get_Value().Equals(GizmoBefore);
+        }
+
+        // The newest undo entry is the gizmo's when it is newer than the drag and holds the LimbNod clip.
         auto UndoOwnedGizmoKey() -> bool
         {
             if (NOT HasChangedGizmoKey() || GEditor == nullptr || GEditor->Trans == nullptr)
             { return false; }
             auto* Transactions = GEditor->Trans.Get();
             const auto Context = Transactions->GetUndoContext(false);
-            if (NOT Context.TransactionId.IsValid()
-                || Context.TransactionId == UndoBeforeGizmo
-                || NOT Context.Title.EqualTo(NSLOCTEXT("CkProceduralActionEditor", "SetEndpoint",
-                    "Move Action Endpoint")))
+            if (NOT Context.TransactionId.IsValid() || Context.TransactionId == UndoBeforeGizmo)
             { return false; }
             const auto Index = Transactions->GetQueueLength() - Transactions->GetUndoCount() - 1;
             const auto* Transaction = Index >= 0 ? Transactions->GetTransaction(Index) : nullptr;
@@ -661,8 +495,6 @@ namespace ck_test_procedural_action_mounted_toolkit
             FinishXAxisDragThroughSlate(AxisDrag);
             if (HasChangedGizmoKey() && NOT UndoOwnedGizmoKey() && Test != nullptr)
             { Test->AddError(TEXT("Test-owned gizmo edit could not be safely restored.")); }
-            BodyTab.Reset();
-            LimbTab.Reset();
             if (Editors.IsValid())
             {
                 Editors->CloseAllEditorsForAsset(BodyPulse.Get());
@@ -670,13 +502,8 @@ namespace ck_test_procedural_action_mounted_toolkit
             }
             if (SettingsCaptured && BodyPulse.IsValid() && LimbNod.IsValid())
             {
-                auto* Settings = GetMutableDefault<UCk_ProceduralActionEditor_UserSettings>();
-                const auto BodyChanged = Settings->SetPreviewPath(
-                    BodyPulse->GetPathName(), PreviousBodyPreview);
-                const auto LimbChanged = Settings->SetPreviewPath(
-                    LimbNod->GetPathName(), PreviousLimbPreview);
-                if (BodyChanged || LimbChanged)
-                { Settings->SaveConfig(); }
+                BodyPulse->Set_EditorSubject(PreviousBodySubject);
+                LimbNod->Set_EditorSubject(PreviousLimbSubject);
                 SettingsCaptured = false;
             }
         }
@@ -689,522 +516,380 @@ namespace ck_test_procedural_action_mounted_toolkit
 
         auto Update() -> bool override
         {
-            if (FPlatformTime::Seconds() > _State->DeadlineSeconds)
+            auto& State = *_State;
+            if (FPlatformTime::Seconds() > State.DeadlineSeconds)
             {
-                if (_State->Stage == 2 && _State->BodyTab.IsValid())
-                {
-                    const auto Content = _State->BodyTab->GetContent();
-                    auto Pixels = TArray<FColor>{};
-                    const auto Capture = SaveCapture(Content, TEXT("BodyPulse-Stage2-Failure"), Pixels);
-                    _State->Test->AddInfo(FString::Printf(
-                        TEXT("Stage 2 Details diagnostic: screenshot=%s placementClickAssumedExpanded=%d rootObserved=%d globalPlacement=%d globalRoot=%d"),
-                        *Capture, _State->PlacementExpanded, _State->RootFrameObserved,
-                        FindTextWidget(Content, TEXT("Placement")).IsValid(),
-                        FindTextWidget(Content, TEXT("Root Frame")).IsValid()));
-                    for (auto Index = 0; Index < 2; ++Index)
-                    {
-                        auto Seen = 0;
-                        const auto Details = FindDetailsByIndex(Content, Index, Seen);
-                        if (NOT Details.IsValid())
-                        {
-                            _State->Test->AddInfo(FString::Printf(
-                                TEXT("Stage 2 Details diagnostic: index=%d unavailable seen=%d"),
-                                Index, Seen));
-                            continue;
-                        }
-                        const auto RootFrame = FindTextWidget(Details.ToSharedRef(), TEXT("Root Frame"));
-                        const auto Size = Details->GetTickSpaceGeometry().GetLocalSize();
-                        _State->Test->AddInfo(FString::Printf(
-                            TEXT("Stage 2 Details diagnostic: index=%d size=(%.1f,%.1f) placement=%d root=%d rootCenterInside=%d appearance=%d subject=%d"),
-                            Index, Size.X, Size.Y,
-                            FindTextWidget(Details.ToSharedRef(), TEXT("Placement")).IsValid(),
-                            RootFrame.IsValid(),
-                            RootFrame.IsValid()
-                                && IsCenterInside(RootFrame.ToSharedRef(), Details.ToSharedRef()),
-                            FindTextWidget(Details.ToSharedRef(), TEXT("Appearance")).IsValid(),
-                            FindTextWidget(Details.ToSharedRef(), TEXT("Subject")).IsValid()));
-                    }
-                }
-                _State->Test->AddError(FString::Printf(
+                State.Test->AddError(FString::Printf(
                     TEXT("Mounted procedural action toolkit timed out at stage %d: %s"),
-                    _State->Stage, *_State->LastWaitReason));
-                _State->Close();
+                    State.Stage, *State.LastWaitReason));
+                State.Close();
                 return true;
             }
-            auto* Editors = _State->Editors.Get();
+            auto* Editors = State.Editors.Get();
             if (Editors == nullptr)
             {
-                _State->Test->AddError(TEXT("Asset editor subsystem disappeared."));
-                _State->Close();
+                State.Test->AddError(TEXT("Asset editor subsystem disappeared."));
+                State.Close();
                 return true;
             }
-            auto* BodyEditor = Editors->FindEditorForAsset(_State->BodyPulse.Get(), false);
-            auto* LimbEditor = Editors->FindEditorForAsset(_State->LimbNod.Get(), false);
-            if (_State->Stage == 0)
+            auto* Body = FindToolkit(Editors, State.BodyPulse.Get());
+            auto* Limb = FindToolkit(Editors, State.LimbNod.Get());
+            if (State.Stage == 0)
             {
-                _State->LastWaitReason = FString::Printf(
-                    TEXT("BodyEditor=%d LimbEditor=%d BodyManager=%d LimbManager=%d"),
-                    BodyEditor != nullptr, LimbEditor != nullptr,
-                    BodyEditor != nullptr && BodyEditor->GetAssociatedTabManager().IsValid(),
-                    LimbEditor != nullptr && LimbEditor->GetAssociatedTabManager().IsValid());
-                if (BodyEditor == nullptr || LimbEditor == nullptr
-                    || BodyEditor->GetAssociatedTabManager() == nullptr
-                    || LimbEditor->GetAssociatedTabManager() == nullptr)
+                const auto BodyViewportTab = Body != nullptr
+                    ? FindTab(*Body, FCk_ProceduralAction_EditorToolkit::ViewportTabId) : TSharedPtr<SDockTab>{};
+                const auto LimbViewportTab = Limb != nullptr
+                    ? FindTab(*Limb, FCk_ProceduralAction_EditorToolkit::ViewportTabId) : TSharedPtr<SDockTab>{};
+                State.LastWaitReason = FString::Printf(TEXT("BodyToolkit=%d LimbToolkit=%d BodyViewportTab=%d LimbViewportTab=%d"),
+                    Body != nullptr, Limb != nullptr, BodyViewportTab.IsValid(), LimbViewportTab.IsValid());
+                if (NOT BodyViewportTab.IsValid() || NOT LimbViewportTab.IsValid())
                 { return false; }
-                _State->BodyTab = BodyEditor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId});
-                _State->LimbTab = LimbEditor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId});
-                _State->LastWaitReason += FString::Printf(TEXT(" BodyTab=%d LimbTab=%d"),
-                    _State->BodyTab.IsValid(), _State->LimbTab.IsValid());
-                if (NOT _State->BodyTab.IsValid() || NOT _State->LimbTab.IsValid())
-                { return false; }
-                _State->Test->AddInfo(TEXT("Mounted toolkit stage 0: both editor tabs found."));
-                _State->Test->TestTrue(TEXT("two saved clips opened distinct asset editor instances"),
-                    BodyEditor != LimbEditor && _State->BodyTab != _State->LimbTab);
-                _State->Test->TestTrue(TEXT("mounted BodyPulse has timeline and mode transport"),
-                    HasText(_State->BodyTab->GetContent(), TEXT("Authored"))
-                    && FindButton(_State->BodyTab->GetContent(), TEXT("Recorded")).IsValid()
-                    && FindButton(_State->BodyTab->GetContent(), TEXT("Move endpoint key")).IsValid());
-                BodyEditor->FocusWindow(_State->BodyPulse.Get());
-                if (const auto OwnerTab = BodyEditor->GetAssociatedTabManager()->GetOwnerTab())
-                { OwnerTab->ActivateInParent(ETabActivationCause::SetDirectly); }
-                _State->BodyTab->ActivateInParent(ETabActivationCause::SetDirectly);
-                ++_State->Stage;
+                State.Test->AddInfo(TEXT("Mounted toolkit stage 0: both clip editors are mounted."));
+                State.Test->TestTrue(TEXT("two saved clips opened distinct asset editor instances"),
+                    Body != Limb && BodyViewportTab != LimbViewportTab);
+                State.Test->TestTrue(TEXT("mounted BodyPulse has a viewport, a timeline and its transport"),
+                    FindViewport(*Body).IsValid()
+                    && FindInToolkit(*Body, TimelineTag).IsValid()
+                    && FindInToolkit(*Body, TransportTag).IsValid()
+                    && FindInToolkit(*Body, TransportTimeTag).IsValid());
+                ActivateTab(*Body, State.BodyPulse.Get(), FCk_ProceduralAction_EditorToolkit::ViewportTabId);
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 1)
+            if (State.Stage >= 1 && State.Stage <= 11 && Body == nullptr)
             {
-                if (NOT ClickButton(_State->BodyTab->GetContent(), TEXT("Create Preview Config")))
-                { _State->LastWaitReason = TEXT("BodyPulse preview selection button could not receive a routed click."); return false; }
-                _State->Test->TestEqual(TEXT("BodyPulse selected saved sibling preview through Slate"),
-                    GetDefault<UCk_ProceduralActionEditor_UserSettings>()->GetPreviewPath(
-                        _State->BodyPulse->GetPathName()), FString{BodyPreviewPath});
-                ++_State->Stage;
+                State.Test->AddError(TEXT("BodyPulse toolkit closed while the test drove it."));
+                State.Close();
+                return true;
+            }
+            if (State.Stage == 1)
+            {
+                Body->SetScenario(State.BodyPreview.Get());
+                State.Test->TestEqual(TEXT("BodyPulse selected its saved sibling preview"),
+                    State.BodyPulse->Get_EditorSubject().Get_Scenario().ToString(), FString{BodyPreviewPath});
+                Body->Get_Model()->SelectClip();
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 2)
+            if (State.Stage == 2)
             {
-                const auto Content = _State->BodyTab->GetContent();
-                if (NOT IsAdvancedOpen(Content))
-                {
-                    if (NOT ToggleAdvanced(Content))
-                    { _State->LastWaitReason = TEXT("Advanced area header did not accept a routed click."); }
-                    else
-                    { _State->LastWaitReason = TEXT("Waiting for Advanced to reveal the raw Details."); }
-                    return false;
-                }
-                if (NOT _State->PlacementExpanded)
-                {
-                    if (NOT HasText(Content, TEXT("Root Frame")))
-                    {
-                        const auto Placement = FindTextWidget(Content, TEXT("Placement"));
-                        if (NOT Placement.IsValid() || NOT ClickWidget(Placement.ToSharedRef(), false))
-                        { _State->LastWaitReason = TEXT("Preview Placement category did not accept a routed click."); return false; }
-                    }
-                    _State->PlacementExpanded = true;
-                    return false;
-                }
-                const auto Details = FindPreviewDetails(Content);
-                if (NOT Details.IsValid())
-                { _State->LastWaitReason = TEXT("Preview Details widget is unavailable for scrolling."); return false; }
-                if (NOT _State->RootFrameObserved)
-                {
-                    const auto RootFrame = FindTextWidget(Details.ToSharedRef(), TEXT("Root Frame"));
-                    _State->RootFrameObserved = RootFrame.IsValid()
-                        && IsCenterInside(RootFrame.ToSharedRef(), Details.ToSharedRef());
-                    if (NOT _State->RootFrameObserved)
-                    { _State->LastWaitReason = TEXT("Expanded Preview Placement has no visible Root Frame."); return false; }
-                }
-                const auto Scale = FindTextWidget(Details.ToSharedRef(), TEXT("Body Preview Mesh Scale"));
-                if (NOT Scale.IsValid()
-                    || NOT IsCenterInside(Scale.ToSharedRef(), Details.ToSharedRef()))
-                {
-                    if (NOT _State->AppearanceClicked)
-                    {
-                        const auto Appearance = FindTextWidget(Details.ToSharedRef(), TEXT("Appearance"));
-                        if (Appearance.IsValid()
-                            && IsCenterInside(Appearance.ToSharedRef(), Details.ToSharedRef()))
-                        {
-                            if (NOT ClickWidget(Appearance.ToSharedRef(), false))
-                            {
-                                _State->LastWaitReason = TEXT("Visible Preview Appearance category did not accept a routed click.");
-                                return false;
-                            }
-                            _State->AppearanceClicked = true;
-                            return false;
-                        }
-                        if (_State->AppearanceScrollAttempts < 8)
-                        {
-                            ++_State->AppearanceScrollAttempts;
-                            const auto Handled = ScrollDownThroughSlate(Details.ToSharedRef());
-                            _State->LastWaitReason = FString::Printf(
-                                TEXT("Scrolling Preview Appearance into view: attempt %d/8, routed=%d"),
-                                _State->AppearanceScrollAttempts, Handled);
-                            return false;
-                        }
-                        _State->LastWaitReason = TEXT("Preview Appearance category remained off-screen after eight routed wheels.");
-                        return false;
-                    }
-                    if (_State->AppearanceRevealScrollAttempts < 8)
-                    {
-                        ++_State->AppearanceRevealScrollAttempts;
-                        const auto Handled = ScrollDownThroughSlate(Details.ToSharedRef());
-                        _State->LastWaitReason = FString::Printf(
-                            TEXT("Scrolling expanded Preview Appearance: attempt %d/8, routed=%d"),
-                            _State->AppearanceRevealScrollAttempts, Handled);
-                        return false;
-                    }
-                    _State->LastWaitReason = TEXT("Expanded Preview Appearance did not reveal a visible Body Preview Mesh Scale after eight routed wheels.");
-                    return false;
-                }
-                const auto Window = FSlateApplication::Get().FindWidgetWindow(Content);
-                const auto Size = Content->GetTickSpaceGeometry().GetLocalSize();
-                _State->LastWaitReason = FString::Printf(
-                    TEXT("Authoring capture: WidgetWindow=%d LocalSize=(%.1f,%.1f)"),
-                    Window.IsValid(), Size.X, Size.Y);
-                const auto Path = SaveCapture(_State->BodyTab->GetContent(), TEXT("BodyPulse-Authored"),
-                    _State->AuthoredPixels);
+                const auto* Proxy = Body->Get_SelectionProxy();
+                const auto ShowsClip = Proxy != nullptr && Proxy->_Shows == ECk_ProceduralActionSelectionProxy_Shows::Clip;
+                if (NOT State.Settle(ShowsClip, TEXT("Details did not load the clip selection")))
+                { return false; }
+                State.Test->TestTrue(TEXT("the Details panel is mounted"), FindInToolkit(*Body, DetailsTag).IsValid());
+                State.Test->TestTrue(TEXT("the clip Details show the selected preview"),
+                    ShowsClip && Proxy->_Subject.Get_Scenario().ToString() == FString{BodyPreviewPath});
+                Body->Get_Model()->SelectSection(State.BodyPulse->Get_Phases()[0].Get_Id());
+                ++State.Stage;
+                return false;
+            }
+            if (State.Stage == 3 || State.Stage == 4)
+            {
+                const auto PhaseIndex = State.Stage - 3;
+                const auto& Phases = State.BodyPulse->Get_Phases();
+                if (NOT Phases.IsValidIndex(PhaseIndex))
+                { State.Stage = 5; return false; }
+                const auto* Proxy = Body->Get_SelectionProxy();
+                const auto ShowsSection = Proxy != nullptr && Proxy->_Shows == ECk_ProceduralActionSelectionProxy_Shows::Section
+                    && Proxy->_SectionName == Phases[PhaseIndex].Get_Id();
+                if (NOT State.Settle(ShowsSection, FString::Printf(TEXT("section %s did not reach the Details"),
+                    *Phases[PhaseIndex].Get_Id().ToString())))
+                { return false; }
+                State.Test->TestTrue(FString::Printf(TEXT("authored section %d is selectable and shown"), PhaseIndex),
+                    ShowsSection);
+                if (Phases.IsValidIndex(PhaseIndex + 1))
+                { Body->Get_Model()->SelectSection(Phases[PhaseIndex + 1].Get_Id()); }
+                ++State.Stage;
+                return false;
+            }
+            if (State.Stage == 5)
+            {
+                const auto ViewportTab = FindTab(*Body, FCk_ProceduralAction_EditorToolkit::ViewportTabId);
+                if (NOT ViewportTab.IsValid())
+                { State.LastWaitReason = TEXT("BodyPulse viewport tab is gone"); return false; }
+                const auto Path = SaveCapture(ViewportTab->GetContent(), TEXT("BodyPulse-Authored"), State.AuthoredPixels);
                 if (Path.IsEmpty())
-                { return false; }
-                _State->Test->AddInfo(TEXT("Mounted toolkit stage 2: configured authored capture saved."));
-                _State->Test->TestTrue(TEXT("mounted authored Slate screenshot has visible pixels"),
-                    HasPixelVariation(_State->AuthoredPixels));
-                _State->Test->TestTrue(TEXT("saved preview is visible in mounted picker"),
-                    HasText(Content, TEXT("Ck_ProceduralAction_BodyPulse_Preview_DA")));
-                _State->Test->TestTrue(TEXT("first authored phase has a mounted row"),
-                    HasText(Content, TEXT("Phase Windup")));
-                _State->Test->TestTrue(TEXT("second authored phase has a mounted row"),
-                    HasText(Content, TEXT("Phase FollowThrough")));
-                _State->Test->TestTrue(TEXT("clip Details exposes editable body property"),
-                    HasText(Content, TEXT("Body Channel")));
-                _State->Test->TestTrue(TEXT("selected preview Details exposes root frame"),
-                    _State->RootFrameObserved);
-                _State->Test->TestTrue(TEXT("mounted preview Details exposes appearance-only body scale"),
-                    Scale.IsValid() && IsCenterInside(Scale.ToSharedRef(), Details.ToSharedRef()));
-                if (const auto ViewportWidget = FindAuthoredViewport(Content))
+                { State.LastWaitReason = TEXT("authored viewport capture unavailable"); return false; }
+                State.Test->AddInfo(TEXT("Mounted toolkit stage 5: configured authored capture saved."));
+                State.Test->TestTrue(TEXT("mounted authored Slate screenshot has visible pixels"),
+                    HasPixelVariation(State.AuthoredPixels));
+                State.Test->TestTrue(TEXT("the timeline is mounted"), FindInToolkit(*Body, TimelineTag).IsValid());
+                const auto ViewportWidget = FindViewport(*Body);
+                if (ViewportWidget.IsValid())
                 {
                     if (const auto Client = ViewportWidget->GetViewportClient())
                     {
                         const auto ViewportSize = Client->Viewport != nullptr
                             ? Client->Viewport->GetSizeXY() : FIntPoint::ZeroValue;
-                        _State->Test->AddInfo(FString::Printf(
+                        State.Test->AddInfo(FString::Printf(
                             TEXT("Authored viewport frame: size=%d x %d, camera=%s, look-at=%s"),
                             ViewportSize.X, ViewportSize.Y, *Client->GetViewLocation().ToString(),
                             *Client->GetLookAtLocation().ToString()));
                     }
                 }
-                _State->Test->AddInfo(FString::Printf(TEXT("Mounted authored screenshot: %s"), *Path));
-                _State->BodyViewport = FindAuthoredViewport(Content);
-                if (NOT _State->Test->TestTrue(TEXT("mounted body viewport supports playback capture"),
-                    _State->BodyViewport.IsValid()))
-                { _State->Close(); return true; }
-                _State->Test->TestTrue(TEXT("routed Slate click closes Advanced before playback"), ToggleAdvanced(Content));
-                _State->Stage = 19;
+                State.Test->AddInfo(FString::Printf(TEXT("Mounted authored screenshot: %s"), *Path));
+                State.BodyViewport = ViewportWidget;
+                if (NOT State.Test->TestTrue(TEXT("mounted body viewport supports playback capture"),
+                    ViewportWidget.IsValid()))
+                { State.Close(); return true; }
+                State.Stage = 6;
                 return false;
             }
-            if (_State->Stage == 19)
+            if (State.Stage == 6)
             {
-                const auto Content = _State->BodyTab->GetContent();
-                if (IsAdvancedOpen(Content))
-                { _State->LastWaitReason = TEXT("Waiting for Advanced to collapse before authored playback."); return false; }
-                _State->Test->TestTrue(TEXT("routed Slate click selects the requested (authored) preview"),
-                    ClickTagged(Content, TEXT("CkActionEditorRequestedPreview")));
-                _State->Test->TestTrue(TEXT("routed Slate click starts authored playback"),
-                    ClickButton(Content, TEXT("Play")));
-                _State->PlaybackStartedSeconds = FPlatformTime::Seconds();
-                _State->Stage = 20;
+                const auto Model = Body->Get_Model();
+                Model->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Authored);
+                State.Test->TestTrue(TEXT("the authored preview is selected"),
+                    Model->Get_PreviewMode() == ECk_ProceduralActionEditor_PreviewMode::Authored);
+                Model->SetTime(FCk_Time{0.0});
+                Body->TogglePlay();
+                State.Test->TestTrue(TEXT("Play starts authored playback"), Model->Get_IsPlaying());
+                State.PlaybackStartedSeconds = FPlatformTime::Seconds();
+                State.Stage = 7;
                 return false;
             }
-            if (_State->Stage == 20)
+            if (State.Stage == 7)
             {
-                if (FPlatformTime::Seconds() - _State->PlaybackStartedSeconds < 0.04)
+                if (FPlatformTime::Seconds() - State.PlaybackStartedSeconds < 0.04)
                 { return false; }
-                const auto Viewport = _State->BodyViewport.Pin();
-                if (NOT _State->Test->TestTrue(TEXT("body viewport survives authored playback"),
+                const auto Viewport = State.BodyViewport.Pin();
+                if (NOT State.Test->TestTrue(TEXT("body viewport survives authored playback"),
                     Viewport.IsValid()))
-                { _State->Close(); return true; }
+                { State.Close(); return true; }
                 const auto Path = SaveCapture(Viewport.ToSharedRef(), TEXT("BodyPulse-PlayingEarly"),
-                    _State->EarlyPlaybackPixels);
+                    State.EarlyPlaybackPixels);
                 if (Path.IsEmpty())
-                { _State->LastWaitReason = TEXT("early authored viewport capture unavailable"); return false; }
-                _State->EarlyCaptureSeconds = FPlatformTime::Seconds();
-                _State->Stage = 21;
+                { State.LastWaitReason = TEXT("early authored viewport capture unavailable"); return false; }
+                State.EarlyCaptureSeconds = FPlatformTime::Seconds();
+                State.Stage = 8;
                 return false;
             }
-            if (_State->Stage == 21)
+            if (State.Stage == 8)
             {
-                if (FPlatformTime::Seconds() - _State->EarlyCaptureSeconds < 0.27)
+                if (FPlatformTime::Seconds() - State.EarlyCaptureSeconds < 0.27)
                 { return false; }
-                const auto Viewport = _State->BodyViewport.Pin();
+                const auto Viewport = State.BodyViewport.Pin();
                 if (NOT Viewport.IsValid())
-                { _State->Test->AddError(TEXT("body viewport vanished during authored playback")); _State->Close(); return true; }
+                { State.Test->AddError(TEXT("body viewport vanished during authored playback")); State.Close(); return true; }
                 auto LatePixels = TArray<FColor>{};
                 const auto Path = SaveCapture(Viewport.ToSharedRef(), TEXT("BodyPulse-PlayingLate"),
                     LatePixels);
                 if (Path.IsEmpty())
-                { _State->LastWaitReason = TEXT("late authored viewport capture unavailable"); return false; }
-                const auto Changed = CountChangedPixels(_State->EarlyPlaybackPixels, LatePixels);
-                _State->Test->AddInfo(FString::Printf(
+                { State.LastWaitReason = TEXT("late authored viewport capture unavailable"); return false; }
+                const auto Changed = CountChangedPixels(State.EarlyPlaybackPixels, LatePixels);
+                State.Test->AddInfo(FString::Printf(
                     TEXT("Authored viewport motion: %d RGB pixels changed across real editor frames."), Changed));
-                _State->Test->TestTrue(TEXT("rendered authored body changes across playback frames"),
+                State.Test->TestTrue(TEXT("rendered authored body changes across playback frames"),
                     Changed > 60);
-                const auto Content = _State->BodyTab->GetContent();
-                const auto Transport = FindTransportSlider(Content);
-                _State->Test->TestTrue(TEXT("authored transport advanced during rendered playback"),
-                    Transport.IsValid() && Transport->GetValue() > 0.1f);
-                const auto Reset = FindTaggedWidget(Content,
-                    FName{TEXT("CkActionEditorTransportReset")});
-                auto ResetClick = FClickObservation{};
-                const auto ResetPressed = Reset.IsValid()
-                    && ClickWidget(Reset.ToSharedRef(), false, &ResetClick);
-                if (Reset.IsValid())
-                {
-                    auto& Slate = FSlateApplication::Get();
-                    auto ResetPath = FWidgetPath{};
-                    const auto InWindow = Slate.FindPathToWidget(Reset.ToSharedRef(), ResetPath);
-                    auto TransportPath = FWidgetPath{};
-                    const auto HasTransportPath = Transport.IsValid()
-                        && Slate.FindPathToWidget(Transport.ToSharedRef(), TransportPath);
-                    const auto Position = InWindow && ResetPath.IsValid()
-                        ? FVector2D{ResetPath.Widgets.Last().Geometry.GetAbsolutePositionAtCoordinates(
-                            FVector2D{0.5, 0.5})} : FVector2D::ZeroVector;
-                    const auto HitPath = Slate.LocateWindowUnderMouse(
-                        Position, Slate.GetInteractiveTopLevelWindows());
-                    _State->Test->AddInfo(FString::Printf(
-                        TEXT("Reset hit: pressed=%d release=%d hoverBefore=%d hoverDown=%d capturedDown=%d enabled=%d visible=%d path=%d point=%s hitReset=%d hitPath=%s slider=%f transportPath=%s"),
-                        ResetPressed, ResetClick.ReleaseHandled, ResetClick.HoverBeforeDown,
-                        ResetClick.HoverAfterDown, ResetClick.CapturedAfterDown,
-                        Reset->IsEnabled(), Reset->GetVisibility().IsVisible(),
-                        InWindow && ResetPath.IsValid(), *Position.ToString(),
-                        HitPath.IsValid() && HitPath.ContainsWidget(Reset.Get()),
-                        HitPath.IsValid() ? *HitPath.ToString() : TEXT("None"),
-                        Transport.IsValid() ? Transport->GetValue() : -1.0f,
-                        HasTransportPath ? *TransportPath.ToString() : TEXT("None")));
-                }
-                _State->Test->TestTrue(TEXT("routed Slate press reaches the reset button"),
-                    ResetPressed);
-                // SSlider::GetValue reads a TSlateAttribute cached at the next Slate prepass.
-                _State->Stage = 22;
+                const auto Model = Body->Get_Model();
+                State.Test->AddInfo(FString::Printf(TEXT("Authored transport during playback: model=%.3fs label='%s'"),
+                    Model->Get_Time().Get_Seconds(), *TextOfTagged(*Body, TransportTimeTag)));
+                State.Test->TestTrue(TEXT("authored transport advanced during rendered playback"),
+                    Model->Get_Time().Get_Seconds() > 0.1);
+                if (Model->Get_IsPlaying())
+                { Body->TogglePlay(); }
+                Model->SetTime(FCk_Time{0.0});
+                State.Stage = 9;
                 return false;
             }
-            if (_State->Stage == 22)
+            if (State.Stage == 9)
             {
-                const auto Content = _State->BodyTab->GetContent();
-                const auto Transport = FindTransportSlider(Content);
-                _State->Test->TestTrue(TEXT("routed reset returns authored transport to zero"),
-                    Transport.IsValid() && FMath::IsNearlyZero(Transport->GetValue(), 1.0e-4f));
-                _State->Test->TestTrue(TEXT("routed Slate click starts production Solver"),
-                    ClickButton(Content, TEXT("Solver (restart)")));
-                _State->Stage = 3;
+                const auto Model = Body->Get_Model();
+                const auto Session = Body->Get_Session();
+                State.Test->TestFalse(TEXT("reset leaves the transport paused"), Model->Get_IsPlaying());
+                State.Test->TestTrue(TEXT("reset returns the authored transport to zero"),
+                    FMath::IsNearlyZero(Model->Get_Time().Get_Seconds(), 1.0e-4)
+                    && Session.IsValid() && FMath::IsNearlyZero(Session->GetTime().Get_Seconds(), 1.0e-4));
+                Model->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Solved);
+                State.Test->TestTrue(TEXT("RestartSolver starts the production Solver"), Body->RestartSolver());
+                State.Stage = 10;
                 return false;
             }
-            if (_State->Stage == 3)
+            if (State.Stage == 10)
             {
-                _State->LastWaitReason = TEXT("production Solver status or mounted capture unavailable");
-                if (NOT HasText(_State->BodyTab->GetContent(), TEXT("SOLVER:")))
+                const auto Status = Body->Get_StatusText().ToString();
+                State.LastWaitReason = FString::Printf(TEXT("production Solver status or mounted capture unavailable: %s"), *Status);
+                if (NOT Status.Contains(TEXT("SOLVER:")))
                 { return false; }
-                if (NOT IsAdvancedOpen(_State->BodyTab->GetContent()))
-                {
-                    _State->LastWaitReason = TEXT("Advanced must open to reach the Recorded mode.");
-                    ToggleAdvanced(_State->BodyTab->GetContent());
-                    return false;
-                }
+                State.Test->TestTrue(TEXT("the viewport HUD shows the Solver status"),
+                    TextOfTagged(*Body, StatusTag).Contains(TEXT("SOLVER:")));
+                const auto ViewportTab = FindTab(*Body, FCk_ProceduralAction_EditorToolkit::ViewportTabId);
                 auto SolverPixels = TArray<FColor>{};
-                const auto Path = SaveCapture(_State->BodyTab->GetContent(), TEXT("BodyPulse-Solver"),
-                    SolverPixels);
+                const auto Path = ViewportTab.IsValid()
+                    ? SaveCapture(ViewportTab->GetContent(), TEXT("BodyPulse-Solver"), SolverPixels) : FString{};
                 if (Path.IsEmpty())
                 { return false; }
-                _State->Test->AddInfo(FString::Printf(TEXT("Mounted solver screenshot: %s"), *Path));
-                _State->Test->TestTrue(TEXT("routed Slate click enters Recorded mode"),
-                    ClickButton(_State->BodyTab->GetContent(), TEXT("Recorded")));
-                ++_State->Stage;
+                State.Test->AddInfo(FString::Printf(TEXT("Mounted solver screenshot: %s"), *Path));
+                State.Test->TestTrue(TEXT("mode change altered mounted Slate pixels"),
+                    SolverPixels != State.AuthoredPixels);
+                Body->Get_Model()->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Authored);
+                State.Stage = 11;
                 return false;
             }
-            if (_State->Stage == 4)
+            if (State.Stage == 11)
             {
-                _State->LastWaitReason = TEXT("Recorded capture could not be saved.");
-                _State->Test->TestTrue(TEXT("mounted toolkit displays Recorded status after routed click"),
-                    HasText(_State->BodyTab->GetContent(), TEXT("RECORDED:")));
-                auto RecordedPixels = TArray<FColor>{};
-                const auto Path = SaveCapture(_State->BodyTab->GetContent(), TEXT("BodyPulse-Recorded"),
-                    RecordedPixels);
-                if (Path.IsEmpty())
+                const auto Model = Body->Get_Model();
+                State.Test->TestTrue(TEXT("the preview returns to Authored"),
+                    Model->Get_PreviewMode() == ECk_ProceduralActionEditor_PreviewMode::Authored);
+                State.Test->TestFalse(TEXT("authored mode removed the Solver status"),
+                    Body->Get_StatusText().ToString().Contains(TEXT("SOLVER:")));
+                Model->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Solved);
+                State.Test->TestTrue(TEXT("RestartSolver restarts the Solver before close"), Body->RestartSolver());
+                const auto TimeRequestBefore = Model->Get_TimeRequestRevision();
+                Body->StepFrames(1);
+                State.Test->TestTrue(TEXT("a frame step requests a Solver step before close"),
+                    Model->Get_TimeRequestRevision() > TimeRequestBefore);
+                const auto Closed = Editors->CloseAllEditorsForAsset(State.BodyPulse.Get());
+                State.Test->TestTrue(TEXT("closing one toolkit closes its editor"), Closed > 0);
+                State.Test->TestTrue(TEXT("second toolkit remains independently open"),
+                    FindToolkit(Editors, State.LimbNod.Get()) != nullptr);
+                if (Limb != nullptr)
+                { ActivateTab(*Limb, State.LimbNod.Get(), FCk_ProceduralAction_EditorToolkit::ViewportTabId); }
+                State.Stage = 12;
+                return false;
+            }
+            if (Limb == nullptr)
+            {
+                State.Test->AddError(TEXT("LimbNod toolkit closed while the test drove it."));
+                State.Close();
+                return true;
+            }
+            if (State.Stage == 12)
+            {
+                const auto ViewportTab = FindTab(*Limb, FCk_ProceduralAction_EditorToolkit::ViewportTabId);
+                State.LastWaitReason = TEXT("LimbNod editor window unavailable");
+                if (NOT ViewportTab.IsValid() || NOT FSlateApplication::Get().FindWidgetWindow(ViewportTab->GetContent()).IsValid())
                 { return false; }
-                _State->Test->AddInfo(TEXT("Mounted toolkit stage 4: recorded capture saved."));
-                _State->Test->AddInfo(FString::Printf(TEXT("Mounted recorded screenshot: %s"), *Path));
-                _State->Test->TestTrue(TEXT("mode change altered mounted Slate pixels"),
-                    RecordedPixels != _State->AuthoredPixels);
-                _State->Test->TestTrue(TEXT("routed Slate click returns to Authored mode"),
-                    ClickButton(_State->BodyTab->GetContent(), TEXT("Authored")));
-                ++_State->Stage;
+                Limb->SetScenario(State.LimbPreview.Get());
+                State.Test->TestEqual(TEXT("LimbNod selected its saved sibling preview"),
+                    State.LimbNod->Get_EditorSubject().Get_Scenario().ToString(), FString{LimbPreviewPath});
+                Limb->Get_Model()->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Authored);
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 5)
+            if (State.Stage == 13)
             {
-                _State->Test->TestFalse(TEXT("authored mode removed Recorded status"),
-                    HasText(_State->BodyTab->GetContent(), TEXT("RECORDED:")));
-                _State->Test->TestTrue(TEXT("routed Slate click restarts Solver before close"),
-                    ClickButton(_State->BodyTab->GetContent(), TEXT("Solver (restart)")));
-                _State->Test->TestTrue(TEXT("routed Frame requests a Solver seek before close"),
-                    ClickButton(_State->BodyTab->GetContent(), TEXT("Frame")));
-                _State->BodyTab.Reset();
-                const auto Closed = Editors->CloseAllEditorsForAsset(_State->BodyPulse.Get());
-                _State->Test->TestTrue(TEXT("closing one toolkit closes its editor"), Closed > 0);
-                _State->Test->TestTrue(TEXT("second toolkit remains independently open"),
-                    Editors->FindEditorForAsset(_State->LimbNod.Get(), false) != nullptr);
-                if (LimbEditor != nullptr && _State->LimbTab.IsValid())
-                {
-                    LimbEditor->FocusWindow(_State->LimbNod.Get());
-                    if (const auto OwnerTab = LimbEditor->GetAssociatedTabManager()->GetOwnerTab())
-                    { OwnerTab->ActivateInParent(ETabActivationCause::SetDirectly); }
-                    _State->LimbTab->ActivateInParent(ETabActivationCause::SetDirectly);
-                }
-                ++_State->Stage;
-                return false;
-            }
-            if (_State->Stage == 6)
-            {
-                _State->LastWaitReason = TEXT("LimbNod preview selection button or editor window unavailable");
-                if (NOT _State->LimbTab.IsValid()
-                    || NOT FSlateApplication::Get().FindWidgetWindow(_State->LimbTab->GetContent()).IsValid())
+                const auto Status = Limb->Get_StatusText().ToString();
+                const auto HasPose = Status.Contains(TEXT("Authored requested-space pose"));
+                if (NOT State.Settle(HasPose, FString::Printf(TEXT("LimbNod status has no authored pose: %s"), *Status)))
                 { return false; }
-                if (NOT ClickButton(_State->LimbTab->GetContent(), TEXT("Create Preview Config")))
+                State.Test->TestTrue(TEXT("saved limb preview supplies authored initial pose"), HasPose);
+                Limb->Get_Model()->SelectSection(State.LimbNod->Get_Phases()[0].Get_Id());
+                ActivateTab(*Limb, State.LimbNod.Get(), FCk_ProceduralAction_EditorToolkit::ChannelsTabId);
+                ++State.Stage;
+                return false;
+            }
+            if (State.Stage == 14)
+            {
+                const auto* Proxy = Limb->Get_SelectionProxy();
+                const auto ShowsSection = Proxy != nullptr && Proxy->_Shows == ECk_ProceduralActionSelectionProxy_Shows::Section
+                    && Proxy->_SectionName == State.LimbNod->Get_Phases()[0].Get_Id();
+                if (NOT State.Settle(ShowsSection, TEXT("LimbNod section selection did not reach the Details")))
                 { return false; }
-                _State->Test->TestEqual(TEXT("LimbNod selected saved sibling preview through Slate"),
-                    GetDefault<UCk_ProceduralActionEditor_UserSettings>()->GetPreviewPath(
-                        _State->LimbNod->GetPathName()), FString{LimbPreviewPath});
-                ++_State->Stage;
+                State.Test->TestTrue(TEXT("LimbNod section selection reaches the Details"), ShowsSection);
+                const auto Row = FindInToolkit(*Limb, FName{*FString::Printf(TEXT("CkActionEditor.Channel.%s"),
+                    *State.LimbSlot.ToString())});
+                if (NOT Row.IsValid())
+                { State.LastWaitReason = TEXT("LimbNod slot row is absent from the Channels panel."); return false; }
+                if (NOT ClickWidget(Row.ToSharedRef()))
+                { State.LastWaitReason = TEXT("LimbNod slot row did not accept a routed click."); return false; }
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 7)
+            if (State.Stage == 15)
             {
-                const auto Content = _State->LimbTab->GetContent();
-                if (NOT HasText(Content, TEXT("Ck_ProceduralAction_LimbNod_Preview_DA")))
-                { _State->LastWaitReason = TEXT("LimbNod preview asset is not shown in mounted picker"); return false; }
-                _State->Test->TestTrue(TEXT("saved limb preview supplies authored initial pose"),
-                    HasText(Content, TEXT("Authored requested-space pose")));
-                _State->Test->TestTrue(TEXT("LimbNod phase selection receives routed click"),
-                    ClickButton(Content, FString::Printf(TEXT("Phase %s"),
-                        *_State->LimbNod->Get_Phases()[0].Get_Id().ToString())));
-                ++_State->Stage;
+                const auto Model = Limb->Get_Model();
+                const auto Selected = Model->Get_SelectedChannel() == State.LimbSlot;
+                if (NOT State.Settle(Selected, TEXT("Routed LimbNod slot click did not select the slot.")))
+                { return false; }
+                State.Test->TestTrue(TEXT("LimbNod slot selection receives routed click"), Selected);
+                const auto* Key = State.GizmoKey();
+                if (NOT State.Test->TestNotNull(TEXT("saved limb clip has an endpoint key"), Key))
+                { State.Close(); return true; }
+                Model->SelectKey(State.LimbNod->Get_Phases()[0].Get_Id(), State.LimbSlot, Key->Get_Time());
+                ActivateTab(*Limb, State.LimbNod.Get(), FCk_ProceduralAction_EditorToolkit::ViewportTabId);
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 8)
+            if (State.Stage == 16)
             {
-                const auto Content = _State->LimbTab->GetContent();
-                const auto Label = FString::Printf(TEXT("CkActionEditorChannel_%s"),
-                    *_State->LimbNod->Get_Slots()[0].Get_Id().ToString());
-                const auto SlotButton = FindTaggedWidget(Content, FName{*Label});
-                if (NOT SlotButton.IsValid())
-                { _State->LastWaitReason = TEXT("LimbNod slot row is absent from the mounted subject tree."); return false; }
-                const auto ScrollBox = FindOwningScrollBox(Content, SlotButton.ToSharedRef());
-                if (NOT ScrollBox.IsValid())
-                { _State->LastWaitReason = TEXT("LimbNod slot row has no owning timeline scroll box."); return false; }
-                if (NOT _State->SlotScrollRequested
-                    || NOT IsCenterInside(SlotButton.ToSharedRef(), ScrollBox.ToSharedRef()))
-                {
-                    ScrollBox->ScrollDescendantIntoView(SlotButton, false);
-                    _State->SlotScrollRequested = true;
-                    _State->LastWaitReason = TEXT("Waiting for the LimbNod slot row to scroll into view.");
-                    return false;
-                }
-                if (NOT ClickWidget(SlotButton.ToSharedRef()))
-                { _State->LastWaitReason = TEXT("Visible LimbNod slot row did not accept a routed click."); return false; }
-                const auto SelectedSlot = FindTaggedWidget(Content, FName{*Label});
-                if (NOT SelectedSlot.IsValid() || NOT HasText(SelectedSlot.ToSharedRef(), TEXT("SELECTED")))
-                { _State->LastWaitReason = TEXT("Routed LimbNod slot click did not select the slot."); return false; }
-                _State->Test->TestTrue(TEXT("LimbNod slot selection receives routed click"), true);
-                ++_State->Stage;
-                return false;
-            }
-            if (_State->Stage == 9)
-            {
-                const auto Content = _State->LimbTab->GetContent();
-                if (NOT ClickButton(Content, TEXT("Move endpoint key")))
-                { _State->LastWaitReason = TEXT("Mounted endpoint gizmo control did not accept a routed click."); return false; }
-                _State->Test->TestTrue(TEXT("mounted endpoint gizmo control receives routed click"), true);
-                ++_State->Stage;
-                return false;
-            }
-            if (_State->Stage == 10)
-            {
-                const auto Content = _State->LimbTab->GetContent();
-                auto LimbPixels = TArray<FColor>{};
-                const auto Path = SaveCapture(Content, TEXT("LimbNod-AuthoredGizmo"), LimbPixels);
-                if (Path.IsEmpty())
-                { _State->LastWaitReason = TEXT("selected LimbNod authored capture unavailable"); return false; }
-                _State->Test->AddInfo(FString::Printf(TEXT("Mounted configured limb screenshot: %s"), *Path));
-                const auto ViewportWidget = FindAuthoredViewport(Content);
-                if (NOT _State->Test->TestTrue(TEXT("mounted authored viewport found"), ViewportWidget.IsValid()))
-                { _State->Close(); return true; }
+                const auto ViewportWidget = FindViewport(*Limb);
+                if (NOT State.Test->TestTrue(TEXT("mounted authored viewport found"), ViewportWidget.IsValid()))
+                { State.Close(); return true; }
                 const auto ViewportClient = ViewportWidget->GetViewportClient();
-                if (NOT _State->Test->TestTrue(TEXT("mounted production viewport client found"),
+                if (NOT State.Test->TestTrue(TEXT("mounted production viewport client found"),
                     ViewportClient.IsValid() && ViewportClient->Viewport != nullptr))
-                { _State->Close(); return true; }
-                if (NOT _State->Test->TestTrue(TEXT("selected endpoint exposes translation widget"),
-                    ViewportClient->GetWidgetMode() == UE::Widget::WM_Translate))
-                { _State->Close(); return true; }
-                const auto& Tracks = _State->LimbNod->Get_Phases()[0].Get_LimbTracks();
-                if (NOT _State->Test->TestTrue(TEXT("saved limb clip has an endpoint key"),
-                    NOT Tracks.IsEmpty() && NOT Tracks[0].Get_PositionKeys().IsEmpty()))
-                { _State->Close(); return true; }
-                const auto Before = Tracks[0].Get_PositionKeys()[0].Get_Value();
+                { State.Close(); return true; }
+                const auto Translates = ViewportClient->GetWidgetMode() == UE::Widget::WM_Translate;
                 auto Axis = FAxisSample{};
-                if (NOT _State->Test->TestTrue(TEXT("rendered endpoint X axis has real hit-proxy pixels"),
-                    FindXAxisSample(*ViewportClient->Viewport, Axis)))
-                { _State->Close(); return true; }
-                _State->Test->AddInfo(FString::Printf(
+                const auto HasAxis = Translates && FindXAxisSample(*ViewportClient->Viewport, Axis);
+                if (NOT State.Settle(HasAxis, TEXT("the selected endpoint has no rendered translation X axis yet")))
+                { return false; }
+                const auto ViewportTab = FindTab(*Limb, FCk_ProceduralAction_EditorToolkit::ViewportTabId);
+                auto LimbPixels = TArray<FColor>{};
+                const auto Path = ViewportTab.IsValid()
+                    ? SaveCapture(ViewportTab->GetContent(), TEXT("LimbNod-AuthoredGizmo"), LimbPixels) : FString{};
+                State.Test->AddInfo(FString::Printf(TEXT("Mounted configured limb screenshot: %s"),
+                    Path.IsEmpty() ? TEXT("unavailable") : *Path));
+                if (NOT State.Test->TestTrue(TEXT("selected endpoint exposes translation widget"), Translates))
+                { State.Close(); return true; }
+                const auto* Key = State.GizmoKey();
+                if (NOT State.Test->TestNotNull(TEXT("saved limb clip has an endpoint key"), Key))
+                { State.Close(); return true; }
+                if (NOT State.Test->TestTrue(TEXT("rendered endpoint X axis has real hit-proxy pixels"), HasAxis))
+                { State.Close(); return true; }
+                State.Test->AddInfo(FString::Printf(
                     TEXT("Rendered endpoint X axis: %d pixels, sample=(%d,%d), drag=%s"),
                     Axis.PixelCount, Axis.Pixel.X, Axis.Pixel.Y, *Axis.Drag.ToString()));
                 const auto Surface = FindViewportSurface(ViewportWidget.ToSharedRef());
-                if (NOT _State->Test->TestTrue(TEXT("mounted authored viewport has routed Slate surface"),
+                if (NOT State.Test->TestTrue(TEXT("mounted authored viewport has routed Slate surface"),
                     Surface.IsValid()))
-                { _State->Close(); return true; }
-                _State->GizmoBefore = Before;
-                _State->UndoBeforeGizmo = GEditor->Trans != nullptr
+                { State.Close(); return true; }
+                State.GizmoBefore = Key->Get_Value();
+                State.UndoBeforeGizmo = GEditor->Trans != nullptr
                     ? GEditor->Trans->GetUndoContext(false).TransactionId : FGuid{};
-                _State->GizmoAttempted = true;
+                State.GizmoAttempted = true;
                 const auto Accepted = BeginXAxisDragThroughSlate(Surface.ToSharedRef(),
-                    *ViewportClient, Axis, _State->AxisDrag);
-                _State->Test->TestTrue(TEXT("rendered endpoint axis receives routed mouse down"),
+                    *ViewportClient, Axis, State.AxisDrag);
+                State.Test->TestTrue(TEXT("rendered endpoint axis receives routed mouse down"),
                     Accepted);
-                _State->Stage = 11;
+                State.Stage = 17;
                 return false;
             }
-            if (_State->Stage >= 11 && _State->Stage <= 14)
+            if (State.Stage >= 17 && State.Stage <= 20)
             {
-                _State->LastWaitReason = TEXT("gizmo drag is advancing over editor frames");
-                AdvanceXAxisDragThroughSlate(_State->AxisDrag, _State->Stage - 10);
-                ++_State->Stage;
+                State.LastWaitReason = TEXT("gizmo drag is advancing over editor frames");
+                AdvanceXAxisDragThroughSlate(State.AxisDrag, State.Stage - 16);
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 15)
+            if (State.Stage == 21)
             {
-                const auto Accepted = FinishXAxisDragThroughSlate(_State->AxisDrag);
-                const auto& DragObservation = _State->AxisDrag.Observation;
-                _State->Test->AddInfo(FString::Printf(
+                const auto Accepted = FinishXAxisDragThroughSlate(State.AxisDrag);
+                const auto& DragObservation = State.AxisDrag.Observation;
+                State.Test->AddInfo(FString::Printf(
                     TEXT("Routed axis drag: down=%d selectedX=%d move=%d up=%d"),
                     DragObservation.PressHandled, DragObservation.PickedXAxis,
                     DragObservation.MoveHandled, DragObservation.ReleaseHandled));
-                _State->Test->TestTrue(TEXT("rendered endpoint axis accepts a routed Slate mouse drag"),
+                State.Test->TestTrue(TEXT("rendered endpoint axis accepts a routed Slate mouse drag"),
                     Accepted);
-                const auto After = _State->LimbNod->Get_Phases()[0]
-                    .Get_LimbTracks()[0].Get_PositionKeys()[0].Get_Value();
-                _State->Test->TestTrue(TEXT("mounted gizmo committed a changed endpoint key"),
-                    NOT After.Equals(_State->GizmoBefore));
-                const auto Undone = _State->UndoOwnedGizmoKey();
-                _State->Test->TestTrue(TEXT("mounted gizmo transaction undoes"), Undone);
-                _State->Test->TestTrue(TEXT("Undo restores the saved endpoint key"),
-                    _State->LimbNod->Get_Phases()[0].Get_LimbTracks()[0]
-                        .Get_PositionKeys()[0].Get_Value().Equals(_State->GizmoBefore));
-                ++_State->Stage;
+                State.Test->TestTrue(TEXT("mounted gizmo committed a changed endpoint key"),
+                    State.HasChangedGizmoKey());
+                const auto Undone = State.UndoOwnedGizmoKey();
+                State.Test->TestTrue(TEXT("mounted gizmo transaction undoes"), Undone);
+                const auto* Key = State.GizmoKey();
+                State.Test->TestTrue(TEXT("Undo restores the saved endpoint key"),
+                    Key != nullptr && Key->Get_Value().Equals(State.GizmoBefore));
+                ++State.Stage;
                 return false;
             }
-            _State->Close();
+            State.Close();
             CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
-            _State->Test->TestNull(TEXT("BodyPulse toolkit released after close"),
-                Editors->FindEditorForAsset(_State->BodyPulse.Get(), false));
-            _State->Test->TestNull(TEXT("LimbNod toolkit released after close"),
-                Editors->FindEditorForAsset(_State->LimbNod.Get(), false));
+            State.Test->TestNull(TEXT("BodyPulse toolkit released after close"),
+                Editors->FindEditorForAsset(State.BodyPulse.Get(), false));
+            State.Test->TestNull(TEXT("LimbNod toolkit released after close"),
+                Editors->FindEditorForAsset(State.LimbNod.Get(), false));
             return true;
         }
 
@@ -1230,23 +915,26 @@ auto
     State->Test = this;
     State->BodyPulse.Reset(LoadObject<UCk_ProceduralAction_Data>(nullptr, BodyPulsePath));
     State->LimbNod.Reset(LoadObject<UCk_ProceduralAction_Data>(nullptr, LimbNodPath));
+    State->BodyPreview.Reset(LoadObject<UCk_ProceduralActionPreview_Config>(nullptr, BodyPreviewPath));
+    State->LimbPreview.Reset(LoadObject<UCk_ProceduralActionPreview_Config>(nullptr, LimbPreviewPath));
     State->Editors = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
-    if (NOT TestTrue(TEXT("both saved example clips and asset editor subsystem are available"),
+    if (NOT TestTrue(TEXT("both saved example clips, their previews and asset editor subsystem are available"),
         State->BodyPulse.IsValid() && State->LimbNod.IsValid() && State->Editors.IsValid()
+            && State->BodyPreview.IsValid() && State->LimbPreview.IsValid()
             && NOT State->BodyPulse->Get_Phases().IsEmpty()
             && NOT State->LimbNod->Get_Phases().IsEmpty()
-            && NOT State->LimbNod->Get_Slots().IsEmpty()))
+            && NOT State->LimbNod->Get_Phases()[0].Get_LimbTracks().IsEmpty()))
     { return false; }
-    const auto* Settings = GetDefault<UCk_ProceduralActionEditor_UserSettings>();
-    State->PreviousBodyPreview = Settings->GetPreviewPath(State->BodyPulse->GetPathName());
-    State->PreviousLimbPreview = Settings->GetPreviewPath(State->LimbNod->GetPathName());
+    State->LimbSlot = State->LimbNod->Get_Phases()[0].Get_LimbTracks()[0].Get_Slot();
+    State->PreviousBodySubject = State->BodyPulse->Get_EditorSubject();
+    State->PreviousLimbSubject = State->LimbNod->Get_EditorSubject();
     State->SettingsCaptured = true;
     if (NOT TestTrue(TEXT("BodyPulse opens through its registered asset definition"),
         State->Editors->OpenEditorForAsset(State->BodyPulse.Get(), EToolkitMode::Standalone))
         || NOT TestTrue(TEXT("LimbNod opens as a second toolkit"),
             State->Editors->OpenEditorForAsset(State->LimbNod.Get(), EToolkitMode::Standalone)))
     { State->Close(); return false; }
-    State->DeadlineSeconds = FPlatformTime::Seconds() + 15.0;
+    State->DeadlineSeconds = FPlatformTime::Seconds() + 20.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunMountedToolkit(State));
     return true;
 }

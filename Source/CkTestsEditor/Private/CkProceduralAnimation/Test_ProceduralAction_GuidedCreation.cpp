@@ -3,7 +3,7 @@
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
 #include "CkProceduralAnimation/Core/CkProceduralActionValidation.h"
-#include "CkProceduralAnimationEditor/CkProceduralActionEditor_UserSettings.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionAuthoringCommands.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionGuidedCreation.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionPreview_Config.h"
 #include "CkProceduralAnimationEditor/CkProceduralAction_Factory.h"
@@ -33,7 +33,6 @@ namespace ck_test_procedural_action_guided_creation
         FString MountRoot;
         FString MountDirectory;
         TArray<FString> Packages;
-        TArray<FString> ClipPaths;
         TStrongObjectPtr<UTransactor> PreviousTransactions;
         TStrongObjectPtr<UTransBuffer> PrivateTransactions;
         bool Mounted = false;
@@ -66,12 +65,6 @@ namespace ck_test_procedural_action_guided_creation
             { PrivateTransactions->Reset(FText::FromString(TEXT("Discard disposable creation test transactions"))); }
             if (GEditor != nullptr && PrivateTransactions.IsValid() && GEditor->Trans.Get() == PrivateTransactions.Get())
             { GEditor->Trans = PreviousTransactions.Get(); }
-            auto* Settings = GetMutableDefault<UCk_ProceduralActionEditor_UserSettings>();
-            auto SettingsChanged = false;
-            for (const auto& ClipPath : ClipPaths)
-            { SettingsChanged |= Settings->SetPreviewPath(ClipPath, FString{}); }
-            if (SettingsChanged)
-            { Settings->SaveConfig(); }
             auto Loaded = TArray<UPackage*>{};
             for (const auto& PackageName : Packages)
             {
@@ -130,28 +123,28 @@ namespace ck_test_procedural_action_guided_creation
     }
 
     auto
-        MakeChoice(
-            ECk_ProceduralActionCreation_Subject InSubject,
-            ECk_ProceduralAction_Recipe InRecipe)
+        MakeWalkingChoice(
+            bool InWithGait)
         -> FCk_ProceduralActionCreation_Choice
     {
+        auto Subject = FCk_ProceduralAction_EditorSubject{};
+        Subject.Set_WalkingRig(TSoftObjectPtr<UCk_ProceduralRig_Data>{FSoftObjectPath{TEXT("/Game/Missing/Rig_DA.Rig_DA")}});
+        if (InWithGait)
+        { Subject.Set_WalkingGait(TSoftObjectPtr<UCk_ProceduralGait_Data>{FSoftObjectPath{TEXT("/Game/Missing/Gait_DA.Gait_DA")}}); }
         auto Choice = FCk_ProceduralActionCreation_Choice{};
-        Choice.Set_Subject(InSubject);
-        auto Recipe = FCk_ProceduralAction_RecipeSpec{InRecipe, TArray<FName>{}};
-        Recipe.Set_AmplitudeCm(12.0f);
-        Choice.Set_Recipe(Recipe);
+        Choice.Set_Subject(Subject);
         return Choice;
     }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_AuthoringCommands_RecipeCreationCancelLeavesNoAssets,
-    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.RecipeCreationCancelLeavesNoAssets",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_AuthoringCommands_CreationAsksOnlyTheSubject,
+    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.CreationAsksOnlyTheSubject",
     ck_test_procedural_action_guided_creation::TestFlags)
 
 auto
-    FCkTest_ProceduralAction_AuthoringCommands_RecipeCreationCancelLeavesNoAssets::
+    FCkTest_ProceduralAction_AuthoringCommands_CreationAsksOnlyTheSubject::
     RunTest(
         const FString&)
     -> bool
@@ -161,10 +154,8 @@ auto
     if (NOT TestTrue(TEXT("disposable content root and private undo buffer"), Root.Mount()))
     { return false; }
     const auto ClipPackage = Root.MountRoot + TEXT("Lean_DA");
-    const auto PreviewPackage = ck::procedural_action_editor::Get_PreviewSiblingPackageName(ClipPackage);
-    Root.Packages = TArray<FString>{ClipPackage, PreviewPackage};
-    Root.ClipPaths.Add(ClipPackage + TEXT(".Lean_DA"));
-    TestEqual(TEXT("the preview is created next to the clip"), PreviewPackage, Root.MountRoot + TEXT("Lean_Preview_DA"));
+    const auto SiblingPackage = Root.MountRoot + TEXT("Lean_Preview_DA");
+    Root.Packages = TArray<FString>{ClipPackage, SiblingPackage};
 
     auto Factory = TStrongObjectPtr<UCk_ProceduralAction_Factory>{NewObject<UCk_ProceduralAction_Factory>()};
     auto Error = FString{};
@@ -172,49 +163,43 @@ auto
         Factory->ConfigureFromChoice(TOptional<FCk_ProceduralActionCreation_Choice>{}, Error));
     TestFalse(TEXT("cancel leaves no confirmed choice"), Factory->Get_HasConfirmedChoice());
     TestTrue(TEXT("cancel created no clip"), HasNoAsset(ClipPackage));
-    TestTrue(TEXT("cancel created no preview config"), HasNoAsset(PreviewPackage));
 
-    const auto UnslottedReach = MakeChoice(ECk_ProceduralActionCreation_Subject::NewBodyOnly, ECk_ProceduralAction_Recipe::Reach);
-    TestFalse(TEXT("a recipe the builder rejects is refused before any write"),
-        Factory->ConfigureFromChoice(UnslottedReach, Error));
-    TestTrue(TEXT("the recipe refusal carries the builder's field"), Error.Contains(TEXT("Slots")));
-    TestFalse(TEXT("a refused recipe leaves no confirmed choice"), Factory->Get_HasConfirmedChoice());
-    TestTrue(TEXT("a refused recipe created no preview config"), HasNoAsset(PreviewPackage));
+    TestFalse(TEXT("a walking subject without its gait is refused before any write"),
+        Factory->ConfigureFromChoice(MakeWalkingChoice(false), Error));
+    TestTrue(TEXT("the refusal names the gait"), Error.Contains(TEXT("gait")));
+    TestFalse(TEXT("a refused subject leaves no confirmed choice"), Factory->Get_HasConfirmedChoice());
+    TestTrue(TEXT("a walking subject with a rig and a gait is accepted"), Factory->ConfigureFromChoice(MakeWalkingChoice(true), Error));
 
-    const auto MissingSubject = MakeChoice(ECk_ProceduralActionCreation_Subject::UseExisting, ECk_ProceduralAction_Recipe::BodyLean);
-    TestFalse(TEXT("reusing a subject requires choosing one"), Factory->ConfigureFromChoice(MissingSubject, Error));
-    TestTrue(TEXT("the missing subject refusal says so"), Error.Contains(TEXT("preview")));
-
-    const auto BodyLean = MakeChoice(ECk_ProceduralActionCreation_Subject::NewBodyOnly, ECk_ProceduralAction_Recipe::BodyLean);
-    TestTrue(TEXT("a valid choice configures the factory"), Factory->ConfigureFromChoice(BodyLean, Error));
-    TestTrue(TEXT("configuring alone writes nothing"), HasNoAsset(ClipPackage) && HasNoAsset(PreviewPackage));
+    const auto BodyOnly = FCk_ProceduralActionCreation_Choice{};
+    TestTrue(TEXT("a body-only choice configures the factory"), Factory->ConfigureFromChoice(BodyOnly, Error));
+    TestTrue(TEXT("configuring alone writes nothing"), HasNoAsset(ClipPackage));
     TestFalse(TEXT("a later cancel withdraws the earlier choice"),
         Factory->ConfigureFromChoice(TOptional<FCk_ProceduralActionCreation_Choice>{}, Error));
     TestFalse(TEXT("the withdrawn choice cannot leak into a later creation"), Factory->Get_HasConfirmedChoice());
 
-    if (NOT TestTrue(TEXT("confirm the body lean choice"), Factory->ConfigureFromChoice(BodyLean, Error)))
+    if (NOT TestTrue(TEXT("confirm the body-only choice"), Factory->ConfigureFromChoice(BodyOnly, Error)))
     { AddInfo(Error); return false; }
     auto& Tools = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get();
     auto* Created = Cast<UCk_ProceduralAction_Data>(Tools.CreateAsset(TEXT("Lean_DA"), FPackageName::GetLongPackagePath(ClipPackage),
         UCk_ProceduralAction_Data::StaticClass(), Factory.Get()));
     if (NOT TestNotNull(TEXT("a confirmed choice creates the clip"), Created))
     { return false; }
-    const auto* Preview = FindObject<UCk_ProceduralActionPreview_Config>(nullptr,
-        *(PreviewPackage + TEXT(".") + FPackageName::GetLongPackageAssetName(PreviewPackage)));
-    if (NOT TestNotNull(TEXT("the confirmed choice created the sibling preview config"), Preview))
-    { return false; }
-    TestEqual(TEXT("a body-only subject is standalone"), Preview->Get_SubjectMode(), ECk_ProceduralActionPreview_SubjectMode::Standalone);
-    TestTrue(TEXT("a body-only subject has no limbs"), Preview->Get_Layout().Get_Limbs().IsEmpty());
-    TestEqual(TEXT("the clip remembers its new preview"),
-        GetDefault<UCk_ProceduralActionEditor_UserSettings>()->GetPreviewPath(Created->GetPathName()), Preview->GetPathName());
+    TestTrue(TEXT("creation makes one asset: no preview config beside the clip"), HasNoAsset(SiblingPackage));
+    TestTrue(TEXT("a body-only clip remembers an empty subject"), Created->Get_EditorSubject().Get_IsEmpty());
+    TestTrue(TEXT("the new clip starts empty"), Created->Get_Phases().IsEmpty() && Created->Get_Slots().IsEmpty());
+    TestFalse(TEXT("a creation consumes the confirmed choice"), Factory->Get_HasConfirmedChoice());
+
+    auto Recipe = FCk_ProceduralAction_RecipeSpec{ECk_ProceduralAction_Recipe::BodyLean, TArray<FName>{}};
+    Recipe.Set_AmplitudeCm(12.0f);
+    if (NOT TestTrue(TEXT("the starting shape applies to the new clip"),
+        FCk_ProceduralActionAuthoringCommands{Created}.CreateFromRecipe(Recipe, Error)))
+    { AddInfo(Error); return false; }
     auto Compiled = ck::procedural_action::FCompiledClip{};
     auto Diagnostics = TArray<ck::procedural_action::FDiagnostic>{};
-    TestTrue(TEXT("the recipe clip compiles"), ck::procedural_action::Compile(*Created, Compiled, Diagnostics));
-    TestEqual(TEXT("the body lean recipe writes three phases"), Created->Get_Phases().Num(), 3);
-    TestFalse(TEXT("the recipe keys are named poses"), Created->Get_EditorPoseGroups().IsEmpty());
+    TestTrue(TEXT("the shaped clip compiles"), ck::procedural_action::Compile(*Created, Compiled, Diagnostics));
+    TestEqual(TEXT("the body lean shape writes three phases"), Created->Get_Phases().Num(), 3);
+    TestFalse(TEXT("the shape's keys are named poses"), Created->Get_EditorPoseGroups().IsEmpty());
     TestFalse(TEXT("creation saves nothing: the clip file is not written"), PackageFileExists(ClipPackage));
-    TestFalse(TEXT("creation saves nothing: the preview file is not written"), PackageFileExists(PreviewPackage));
-    TestFalse(TEXT("a creation consumes the confirmed choice"), Factory->Get_HasConfirmedChoice());
     return NOT HasAnyErrors();
 }
 

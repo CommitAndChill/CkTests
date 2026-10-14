@@ -57,14 +57,10 @@ namespace ck_test_procedural_action_mirror
     }
 
     auto
-    MakeSourceTrack(
-        ECk_ProceduralAction_TrackSpace InSpace)
+    MakeSourceTrack()
         -> FCk_ProceduralAction_LimbTrack
     {
         auto Track = FCk_ProceduralAction_LimbTrack{Left};
-        Track.Set_Space(InSpace);
-        if (InSpace == ECk_ProceduralAction_TrackSpace::AnchorAtStart)
-        { Track.Set_AnchorId(FName{TEXT("Target")}); }
         Track.Set_Interpolation(ECk_ProceduralAction_Interpolation::Smooth);
         Track.Set_ReachPolicy(ECk_ProceduralAction_ReachPolicy::ProjectToReach);
         Track.Set_PositionKeys(TArray<FCk_ProceduralAction_VectorKey>{
@@ -85,9 +81,11 @@ namespace ck_test_procedural_action_mirror
         -> FCk_ProceduralAction_ClipDraft
     {
         auto Draft = FCk_ProceduralAction_ClipDraft{};
-        Draft.Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{Left}, FCk_ProceduralAction_Slot{Right}});
+        auto Source = FCk_ProceduralAction_Slot{Left};
+        Source.Set_Space(InSpace);
+        Draft.Set_Slots(TArray<FCk_ProceduralAction_Slot>{Source, FCk_ProceduralAction_Slot{Right}});
         auto Reach = FCk_ProceduralAction_Phase{FName{TEXT("Reach")}, FCk_Time{0.5}};
-        Reach.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{MakeSourceTrack(InSpace)});
+        Reach.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{MakeSourceTrack()});
         auto Hold = FCk_ProceduralAction_Phase{FName{TEXT("Hold")}, FCk_Time{0.5}};
         Draft.Set_Phases(TArray<FCk_ProceduralAction_Phase>{Reach, Hold});
         return Draft;
@@ -161,7 +159,7 @@ FCkProceduralActionMirrorReflectsTest::RunTest(
     if (NOT TestNotNull(TEXT("Destination track written"), Destination) || NOT TestNotNull(TEXT("Source kept"), Source))
     { return false; }
     TestNull(TEXT("A phase without a source track gets no destination track"), FindTrack(Draft.Get_Phases()[1], Right));
-    TestEqual(TEXT("Destination keeps the source frame"), Destination->Get_Space(), Source->Get_Space());
+    TestEqual(TEXT("Destination slot keeps the source frame"), Draft.Get_Slots()[1].Get_Space(), Draft.Get_Slots()[0].Get_Space());
     TestEqual(TEXT("Destination keeps interpolation"), Destination->Get_Interpolation(), Source->Get_Interpolation());
     TestEqual(TEXT("Destination keeps reach policy"), Destination->Get_ReachPolicy(), Source->Get_ReachPolicy());
     const auto Reflect = [](const FVector& InVector)
@@ -240,26 +238,24 @@ FCkProceduralActionMirrorRejectsTest::RunTest(
         FCk_ProceduralAction_MirrorSpec{Left, Left, ECk_ProceduralAction_MirrorPlane::XZ}).Get_Status(), Invalid);
     TestTrue(TEXT("Nothing written"), DraftsEqual(Before, Undeclared));
 
-    for (const auto Space : {ECk_ProceduralAction_TrackSpace::LimbRestNormalized, ECk_ProceduralAction_TrackSpace::AnchorAtStart})
     {
-        auto Draft = MakeDraft(Space);
+        auto Draft = MakeDraft(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
         Before = Draft;
         const auto SpaceReport = UCk_Utils_ProceduralActionBuilder_UE::Mirror_Slot(Draft, Mirror);
         TestEqual(TEXT("A frame that needs subject topology rejects in the draft"), SpaceReport.Get_Status(), Invalid);
-        TestTrue(TEXT("The source track space is named"), HasDiagnostic(SpaceReport, TEXT("MirrorSpace"), TEXT("Phases[0].LimbTracks[0].Space")));
+        TestTrue(TEXT("The source slot space is named"), HasDiagnostic(SpaceReport, TEXT("MirrorSpace"), TEXT("Slots[0].Space")));
         TestTrue(TEXT("Nothing written"), DraftsEqual(Before, Draft));
     }
 
     auto Framed = MakeDraft(ECk_ProceduralAction_TrackSpace::BodyLocal);
+    Framed.Get_Slots()[1].Set_Space(ECk_ProceduralAction_TrackSpace::RootAtStart);
     Phases = Framed.Get_Phases();
-    auto Held = FCk_ProceduralAction_LimbTrack{Right};
-    Held.Set_Space(ECk_ProceduralAction_TrackSpace::RootAtStart);
-    Phases[1].Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Held});
+    Phases[1].Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{FCk_ProceduralAction_LimbTrack{Right}});
     Framed.Set_Phases(Phases);
     Before = Framed;
     const auto FrameReport = UCk_Utils_ProceduralActionBuilder_UE::Mirror_Slot(Framed, Mirror);
     TestEqual(TEXT("A destination already framed differently rejects"), FrameReport.Get_Status(), Invalid);
-    TestTrue(TEXT("The frame conflict is named"), HasDiagnostic(FrameReport, TEXT("SpaceChangesAcrossPhases"), TEXT("Phases[0].LimbTracks[1].Space")));
+    TestTrue(TEXT("The frame conflict is named"), HasDiagnostic(FrameReport, TEXT("MirrorFrame"), TEXT("Slots[1].Space")));
     TestTrue(TEXT("Nothing written"), DraftsEqual(Before, Framed));
     return true;
 }
@@ -287,6 +283,8 @@ FCkProceduralActionMirrorSourceTest::RunTest(
     TestTrue(TEXT("Source track is byte-identical after mirroring"), SourceAfter != nullptr
         && FCk_ProceduralAction_LimbTrack::StaticStruct()->CompareScriptStruct(&SourceBefore, SourceAfter, PPF_None));
     TestEqual(TEXT("Mirroring declares no slot"), Draft.Get_Slots().Num(), SlotsBefore.Num());
+    TestEqual(TEXT("The destination slot takes the source slot's frame"), Draft.Get_Slots()[1].Get_Space(),
+        ECk_ProceduralAction_TrackSpace::RootAtStart);
     TestTrue(TEXT("Mirroring adds no body motion or event"), Draft.Get_BodyChannel().Get_Enabled() == false
         && Draft.Get_Markers().IsEmpty() && Draft.Get_Windows().IsEmpty());
     return true;
