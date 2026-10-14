@@ -6,17 +6,9 @@
 #include "CkProceduralAnimation/Core/CkProceduralActionValidation.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionAuthoringCommands.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionAuthoringSession.h"
-#include "CkProceduralAnimationEditor/CkProceduralActionPoseGroups.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionEditorData.h"
 
 #include "Editor.h"
-#include "Editor/TransBuffer.h"
-#include "HAL/FileManager.h"
-#include "Misc/PackageName.h"
-#include "Misc/Paths.h"
-#include "PackageTools.h"
-#include "UObject/GarbageCollection.h"
-#include "UObject/Package.h"
-#include "UObject/SavePackage.h"
 #include "UObject/StrongObjectPtr.h"
 
 namespace ck_test_procedural_action_pose_capture
@@ -30,7 +22,7 @@ namespace ck_test_procedural_action_pose_capture
     auto
         BodyChannel()
         -> FName
-    { return FCk_ProceduralAction_PoseGroup::Get_BodyChannelName(); }
+    { return ck::procedural_action_editor::Get_BodyChannelName(); }
 
     auto
         MakeTransientClip()
@@ -90,11 +82,6 @@ namespace ck_test_procedural_action_pose_capture
     }
 
     auto
-        Participants()
-        -> TArray<FName>
-    { return TArray<FName>{BodyChannel(), Arm}; }
-
-    auto
         FindTrack(
             const UCk_ProceduralAction_Data& InClip,
             FName InSlot)
@@ -132,13 +119,15 @@ namespace ck_test_procedural_action_pose_capture
     }
 
     auto
-        FindGroup(
+        LabelAt(
             const UCk_ProceduralAction_Data& InClip,
-            const FGuid& InId)
-        -> const FCk_ProceduralAction_PoseGroup*
+            FName InPhaseId,
+            double InTime)
+        -> TOptional<FName>
     {
-        return InClip.Get_EditorPoseGroups().FindByPredicate([&InId](const auto& InGroup)
-            { return InGroup.Get_Id() == InId; });
+        const auto Labels = ck::procedural_action_editor::Get_PoseLabels(InClip);
+        const auto* Label = ck::procedural_action_editor::FindPoseLabel(Labels, InPhaseId, InTime);
+        return Label != nullptr ? TOptional<FName>{Label->Get_Label()} : TOptional<FName>{};
     }
 
     auto
@@ -161,12 +150,12 @@ namespace ck_test_procedural_action_pose_capture
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_PoseCapture_CaptureUpdateDuplicateMoveDelete,
-    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.PoseCapture.CaptureUpdateDuplicateMoveDelete",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_Poses_RecordWritesKeysAndOneLabel,
+    "Ck.ProceduralAnimation.Action.Editor.Poses.RecordWritesKeysAndOneLabel",
     ck_test_procedural_action_pose_capture::TestFlags)
 
 auto
-    FCkTest_ProceduralAction_PoseCapture_CaptureUpdateDuplicateMoveDelete::
+    FCkTest_ProceduralAction_Poses_RecordWritesKeysAndOneLabel::
     RunTest(
         const FString&)
     -> bool
@@ -177,93 +166,55 @@ auto
     { return false; }
     auto Commands = FCk_ProceduralActionAuthoringCommands{Clip.Get()};
     auto Error = FString{};
-    auto PoseId = FGuid{};
-    if (NOT TestTrue(TEXT("capture a whole pose at an empty time"),
-        Commands.CapturePose(Motion, MakePose(0.5, FVector{0.0, 0.0, 5.0}, FVector{15.0, 0.0, 0.0}),
-            Participants(), FName{TEXT("Raised")}, PoseId, Error)))
+    if (NOT TestTrue(TEXT("record the body and the arm at an empty time"),
+        Commands.RecordPose(Motion, MakePose(0.5, FVector{0.0, 0.0, 5.0}, FVector{15.0, 0.0, 0.0}), FName{TEXT("Raised")}, Error)))
     { AddInfo(Error); return false; }
-    TestTrue(TEXT("capture returns a valid pose ID"), PoseId.IsValid());
-    TestTrue(TEXT("capture keyed the body"), HasBodyKeyAt(*Clip, 0.5));
+    TestTrue(TEXT("record keyed the body"), HasBodyKeyAt(*Clip, 0.5));
     auto Value = FVector::ZeroVector;
-    TestTrue(TEXT("capture keyed the arm"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{15.0, 0.0, 0.0}));
-    TestFalse(TEXT("unselected leg stays under ordinary control"), PositionAt(*Clip, Leg, 0.5, Value));
-    TestEqual(TEXT("unrelated leg keys untouched"), FindTrack(*Clip, Leg)->Get_PositionKeys().Num(), 2);
-    TestEqual(TEXT("marker untouched"), Clip->Get_Markers().Num(), 1);
-    const auto* Group = FindGroup(*Clip, PoseId);
-    if (NOT TestNotNull(TEXT("capture recorded editor pose metadata"), Group))
+    TestTrue(TEXT("record keyed the arm"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{15.0, 0.0, 0.0}));
+    TestFalse(TEXT("the unticked leg gets no key"), PositionAt(*Clip, Leg, 0.5, Value));
+    TestEqual(TEXT("the leg's keys are untouched"), FindTrack(*Clip, Leg)->Get_PositionKeys().Num(), 2);
+    const auto Labels = ck::procedural_action_editor::Get_PoseLabels(*Clip);
+    if (NOT TestEqual(TEXT("one label for the recorded pose"), Labels.Num(), 1))
     { return false; }
-    TestEqual(TEXT("group phase"), Group->Get_PhaseId(), Motion);
-    TestEqual(TEXT("group time"), Group->Get_Time().Get_Value(), 0.5);
-    TestEqual(TEXT("group channels are the captured participants"), Group->Get_Channels().Num(), 2);
-    TestEqual(TEXT("requested capture provenance"), Group->Get_Provenance(), ECk_ProceduralAction_PoseProvenance::Requested);
+    TestEqual(TEXT("label phase"), Labels[0].Get_PhaseId(), Motion);
+    TestEqual(TEXT("label time"), Labels[0].Get_Time().Get_Value(), 0.5);
+    TestEqual(TEXT("label name"), Labels[0].Get_Label(), FName{TEXT("Raised")});
 
-    const auto PhasesAfterCapture = Clip->Get_Phases();
-    auto Ignored = FGuid{};
-    TestFalse(TEXT("capturing at an occupied time is refused"),
-        Commands.CapturePose(Motion, MakePose(0.5, FVector::ZeroVector, FVector::ZeroVector),
-            Participants(), NAME_None, Ignored, Error));
-    TestTrue(TEXT("occupied refusal names Update Pose"), Error.Contains(TEXT("Update")));
-    TestTrue(TEXT("occupied refusal writes nothing"), SamePhases(*Clip, PhasesAfterCapture));
-    TestFalse(TEXT("a missing required participant is refused"),
-        Commands.CapturePose(Motion, MakePose(0.25, FVector::ZeroVector, FVector::ZeroVector),
-            TArray<FName>{BodyChannel(), Arm, Leg}, NAME_None, Ignored, Error));
-    TestTrue(TEXT("missing participant refusal names the channel"), Error.Contains(Leg.ToString()));
-    TestTrue(TEXT("missing participant refusal writes nothing"), SamePhases(*Clip, PhasesAfterCapture));
-
-    if (NOT TestTrue(TEXT("update the captured pose"),
-        Commands.UpdatePose(PoseId, MakePose(0.5, FVector{0.0, 0.0, 6.0}, FVector{20.0, 0.0, 0.0}), Error)))
+    if (NOT TestTrue(TEXT("record again at the same time with no name"),
+        Commands.RecordPose(Motion, MakePose(0.5, FVector{0.0, 0.0, 6.0}, FVector{20.0, 0.0, 0.0}), NAME_None, Error)))
     { AddInfo(Error); return false; }
-    TestTrue(TEXT("update replaced the arm value"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{20.0, 0.0, 0.0}));
-    TestNotNull(TEXT("update keeps the pose ID"), FindGroup(*Clip, PoseId));
+    TestTrue(TEXT("re-recording replaced the arm value"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{20.0, 0.0, 0.0}));
+    TestEqual(TEXT("re-recording keeps one label"), ck::procedural_action_editor::Get_PoseLabels(*Clip).Num(), 1);
+    TestEqual(TEXT("an unnamed re-record keeps the name"), LabelAt(*Clip, Motion, 0.5).Get(NAME_None), FName{TEXT("Raised")});
 
-    auto CopyId = FGuid{};
-    if (NOT TestTrue(TEXT("duplicate at another time"), Commands.DuplicatePose(PoseId, Motion, 0.25, CopyId, Error)))
+    if (NOT TestTrue(TEXT("rename the label"), Commands.RenameLabel(Motion, 0.5, FName{TEXT("Lifted")}, Error)))
     { AddInfo(Error); return false; }
-    TestTrue(TEXT("duplicate has its own ID"), CopyId.IsValid() && CopyId != PoseId);
-    TestTrue(TEXT("duplicate copied the arm value"), PositionAt(*Clip, Arm, 0.25, Value) && Value.Equals(FVector{20.0, 0.0, 0.0}));
-    TestTrue(TEXT("duplicate copied the body"), HasBodyKeyAt(*Clip, 0.25));
+    TestEqual(TEXT("renamed"), LabelAt(*Clip, Motion, 0.5).Get(NAME_None), FName{TEXT("Lifted")});
+    TestFalse(TEXT("renaming an unlabelled time is refused"), Commands.RenameLabel(Motion, 0.25, FName{TEXT("Nothing")}, Error));
 
-    if (NOT TestTrue(TEXT("move the duplicate"), Commands.MovePose(CopyId, Motion, 0.75, Error)))
+    if (NOT TestTrue(TEXT("move the arm key while the body keeps its key at 0.5"), Commands.MoveKey(Motion, Arm, 0.5, 0.75, Error)))
     { AddInfo(Error); return false; }
-    TestFalse(TEXT("move removed the arm key at the old time"), PositionAt(*Clip, Arm, 0.25, Value));
-    TestFalse(TEXT("move removed the body key at the old time"), HasBodyKeyAt(*Clip, 0.25));
-    TestTrue(TEXT("move wrote the arm key at the new time"), PositionAt(*Clip, Arm, 0.75, Value) && Value.Equals(FVector{20.0, 0.0, 0.0}));
-    const auto* Moved = FindGroup(*Clip, CopyId);
-    TestTrue(TEXT("move keeps the ID and updates its time"), Moved != nullptr && Moved->Get_Time().Get_Value() == 0.75);
-
-    if (NOT TestTrue(TEXT("delete the moved pose"), Commands.DeletePose(CopyId, Error)))
+    TestTrue(TEXT("the label stays with the key that stayed"), LabelAt(*Clip, Motion, 0.5).IsSet());
+    TestFalse(TEXT("the moved key takes no label"), LabelAt(*Clip, Motion, 0.75).IsSet());
+    if (NOT TestTrue(TEXT("move the body key, the last key at 0.5"), Commands.MoveKey(Motion, BodyChannel(), 0.5, 0.6, Error)))
     { AddInfo(Error); return false; }
-    TestFalse(TEXT("delete removed its arm key"), PositionAt(*Clip, Arm, 0.75, Value));
-    TestFalse(TEXT("delete removed its body key"), HasBodyKeyAt(*Clip, 0.75));
-    TestNull(TEXT("delete removed its metadata"), FindGroup(*Clip, CopyId));
-    TestNotNull(TEXT("the first pose keeps its ID throughout"), FindGroup(*Clip, PoseId));
-    TestEqual(TEXT("leg keys untouched by every pose command"), FindTrack(*Clip, Leg)->Get_PositionKeys().Num(), 2);
-
-    auto Groups = TArray<FCk_ProceduralActionPoseGroupView>{};
-    ck::procedural_action_editor::DerivePoseGroups(*Clip, Groups);
-    const auto* Start = Groups.FindByPredicate([](const auto& InView)
-        { return InView.Get_Group().Get_Time().Get_Value() == 0.0; });
-    if (NOT TestNotNull(TEXT("the endpoint keys form a derived group"), Start))
-    { return false; }
-    if (NOT TestTrue(TEXT("moving the phase-start pose is written even though no key is left at 0"),
-        Commands.MovePose(Start->Get_Group().Get_Id(), Motion, 0.1, Error)))
+    TestFalse(TEXT("the label left the emptied time"), LabelAt(*Clip, Motion, 0.5).IsSet());
+    TestEqual(TEXT("the label followed the last key it named"), LabelAt(*Clip, Motion, 0.6).Get(NAME_None), FName{TEXT("Lifted")});
+    if (NOT TestTrue(TEXT("delete the body key the label names"), Commands.DeleteKey(Motion, BodyChannel(), 0.6, Error)))
     { AddInfo(Error); return false; }
-    auto Compiled = ck::procedural_action::FCompiledClip{};
-    auto Diagnostics = TArray<ck::procedural_action::FDiagnostic>{};
-    TestTrue(TEXT("the moved clip compiles: its tracks now start from the pose the phase begins with"),
-        ck::procedural_action::Compile(*Clip, Compiled, Diagnostics));
-    TestNotNull(TEXT("the moved pose keeps its ID"), FindGroup(*Clip, Start->Get_Group().Get_Id()));
+    TestTrue(TEXT("a label with no key left is gone"), ck::procedural_action_editor::Get_PoseLabels(*Clip).IsEmpty());
     return NOT HasAnyErrors();
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_PoseCapture_UndoRedoRestoresTracksAndGroups,
-    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.PoseCapture.UndoRedoRestoresTracksAndGroups",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_PoseCapture_UndoRedoRestoresTracksAndLabels,
+    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.PoseCapture.UndoRedoRestoresTracksAndLabels",
     ck_test_procedural_action_pose_capture::TestFlags)
 
 auto
-    FCkTest_ProceduralAction_PoseCapture_UndoRedoRestoresTracksAndGroups::
+    FCkTest_ProceduralAction_PoseCapture_UndoRedoRestoresTracksAndLabels::
     RunTest(
         const FString&)
     -> bool
@@ -276,238 +227,29 @@ auto
     { return false; }
     auto Commands = FCk_ProceduralActionAuthoringCommands{Clip.Get()};
     auto Error = FString{};
-    auto PoseId = FGuid{};
-    if (NOT TestTrue(TEXT("capture"), Commands.CapturePose(Motion, MakePose(0.5, FVector::ZeroVector,
-            FVector{15.0, 0.0, 0.0}), Participants(), FName{TEXT("Raised")}, PoseId, Error))
-        || NOT TestTrue(TEXT("update"), Commands.UpdatePose(PoseId, MakePose(0.5, FVector::ZeroVector,
+    if (NOT TestTrue(TEXT("record"), Commands.RecordPose(Motion, MakePose(0.5, FVector::ZeroVector,
+            FVector{15.0, 0.0, 0.0}), FName{TEXT("Raised")}, Error))
+        || NOT TestTrue(TEXT("re-key"), Commands.SetPoseKeys(Motion, MakePose(0.5, FVector::ZeroVector,
             FVector{25.0, 0.0, 0.0}), Error)))
     { AddInfo(Error); return false; }
 
     auto Value = FVector::ZeroVector;
-    if (NOT TestTrue(TEXT("undo the update"), GEditor->UndoTransaction()))
+    if (NOT TestTrue(TEXT("undo the re-key"), GEditor->UndoTransaction()))
     { return false; }
-    TestTrue(TEXT("undo restored the captured value"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{15.0, 0.0, 0.0}));
-    TestNotNull(TEXT("undo of an update keeps the metadata"), FindGroup(*Clip, PoseId));
-    if (NOT TestTrue(TEXT("undo the capture"), GEditor->UndoTransaction()))
+    TestTrue(TEXT("undo restored the recorded value"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{15.0, 0.0, 0.0}));
+    TestTrue(TEXT("undo of a re-key keeps the label"), LabelAt(*Clip, Motion, 0.5).IsSet());
+    if (NOT TestTrue(TEXT("undo the record"), GEditor->UndoTransaction()))
     { return false; }
-    TestFalse(TEXT("undo removed the captured arm key"), PositionAt(*Clip, Arm, 0.5, Value));
-    TestFalse(TEXT("undo removed the captured body key"), HasBodyKeyAt(*Clip, 0.5));
-    TestTrue(TEXT("undo removed the metadata in the same step"), Clip->Get_EditorPoseGroups().IsEmpty());
-    if (NOT TestTrue(TEXT("redo the capture"), GEditor->RedoTransaction()))
+    TestFalse(TEXT("undo removed the recorded arm key"), PositionAt(*Clip, Arm, 0.5, Value));
+    TestFalse(TEXT("undo removed the recorded body key"), HasBodyKeyAt(*Clip, 0.5));
+    TestTrue(TEXT("undo removed the label in the same step"), ck::procedural_action_editor::Get_PoseLabels(*Clip).IsEmpty());
+    if (NOT TestTrue(TEXT("redo the record"), GEditor->RedoTransaction()))
     { return false; }
     TestTrue(TEXT("redo restored the arm key"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{15.0, 0.0, 0.0}));
-    TestNotNull(TEXT("redo restored the same pose ID"), FindGroup(*Clip, PoseId));
-    if (NOT TestTrue(TEXT("redo the update"), GEditor->RedoTransaction()))
+    TestEqual(TEXT("redo restored the label"), LabelAt(*Clip, Motion, 0.5).Get(NAME_None), FName{TEXT("Raised")});
+    if (NOT TestTrue(TEXT("redo the re-key"), GEditor->RedoTransaction()))
     { return false; }
-    TestTrue(TEXT("redo restored the updated value"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{25.0, 0.0, 0.0}));
-    return NOT HasAnyErrors();
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_PoseCapture_SaveReopenKeepsIds,
-    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.PoseCapture.SaveReopenKeepsIds",
-    ck_test_procedural_action_pose_capture::TestFlags)
-
-auto
-    FCkTest_ProceduralAction_PoseCapture_SaveReopenKeepsIds::
-    RunTest(
-        const FString&)
-    -> bool
-{
-    using namespace ck_test_procedural_action_pose_capture;
-    if (NOT TestTrue(TEXT("editor transaction system is idle"), GEditor != nullptr && GEditor->Trans != nullptr
-        && NOT GEditor->Trans->IsActive() && NOT GEditor->IsPlaySessionInProgress()))
-    { return false; }
-
-    const auto Unique = FGuid::NewGuid().ToString(EGuidFormats::Digits);
-    const auto MountRoot = FString::Printf(TEXT("/CkActionPoseGroups_%s/"), *Unique);
-    const auto MountDirectory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation"), TEXT("ProceduralAction"),
-        TEXT("PoseGroups"), Unique) + TEXT("/");
-    const auto PackageName = MountRoot + TEXT("Clip");
-    const auto ObjectPath = PackageName + TEXT(".Clip");
-    if (NOT TestTrue(TEXT("disposable directory"), IFileManager::Get().MakeDirectory(*MountDirectory, true)))
-    { return false; }
-    FPackageName::RegisterMountPoint(MountRoot, MountDirectory);
-    const auto PackageFile = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
-
-    // A private transaction buffer, so unloading the disposable package never resets the editor's undo history.
-    auto PreviousTransactions = TStrongObjectPtr<UTransactor>{GEditor->Trans.Get()};
-    auto PrivateTransactions = TStrongObjectPtr<UTransBuffer>{NewObject<UTransBuffer>()};
-    PrivateTransactions->Initialize(8 * 1024 * 1024);
-    GEditor->Trans = PrivateTransactions.Get();
-    ON_SCOPE_EXIT
-    {
-        if (GEditor->Trans.Get() == PrivateTransactions.Get())
-        { GEditor->Trans = PreviousTransactions.Get(); }
-        if (auto* Package = FindPackage(nullptr, *PackageName))
-        {
-            auto Unload = UPackageTools::FUnloadPackageParams{TArray<UPackage*>{Package}};
-            Unload.bResetTransBuffer = false;
-            UPackageTools::UnloadPackages(Unload);
-        }
-        CollectGarbage(RF_NoFlags);
-        FPackageName::UnRegisterMountPoint(MountRoot, MountDirectory);
-        IFileManager::Get().Delete(*PackageFile);
-        IFileManager::Get().DeleteDirectory(*MountDirectory, false, true);
-    };
-
-    auto SavedId = FGuid{};
-    {
-        auto* Package = CreatePackage(*PackageName);
-        auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{NewObject<UCk_ProceduralAction_Data>(
-            Package, TEXT("Clip"), RF_Public | RF_Standalone | RF_Transactional)};
-        if (NOT TestTrue(TEXT("fixture clip compiles"), FillClip(*Clip)))
-        { return false; }
-        auto Commands = FCk_ProceduralActionAuthoringCommands{Clip.Get()};
-        auto Error = FString{};
-        if (NOT TestTrue(TEXT("capture before save"), Commands.CapturePose(Motion, MakePose(0.5, FVector::ZeroVector,
-            FVector{15.0, 0.0, 0.0}), Participants(), FName{TEXT("Raised")}, SavedId, Error)))
-        { AddInfo(Error); return false; }
-        Package->MarkPackageDirty();
-        auto SaveArgs = FSavePackageArgs{};
-        SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
-        SaveArgs.SaveFlags = SAVE_NoError;
-        SaveArgs.Error = GLog;
-        if (NOT TestTrue(TEXT("save the disposable clip"), UPackage::SavePackage(Package, Clip.Get(), *PackageFile, SaveArgs)))
-        { return false; }
-    }
-
-    PrivateTransactions->Reset(FText::FromString(TEXT("Discard disposable pose group test transactions")));
-    {
-        auto* Package = FindPackage(nullptr, *PackageName);
-        auto Unload = UPackageTools::FUnloadPackageParams{TArray<UPackage*>{Package}};
-        Unload.bResetTransBuffer = false;
-        if (NOT TestTrue(TEXT("unload the disposable clip"), Package != nullptr && UPackageTools::UnloadPackages(Unload)))
-        { return false; }
-        CollectGarbage(RF_NoFlags);
-    }
-    if (NOT TestNull(TEXT("the clip left memory before reopening"), FindObject<UCk_ProceduralAction_Data>(nullptr, *ObjectPath)))
-    { return false; }
-
-    auto* Reopened = LoadObject<UCk_ProceduralAction_Data>(nullptr, *ObjectPath);
-    if (NOT TestNotNull(TEXT("reopen the saved clip"), Reopened))
-    { return false; }
-    const auto* Group = FindGroup(*Reopened, SavedId);
-    if (NOT TestNotNull(TEXT("the pose ID survived save and reopen"), Group))
-    { return false; }
-    TestEqual(TEXT("label survived"), Group->Get_Label(), FName{TEXT("Raised")});
-    TestEqual(TEXT("time survived"), Group->Get_Time().Get_Value(), 0.5);
-    TestEqual(TEXT("channels survived"), Group->Get_Channels().Num(), 2);
-    auto Value = FVector::ZeroVector;
-    TestTrue(TEXT("the grouped key survived"), PositionAt(*Reopened, Arm, 0.5, Value) && Value.Equals(FVector{15.0, 0.0, 0.0}));
-    return NOT HasAnyErrors();
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_PoseCapture_OldClipDerivesTemporaryGroups,
-    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.PoseCapture.OldClipDerivesTemporaryGroups",
-    ck_test_procedural_action_pose_capture::TestFlags)
-
-auto
-    FCkTest_ProceduralAction_PoseCapture_OldClipDerivesTemporaryGroups::
-    RunTest(
-        const FString&)
-    -> bool
-{
-    using namespace ck_test_procedural_action_pose_capture;
-    auto Clip = MakeTransientClip();
-    if (NOT TestTrue(TEXT("fixture clip compiles"), FillClip(*Clip)))
-    { return false; }
-    const auto PhasesBeforeOpen = Clip->Get_Phases();
-    const auto First = FCk_ProceduralActionAuthoringSession{Clip.Get()};
-    const auto Second = FCk_ProceduralActionAuthoringSession{Clip.Get()};
-    TestTrue(TEXT("opening an old clip writes no metadata"), Clip->Get_EditorPoseGroups().IsEmpty());
-    TestTrue(TEXT("opening an old clip writes no keys"), SamePhases(*Clip, PhasesBeforeOpen));
-    TestEqual(TEXT("one temporary group per keyed time"), First.GetPoseGroups().Num(), 2);
-    for (const auto& View : First.GetPoseGroups())
-    {
-        TestFalse(TEXT("derived groups are temporary"), View.Get_Persisted());
-        TestFalse(TEXT("derived groups are whole"), View.Get_IsBroken());
-        TestEqual(TEXT("derived group covers body, arm and leg"), View.Get_Group().Get_Channels().Num(), 3);
-        TestNotNull(TEXT("derived IDs are stable across sessions"), Second.FindPoseGroup(View.Get_Group().Get_Id()));
-    }
-
-    const auto& End = First.GetPoseGroups().Last();
-    auto Pose = FCk_ProceduralAction_PoseKey{};
-    auto Error = FString{};
-    if (NOT TestTrue(TEXT("read the derived pose back from its keys"),
-        ck::procedural_action_editor::ReadPoseKey(Clip->Get_Phases(), End.Get_Group(), Pose, Error)))
-    { AddInfo(Error); return false; }
-    auto Limbs = Pose.Get_Limbs();
-    Limbs[0].Set_Position(Limbs[0].Get_Position() + FVector{0.0, 0.0, 1.0});
-    Pose.Set_Limbs(Limbs);
-    auto Commands = FCk_ProceduralActionAuthoringCommands{Clip.Get()};
-    if (NOT TestTrue(TEXT("an explicit edit of a temporary group"), Commands.UpdatePose(End.Get_Group().Get_Id(), Pose, Error)))
-    { AddInfo(Error); return false; }
-    TestNotNull(TEXT("the edited group is persisted under its derived ID"), FindGroup(*Clip, End.Get_Group().Get_Id()));
-    TestEqual(TEXT("only the edited group is persisted"), Clip->Get_EditorPoseGroups().Num(), 1);
-
-    auto Phases = Clip->Get_Phases();
-    auto Tracks = Phases[0].Get_LimbTracks();
-    auto* LegTrack = Tracks.FindByPredicate([](const auto& InTrack) { return InTrack.Get_Slot() == Leg; });
-    auto LegKeys = LegTrack->Get_PositionKeys();
-    LegKeys.Last().Set_Time(FCk_FloatRange_0to1{0.9});
-    LegTrack->Set_PositionKeys(LegKeys);
-    Phases[0].Set_LimbTracks(Tracks);
-    Clip->Set_Phases(Phases);
-    auto Refreshed = FCk_ProceduralActionAuthoringSession{Clip.Get()};
-    const auto* Broken = Refreshed.FindPoseGroup(End.Get_Group().Get_Id());
-    if (NOT TestNotNull(TEXT("an advanced track edit keeps the persisted group listed"), Broken))
-    { return false; }
-    TestTrue(TEXT("the group whose leg key moved is reported broken"), Broken->Get_IsBroken());
-    TestTrue(TEXT("the broken diagnostic names the channel"), Broken->Get_BrokenReason().Contains(Leg.ToString()));
-    TestFalse(TEXT("a broken group cannot be updated"), Commands.UpdatePose(End.Get_Group().Get_Id(), Pose, Error));
-    return NOT HasAnyErrors();
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_PoseCapture_StagingIsSessionOwned,
-    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.PoseCapture.StagingIsSessionOwned",
-    ck_test_procedural_action_pose_capture::TestFlags)
-
-auto
-    FCkTest_ProceduralAction_PoseCapture_StagingIsSessionOwned::
-    RunTest(
-        const FString&)
-    -> bool
-{
-    using namespace ck_test_procedural_action_pose_capture;
-    auto Clip = MakeTransientClip();
-    if (NOT TestTrue(TEXT("fixture clip compiles"), FillClip(*Clip)))
-    { return false; }
-    const auto PhasesBefore = Clip->Get_Phases();
-    auto Session = FCk_ProceduralActionAuthoringSession{Clip.Get()};
-    Session.SetParticipants(Participants());
-    Session.SetStagingTime(Motion, FCk_FloatRange_0to1{0.5});
-    Session.SetStagingBody(FTransform{FVector{0.0, 0.0, 4.0}});
-    Session.SetStagingLimb(FCk_ProceduralAction_LimbPoseTarget{Arm, FVector{12.0, 0.0, 0.0}});
-    TestTrue(TEXT("staging edits never write the clip"), SamePhases(*Clip, PhasesBefore));
-    TestEqual(TEXT("staging pose holds the arm target"), Session.GetStagingPose().Get_Limbs().Num(), 1);
-
-    Session.SetParticipants(TArray<FName>{Arm});
-    TestEqual(TEXT("dropping the body participant releases the staged body"),
-        Session.GetStagingPose().Get_BodyMode(), ECk_ProceduralAction_ValueMode::Keep);
-    Session.SetParticipants(Participants());
-    Session.SetStagingBody(FTransform{FVector{0.0, 0.0, 4.0}});
-
-    auto Commands = FCk_ProceduralActionAuthoringCommands{Clip.Get()};
-    auto Error = FString{};
-    auto PoseId = FGuid{};
-    if (NOT TestTrue(TEXT("capture the staged pose explicitly"), Commands.CapturePose(Session.GetStagingPhaseId(),
-        Session.GetStagingPose(), Session.GetParticipants(), NAME_None, PoseId, Error)))
-    { AddInfo(Error); return false; }
-    Session.Refresh();
-    Session.SetStagingLimb(FCk_ProceduralAction_LimbPoseTarget{Arm, FVector::ZeroVector});
-    if (NOT TestTrue(TEXT("load staging from the captured group"), Session.LoadStagingFromPoseGroup(PoseId, Error)))
-    { AddInfo(Error); return false; }
-    TestTrue(TEXT("loaded staging carries the key value, not an interpolated sample"),
-        Session.GetStagingPose().Get_Limbs().Num() == 1
-        && Session.GetStagingPose().Get_Limbs()[0].Get_Position().Equals(FVector{12.0, 0.0, 0.0}));
-    TestEqual(TEXT("loaded staging carries the group time"), Session.GetStagingPose().Get_Time().Get_Value(), 0.5);
-    TestEqual(TEXT("loaded staging carries the group channels as participants"), Session.GetParticipants().Num(), 2);
+    TestTrue(TEXT("redo restored the re-keyed value"), PositionAt(*Clip, Arm, 0.5, Value) && Value.Equals(FVector{25.0, 0.0, 0.0}));
     return NOT HasAnyErrors();
 }
 
@@ -550,14 +292,21 @@ auto
     TestEqual(TEXT("editor and code recipes compile to the same content hash"),
         EditorCompiled.Get_ContentHash(), CodeCompiled.Get_ContentHash());
     TestEqual(TEXT("recipe phases"), EditorClip->Get_Phases().Num(), 3);
-    TestFalse(TEXT("recipe keys are persisted as named poses"), EditorClip->Get_EditorPoseGroups().IsEmpty());
-    for (const auto& Group : EditorClip->Get_EditorPoseGroups())
-    { TestTrue(TEXT("recipe pose groups name the body"), Group.Get_Channels().Contains(BodyChannel())); }
+    const auto Labels = ck::procedural_action_editor::Get_PoseLabels(*EditorClip);
+    TestFalse(TEXT("recipe key times are labelled"), Labels.IsEmpty());
+    for (const auto& Label : Labels)
+    {
+        const auto* Phase = EditorClip->Get_Phases().FindByPredicate([&Label](const FCk_ProceduralAction_Phase& InPhase)
+            { return InPhase.Get_Id() == Label.Get_PhaseId(); });
+        TestTrue(TEXT("each recipe label names a body key"), Phase != nullptr
+            && ck::procedural_action_editor::Get_ChannelsKeyedAt(*Phase, Label.Get_Time().Get_Value()).Contains(BodyChannel()));
+    }
 
     TestFalse(TEXT("a recipe never overwrites existing content"), Commands.CreateFromRecipe(Recipe, Error));
     if (NOT TestTrue(TEXT("undo the recipe creation"), GEditor->UndoTransaction()))
     { return false; }
-    TestTrue(TEXT("undo restores the empty clip"), EditorClip->Get_Phases().IsEmpty() && EditorClip->Get_EditorPoseGroups().IsEmpty());
+    TestTrue(TEXT("undo restores the empty clip"), EditorClip->Get_Phases().IsEmpty()
+        && ck::procedural_action_editor::Get_PoseLabels(*EditorClip).IsEmpty());
     return NOT HasAnyErrors();
 }
 

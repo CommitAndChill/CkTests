@@ -100,8 +100,9 @@ class UCk_AutoTest_ProceduralAnimation_BorrowingSweep : UCk_AutoTest_Base
         Rig.Set_Segments(Parts);
         auto Chains = TArray<FCk_ProceduralWalker_LegChain>();
         Chains.Add(FCk_ProceduralWalker_LegChain(n"Leg0", Rig));
-        const auto Walker = utils_procedural_animation::Add_Walker(_Body,
-            ck::ProceduralGym_Rig4, ck::ProceduralGym_Gait, Chains);
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralGym_Rig4, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(Chains);
+        const auto Walker = utils_procedural_animation::Add_Walker(_Body, WalkerSpec);
         _Gait = Walker.Get_Gait();
         _Legs = Walker.Get_Legs();
         _Subject = utils_procedural_articulation::DoCastChecked(Root);

@@ -89,14 +89,14 @@ class UCk_AutoTest_ProceduralAnimation_GaitAddRejectsADetachedLeg : UCk_AutoTest
 
         auto DetachedBody = _DetachedTransform;
         auto EnsuresBefore = utils_ensure::Get_EnsureCount();
-        auto RejectedGait = utils_procedural_gait::Add(DetachedBody, ck::ProceduralGym_Gait);
+        auto RejectedGait = utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(DetachedBody), ck::ProceduralGym_Gait);
         Assert_True(ck::Is_NOT_Valid(RejectedGait), "Add returns an invalid gait for a body with a detached leg");
         Assert_False(HasGait(_DetachedBody), "The body with a detached leg gets no gait");
         Assert_Equals_Int(utils_ensure::Get_EnsureCount() - EnsuresBefore, 1, "The rejection fires exactly one ensure");
 
         auto IntactBody = _IntactTransform;
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        auto AdmittedGait = utils_procedural_gait::Add(IntactBody, ck::ProceduralGym_Gait);
+        auto AdmittedGait = utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(IntactBody), ck::ProceduralGym_Gait);
         Assert_True(ck::IsValid(AdmittedGait) && HasGait(_IntactBody), "Control: a body whose legs are all attached admits a gait");
         Assert_Equals_Int(utils_ensure::Get_EnsureCount() - EnsuresBefore, 0, "Control: no ensure fires");
     }

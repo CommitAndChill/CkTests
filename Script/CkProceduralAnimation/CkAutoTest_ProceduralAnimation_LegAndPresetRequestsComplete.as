@@ -92,10 +92,14 @@ class UCk_AutoTest_ProceduralAnimation_LegAndPresetRequestsComplete : UCk_AutoTe
         auto NoChains = TArray<FCk_ProceduralWalker_LegChain>();
         auto SucceedingRoot = CreateTransform(InHandle, _Origin);
         _SucceedingRoot = SucceedingRoot;
-        auto SucceedingWalker = utils_procedural_animation::Add_Walker(SucceedingRoot, ck::ProceduralGym_Rig4, ck::ProceduralGym_Gait, NoChains);
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralGym_Rig4, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(NoChains);
+        auto SucceedingWalker = utils_procedural_animation::Add_Walker(SucceedingRoot, WalkerSpec);
         auto CancelledRoot = CreateTransform(InHandle, _Origin + FVector(0.0, 500.0, 0.0));
         _CancelledRoot = CancelledRoot;
-        auto CancelledWalker = utils_procedural_animation::Add_Walker(CancelledRoot, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait, NoChains);
+        auto WalkerSpec2 = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec2.Set_Chains(NoChains);
+        auto CancelledWalker = utils_procedural_animation::Add_Walker(CancelledRoot, WalkerSpec2);
         Assert_True(ck::IsValid(SucceedingWalker.Get_Gait()) && SucceedingWalker.Get_Legs().Num() == 4,
             "Precondition: the succeeding walker is composed with four legs");
         Assert_True(ck::IsValid(CancelledWalker.Get_Gait()) && CancelledWalker.Get_Legs().Num() == 2,

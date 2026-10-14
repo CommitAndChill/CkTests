@@ -150,17 +150,16 @@ auto
     auto Commands = FCk_ProceduralActionAuthoringCommands{Clip.Get()};
     const auto Both = TArray<FName>{Arm, Hand};
     auto Error = FString{};
-    auto PoseId = FGuid{};
     const auto ExpectRejected = [&](const TCHAR* InWhat, const FCk_ProceduralActionSolvedSnapshot& InSnapshot,
         const FCk_ProceduralActionSolvedCaptureTarget& InTarget, const TCHAR* InReason)
     {
         Error.Reset();
-        TestFalse(InWhat, Commands.CaptureSolvedPose(InSnapshot, InTarget, PoseId, Error));
+        TestFalse(InWhat, Commands.CaptureSolvedPose(InSnapshot, InTarget, Error));
         TestTrue(FString::Printf(TEXT("%s: the refusal names %s (got '%s')"), InWhat, InReason, *Error),
             Error.Contains(InReason));
         TestEqual(FString::Printf(TEXT("%s: nothing written"), InWhat), Clip->Get_Phases()[0].Get_LimbTracks()[0]
             .Get_PositionKeys().Num(), PhasesBefore[0].Get_LimbTracks()[0].Get_PositionKeys().Num());
-        TestTrue(FString::Printf(TEXT("%s: no metadata written"), InWhat), Clip->Get_EditorPoseGroups().IsEmpty());
+        TestTrue(FString::Printf(TEXT("%s: no label written"), InWhat), ck::procedural_action_editor::Get_PoseLabels(*Clip).IsEmpty());
     };
 
     const auto Idle = FCk_ProceduralActionSolverWorld{};
@@ -179,8 +178,8 @@ auto
     ExpectRejected(TEXT("a snapshot missing a requested limb"), Partial, Target(*Config, Both), *Hand.ToString());
 
     ExpectRejected(TEXT("a body channel the snapshot did not observe"), WholeSnapshot(),
-        Target(*Config, TArray<FName>{FCk_ProceduralAction_PoseGroup::Get_BodyChannelName(), Arm}),
-        *FCk_ProceduralAction_PoseGroup::Get_BodyChannelName().ToString());
+        Target(*Config, TArray<FName>{ck::procedural_action_editor::Get_BodyChannelName(), Arm}),
+        *ck::procedural_action_editor::Get_BodyChannelName().ToString());
 
     const auto Malformed = MakeSnapshot(TArray<FCk_ProceduralArticulation_LimbPose>{
         Limb(PhysicalArm, FVector{std::numeric_limits<double>::quiet_NaN(), 30.0, 0.0}), Limb(PhysicalHand, FVector{100.0, 70.0, 0.0})});
@@ -209,9 +208,8 @@ auto
     auto Clip = MakeClip();
     auto Commands = FCk_ProceduralActionAuthoringCommands{Clip.Get()};
     auto Error = FString{};
-    auto PoseId = FGuid{};
     if (NOT TestTrue(TEXT("capture a settled, current solved pose"),
-        Commands.CaptureSolvedPose(WholeSnapshot(), Target(*Config, TArray<FName>{Arm, Hand}), PoseId, Error)))
+        Commands.CaptureSolvedPose(WholeSnapshot(), Target(*Config, TArray<FName>{Arm, Hand}), Error)))
     { AddInfo(Error); return false; }
     auto Value = FVector::ZeroVector;
     TestTrue(TEXT("body-local key is the world endpoint in the turned root frame"),
@@ -220,12 +218,11 @@ auto
     TestTrue(TEXT("rest-normalized key is divided by the chain length in the rest endpoint frame"),
         PositionAt(*Clip, Hand, 0.5, Value) && Value.Equals(FVector{0.5, 0.0, 0.0}, 1.0e-5));
     AddInfo(FString::Printf(TEXT("Hand key %s"), *Value.ToString()));
-    const auto* Group = Clip->Get_EditorPoseGroups().FindByPredicate([&PoseId](const auto& InGroup)
-        { return InGroup.Get_Id() == PoseId; });
-    if (NOT TestNotNull(TEXT("solved capture records a pose group"), Group))
-    { return false; }
-    TestEqual(TEXT("solved capture records its provenance"), Group->Get_Provenance(), ECk_ProceduralAction_PoseProvenance::Solved);
-    TestEqual(TEXT("solved capture lists both channels"), Group->Get_Channels().Num(), 2);
+    const auto Labels = ck::procedural_action_editor::Get_PoseLabels(*Clip);
+    TestTrue(TEXT("solved capture labels its time"),
+        Labels.Num() == 1 && ck::procedural_action_editor::FindPoseLabel(Labels, Reach, 0.5) != nullptr);
+    TestEqual(TEXT("solved capture keys both channels"),
+        ck::procedural_action_editor::Get_ChannelsKeyedAt(Clip->Get_Phases()[0], 0.5).Num(), 2);
     return NOT HasAnyErrors();
 }
 
@@ -281,7 +278,7 @@ namespace ck_test_procedural_action_solved_capture
     auto
         BodyOnly()
         -> TArray<FName>
-    { return TArray<FName>{FCk_ProceduralAction_PoseGroup::Get_BodyChannelName()}; }
+    { return TArray<FName>{ck::procedural_action_editor::Get_BodyChannelName()}; }
 
     class FRunSatisfiedSeek final : public IAutomationLatentCommand
     {
@@ -295,11 +292,11 @@ namespace ck_test_procedural_action_solved_capture
             if (FPlatformTime::Seconds() > State.DeadlineSeconds)
             {
                 _Test->AddError(FString::Printf(TEXT("satisfied-seek capture timed out at stage %d (step %lld, status %d): %s"),
-                    State.Stage, State.Solver->GetStep(), static_cast<int32>(State.Solver->GetStatus()), *State.Solver->GetError()));
+                    State.Stage, State.Solver->Get_Step(), static_cast<int32>(State.Solver->Get_Status()), *State.Solver->Get_Error()));
                 State.Solver->Reset();
                 return true;
             }
-            const auto Status = State.Solver->GetStatus();
+            const auto Status = State.Solver->Get_Status();
             if (State.Stage == 0)
             {
                 if (Status == FCk_ProceduralActionSolverWorld::EStatus::Preparing)
@@ -322,15 +319,15 @@ namespace ck_test_procedural_action_solved_capture
             }
             if (State.Stage == 1)
             {
-                if (State.Solver->GetStep() < State.TargetStep
+                if (State.Solver->Get_Step() < State.TargetStep
                     || Status == FCk_ProceduralActionSolverWorld::EStatus::Seeking
                     || Status == FCk_ProceduralActionSolverWorld::EStatus::Preparing)
                 {
                     State.Solver->TickOncePerEditorFrame();
                     return false;
                 }
-                _Test->TestEqual(TEXT("the seek reached its target step"), State.Solver->GetStep(), State.TargetStep);
-                _Test->TestEqual(TEXT("the reached seek target is still recorded"), State.Solver->GetSeekTargetStep(), State.TargetStep);
+                _Test->TestEqual(TEXT("the seek reached its target step"), State.Solver->Get_Step(), State.TargetStep);
+                _Test->TestEqual(TEXT("the reached seek target is still recorded"), State.Solver->Get_SeekTargetStep(), State.TargetStep);
                 const auto Snapshot = FCk_ProceduralActionSolvedSnapshot::Make(*State.Solver);
                 _Test->TestTrue(TEXT("a satisfied seek is ready"), Snapshot.Get_Ready());
                 ++State.SeekAttempts;
@@ -351,21 +348,18 @@ namespace ck_test_procedural_action_solved_capture
                 _Test->TestEqual(TEXT("the snapshot carries the Solver revision"), Snapshot.Get_PreviewRevision(), SeekRevision);
                 auto Commands = FCk_ProceduralActionAuthoringCommands{State.Clip.Get()};
                 auto Error = FString{};
-                auto PoseId = FGuid{};
                 const auto Stale = FCk_ProceduralActionSolvedCaptureTarget{State.Config.Get(), SeekRevision + 1,
                     State.TargetPhase, FCk_FloatRange_0to1{State.TargetTime}, BodyOnly()};
                 _Test->TestFalse(TEXT("a satisfied seek of an older revision is refused"),
-                    Commands.CaptureSolvedPose(Snapshot, Stale, PoseId, Error));
+                    Commands.CaptureSolvedPose(Snapshot, Stale, Error));
                 _Test->TestTrue(TEXT("the stale refusal names the revision"), Error.Contains(TEXT("revision")));
                 const auto Current = FCk_ProceduralActionSolvedCaptureTarget{State.Config.Get(), SeekRevision,
                     State.TargetPhase, FCk_FloatRange_0to1{State.TargetTime}, BodyOnly()};
                 if (NOT _Test->TestTrue(TEXT("capturing at a satisfied seek is accepted"),
-                    Commands.CaptureSolvedPose(Snapshot, Current, PoseId, Error)))
+                    Commands.CaptureSolvedPose(Snapshot, Current, Error)))
                 { _Test->AddInfo(Error); }
-                const auto* Group = State.Clip->Get_EditorPoseGroups().FindByPredicate([&PoseId](const auto& InGroup)
-                    { return InGroup.Get_Id() == PoseId; });
-                _Test->TestTrue(TEXT("the satisfied-seek capture is a solved pose"),
-                    Group != nullptr && Group->Get_Provenance() == ECk_ProceduralAction_PoseProvenance::Solved);
+                _Test->TestNotNull(TEXT("the satisfied-seek capture labels its time"), ck::procedural_action_editor::FindPoseLabel(
+                    ck::procedural_action_editor::Get_PoseLabels(*State.Clip), State.TargetPhase, State.TargetTime));
                 if (NOT _Test->TestTrue(TEXT("play on to terminal"), State.Solver->Resume()))
                 { State.Solver->Reset(); return true; }
                 State.Stage = 2;
@@ -380,13 +374,13 @@ namespace ck_test_procedural_action_solved_capture
             _Test->TestFalse(TEXT("a finished preview is not ready"), Finished.Get_Ready());
             auto Commands = FCk_ProceduralActionAuthoringCommands{State.Clip.Get()};
             auto Error = FString{};
-            auto PoseId = FGuid{};
-            const auto GroupsBefore = State.Clip->Get_EditorPoseGroups().Num();
+            const auto LabelsBefore = ck::procedural_action_editor::Get_PoseLabels(*State.Clip).Num();
             _Test->TestFalse(TEXT("capturing a finished preview is refused"), Commands.CaptureSolvedPose(Finished,
                 FCk_ProceduralActionSolvedCaptureTarget{State.Config.Get(), SeekRevision, State.TargetPhase,
-                    FCk_FloatRange_0to1{State.TargetTime * 0.5}, BodyOnly()}, PoseId, Error));
+                    FCk_FloatRange_0to1{State.TargetTime * 0.5}, BodyOnly()}, Error));
             _Test->TestTrue(TEXT("the finished refusal says the preview is not ready"), Error.Contains(TEXT("ready")));
-            _Test->TestEqual(TEXT("the refused capture wrote nothing"), State.Clip->Get_EditorPoseGroups().Num(), GroupsBefore);
+            _Test->TestEqual(TEXT("the refused capture wrote nothing"), ck::procedural_action_editor::Get_PoseLabels(*State.Clip).Num(),
+                LabelsBefore);
             State.Solver->Reset();
             return true;
         }
@@ -417,7 +411,7 @@ auto
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
     if (NOT TestTrue(TEXT("the production Solver starts the BodyPulse clip"),
         State->Solver->StartClip(State->Config.Get(), State->Source.Get(), State->Config->Get_SlotBindings(), SeekRevision)))
-    { AddError(State->Solver->GetError()); return false; }
+    { AddError(State->Solver->Get_Error()); return false; }
     State->DeadlineSeconds = FPlatformTime::Seconds() + 20.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunSatisfiedSeek(this, State));
     return true;

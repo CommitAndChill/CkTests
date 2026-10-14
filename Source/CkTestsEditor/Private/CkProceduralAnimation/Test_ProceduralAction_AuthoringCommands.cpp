@@ -11,6 +11,19 @@
 
 namespace ck_test_procedural_action_commands
 {
+    // One limb target at InTime, as a gizmo release or a Details edit writes it.
+    auto
+        LimbPose(
+            FName InSlot,
+            double InTime,
+            const FVector& InPosition)
+        -> FCk_ProceduralAction_PoseKey
+    {
+        auto Pose = FCk_ProceduralAction_PoseKey{FCk_FloatRange_0to1{InTime}};
+        Pose.Set_Limbs(TArray<FCk_ProceduralAction_LimbPoseTarget>{FCk_ProceduralAction_LimbPoseTarget{InSlot, InPosition}});
+        return Pose;
+    }
+
     constexpr auto TestFlags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter;
 }
 
@@ -134,19 +147,16 @@ auto
     auto Error = FString{};
     if (NOT TestTrue(TEXT("add phase"), Commands.AddPhase(FName(TEXT("Reach")), FCk_Time{1.0}, Error))
         || NOT TestTrue(TEXT("add slot"), Commands.AddSlot(FName(TEXT("Arm")), Error))
-        || NOT TestTrue(TEXT("add named slot track"),
-            Commands.AddLimbTrack(FName(TEXT("Reach")), FName(TEXT("Arm")), Error))
-        || NOT TestTrue(TEXT("add endpoint key"),
-            Commands.AddPositionKey(FName(TEXT("Reach")), FName(TEXT("Arm")), 0.0,
-                FVector{10.0, 0.0, 0.0}, Error)))
+        || NOT TestTrue(TEXT("add an endpoint key, and the slot's track with it"),
+            Commands.SetPoseKeys(FName(TEXT("Reach")), ck_test_procedural_action_commands::LimbPose(FName(TEXT("Arm")), 0.0,
+                FVector{10.0, 0.0, 0.0}), Error)))
     { return false; }
 
     TestFalse(TEXT("referenced slot cannot be deleted"), Commands.RemoveSlot(FName(TEXT("Arm")), Error));
     TestTrue(TEXT("slot refusal names affected phase"), Error.Contains(TEXT("Reach")));
     if (NOT TestTrue(TEXT("undo endpoint key command"), GEditor->UndoTransaction()))
     { return false; }
-    TestTrue(TEXT("undo restores the authored track without its key"),
-        Clip->Get_Phases()[0].Get_LimbTracks()[0].Get_PositionKeys().IsEmpty());
+    TestTrue(TEXT("undo removes the key and the track it added"), Clip->Get_Phases()[0].Get_LimbTracks().IsEmpty());
     if (NOT TestTrue(TEXT("redo endpoint key command"), GEditor->RedoTransaction()))
     { return false; }
     TestEqual(TEXT("redo restores key at its normalized time"),
@@ -215,11 +225,10 @@ auto
     if (NOT TestTrue(TEXT("phase"), Commands.AddPhase(Phase, FCk_Time{1.0}, Error))
         || NOT TestTrue(TEXT("left slot"), Commands.AddSlot(Left, Error))
         || NOT TestTrue(TEXT("right slot"), Commands.AddSlot(Right, Error))
-        || NOT TestTrue(TEXT("source track"), Commands.AddLimbTrack(Phase, Left, Error))
         || NOT TestTrue(TEXT("explicit root-space mode before keying"),
             Commands.SetSlotSpace(Left, ECk_ProceduralAction_TrackSpace::RootAtStart, Error))
-        || NOT TestTrue(TEXT("source key"), Commands.AddPositionKey(Phase, Left, 0.0,
-            FVector{10.0, 20.0, 30.0}, Error)))
+        || NOT TestTrue(TEXT("source key"), Commands.SetPoseKeys(Phase,
+            ck_test_procedural_action_commands::LimbPose(Left, 0.0, FVector{10.0, 20.0, 30.0}), Error)))
     { return false; }
     TestFalse(TEXT("changing keyed space refuses reinterpretation"),
         Commands.SetSlotSpace(Left, ECk_ProceduralAction_TrackSpace::LimbRestNormalized, Error));
@@ -267,7 +276,8 @@ auto
         || NOT TestTrue(TEXT("bind source slot to physical limb"),
             Commands.RetargetSlot(Config.Get(), Slot, Limb, Error)))
     { return false; }
-    const auto& Bindings = Clip->Get_EditorSubject().Get_SlotBindings();
+    const auto Subject = ck::procedural_action_editor::Get_Subject(*Clip);
+    const auto& Bindings = Subject.Get_SlotBindings();
     if (NOT TestEqual(TEXT("the clip's subject keeps one mapping"), Bindings.Num(), 1))
     { return false; }
     TestEqual(TEXT("mapping keeps authored slot identity"), Bindings[0].Get_Slot(), Slot);
@@ -276,7 +286,7 @@ auto
     TestFalse(TEXT("unknown target limb rejected"),
         Commands.RetargetSlot(Config.Get(), Slot, FName{TEXT("Missing")}, Error));
     TestEqual(TEXT("rejected retarget preserves mapping"),
-        Clip->Get_EditorSubject().Get_SlotBindings()[0].Get_LimbId(), Limb);
+        ck::procedural_action_editor::Get_Subject(*Clip).Get_SlotBindings()[0].Get_LimbId(), Limb);
     return NOT HasAnyErrors();
 }
 
@@ -300,13 +310,14 @@ auto
     const auto Slot = FName{TEXT("Arm")};
     if (NOT TestTrue(TEXT("phase"), Commands.AddPhase(Phase, FCk_Time{1.0}, Error))
         || NOT TestTrue(TEXT("slot"), Commands.AddSlot(Slot, Error))
-        || NOT TestTrue(TEXT("track"), Commands.AddLimbTrack(Phase, Slot, Error))
         || NOT TestTrue(TEXT("gizmo adds endpoint key"),
-            Commands.SetPositionKey(Phase, Slot, 0.5, FVector{10.0, 0.0, 0.0}, Error))
-        || NOT TestTrue(TEXT("gizmo adds separate bend key"),
-            Commands.SetBendKey(Phase, Slot, 0.5, FVector{0.0, 2.0, 0.0}, Error)))
+            Commands.SetPoseKeys(Phase, ck_test_procedural_action_commands::LimbPose(Slot, 0.5, FVector{10.0, 0.0, 0.0}), Error)))
     { return false; }
-    TestEqual(TEXT("bend direction is normalized"),
+    auto Bent = ck_test_procedural_action_commands::LimbPose(Slot, 0.5, FVector{10.0, 0.0, 0.0});
+    Bent.Get_Limbs()[0].Set_BendMode(ECk_ProceduralAction_ValueMode::Set).Set_Bend(FVector::YAxisVector);
+    if (NOT TestTrue(TEXT("gizmo adds separate bend key"), Commands.SetPoseKeys(Phase, Bent, Error)))
+    { return false; }
+    TestEqual(TEXT("the bend key holds the direction"),
         Clip->Get_Phases()[0].Get_LimbTracks()[0].Get_BendKeys()[0].Get_Value(), FVector::YAxisVector);
     if (NOT TestTrue(TEXT("undo bend drag"), GEditor->UndoTransaction()))
     { return false; }
@@ -516,8 +527,12 @@ auto
         || NOT TestTrue(TEXT("add window ending in the renamed phase"),
             Commands.AddWindow(FName{TEXT("Danger")}, Windup, 0.5, Strike, 0.5, Error)))
     { AddError(Error); return false; }
-    Clip->Set_EditorPoseGroups(TArray<FCk_ProceduralAction_PoseGroup>{FCk_ProceduralAction_PoseGroup{FGuid::NewGuid(), Strike,
-        FCk_FloatRange_0to1{0.5}, TArray<FName>{FCk_ProceduralAction_PoseGroup::Get_BodyChannelName()}}});
+    const auto Arm = FName{TEXT("Arm")};
+    auto Pose = FCk_ProceduralAction_PoseKey{FCk_FloatRange_0to1{0.5}};
+    Pose.Set_Limbs(TArray<FCk_ProceduralAction_LimbPoseTarget>{FCk_ProceduralAction_LimbPoseTarget{Arm, FVector{10.0, 0.0, 0.0}}});
+    if (NOT TestTrue(TEXT("add a slot"), Commands.AddSlot(Arm, Error))
+        || NOT TestTrue(TEXT("record a labelled pose in the renamed phase"), Commands.RecordPose(Strike, Pose, FName{TEXT("Reach")}, Error)))
+    { AddError(Error); return false; }
 
     const auto ReferencesName = [&Clip, Windup](FName InPhaseId)
     {
@@ -528,7 +543,8 @@ auto
             && Clip->Get_Markers().Num() == 1 && Clip->Get_Markers()[0].Get_At().Get_PhaseId() == InPhaseId
             && Clip->Get_Windows().Num() == 1 && Clip->Get_Windows()[0].Get_Start().Get_PhaseId() == Windup
             && Clip->Get_Windows()[0].Get_End().Get_PhaseId() == InPhaseId
-            && Clip->Get_EditorPoseGroups().Num() == 1 && Clip->Get_EditorPoseGroups()[0].Get_PhaseId() == InPhaseId;
+            && ck::procedural_action_editor::Get_PoseLabels(*Clip).Num() == 1
+            && ck::procedural_action_editor::Get_PoseLabels(*Clip)[0].Get_PhaseId() == InPhaseId;
     };
 
     TestFalse(TEXT("a duplicate name is refused"), Commands.RenamePhase(Strike, Windup, Error));

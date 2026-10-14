@@ -110,7 +110,7 @@ namespace ck_test_procedural_action_solver_world
         -> double
     {
         auto Result = 0.0;
-        for (const auto& Record : InSolver.GetRecording().Get_Records())
+        for (const auto& Record : InSolver.Get_Recording().Get_Records())
         {
             if (Record.Get_Kind() == ECk_ProceduralAction_RecordKind::AcceptedPose)
             { Result = FMath::Max(Result, Record.Get_Receipt().Get_Interval().Get_ToTime().Get_Seconds()); }
@@ -145,18 +145,18 @@ namespace ck_test_procedural_action_solver_world
                 _State->TunedSolver->Reset();
                 return true;
             }
-            if (_State->DefaultSolver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error
-                || _State->TunedSolver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->DefaultSolver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error
+                || _State->TunedSolver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->DefaultSolver->GetError() + TEXT(" / ")
-                    + _State->TunedSolver->GetError());
+                _Test->AddError(_State->DefaultSolver->Get_Error() + TEXT(" / ")
+                    + _State->TunedSolver->Get_Error());
                 _State->DefaultSolver->Reset();
                 _State->TunedSolver->Reset();
                 return true;
             }
             _State->DefaultSolver->TickOncePerEditorFrame();
             _State->TunedSolver->TickOncePerEditorFrame();
-            if (_State->DefaultSolver->GetStep() < 36 || _State->TunedSolver->GetStep() < 36)
+            if (_State->DefaultSolver->Get_Step() < 36 || _State->TunedSolver->Get_Step() < 36)
             { return false; }
             const auto DefaultTime = LastAcceptedTime(*_State->DefaultSolver);
             const auto TunedTime = LastAcceptedTime(*_State->TunedSolver);
@@ -308,9 +308,9 @@ namespace ck_test_procedural_action_solver_world
                 _State->Solver->Reset();
                 return true;
             }
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
@@ -321,7 +321,7 @@ namespace ck_test_procedural_action_solver_world
                 _Test->TestFalse(TEXT("terminal Solver refuses a direct tick on a later editor frame"),
                     _State->Solver->TickOncePerEditorFrame());
                 _Test->TestEqual(TEXT("terminal direct tick preserves its step"),
-                    _State->Solver->GetStep(), int64{120});
+                    _State->Solver->Get_Step(), int64{120});
                 _Test->TestEqual(TEXT("terminal direct tick preserves the global frame counter"),
                     GFrameCounter, FrameBefore);
                 if (NOT _Test->TestTrue(TEXT("explicit future seek reopens the terminal Solver"),
@@ -336,12 +336,12 @@ namespace ck_test_procedural_action_solver_world
                 _State->Solver->TickOncePerEditorFrame();
                 _Test->TestEqual(TEXT("explicit seek does not mutate the global frame counter"),
                     GFrameCounter, FrameBefore);
-                if (_State->Solver->GetStep() < 121)
+                if (_State->Solver->Get_Step() < 121)
                 { return false; }
                 _Test->TestEqual(TEXT("explicit seek advances one step beyond terminal"),
-                    _State->Solver->GetStep(), int64{121});
+                    _State->Solver->Get_Step(), int64{121});
                 _Test->TestEqual(TEXT("explicit seek returns to Finished at its target"),
-                    _State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Finished);
+                    _State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Finished);
                 _State->CheckExplicitFutureStep = false;
                 _State->CheckFutureBoundary = true;
                 return false;
@@ -353,28 +353,28 @@ namespace ck_test_procedural_action_solver_world
                 _Test->TestFalse(TEXT("completed explicit seek refuses another direct tick"),
                     _State->Solver->TickOncePerEditorFrame());
                 _Test->TestEqual(TEXT("completed explicit seek stops at its target"),
-                    _State->Solver->GetStep(), int64{121});
+                    _State->Solver->Get_Step(), int64{121});
                 _Test->TestEqual(TEXT("completed seek leaves global frame counter unchanged"),
                     GFrameCounter, FrameBefore);
             }
             if (NOT _State->Rebuilding)
             {
-                const auto Before = _State->Solver->GetStep();
+                const auto Before = _State->Solver->Get_Step();
                 const auto FirstTick = _State->Solver->TickOncePerEditorFrame();
                 if (FirstTick && NOT _State->CheckedSingleFrame)
                 {
                     _State->CheckedSingleFrame = true;
-                    const auto AfterFirst = _State->Solver->GetStep();
+                    const auto AfterFirst = _State->Solver->Get_Step();
                     _Test->TestFalse(TEXT("second world tick in same real editor frame is refused"),
                         _State->Solver->TickOncePerEditorFrame());
                     _Test->TestEqual(TEXT("refused tick does not advance simulation"),
-                        _State->Solver->GetStep(), AfterFirst);
+                        _State->Solver->Get_Step(), AfterFirst);
                     _Test->TestTrue(TEXT("first tick advances at most one action step while admission prepares"),
                         AfterFirst == Before || AfterFirst == Before + 1);
                 }
                 if (NOT _State->FirstAttackReceiptEndpoint.IsSet())
                 {
-                    for (const auto& Record : _State->Solver->GetRecording().Get_Records())
+                    for (const auto& Record : _State->Solver->Get_Recording().Get_Records())
                     {
                         if (Record.Get_Kind() != ECk_ProceduralAction_RecordKind::AcceptedPose
                             || NOT Record.Get_Receipt().Get_HasAcceptedPose())
@@ -385,17 +385,17 @@ namespace ck_test_procedural_action_solver_world
                         { _State->FirstAttackReceiptEndpoint = Limb->Get_AcceptedEndpoint(); break; }
                     }
                 }
-                if (_State->Solver->GetStep() < 120)
+                if (_State->Solver->Get_Step() < 120)
                 { return false; }
                 if (NOT _State->FinishedBoundaryDone)
                 {
                     _State->FinishedBoundaryDone = true;
                     _Test->TestEqual(TEXT("terminal playback stops before explicit future seek"),
-                        _State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Finished);
+                        _State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Finished);
                     _State->CheckFinishedBoundary = true;
                     return false;
                 }
-                const auto& Recording = _State->Solver->GetRecording();
+                const auto& Recording = _State->Solver->Get_Recording();
                 _Test->TestTrue(TEXT("production clip action copied an accepted receipt"),
                     Recording.Get_Records().ContainsByPredicate([](const auto& InRecord)
                     { return InRecord.Get_Kind() == ECk_ProceduralAction_RecordKind::AcceptedPose; }));
@@ -416,7 +416,7 @@ namespace ck_test_procedural_action_solver_world
                     { LastAccepted = &Record; }
                 }
                 const auto Live = UCk_Utils_ProceduralAnimation_Debug_UE::Get_ControlSnapshot(
-                    _State->Solver->GetSubject().ConvertToHandle());
+                    _State->Solver->Get_Subject().ConvertToHandle());
                 _Test->TestTrue(TEXT("postterminal subject retains a healthy settled live pose"),
                     Live.Get_Available() && Live.Get_HasSettledPose() && Live.Get_SettledRevision() > 0);
                 if (LastAccepted != nullptr && Live.Get_HasSettledPose())
@@ -442,38 +442,38 @@ namespace ck_test_procedural_action_solver_world
                     && _State->FirstAttackReceiptEndpoint.GetValue().Equals(
                         FirstRecordedLimb->Get_AcceptedEndpoint()));
                 _Test->TestTrue(TEXT("production Jolt floor completed body admission"),
-                    _State->Solver->GetIsFloorReady());
-                const auto Hit = UCk_Utils_JoltQuery_UE::Get_RayCast(_State->Solver->GetWorld(),
+                    _State->Solver->Get_IsFloorReady());
+                const auto Hit = UCk_Utils_JoltQuery_UE::Get_RayCast(_State->Solver->Get_World(),
                     FVector{0.0, 0.0, 100.0}, FVector{0.0, 0.0, -100.0}, FCk_Jolt_QueryFilter{});
                 _Test->TestTrue(TEXT("private Solver world has a real Jolt floor query"), Hit.Get_HasHit());
-                _State->FirstWorld = _State->Solver->GetWorld();
-                _State->FirstScheduler = FirstScheduler(*_State->Solver->GetWorld());
-                _State->FirstSubject = _State->Solver->GetSubject();
+                _State->FirstWorld = _State->Solver->Get_World();
+                _State->FirstScheduler = FirstScheduler(*_State->Solver->Get_World());
+                _State->FirstSubject = _State->Solver->Get_Subject();
                 if (NOT _State->Solver->SeekToStep(10))
                 {
-                    _Test->AddError(_State->Solver->GetError());
+                    _Test->AddError(_State->Solver->Get_Error());
                     _State->Solver->Reset();
                     return true;
                 }
                 _State->Rebuilding = true;
                 _Test->TestEqual(TEXT("backward seek rebuilt from canonical step zero"),
-                    _State->Solver->GetStep(), int64{0});
+                    _State->Solver->Get_Step(), int64{0});
                 _Test->TestFalse(TEXT("old subject registry invalidated by rebuild"),
                     ck::IsValid(_State->FirstSubject));
                 return false;
             }
             _State->Solver->TickOncePerEditorFrame();
-            if (_State->Solver->GetStep() < 10)
+            if (_State->Solver->Get_Step() < 10)
             { return false; }
             _Test->TestEqual(TEXT("cancellable seek reaches requested fixed step"),
-                _State->Solver->GetStep(), int64{10});
+                _State->Solver->Get_Step(), int64{10});
             _Test->TestTrue(TEXT("recorded provenance tracks preview revision"),
-                _State->Solver->GetRecording().Get_Provenance().Get_PreviewRevision() == 17);
+                _State->Solver->Get_Recording().Get_Provenance().Get_PreviewRevision() == 17);
             _Test->TestTrue(TEXT("forward replay can be scheduled"),
                 _State->Solver->SeekToStep(30));
             _State->Solver->CancelSeek();
             _Test->TestEqual(TEXT("cancelled replay stays at its current step"),
-                _State->Solver->GetStep(), int64{10});
+                _State->Solver->Get_Step(), int64{10});
             _Test->TestFalse(TEXT("cancelled replay does not tick its world"),
                 _State->Solver->TickOncePerEditorFrame());
             _State->Solver->Reset();
@@ -507,17 +507,17 @@ namespace ck_test_procedural_action_solver_world
                 return true;
             }
             _State->Solver->TickOncePerEditorFrame();
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
-            if (NOT _State->Solver->GetIsActionTerminal())
+            if (NOT _State->Solver->Get_IsActionTerminal())
             { return false; }
             // The copied terminal outlives the action, which releases itself once the Solver acknowledges it.
             _Test->TestEqual(TEXT("the body clip completes on the walking subject"),
-                TerminalOutcome(_State->Solver->GetRecording()), ECk_ProceduralAction_Outcome::Completed);
+                TerminalOutcome(_State->Solver->Get_Recording()), ECk_ProceduralAction_Outcome::Completed);
             _State->Solver->Reset();
             return true;
         }
@@ -557,53 +557,53 @@ namespace ck_test_procedural_action_solver_world
                 _State->Solver->Reset();
                 return true;
             }
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
             if (NOT _Scheduled)
             {
-                if (_State->Solver->GetStatus() != FCk_ProceduralActionSolverWorld::EStatus::Ready)
+                if (_State->Solver->Get_Status() != FCk_ProceduralActionSolverWorld::EStatus::Ready)
                 { return false; }
                 _Test->TestTrue(TEXT("walking preparation waited for Jolt floor"),
-                    _State->Solver->GetIsFloorReady());
+                    _State->Solver->Get_IsFloorReady());
                 _Test->TestEqual(TEXT("walking action time begins after gait preparation"),
-                    _State->Solver->GetStep(), int64{0});
+                    _State->Solver->Get_Step(), int64{0});
                 _Test->TestTrue(TEXT("walking action admits a borrowed limb"),
                     UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(
-                        _State->Solver->GetSubject(), FName{TEXT("Leg0")}).Get_State()
+                        _State->Solver->Get_Subject(), FName{TEXT("Leg0")}).Get_State()
                         == ECk_ProceduralLimbControl_State::Controlled);
                 _Scheduled = true;
                 return false;
             }
             if (_DetachRequested)
             { return false; }
-            if (_State->Solver->GetStep() < 90)
+            if (_State->Solver->Get_Step() < 90)
             { return false; }
             _Test->TestTrue(TEXT("walking receipt stream reaches terminal"),
-                _State->Solver->GetRecording().Get_Terminal());
-            const auto TerminalStep = _State->Solver->GetStep();
+                _State->Solver->Get_Recording().Get_Terminal());
+            const auto TerminalStep = _State->Solver->Get_Step();
             _Test->TestFalse(TEXT("seek beyond walking observation horizon rejects"),
                 _State->Solver->SeekToStep(121));
             _Test->TestTrue(TEXT("rejected horizon seek identifies its limit"),
-                _State->Solver->GetError().Contains(TEXT("observation horizon")));
+                _State->Solver->Get_Error().Contains(TEXT("observation horizon")));
             _Test->TestEqual(TEXT("rejected horizon seek retains the current step"),
-                _State->Solver->GetStep(), TerminalStep);
+                _State->Solver->Get_Step(), TerminalStep);
             _Test->TestEqual(TEXT("rejected horizon seek keeps the scenario resumable"),
-                _State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Ready);
+                _State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Ready);
             _Test->TestTrue(TEXT("same-step terminal seek preserves active observation"),
                 _State->Solver->SeekToStep(TerminalStep));
             _Test->TestEqual(TEXT("observation remains Ready before its horizon"),
-                _State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Ready);
+                _State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Ready);
             _Test->TestTrue(TEXT("same-step observation resumes its finite horizon"),
                 _State->Solver->Resume());
             _Test->TestEqual(TEXT("borrowed walking limb returns to the gait"),
                 UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(
-                    _State->Solver->GetSubject(), FName{TEXT("Leg0")}).Get_State(),
+                    _State->Solver->Get_Subject(), FName{TEXT("Leg0")}).Get_State(),
                 ECk_ProceduralLimbControl_State::Default);
-            const auto& Subject = _State->Solver->GetSubject();
+            const auto& Subject = _State->Solver->Get_Subject();
             const auto Before = UCk_Utils_ProceduralAnimation_Debug_UE::Get_ControlSnapshot(
                 Subject.ConvertToHandle());
             if (NOT _Test->TestTrue(TEXT("walking limb has a settled pose before public detach"),
@@ -691,18 +691,18 @@ namespace ck_test_procedural_action_solver_world
                 _State->Solver->Reset();
                 return true;
             }
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
             _State->Solver->TickOncePerEditorFrame();
-            if (_State->Solver->GetStep() < 60)
+            if (_State->Solver->Get_Step() < 60)
             { return false; }
             auto Pose = FCk_ProceduralArticulation_Pose{};
             if (NOT _Test->TestTrue(TEXT("production preview produced an accepted limb pose"),
-                FirstAcceptedPose(_State->Solver->GetRecording(), Pose)))
+                FirstAcceptedPose(_State->Solver->Get_Recording(), Pose)))
             { _State->Solver->Reset(); return true; }
             if (_State->Pass == 0)
             {
@@ -718,7 +718,7 @@ namespace ck_test_procedural_action_solver_world
                 { return true; }
                 if (NOT _Test->TestTrue(TEXT("production preview rebuilds with only appearance scale changed"),
                     StartAppearanceProof(*_State->Solver, *_State, 23)))
-                { _Test->AddError(_State->Solver->GetError()); _State->Solver->Reset(); return true; }
+                { _Test->AddError(_State->Solver->Get_Error()); _State->Solver->Reset(); return true; }
                 _State->Pass = 1;
                 return false;
             }
@@ -769,13 +769,13 @@ auto
     if (NOT TestTrue(TEXT("private production Solver starts a limb clip"),
         State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), MakeSlotBindings(LimbId), 17)))
     {
-        AddError(State->Solver->GetError());
+        AddError(State->Solver->Get_Error());
         return false;
     }
     TestEqual(TEXT("private Solver uses marked GamePreview world"),
-        State->Solver->GetWorld()->WorldType, EWorldType::GamePreview);
+        State->Solver->Get_World()->WorldType, EWorldType::GamePreview);
     TestTrue(TEXT("private Solver excludes gameplay AngelScript world subsystems"),
-        State->Solver->GetWorld()->GetSubsystemArrayCopy<UScriptWorldSubsystem>().IsEmpty());
+        State->Solver->Get_World()->GetSubsystemArrayCopy<UScriptWorldSubsystem>().IsEmpty());
     if (NOT TestTrue(TEXT("forward seek is scheduled without synchronous world ticks"),
         State->Solver->SeekToStep(120)))
     { return false; }
@@ -809,16 +809,16 @@ auto
     const auto Started = Solver.StartClip(Config.Get(), Clip.Get(), {}, 18);
     TestTrue(TEXT("production Solver accepts body-only articulation"), Started);
     if (NOT Started)
-    { AddError(Solver.GetError()); }
+    { AddError(Solver.Get_Error()); }
     else
     {
-        const auto* GameMode = Solver.GetWorld()->GetAuthGameMode();
+        const auto* GameMode = Solver.Get_World()->GetAuthGameMode();
         TestTrue(TEXT("private Solver uses isolated base GameMode rather than project defaults"),
             GameMode != nullptr && GameMode->GetClass() == AGameModeBase::StaticClass());
         TestEqual(TEXT("body-only Solver uses marked GamePreview world"),
-            Solver.GetWorld()->WorldType, EWorldType::GamePreview);
+            Solver.Get_World()->WorldType, EWorldType::GamePreview);
         TestTrue(TEXT("body-only Solver excludes gameplay AngelScript world subsystems"),
-            Solver.GetWorld()->GetSubsystemArrayCopy<UScriptWorldSubsystem>().IsEmpty());
+            Solver.Get_World()->GetSubsystemArrayCopy<UScriptWorldSubsystem>().IsEmpty());
     }
     Solver.Reset();
     return NOT HasAnyErrors();
@@ -875,11 +875,11 @@ auto
     if (NOT TestTrue(TEXT("production walking preview composes"),
         State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), MakeSlotBindings(FName{TEXT("Leg0")}), 19)))
     {
-        AddError(State->Solver->GetError());
+        AddError(State->Solver->Get_Error());
         return false;
     }
     TestEqual(TEXT("walking world exposes preparation instead of premature Ready"),
-        State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Preparing);
+        State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Preparing);
     State->DeadlineSeconds = FPlatformTime::Seconds() + 20.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunWalkingSolver(this, State));
     return true;
@@ -916,7 +916,7 @@ auto
     if (NOT TestTrue(TEXT("a walking preview composes a body presentation and starts a clip that drives the body"),
         State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), {}, 20)))
     {
-        AddError(State->Solver->GetError());
+        AddError(State->Solver->Get_Error());
         return false;
     }
     State->DeadlineSeconds = FPlatformTime::Seconds() + 20.0;
@@ -948,7 +948,7 @@ auto
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
     if (NOT TestTrue(TEXT("production preview composes with unit appearance scale"),
         StartAppearanceProof(*State->Solver, *State, 22)))
-    { AddError(State->Solver->GetError()); State->Solver->Reset(); return false; }
+    { AddError(State->Solver->Get_Error()); State->Solver->Reset(); return false; }
     State->DeadlineSeconds = FPlatformTime::Seconds() + 15.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunAppearanceScale(this, State));
     return true;
@@ -990,9 +990,9 @@ auto
     auto InvalidSolver = FCk_ProceduralActionSolverWorld{};
     TestFalse(TEXT("invalid preview tuning is rejected before world construction"),
         InvalidSolver.StartClip(InvalidConfig.Get(), State->Clip.Get(), {}, 1));
-    TestNull(TEXT("invalid preview tuning does not create a private world"), InvalidSolver.GetWorld());
+    TestNull(TEXT("invalid preview tuning does not create a private world"), InvalidSolver.Get_World());
     TestTrue(TEXT("invalid preview tuning names the offending field"),
-        InvalidSolver.GetError().Contains(TEXT("Playback.PlayRate")));
+        InvalidSolver.Get_Error().Contains(TEXT("Playback.PlayRate")));
 
     State->DefaultSolver = MakeUnique<FCk_ProceduralActionSolverWorld>();
     State->TunedSolver = MakeUnique<FCk_ProceduralActionSolverWorld>();
@@ -1003,7 +1003,7 @@ auto
     if (NOT TestTrue(TEXT("two production Solver worlds accept one clip with separate preview tunings"),
         DefaultStarted && TunedStarted))
     {
-        AddError(State->DefaultSolver->GetError() + TEXT(" / ") + State->TunedSolver->GetError());
+        AddError(State->DefaultSolver->Get_Error() + TEXT(" / ") + State->TunedSolver->Get_Error());
         State->DefaultSolver->Reset();
         State->TunedSolver->Reset();
         return false;

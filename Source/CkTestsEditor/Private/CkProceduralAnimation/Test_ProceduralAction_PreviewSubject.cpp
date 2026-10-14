@@ -31,12 +31,12 @@ namespace ck_test_procedural_action_preview_subject
         -> TStrongObjectPtr<UCk_ProceduralAction_Data>
     {
         auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
-        auto Subject = FCk_ProceduralAction_EditorSubject{};
+        auto Subject = FCk_ProceduralActionEditor_Subject{};
         Subject.Set_WalkingRig(TSoftObjectPtr<UCk_ProceduralRig_Data>{InRig});
         Subject.Set_WalkingGait(TSoftObjectPtr<UCk_ProceduralGait_Data>{InGait});
         Subject.Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
             FCk_ProceduralAction_SlotBinding{FName{TEXT("Claw")}, FName{TEXT("Leg0")}}});
-        Clip->Set_EditorSubject(Subject);
+        UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(Clip.Get())->Set_Subject(Subject);
         return Clip;
     }
 }
@@ -91,9 +91,9 @@ auto
     Scenario->Set_StaticObstacles(TArray<FCk_ProceduralActionPreview_Obstacle>{FCk_ProceduralActionPreview_Obstacle{}});
     Scenario->Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
         FCk_ProceduralAction_SlotBinding{FName{TEXT("Claw")}, FName{TEXT("Leg3")}}});
-    auto Subject = Clip->Get_EditorSubject();
-    Subject.Set_Scenario(TSoftObjectPtr<UObject>{Scenario.Get()});
-    Clip->Set_EditorSubject(Subject);
+    auto Subject = ck::procedural_action_editor::Get_Subject(*Clip);
+    Subject.Set_Scenario(TSoftObjectPtr<UCk_ProceduralActionPreview_Config>{Scenario.Get()});
+    UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(Clip.Get())->Set_Subject(Subject);
     auto FromScenario = TStrongObjectPtr<UCk_ProceduralActionPreview_Config>{ck::procedural_action_editor::DerivePreviewConfig(*Clip)};
     TestTrue(TEXT("a scenario is copied, never shared"), FromScenario.IsValid() && FromScenario.Get() != Scenario.Get());
     TestEqual(TEXT("the scenario's authored fields replace the derived ones"), FromScenario->Get_StaticObstacles().Num(), 1);
@@ -105,53 +105,6 @@ auto
     TestTrue(TEXT("an empty subject previews the body alone"), Body.IsValid()
         && Body->Get_SubjectMode() == ECk_ProceduralActionPreview_SubjectMode::Standalone
         && Body->Get_Layout().Get_Limbs().IsEmpty() && Body->Get_LimbBindings().IsEmpty());
-    return NOT HasAnyErrors();
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_PreviewSubject_LegacyPreviewBecomesTheSubject,
-    "Ck.ProceduralAnimation.Action.Editor.PreviewSubject.LegacyPreviewBecomesTheSubject",
-    ck_test_procedural_action_preview_subject::TestFlags)
-
-auto
-    FCkTest_ProceduralAction_PreviewSubject_LegacyPreviewBecomesTheSubject::
-    RunTest(
-        const FString&)
-    -> bool
-{
-    using namespace ck_test_procedural_action_preview_subject;
-    auto Legacy = TStrongObjectPtr<UCk_ProceduralActionPreview_Config>{
-        NewObject<UCk_ProceduralActionPreview_Config>(GetTransientPackage())};
-    auto* OwnedRig = NewObject<UCk_ProceduralRig_Data>(Legacy.Get(), FName{TEXT("WalkingRig")});
-    auto* OwnedGait = NewObject<UCk_ProceduralGait_Data>(Legacy.Get(), FName{TEXT("WalkingGait")});
-    OwnedRig->Set_Legs(TArray<FCk_ProceduralLeg_Spec>{MakeLeg(FName{TEXT("Leg0")}, FVector::ForwardVector)});
-    Legacy->Set_SubjectMode(ECk_ProceduralActionPreview_SubjectMode::Walking);
-    Legacy->Set_WalkingRig(OwnedRig);
-    Legacy->Set_WalkingGait(OwnedGait);
-    Legacy->Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
-        FCk_ProceduralAction_SlotBinding{FName{TEXT("Claw")}, FName{TEXT("Leg0")}}});
-
-    auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
-    const auto Walking = ck::procedural_action_editor::MakeSubjectFromLegacyPreview(*Legacy, *Clip);
-    const auto* CopiedRig = Walking.Get_WalkingRig().Get();
-    TestTrue(TEXT("a rig living inside the legacy preview is copied into the clip"),
-        CopiedRig != nullptr && CopiedRig != OwnedRig && CopiedRig->GetOuter() == Clip.Get()
-            && CopiedRig->Get_Legs().Num() == 1);
-    TestTrue(TEXT("so is its gait"), Walking.Get_WalkingGait().Get() != nullptr
-        && Walking.Get_WalkingGait().Get()->GetOuter() == Clip.Get());
-    TestTrue(TEXT("a walking preview leaves no scenario"), Walking.Get_Scenario().IsNull());
-    TestEqual(TEXT("the slot bindings move to the clip"), Walking.Get_SlotBindings().Num(), 1);
-
-    Legacy->Set_SubjectMode(ECk_ProceduralActionPreview_SubjectMode::Standalone);
-    Legacy->Set_Layout(FCk_ProceduralArticulation_Layout{TArray<FCk_ProceduralLimb_Layout>{
-        FCk_ProceduralLimb_Layout{FName{TEXT("Arm")}, FTransform::Identity, TArray<float>{80.0f},
-            FTransform{FVector{80.0, 0.0, 0.0}}, FVector::UpVector}}});
-    const auto Dedicated = ck::procedural_action_editor::MakeSubjectFromLegacyPreview(*Legacy, *Clip);
-    TestEqual(TEXT("a standalone preview gives its layout"), Dedicated.Get_Layout().Get_Limbs().Num(), 1);
-    TestTrue(TEXT("and stays the scenario, so its appearance and initial pose survive"),
-        Dedicated.Get_Scenario().Get() == Legacy.Get());
-    TestTrue(TEXT("a dedicated subject has no rig"), Dedicated.Get_WalkingRig().IsNull());
     return NOT HasAnyErrors();
 }
 

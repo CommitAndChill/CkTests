@@ -97,21 +97,22 @@ class UCk_AutoTest_ProceduralAnimation_GaitAdmissionRejects : UCk_AutoTest_Base
         }
 
         auto EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_gait::Add(Body, nullptr), Body, EnsuresBefore, false, "Null preset");
+        AssertRejected(utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(Body), nullptr), Body, EnsuresBefore, false, "Null preset");
 
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_gait::Add(Body, ck::ProceduralTest_ZeroStepDurationGait), Body, EnsuresBefore,
+        AssertRejected(utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(Body), ck::ProceduralTest_ZeroStepDurationGait), Body, EnsuresBefore,
             false, "Zero step duration");
 
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_gait::Add(Body, ck::ProceduralTest_NegativeSlopeWeightGait), Body, EnsuresBefore,
+        AssertRejected(utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(Body), ck::ProceduralTest_NegativeSlopeWeightGait), Body, EnsuresBefore,
             false, "Negative foothold slope weight");
 
         auto WalkerBody = CreateBody(InHandle, _Origin + FVector(0.0, 1500.0, 0.0));
         _WalkerBody = WalkerBody;
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        auto Walker = utils_procedural_animation::Add_Walker(WalkerBody, ck::ProceduralTest_SideRig,
-            ck::ProceduralTest_NegativeSlopeWeightGait, TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralTest_NegativeSlopeWeightGait);
+        WalkerSpec.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        auto Walker = utils_procedural_animation::Add_Walker(WalkerBody, WalkerSpec);
         Assert_True(ck::Is_NOT_Valid(Walker.Get_Gait()) && Walker.Get_Legs().Num() == 0,
             "Negative foothold slope weight: Add_Walker returns an empty walker");
         Assert_Equals_Int(utils_procedural_leg::Get_Legs(WalkerBody).Num(), 0, "Negative foothold slope weight: Add_Walker creates no leg");
@@ -123,7 +124,7 @@ class UCk_AutoTest_ProceduralAnimation_GaitAdmissionRejects : UCk_AutoTest_Base
         Assert_True(ck::IsValid(utils_procedural_leg::Create(OneLegBody, ck::ProceduralTest_SideRig.Get_Legs()[0])),
             "Precondition: the second body gets a single leg");
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_gait::Add(OneLegBody, ck::ProceduralGym_Gait), OneLegBody, EnsuresBefore,
+        AssertRejected(utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(OneLegBody), ck::ProceduralGym_Gait), OneLegBody, EnsuresBefore,
             false, "One leg");
 
         auto DyingBody = CreateBody(InHandle, _Origin + FVector(0.0, -500.0, 0.0));
@@ -135,7 +136,7 @@ class UCk_AutoTest_ProceduralAnimation_GaitAdmissionRejects : UCk_AutoTest_Base
         FCk_Handle DyingEntity = DyingBody;
         utils_entity_lifetime::Request_DestroyEntity(DyingEntity);
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_gait::Add(DyingBody, ck::ProceduralGym_Gait), DyingBody, EnsuresBefore,
+        AssertRejected(utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(DyingBody), ck::ProceduralGym_Gait), DyingBody, EnsuresBefore,
             false, "Body pending destruction");
 
         auto ShortLegBody = CreateBody(InHandle, _Origin + FVector(0.0, 1000.0, 0.0));
@@ -146,16 +147,16 @@ class UCk_AutoTest_ProceduralAnimation_GaitAdmissionRejects : UCk_AutoTest_Base
                 "Precondition: the short-leg body gets its two legs");
         }
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_gait::Add(ShortLegBody, ck::ProceduralGym_Gait), ShortLegBody, EnsuresBefore,
+        AssertRejected(utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(ShortLegBody), ck::ProceduralGym_Gait), ShortLegBody, EnsuresBefore,
             false, "Rest foot beyond the target reach");
 
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        auto Gait = utils_procedural_gait::Add(Body, ck::ProceduralGym_Gait);
+        auto Gait = utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(Body), ck::ProceduralGym_Gait);
         Assert_True(ck::IsValid(Gait) && HasGait(Body), "Positive control: the corrected composition admits a gait");
         Assert_Equals_Int(utils_ensure::Get_EnsureCount() - EnsuresBefore, 0, "Positive control: no ensure fires");
 
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_gait::Add(Body, ck::ProceduralGym_Gait), Body, EnsuresBefore, true, "Existing gait");
+        AssertRejected(utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(Body), ck::ProceduralGym_Gait), Body, EnsuresBefore, true, "Existing gait");
 
         AssertPresetRejected(Gait, MakeReachRequest(0.6f), "Preset whose target reach excludes a rest foot");
         AssertPresetRejected(Gait, MakeReachRequest(0.95f), "Preset whose target reach exceeds its force-step reach");

@@ -42,8 +42,7 @@ class UCk_AutoTest_ProceduralAnimation_ActionLoadedClipPublicSurface : UCk_AutoT
             return;
         }
         const auto Validation = utils_procedural_action::Validate_Data(Clip);
-        Assert_True(Validation.Get_Status() == ECk_ProceduralAction_ReportStatus::Valid
-            && Validation.Get_Advisory() == false,
+        Assert_True(Validation.Get_Status() == ECk_ProceduralAction_ReportStatus::Valid,
             "Structured public validation reports the resident clip as valid");
         auto Spec = FCk_ProceduralAction_PlaySpec(TSoftObjectPtr<UCk_ProceduralAction_Data>(Clip));
         Assert_True(Spec.Get_SlotBindings().Num() == 0 && Spec.Get_Delivery() == ECk_ProceduralAction_Delivery::Auto,

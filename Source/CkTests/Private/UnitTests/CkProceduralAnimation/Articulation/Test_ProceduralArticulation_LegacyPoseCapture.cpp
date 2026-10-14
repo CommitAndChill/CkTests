@@ -247,7 +247,7 @@ auto
             auto* Rig = NewObject<UCk_ProceduralRig_Data>();
             Rig->Set_Legs(Legs);
             const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(
-                State->Body, Rig, NewObject<UCk_ProceduralGait_Data>(), Chains);
+                State->Body, FCk_ProceduralWalker_Spec{Rig, NewObject<UCk_ProceduralGait_Data>()}.Set_Chains(Chains));
             State->Gait = Walker.Get_Gait();
             TestTrue(TEXT("Production legacy walker with 1/2/8-link solver cases composes"), ck::IsValid(State->Gait));
             const auto Articulation = UCk_Utils_ProceduralArticulation_UE::Cast(State->Root);
@@ -538,7 +538,7 @@ auto
                 FCk_ProceduralWalker_LegChain{Last.Id, FCk_ProceduralRig_Spec{LastPart}},
                 FCk_ProceduralWalker_LegChain{Middle.Id, FCk_ProceduralRig_Spec{MiddlePart}}};
             const auto PartialWalker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(
-                PartialBody, Rig, NewObject<UCk_ProceduralGait_Data>(), ReversedChains);
+                PartialBody, FCk_ProceduralWalker_Spec{Rig, NewObject<UCk_ProceduralGait_Data>()}.Set_Chains(ReversedChains));
             State->Partial = UCk_Utils_ProceduralArticulation_UE::Cast(PartialRoot);
             TestTrue(TEXT("Partial walker and same-home articulation compose"),
                 ck::IsValid(PartialWalker.Get_Gait()) && ck::IsValid(State->Partial));
@@ -563,7 +563,7 @@ auto
             auto EmptyBody = UCk_Utils_Transform_UE::Add(EmptyRoot,
                 FTransform{FVector{1000.0, 0.0, 2000.0}}, ECk_Replication::DoesNotReplicate);
             const auto EmptyWalker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(
-                EmptyBody, Rig, NewObject<UCk_ProceduralGait_Data>(), {});
+                EmptyBody, FCk_ProceduralWalker_Spec{Rig, NewObject<UCk_ProceduralGait_Data>()}.Set_Chains({}));
             State->Empty = UCk_Utils_ProceduralArticulation_UE::Cast(EmptyRoot);
             TestTrue(TEXT("Zero visual-chain walker retains gait and articulation"),
                 ck::IsValid(EmptyWalker.Get_Gait()) && ck::IsValid(State->Empty));

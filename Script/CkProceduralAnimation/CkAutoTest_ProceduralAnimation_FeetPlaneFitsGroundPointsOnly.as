@@ -57,8 +57,9 @@ class UCk_AutoTest_ProceduralAnimation_FeetPlaneFitsGroundPointsOnly : UCk_AutoT
         _Fixture.Entities.Add(Root);
         _Body = utils_transform::Add(Root, FTransform(_Origin + FVector(0.0, 0.0, _BodyHeight)), ECk_Replication::DoesNotReplicate);
 
-        auto Walker = utils_procedural_animation::Add_Walker(_Body, ck::ProceduralGym_Rig8, ck::ProceduralGym_Gait,
-            TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralGym_Rig8, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        auto Walker = utils_procedural_animation::Add_Walker(_Body, WalkerSpec);
         _Gait = Walker.Get_Gait();
         _Legs = Walker.Get_Legs();
         Assert_True(ck::IsValid(_Gait) && _Legs.Num() == 8, "A gait-only eight-leg walker is admitted");

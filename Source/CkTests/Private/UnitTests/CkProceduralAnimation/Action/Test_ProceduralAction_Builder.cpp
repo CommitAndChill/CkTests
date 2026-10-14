@@ -147,18 +147,19 @@ FCkProceduralActionBuilderOccupiedTimeTest::RunTest(
     using namespace ck_test_procedural_action_builder;
     auto Draft = MakeBodyDraft();
     UCk_Utils_ProceduralActionBuilder_UE::Add_Slot(Draft, FCk_ProceduralAction_Slot{FName{TEXT("Hand")}});
-    const auto Key = FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.5}, FVector{1.0, 0.0, 0.0}, FQuat::Identity};
-    TestEqual(TEXT("First body key accepted"), UCk_Utils_ProceduralActionBuilder_UE::Add_BodyKey(Draft, FName{TEXT("Lean")}, Key).Get_Status(), Valid);
-    TestEqual(TEXT("First limb key accepted"), UCk_Utils_ProceduralActionBuilder_UE::Add_LimbKey(Draft, FName{TEXT("Lean")},
-        FCk_FloatRange_0to1{0.5}, FCk_ProceduralAction_LimbPoseTarget{FName{TEXT("Hand")}, FVector{10.0, 0.0, 0.0}}).Get_Status(), Valid);
+    const auto Lean = FName{TEXT("Lean")};
+    const auto Key = MakeBodyPose(0.5, FVector{1.0, 0.0, 0.0});
+    TestEqual(TEXT("First body key accepted"), UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Lean, Key).Get_Status(), Valid);
+    TestEqual(TEXT("First limb key accepted"), UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Lean,
+        MakeLimbPose(0.5, {FCk_ProceduralAction_LimbPoseTarget{FName{TEXT("Hand")}, FVector{10.0, 0.0, 0.0}}})).Get_Status(), Valid);
     const auto Before = Draft;
 
-    const auto BodyAgain = UCk_Utils_ProceduralActionBuilder_UE::Add_BodyKey(Draft, FName{TEXT("Lean")}, Key);
+    const auto BodyAgain = UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Lean, Key);
     TestEqual(TEXT("Occupied body time rejected"), BodyAgain.Get_Status(), Invalid);
     TestTrue(TEXT("Occupied body time names the key"), HasDiagnostic(BodyAgain, TEXT("KeyTime"), TEXT("Phases[0].BodyKeys[0].Time")));
 
-    const auto LimbAgain = UCk_Utils_ProceduralActionBuilder_UE::Add_LimbKey(Draft, FName{TEXT("Lean")},
-        FCk_FloatRange_0to1{0.5}, FCk_ProceduralAction_LimbPoseTarget{FName{TEXT("Hand")}, FVector{20.0, 0.0, 0.0}});
+    const auto LimbAgain = UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Lean,
+        MakeLimbPose(0.5, {FCk_ProceduralAction_LimbPoseTarget{FName{TEXT("Hand")}, FVector{20.0, 0.0, 0.0}}}));
     TestEqual(TEXT("Occupied limb time rejected"), LimbAgain.Get_Status(), Invalid);
     TestTrue(TEXT("Occupied limb time names the key"),
         HasDiagnostic(LimbAgain, TEXT("KeyTime"), TEXT("Phases[0].LimbTracks[0].PositionKeys[0].Time")));
@@ -166,23 +167,21 @@ FCkProceduralActionBuilderOccupiedTimeTest::RunTest(
     auto WithOrientation = FCk_ProceduralAction_LimbPoseTarget{FName{TEXT("Hand")}, FVector{20.0, 0.0, 0.0}};
     WithOrientation.Set_OrientationMode(ECk_ProceduralAction_ValueMode::Set);
     WithOrientation.Set_Orientation(FQuat{0.0, 0.0, 0.0, 2.0});
-    const auto Malformed = UCk_Utils_ProceduralActionBuilder_UE::Add_LimbKey(Draft, FName{TEXT("Lean")},
-        FCk_FloatRange_0to1{0.25}, WithOrientation);
+    const auto Malformed = UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Lean, MakeLimbPose(0.25, {WithOrientation}));
     TestEqual(TEXT("Malformed orientation rejected"), Malformed.Get_Status(), Invalid);
     TestTrue(TEXT("Malformed orientation names the would-be key"),
         HasDiagnostic(Malformed, TEXT("Quaternion"), TEXT("Phases[0].LimbTracks[0].OrientationKeys[0].Value")));
 
-    TestEqual(TEXT("Unknown phase rejected"), UCk_Utils_ProceduralActionBuilder_UE::Add_BodyKey(Draft, FName{TEXT("Missing")},
-        FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.25}, FVector::ZeroVector, FQuat::Identity}).Get_Status(), Invalid);
-    TestEqual(TEXT("Unknown slot rejected"), UCk_Utils_ProceduralActionBuilder_UE::Add_LimbKey(Draft, FName{TEXT("Lean")},
-        FCk_FloatRange_0to1{0.25}, FCk_ProceduralAction_LimbPoseTarget{FName{TEXT("Tail")}, FVector::ZeroVector}).Get_Status(), Invalid);
-    TestEqual(TEXT("Nonfinite body key rejected"), UCk_Utils_ProceduralActionBuilder_UE::Add_BodyKey(Draft, FName{TEXT("Lean")},
-        FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.25},
-            FVector{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}, FQuat::Identity}).Get_Status(), Invalid);
+    TestEqual(TEXT("Unknown phase rejected"), UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, FName{TEXT("Missing")},
+        MakeBodyPose(0.25, FVector::ZeroVector)).Get_Status(), Invalid);
+    TestEqual(TEXT("Unknown slot rejected"), UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Lean,
+        MakeLimbPose(0.25, {FCk_ProceduralAction_LimbPoseTarget{FName{TEXT("Tail")}, FVector::ZeroVector}})).Get_Status(), Invalid);
+    TestEqual(TEXT("Nonfinite body key rejected"), UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Lean,
+        MakeBodyPose(0.25, FVector{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0})).Get_Status(), Invalid);
     TestTrue(TEXT("Every rejection left the draft unchanged"), DraftsEqual(Before, Draft));
 
-    TestEqual(TEXT("A free time inserts in order"), UCk_Utils_ProceduralActionBuilder_UE::Add_BodyKey(Draft, FName{TEXT("Lean")},
-        FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.25}, FVector::ZeroVector, FQuat::Identity}).Get_Status(), Valid);
+    TestEqual(TEXT("A free time inserts in order"), UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Lean,
+        MakeBodyPose(0.25, FVector::ZeroVector)).Get_Status(), Valid);
     const auto& BodyKeys = Draft.Get_Phases()[0].Get_BodyKeys();
     TestTrue(TEXT("Insertion keeps the key array strictly increasing"), BodyKeys.Num() == 2
         && BodyKeys[0].Get_Time().Get_Value() == 0.25 && BodyKeys[1].Get_Time().Get_Value() == 0.5);
@@ -386,8 +385,9 @@ FCkProceduralActionBuilderBuildFailureTest::RunTest(
     auto Good = MakeBodyDraft();
     UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Good, FName{TEXT("Lean")}, MakeBodyPose(0.0, FVector::ZeroVector));
     UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Good, FName{TEXT("Lean")}, MakeBodyPose(1.0, FVector{20.0, 0.0, 0.0}));
-    UCk_Utils_ProceduralActionBuilder_UE::Add_Marker(Good, FCk_ProceduralAction_Marker{FName{TEXT("Peak")},
-        FCk_ProceduralAction_TimeRef{FName{TEXT("Lean")}, FCk_FloatRange_0to1{0.5}}});
+    UCk_Utils_ProceduralActionBuilder_UE::Add_Window(Good, FCk_ProceduralAction_Window{FName{TEXT("Peak")},
+        FCk_ProceduralAction_TimeRef{FName{TEXT("Lean")}, FCk_FloatRange_0to1{0.25}},
+        FCk_ProceduralAction_TimeRef{FName{TEXT("Lean")}, FCk_FloatRange_0to1{0.75}}});
     auto* Destination = NewObject<UCk_ProceduralAction_Data>(GetTransientPackage());
     if (NOT TestEqual(TEXT("Destination seeded by a valid build"), UCk_Utils_ProceduralActionBuilder_UE::Build_Into(Good, Destination).Get_Status(), Valid))
     { return false; }
@@ -401,8 +401,7 @@ FCkProceduralActionBuilderBuildFailureTest::RunTest(
 
     auto Bad = MakeBodyDraft();
     UCk_Utils_ProceduralActionBuilder_UE::Add_Slot(Bad, FCk_ProceduralAction_Slot{FName{TEXT("Hand")}});
-    UCk_Utils_ProceduralActionBuilder_UE::Add_BodyKey(Bad, FName{TEXT("Lean")},
-        FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.5}, FVector::ZeroVector, FQuat::Identity});
+    UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Bad, FName{TEXT("Lean")}, MakeBodyPose(0.5, FVector::ZeroVector));
     const auto Failed = UCk_Utils_ProceduralActionBuilder_UE::Build_Into(Bad, Destination);
     TestEqual(TEXT("A draft missing key endpoints does not build"), Failed.Get_Status(), Invalid);
     TestTrue(TEXT("The compiler diagnostic is surfaced with its field"), HasDiagnostic(Failed, TEXT("KeyEndpoints"), TEXT("Phases[0].BodyKeys")));
@@ -620,8 +619,8 @@ FCkProceduralActionBuilderContentLimitsTest::RunTest(
     Lean.Set_BodyKeys(Keys);
     Keyed.Set_Phases(TArray<FCk_ProceduralAction_Phase>{Lean});
     const auto KeyBefore = Keyed;
-    const auto KeyCeiling = UCk_Utils_ProceduralActionBuilder_UE::Add_BodyKey(Keyed, FName{TEXT("Lean")},
-        FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.5}, FVector::ZeroVector, FQuat::Identity});
+    const auto KeyCeiling = UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Keyed, FName{TEXT("Lean")},
+        MakeBodyPose(0.5, FVector::ZeroVector));
     TestEqual(TEXT("Total key ceiling rejects"), KeyCeiling.Get_Status(), Invalid);
     TestTrue(TEXT("Key ceiling names the compiler's key count"), HasDiagnostic(KeyCeiling, TEXT("ContentLimit"), TEXT("Phases.Keys")));
     TestTrue(TEXT("No key was inserted"), DraftsEqual(KeyBefore, Keyed));
@@ -642,9 +641,8 @@ FCkProceduralActionBuilderWriteIntoTest::RunTest(
 {
     using namespace ck_test_procedural_action_builder;
     auto Unkeyed = MakeBodyDraft();
-    if (NOT TestEqual(TEXT("A mid-phase key is a valid builder edit"), UCk_Utils_ProceduralActionBuilder_UE::Add_BodyKey(Unkeyed,
-        FName{TEXT("Lean")}, FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.5}, FVector{0.0, 0.0, 4.0}, FQuat::Identity})
-        .Get_Status(), Valid))
+    if (NOT TestEqual(TEXT("A mid-phase key is a valid builder edit"), UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Unkeyed,
+        FName{TEXT("Lean")}, MakeBodyPose(0.5, FVector{0.0, 0.0, 4.0})).Get_Status(), Valid))
     { return false; }
 
     auto* Written = NewObject<UCk_ProceduralAction_Data>(GetTransientPackage());
@@ -674,15 +672,23 @@ FCkProceduralActionBuilderWriteIntoTest::RunTest(
     TestEqual(TEXT("Write_Into rejects a null destination"),
         UCk_Utils_ProceduralActionBuilder_UE::Write_Into(Unkeyed, nullptr).Get_Status(), Invalid);
     auto* WrongVersion = NewObject<UCk_ProceduralAction_Data>(GetTransientPackage());
-    WrongVersion->Set_CompatibilityVersion(1);
+    // The version is loaded and migrated, never set; an older asset is the only way to hold another one.
+    const auto* VersionProperty = CastField<FIntProperty>(
+        UCk_ProceduralAction_Data::StaticClass()->FindPropertyByName(FName{TEXT("_CompatibilityVersion")}));
+    if (NOT TestNotNull(TEXT("the compatibility version is a reflected int"), VersionProperty))
+    { return false; }
+    VersionProperty->SetPropertyValue_InContainer(WrongVersion, 1);
     const auto VersionReport = UCk_Utils_ProceduralActionBuilder_UE::Write_Into(Unkeyed, WrongVersion);
     TestEqual(TEXT("Write_Into rejects an unknown compatibility version"), VersionReport.Get_Status(), Invalid);
     TestTrue(TEXT("The version rejection names the field"),
         HasDiagnostic(VersionReport, TEXT("Version"), TEXT("Destination.CompatibilityVersion")));
     TestTrue(TEXT("The version rejection expects the current version"), VersionReport.Get_Diagnostics().ContainsByPredicate(
         [](const FCk_ProceduralAction_Diagnostic& InDiagnostic)
-        { return InDiagnostic.Get_Code() == FName{TEXT("Version")} && InDiagnostic.Get_Expected() == TEXT("2")
-            && InDiagnostic.Get_Actual() == TEXT("1"); }));
+        {
+            return InDiagnostic.Get_Code() == FName{TEXT("Version")}
+                && InDiagnostic.Get_Expected() == FString::FromInt(UCk_ProceduralAction_Data::CurrentCompatibilityVersion)
+                && InDiagnostic.Get_Actual() == TEXT("1");
+        }));
     TestTrue(TEXT("The rejected destination keeps no phases"), WrongVersion->Get_Phases().IsEmpty());
     return true;
 }

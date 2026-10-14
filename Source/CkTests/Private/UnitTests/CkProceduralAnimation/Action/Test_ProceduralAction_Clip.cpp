@@ -103,7 +103,6 @@ FCkProceduralActionSavedLimbNodCompileTest::RunTest(
     TestEqual(TEXT("Public data validation uses compiler verdict"), PublicReport.Get_Status(),
         Compiles ? ECk_ProceduralAction_ReportStatus::Valid
             : ECk_ProceduralAction_ReportStatus::Invalid);
-    TestFalse(TEXT("Static data validation does not claim admission"), PublicReport.Get_Advisory());
     return true;
 }
 

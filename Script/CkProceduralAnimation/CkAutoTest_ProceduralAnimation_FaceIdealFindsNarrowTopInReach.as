@@ -100,8 +100,9 @@ class UCk_AutoTest_ProceduralAnimation_FaceIdealFindsNarrowTopInReach : UCk_Auto
         _Fixture.Entities.Add(Root);
         auto Body = utils_transform::Add(Root, FTransform(_Origin + FVector(0.0, 0.0, _BodyHeight)),
             ECk_Replication::DoesNotReplicate);
-        auto Walker = utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait,
-            TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        auto Walker = utils_procedural_animation::Add_Walker(Body, WalkerSpec);
         _Gait = Walker.Get_Gait();
         for (auto Leg : Walker.Get_Legs())
         {
@@ -206,8 +207,9 @@ class UCk_AutoTest_ProceduralAnimation_FaceIdealFindsNarrowTopInReach : UCk_Auto
         _RecordedBody = utils_transform::Add(Root, FTransform(_RecordedOrigin + FVector(-454.910, 0.0, 215.0)),
             ECk_Replication::DoesNotReplicate);
         // Keep the captured Crawler8 preset, including its default 100 cm probe-up span.
-        auto Walker = utils_procedural_animation::Add_Walker(_RecordedBody, ck::ProceduralTest_RecordedPostSearchRig,
-            ck::ProceduralGym_Gait, TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec2 = FCk_ProceduralWalker_Spec(ck::ProceduralTest_RecordedPostSearchRig, ck::ProceduralGym_Gait);
+        WalkerSpec2.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        auto Walker = utils_procedural_animation::Add_Walker(_RecordedBody, WalkerSpec2);
         _RecordedGait = Walker.Get_Gait();
         for (auto Leg : Walker.Get_Legs())
         {

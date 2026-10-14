@@ -185,7 +185,7 @@ auto
             auto* Gait = NewObject<UCk_ProceduralGait_Data>();
             Gait->Set_Timing(MakeTiming(AddCycle, StepDuration, AuthoredCadenceSpeedRef));
             Gait->Set_Step(MakeStep());
-            const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, MakeRig(), Gait, {});
+            const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, FCk_ProceduralWalker_Spec{MakeRig(), Gait}.Set_Chains({}));
             TestTrue(TEXT("The walker admits every leg, the boundary leg included"), ck::IsValid(Walker.Get_Gait()));
             State->Root = Root;
             State->Gait = Walker.Get_Gait();

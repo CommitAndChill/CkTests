@@ -245,9 +245,7 @@ FCkProceduralActionScaledLegacyPartsTest::RunTest(
                 ECk_Replication::DoesNotReplicate);
             auto BoundRig = FCk_ProceduralRig_Spec{Segments};
             BoundRig.Set_Foot(State->Terminal);
-            const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(State->Body,
-                Rig, NewObject<UCk_ProceduralGait_Data>(),
-                TArray<FCk_ProceduralWalker_LegChain>{FCk_ProceduralWalker_LegChain{LegId, BoundRig}});
+            const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(State->Body, FCk_ProceduralWalker_Spec{Rig, NewObject<UCk_ProceduralGait_Data>()}.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>{FCk_ProceduralWalker_LegChain{LegId, BoundRig}}));
             State->Gait = Walker.Get_Gait();
             State->Subject = UCk_Utils_ProceduralArticulation_UE::Cast(State->Root);
             TestTrue(TEXT("Scaled legacy walker and articulation compose"),

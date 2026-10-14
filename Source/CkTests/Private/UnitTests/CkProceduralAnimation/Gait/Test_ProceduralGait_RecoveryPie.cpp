@@ -253,8 +253,7 @@ namespace ck_test_procedural_gait_recovery_pie
         RigSpec.Set_Foot(Foot);
         const auto Chains = TArray<FCk_ProceduralWalker_LegChain>{
             FCk_ProceduralWalker_LegChain{LegId, RigSpec}};
-        const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(InOutState.Body,
-            Rig, NewObject<UCk_ProceduralGait_Data>(), Chains);
+        const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(InOutState.Body, FCk_ProceduralWalker_Spec{Rig, NewObject<UCk_ProceduralGait_Data>()}.Set_Chains(Chains));
         InOutState.Gait = Walker.Get_Gait();
         InOutState.Subject = UCk_Utils_ProceduralArticulation_UE::Cast(InOutState.Root);
     }
@@ -509,9 +508,9 @@ auto
                     if (NOT Controllers.IsEmpty())
                     { Pinned->LastAcceptedElapsedSeconds = Lease.Get_AcceptedElapsed().Get_Seconds(); }
                     const auto Transition = FString::Printf(
-                        TEXT("control=%d reason=%s return=%d lease=%d leaseReason=%s controllers=%d"),
+                        TEXT("control=%d reason=%s return=%d leaseReason=%s controllers=%d"),
                         static_cast<int32>(Control.Get_State()), *Control.Get_Reason().ToString(),
-                        static_cast<int32>(ReturnState), static_cast<int32>(Lease.Get_State()),
+                        static_cast<int32>(ReturnState),
                         *Lease.Get_Reason().ToString(), Controllers.Num());
                     if (Transition != Pinned->LastRecoveryTransition)
                     {
@@ -590,10 +589,10 @@ auto
                     ? Debug.Get_Legs()[0].Get_Foot() : FCk_ProceduralAnimation_DebugFoot{};
                 const auto DebugLanding = NOT Debug.Get_Legs().IsEmpty()
                     ? Debug.Get_Legs()[0].Get_LandingPointWorld() : FVector::ZeroVector;
-                AddInfo(FString::Printf(TEXT("[GaitRecovery diagnostic] control=%d reason=%s controllers=%d return=%d lease=%d leaseReason=%s generation=%llu solve=%llu accepted=%.3f candidate=%d actual=%s target=%s gaitFoot=%s gaitLanding=%s gaitSwing=%.3f gaitPlanted=%d limbExists=%d structural=%d participating=%d trusted=%d unplanted=%d limbReason=%s articulation=%d fault=%d issuedRevision=%llu settledRevision=%llu pending=%d gaitStatus=%d planted=%d"),
+                AddInfo(FString::Printf(TEXT("[GaitRecovery diagnostic] control=%d reason=%s controllers=%d return=%d leaseReason=%s generation=%llu solve=%llu accepted=%.3f candidate=%d actual=%s target=%s gaitFoot=%s gaitLanding=%s gaitSwing=%.3f gaitPlanted=%d limbExists=%d structural=%d participating=%d trusted=%d unplanted=%d limbReason=%s articulation=%d fault=%d issuedRevision=%llu settledRevision=%llu pending=%d gaitStatus=%d planted=%d"),
                     static_cast<int32>(After.Get_State()), *After.Get_Reason().ToString(),
                     Controllers.Num(), static_cast<int32>(ReturnState),
-                    static_cast<int32>(Lease.Get_State()), *Lease.Get_Reason().ToString(),
+                    *Lease.Get_Reason().ToString(),
                     static_cast<unsigned long long>(Lease.Get_RecoveryGeneration()),
                     static_cast<unsigned long long>(Lease.Get_SolveSequence()),
                     Lease.Get_AcceptedElapsed().Get_Seconds(), static_cast<int32>(CandidateResult),
@@ -941,13 +940,13 @@ auto
                                     Budget.Get_MaxSegmentAngularStepDegrees()));
                             }
                             const auto Diagnosis = FString::Printf(
-                                TEXT("wall=%.3f service=%.3f accepted=%.3f lease=%d reason=%s "
+                                TEXT("wall=%.3f service=%.3f accepted=%.3f reason=%s "
                                     "settledReattach=%llu root=%s endpoint=%s segment=%s target=%s | %s"),
                                 Pinned->RecoveryElapsedSeconds,
                                 Pinned->Subject.Get<ck::FFragment_ProceduralLimbControl>()
                                     .Get_ServiceTime().Get_Seconds(),
                                 Lease.Get_AcceptedElapsed().Get_Seconds(),
-                                static_cast<int32>(Lease.Get_State()), *Lease.Get_Reason().ToString(),
+                                *Lease.Get_Reason().ToString(),
                                 static_cast<unsigned long long>(
                                     Controllers[0].Get_ReattachmentSettledRevision()),
                                 *Previous.Get_RootFrame().GetTranslation().ToString(),
@@ -1002,16 +1001,16 @@ auto
                         Pinned->PreviousHoldSegment = Segment;
                     }
                     const auto StateKey = FString::Printf(
-                        TEXT("control=%d reason=%s return=%d lease=%d leaseReason=%s candidate=%d reattach=%llu controllers=%d"),
+                        TEXT("control=%d reason=%s return=%d leaseReason=%s candidate=%d reattach=%llu controllers=%d"),
                         static_cast<int32>(Control.Get_State()), *Control.Get_Reason().ToString(),
-                        static_cast<int32>(ReturnState), static_cast<int32>(Lease.Get_State()),
+                        static_cast<int32>(ReturnState),
                         *Lease.Get_Reason().ToString(), static_cast<int32>(CandidateResult),
                         static_cast<unsigned long long>(Controllers.IsEmpty()
                             ? 0 : Controllers[0].Get_ReattachmentSettledRevision()), Controllers.Num());
                     const auto Transition = FString::Printf(
-                        TEXT("control=%d reason=%s return=%d lease=%d leaseReason=%s candidate=%d reattach=%llu actual=%s target=%s controllers=%d"),
+                        TEXT("control=%d reason=%s return=%d leaseReason=%s candidate=%d reattach=%llu actual=%s target=%s controllers=%d"),
                         static_cast<int32>(Control.Get_State()), *Control.Get_Reason().ToString(),
-                        static_cast<int32>(ReturnState), static_cast<int32>(Lease.Get_State()),
+                        static_cast<int32>(ReturnState),
                         *Lease.Get_Reason().ToString(), static_cast<int32>(CandidateResult),
                         static_cast<unsigned long long>(Controllers.IsEmpty()
                             ? 0 : Controllers[0].Get_ReattachmentSettledRevision()),
@@ -1094,10 +1093,10 @@ auto
                 : FCk_ProceduralGaitParticipation_Control::GetObservation(
                     State->Gait, Controllers[0].Get_Token());
             const auto Diagnostic = FString::Printf(
-                TEXT("[MovedRootReturn diagnostic] action=%d outcome=%d recovery=%d control=%d reason=%s controllers=%d lease=%d leaseReason=%s accepted=%.3f limbParticipating=%d limbTrusted=%d limbUnplanted=%d limbReason=%s root=%s revision=%llu"),
+                TEXT("[MovedRootReturn diagnostic] action=%d outcome=%d recovery=%d control=%d reason=%s controllers=%d leaseReason=%s accepted=%.3f limbParticipating=%d limbTrusted=%d limbUnplanted=%d limbReason=%s root=%s revision=%llu"),
                 static_cast<int32>(ActionState), static_cast<int32>(Result.Get_Outcome()),
                 static_cast<int32>(Result.Get_Recovery()), static_cast<int32>(Control.Get_State()),
-                *Control.Get_Reason().ToString(), Controllers.Num(), static_cast<int32>(Lease.Get_State()),
+                *Control.Get_Reason().ToString(), Controllers.Num(),
                 *Lease.Get_Reason().ToString(), Lease.Get_AcceptedElapsed().Get_Seconds(),
                 Limb.Get_Participating(), Limb.Get_TrustedSupport(), Limb.Get_Unplanted(),
                 *Limb.Get_Reason().ToString(),
@@ -1209,10 +1208,10 @@ auto
                 : FCk_ProceduralGaitParticipation_Control::GetObservation(
                     State->Gait, Controllers[0].Get_Token());
             const auto Diagnostic = FString::Printf(
-                TEXT("[ContactLoss diagnostic] action=%d outcome=%d recovery=%d controllers=%d lease=%d leaseReason=%s limbParticipating=%d limbTrusted=%d limbUnplanted=%d planted=%d floorLive=%d"),
+                TEXT("[ContactLoss diagnostic] action=%d outcome=%d recovery=%d controllers=%d leaseReason=%s limbParticipating=%d limbTrusted=%d limbUnplanted=%d planted=%d floorLive=%d"),
                 static_cast<int32>(UCk_Utils_ProceduralAction_UE::Get_State(State->Action)),
                 static_cast<int32>(Result.Get_Outcome()), static_cast<int32>(Result.Get_Recovery()),
-                Controllers.Num(), static_cast<int32>(Lease.Get_State()), *Lease.Get_Reason().ToString(),
+                Controllers.Num(), *Lease.Get_Reason().ToString(),
                 Limb.Get_Participating(), Limb.Get_TrustedSupport(), Limb.Get_Unplanted(),
                 UCk_Utils_ProceduralGait_UE::Get_PlantedCount(State->Gait), ck::IsValid(State->FloorBody));
             AddInfo(Diagnostic);

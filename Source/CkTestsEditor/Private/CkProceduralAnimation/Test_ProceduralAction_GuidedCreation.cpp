@@ -4,7 +4,6 @@
 
 #include "CkProceduralAnimation/Core/CkProceduralActionValidation.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionAuthoringCommands.h"
-#include "CkProceduralAnimationEditor/CkProceduralActionGuidedCreation.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionPreview_Config.h"
 #include "CkProceduralAnimationEditor/CkProceduralAction_Factory.h"
 
@@ -127,7 +126,7 @@ namespace ck_test_procedural_action_guided_creation
             bool InWithGait)
         -> FCk_ProceduralActionCreation_Choice
     {
-        auto Subject = FCk_ProceduralAction_EditorSubject{};
+        auto Subject = FCk_ProceduralActionEditor_Subject{};
         Subject.Set_WalkingRig(TSoftObjectPtr<UCk_ProceduralRig_Data>{FSoftObjectPath{TEXT("/Game/Missing/Rig_DA.Rig_DA")}});
         if (InWithGait)
         { Subject.Set_WalkingGait(TSoftObjectPtr<UCk_ProceduralGait_Data>{FSoftObjectPath{TEXT("/Game/Missing/Gait_DA.Gait_DA")}}); }
@@ -185,7 +184,7 @@ auto
     if (NOT TestNotNull(TEXT("a confirmed choice creates the clip"), Created))
     { return false; }
     TestTrue(TEXT("creation makes one asset: no preview config beside the clip"), HasNoAsset(SiblingPackage));
-    TestTrue(TEXT("a body-only clip remembers an empty subject"), Created->Get_EditorSubject().Get_IsEmpty());
+    TestTrue(TEXT("a body-only clip remembers an empty subject"), ck::procedural_action_editor::Get_Subject(*Created).Get_IsEmpty());
     TestTrue(TEXT("the new clip starts empty"), Created->Get_Phases().IsEmpty() && Created->Get_Slots().IsEmpty());
     TestFalse(TEXT("a creation consumes the confirmed choice"), Factory->Get_HasConfirmedChoice());
 
@@ -198,69 +197,8 @@ auto
     auto Diagnostics = TArray<ck::procedural_action::FDiagnostic>{};
     TestTrue(TEXT("the shaped clip compiles"), ck::procedural_action::Compile(*Created, Compiled, Diagnostics));
     TestEqual(TEXT("the body lean shape writes three phases"), Created->Get_Phases().Num(), 3);
-    TestFalse(TEXT("the shape's keys are named poses"), Created->Get_EditorPoseGroups().IsEmpty());
+    TestFalse(TEXT("the shape's key times are labelled"), ck::procedural_action_editor::Get_PoseLabels(*Created).IsEmpty());
     TestFalse(TEXT("creation saves nothing: the clip file is not written"), PackageFileExists(ClipPackage));
-    return NOT HasAnyErrors();
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_AuthoringCommands_PairedSaveFailureReportsWhichAsset,
-    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.PairedSaveFailureReportsWhichAsset",
-    ck_test_procedural_action_guided_creation::TestFlags)
-
-auto
-    FCkTest_ProceduralAction_AuthoringCommands_PairedSaveFailureReportsWhichAsset::
-    RunTest(
-        const FString&)
-    -> bool
-{
-    using namespace ck_test_procedural_action_guided_creation;
-    auto Root = FDisposableRoot{TEXT("PairedSave")};
-    if (NOT TestTrue(TEXT("disposable content root and private undo buffer"), Root.Mount()))
-    { return false; }
-    const auto UnmountedRoot = FString::Printf(TEXT("/CkActionUnmounted_%s/"), *Root.Unique);
-    const auto MountedClip = Root.MountRoot + TEXT("Clip");
-    const auto MountedPreview = Root.MountRoot + TEXT("Preview");
-    const auto UnmountedClip = UnmountedRoot + TEXT("Clip");
-    const auto UnmountedPreview = UnmountedRoot + TEXT("Preview");
-    Root.Packages = TArray<FString>{MountedClip, MountedPreview, UnmountedClip, UnmountedPreview};
-
-    const auto MakeAsset = [](const FString& InPackageName, UClass* InClass) -> UObject*
-    {
-        auto* Package = CreatePackage(*InPackageName);
-        return NewObject<UObject>(Package, InClass, FName{*FPackageName::GetLongPackageAssetName(InPackageName)},
-            RF_Public | RF_Standalone);
-    };
-
-    auto* SavedClip = MakeAsset(MountedClip, UCk_ProceduralAction_Data::StaticClass());
-    auto* StrandedPreview = MakeAsset(UnmountedPreview, UCk_ProceduralActionPreview_Config::StaticClass());
-    const auto First = ck::procedural_action_editor::SaveAssets(TArray<UObject*>{SavedClip, StrandedPreview});
-    if (NOT TestEqual(TEXT("one result per asset"), First.Num(), 2))
-    { return false; }
-    TestTrue(TEXT("the clip result names the clip"), First[0].Get_AssetPath() == SavedClip->GetPathName());
-    TestTrue(TEXT("the clip saved"), First[0].Get_Saved());
-    TestTrue(TEXT("the clip file was written"), PackageFileExists(MountedClip));
-    TestTrue(TEXT("the preview result names the preview"), First[1].Get_AssetPath() == StrandedPreview->GetPathName());
-    TestFalse(TEXT("the preview did not save"), First[1].Get_Saved());
-    TestFalse(TEXT("the failed save says why"), First[1].Get_Reason().IsEmpty());
-    const auto FirstSummary = ck::procedural_action_editor::DescribeSaveResults(First);
-    TestTrue(TEXT("the summary names the asset that failed"), FirstSummary.Contains(StrandedPreview->GetPathName()));
-    TestTrue(TEXT("the summary still reports the asset that saved"), FirstSummary.Contains(SavedClip->GetPathName()));
-
-    auto* StrandedClip = MakeAsset(UnmountedClip, UCk_ProceduralAction_Data::StaticClass());
-    auto* SavedPreview = MakeAsset(MountedPreview, UCk_ProceduralActionPreview_Config::StaticClass());
-    const auto Second = ck::procedural_action_editor::SaveAssets(TArray<UObject*>{StrandedClip, SavedPreview});
-    if (NOT TestEqual(TEXT("one result per asset, reversed failure"), Second.Num(), 2))
-    { return false; }
-    TestFalse(TEXT("a failed clip save is reported against the clip"), Second[0].Get_Saved());
-    TestTrue(TEXT("the failing clip is named"), Second[0].Get_AssetPath() == StrandedClip->GetPathName());
-    TestTrue(TEXT("a failed clip save does not stop the preview save"), Second[1].Get_Saved());
-    TestTrue(TEXT("the preview file was written"), PackageFileExists(MountedPreview));
-
-    const auto Missing = ck::procedural_action_editor::SaveAssets(TArray<UObject*>{nullptr});
-    TestTrue(TEXT("a missing asset is reported, not skipped"), Missing.Num() == 1 && NOT Missing[0].Get_Saved()
-        && NOT Missing[0].Get_Reason().IsEmpty());
     return NOT HasAnyErrors();
 }
 

@@ -6,7 +6,7 @@
 #include "CkProceduralAnimationEditor/CkProceduralActionAuthoringSession.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionEditorModel.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionEditorModes.h"
-#include "CkProceduralAnimationEditor/CkProceduralActionPoseGroups.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionEditorData.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionPreview_Config.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionSelectionProxy.h"
 #include "CkProceduralAnimationEditor/CkProceduralAction_EditorToolkit.h"
@@ -218,8 +218,7 @@ namespace ck_test_procedural_action_pose_workspace
         int32 DistinctSteps = 0;
         int32 SolvedFrames = 0;
         int64 LastObservedStep = INDEX_NONE;
-        TSet<FGuid> GroupsBefore;
-        FGuid RequestedPose;
+        TArray<FCk_ProceduralActionEditor_PoseLabel> LabelsBefore;
         FName RequestedPhase;
         FCk_FloatRange_0to1 RequestedTime;
         FCk_Time PhaseStart;
@@ -241,23 +240,28 @@ namespace ck_test_procedural_action_pose_workspace
             return true;
         }
 
-        auto Groups() const -> TSet<FGuid>
+        auto Labels() const -> TArray<FCk_ProceduralActionEditor_PoseLabel>
         {
-            auto Ids = TSet<FGuid>{};
-            if (Clip.IsValid())
-            {
-                for (const auto& Group : Clip->Get_EditorPoseGroups())
-                { Ids.Add(Group.Get_Id()); }
-            }
-            return Ids;
+            return Clip.IsValid() ? ck::procedural_action_editor::Get_PoseLabels(*Clip)
+                : TArray<FCk_ProceduralActionEditor_PoseLabel>{};
         }
 
-        auto NewGroup() const -> const FCk_ProceduralAction_PoseGroup*
+        // The label a record added since LabelsBefore was taken.
+        auto NewLabel() const -> TOptional<FCk_ProceduralActionEditor_PoseLabel>
         {
-            if (NOT Clip.IsValid())
-            { return nullptr; }
-            return Clip->Get_EditorPoseGroups().FindByPredicate([this](const FCk_ProceduralAction_PoseGroup& InGroup)
-                { return NOT GroupsBefore.Contains(InGroup.Get_Id()); });
+            for (const auto& Label : Labels())
+            {
+                if (ck::procedural_action_editor::FindPoseLabel(LabelsBefore, Label.Get_PhaseId(), Label.Get_Time().Get_Value()) == nullptr)
+                { return Label; }
+            }
+            return {};
+        }
+
+        auto IsKeyedAt(FName InChannel, FName InPhaseId, double InTime) const -> bool
+        {
+            const auto* Phase = Clip.IsValid() ? Clip->Get_Phases().FindByPredicate(
+                [InPhaseId](const FCk_ProceduralAction_Phase& InPhase) { return InPhase.Get_Id() == InPhaseId; }) : nullptr;
+            return Phase != nullptr && ck::procedural_action_editor::Get_ChannelsKeyedAt(*Phase, InTime).Contains(InChannel);
         }
 
         auto BodyKeyAt(FName InPhaseId, FCk_FloatRange_0to1 InTime) const -> TOptional<FVector>
@@ -290,7 +294,7 @@ namespace ck_test_procedural_action_pose_workspace
             const auto* Editor = Toolkit();
             const auto* Proxy = Editor != nullptr ? Editor->Get_SelectionProxy() : nullptr;
             return Proxy != nullptr && Proxy->_Shows == ECk_ProceduralActionSelectionProxy_Shows::Key
-                && Proxy->_Channel == FCk_ProceduralAction_PoseGroup::Get_BodyChannelName();
+                && Proxy->_Channel == ck::procedural_action_editor::Get_BodyChannelName();
         }
 
         auto ClickTagged(FName InTag) -> bool
@@ -346,9 +350,9 @@ namespace ck_test_procedural_action_pose_workspace
             if (NOT Clip.IsValid())
             { return false; }
             Clip->SetFlags(RF_Public | RF_Standalone | RF_Transactional);
-            auto Subject = FCk_ProceduralAction_EditorSubject{};
-            Subject.Set_Scenario(TSoftObjectPtr<UObject>{FSoftObjectPath{BodyPreviewPath}});
-            Clip->Set_EditorSubject(Subject);
+            auto Subject = FCk_ProceduralActionEditor_Subject{};
+            Subject.Set_Scenario(TSoftObjectPtr<UCk_ProceduralActionPreview_Config>{FSoftObjectPath{BodyPreviewPath}});
+            UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(Clip.Get())->Set_Subject(Subject);
             Editors = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
             return Editors.IsValid() && Editors->OpenEditorForAsset(Clip.Get(), EToolkitMode::Standalone);
         }
@@ -428,7 +432,7 @@ namespace ck_test_procedural_action_pose_workspace
             const auto Session = Editor->Get_Session();
             const auto* Proxy = Editor->Get_SelectionProxy();
             const auto& FirstPhase = State.Clip->Get_Phases()[0];
-            const auto Body = FCk_ProceduralAction_PoseGroup::Get_BodyChannelName();
+            const auto Body = ck::procedural_action_editor::Get_BodyChannelName();
             if (State.Stage == 1)
             {
                 for (const auto Tag : {FName{TEXT("CkActionEditor.Viewport")}, FName{TEXT("CkActionEditor.Status")},
@@ -445,13 +449,8 @@ namespace ck_test_procedural_action_pose_workspace
                     State.Test->TestTrue(FString::Printf(TEXT("the clip editor mounts %s"), *Tag.ToString()),
                         FindInToolkit(*Editor, Tag).IsValid());
                 }
-                State.Test->TestTrue(TEXT("BodyPulse poses are listed: the first section has a pose at its start"),
-                    Session.IsValid() && Session->GetPoseGroups().ContainsByPredicate(
-                        [&FirstPhase](const FCk_ProceduralActionPoseGroupView& InView)
-                        {
-                            return InView.Get_Group().Get_PhaseId() == FirstPhase.Get_Id()
-                                && ck::procedural_action_editor::IsSamePoseTime(InView.Get_Group().Get_Time().Get_Value(), 0.0);
-                        }));
+                State.Test->TestTrue(TEXT("BodyPulse keys the body at the start of its first section"),
+                    State.IsKeyedAt(Body, FirstPhase.Get_Id(), 0.0));
                 State.Test->TestTrue(TEXT("Record covers the body channel by default"), Model->Get_IsRecorded(Body));
                 State.Test->TestTrue(TEXT("the body channel has a Record tick"), FindInToolkit(*Editor, BodyRecordTag).IsValid());
                 Model->SelectClip();
@@ -464,7 +463,7 @@ namespace ck_test_procedural_action_pose_workspace
                 if (NOT State.Settle(ShowsClip, TEXT("Details did not load the clip")))
                 { return false; }
                 State.Test->TestTrue(TEXT("the Details show the clip when the clip is selected"),
-                    ShowsClip && FMath::IsNearlyEqual(Proxy->_Length, static_cast<float>(Session->GetDuration().Get_Seconds()), 1.0e-3f)
+                    ShowsClip && FMath::IsNearlyEqual(Proxy->_Length.Get_Seconds(), static_cast<float>(Session->Get_Duration().Get_Seconds()), 1.0e-3f)
                     && Proxy->_Subject.Get_Scenario().ToString() == FString{BodyPreviewPath});
                 Model->SelectSection(FirstPhase.Get_Id());
                 ++State.Stage;
@@ -477,7 +476,7 @@ namespace ck_test_procedural_action_pose_workspace
                 if (NOT State.Settle(ShowsSection, TEXT("Details did not load the section")))
                 { return false; }
                 State.Test->TestTrue(TEXT("the Details show the selected section and its duration"),
-                    ShowsSection && FMath::IsNearlyEqual(Proxy->_Duration,
+                    ShowsSection && FMath::IsNearlyEqual(Proxy->_Duration.Get_Seconds(),
                         static_cast<float>(FirstPhase.Get_Duration().Get_Seconds()), 1.0e-4f));
                 if (NOT State.Test->TestFalse(TEXT("BodyPulse's first section has a body key"), FirstPhase.Get_BodyKeys().IsEmpty()))
                 { return State.Fail(TEXT("no body key to select")); }
@@ -594,21 +593,16 @@ namespace ck_test_procedural_action_pose_workspace
             const auto Session = Editor->Get_Session();
             const auto* Modes = Editor->Get_Modes();
             const auto FirstPhase = State.Clip->Get_Phases()[0].Get_Id();
-            const auto Body = FCk_ProceduralAction_PoseGroup::Get_BodyChannelName();
+            const auto Body = ck::procedural_action_editor::Get_BodyChannelName();
 
             // Requested capture: put the playhead on the section-start pose, step two frames, record, then edit the body.
             if (State.Stage == 10)
             {
                 Model->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Authored);
-                const auto* StartPose = Session->GetPoseGroups().FindByPredicate(
-                    [FirstPhase](const FCk_ProceduralActionPoseGroupView& InView)
-                    {
-                        return InView.Get_Group().Get_PhaseId() == FirstPhase
-                            && ck::procedural_action_editor::IsSamePoseTime(InView.Get_Group().Get_Time().Get_Value(), 0.0);
-                    });
-                State.Test->AddInfo(FString::Printf(TEXT("Section-start pose present: %d"), StartPose != nullptr));
-                if (StartPose != nullptr)
-                { Model->SelectPose(StartPose->Get_Group().Get_Id(), FirstPhase); }
+                const auto StartKeyed = State.IsKeyedAt(Body, FirstPhase, 0.0);
+                State.Test->AddInfo(FString::Printf(TEXT("Section-start body key present: %d"), StartKeyed));
+                if (StartKeyed)
+                { Model->SelectKey(FirstPhase, Body, FCk_FloatRange_0to1{0.0}); }
                 if (NOT State.Test->TestTrue(TEXT("the first section has a start time"), Session->Get_PhaseStart(FirstPhase, State.PhaseStart)))
                 { return State.Fail(TEXT("the first section has no start time")); }
                 Model->SetTime(State.PhaseStart);
@@ -629,7 +623,7 @@ namespace ck_test_procedural_action_pose_workspace
                 State.Test->TestTrue(TEXT("two frame steps move the playhead two 60 Hz frames past the section start"),
                     FMath::IsNearlyEqual(Model->Get_Time().Get_Seconds(), State.PhaseStart.Get_Seconds() + 2.0 * FrameSeconds, 1.0e-3));
                 State.Test->TestTrue(TEXT("Record covers the body"), Model->Get_IsRecorded(Body));
-                State.GroupsBefore = State.Groups();
+                State.LabelsBefore = State.Labels();
                 const auto Accepted = Editor->RecordPose();
                 ++State.Actions;
                 State.Test->AddInfo(FString::Printf(TEXT("Authored RecordPose: %s"), *State.Message()));
@@ -639,16 +633,14 @@ namespace ck_test_procedural_action_pose_workspace
             }
             if (State.Stage == 13)
             {
-                const auto* Captured = State.NewGroup();
-                if (Captured == nullptr)
-                { return State.Fail(TEXT("RecordPose wrote no pose group")); }
+                const auto Captured = State.NewLabel();
+                if (NOT Captured.IsSet())
+                { return State.Fail(TEXT("RecordPose wrote no pose label")); }
                 State.Test->TestEqual(TEXT("the recorded pose lands in the selected section"), Captured->Get_PhaseId(), FirstPhase);
                 State.Test->TestTrue(TEXT("the recorded pose lands two frames after the section start"),
                     Captured->Get_Time().Get_Value() > 0.0 && Captured->Get_Time().Get_Value() < 1.0);
-                State.Test->TestEqual(TEXT("the authored recording is requested"), Captured->Get_Provenance(),
-                    ECk_ProceduralAction_PoseProvenance::Requested);
-                State.Test->TestTrue(TEXT("the authored recording covers the body"), Captured->Get_Channels().Contains(Body));
-                State.RequestedPose = Captured->Get_Id();
+                State.Test->TestTrue(TEXT("the authored recording keys the body"),
+                    State.IsKeyedAt(Body, Captured->Get_PhaseId(), Captured->Get_Time().Get_Value()));
                 State.RequestedPhase = Captured->Get_PhaseId();
                 State.RequestedTime = Captured->Get_Time();
                 Model->SelectKey(State.RequestedPhase, Body, State.RequestedTime);
@@ -694,14 +686,14 @@ namespace ck_test_procedural_action_pose_workspace
             if (State.Stage == 21)
             {
                 const auto Status = State.Status();
-                const auto Frames = Modes != nullptr ? Modes->GetFrameCount() : 0;
+                const auto Frames = Modes != nullptr ? Modes->Get_FrameCount() : 0;
                 if (Frames != State.LastObservedStep)
                 {
                     State.LastObservedStep = Frames;
                     ++State.DistinctSteps;
                 }
                 State.LastWaitReason = FString::Printf(TEXT("waiting for the solved preview to complete: %s"), *Status);
-                if (Modes == nullptr || NOT Modes->GetIsComplete() || Model->Get_IsPlaying())
+                if (Modes == nullptr || NOT Modes->Get_IsComplete() || Model->Get_IsPlaying())
                 { return false; }
                 State.Test->AddInfo(FString::Printf(TEXT("Solved preview complete: %d frames over %d observed editor frames; %s"),
                     Frames, State.DistinctSteps, *Status));
@@ -709,13 +701,13 @@ namespace ck_test_procedural_action_pose_workspace
                     State.DistinctSteps >= 3);
                 State.Test->TestTrue(TEXT("the solved recording is continuous"), Status.Contains(TEXT(" 0 gaps")));
                 State.Test->TestTrue(TEXT("playback stops on the last solved frame"),
-                    FMath::IsNearlyEqual(Model->Get_Time().Get_Seconds(), Modes->GetSolvedTime().Get_Seconds(), 1.0e-6));
-                State.GroupsBefore = State.Groups();
+                    FMath::IsNearlyEqual(Model->Get_Time().Get_Seconds(), Modes->Get_SolvedTime().Get_Seconds(), 1.0e-6));
+                State.LabelsBefore = State.Labels();
                 const auto Accepted = Editor->RecordPose();
                 ++State.Actions;
                 State.Test->AddInfo(FString::Printf(TEXT("RecordPose at terminal: %s"), *State.Message()));
                 State.Test->TestFalse(TEXT("RecordPose refuses a finished preview"), Accepted);
-                State.Test->TestNull(TEXT("a finished preview is not a ready solved snapshot"), State.NewGroup());
+                State.Test->TestFalse(TEXT("a finished preview is not a ready solved snapshot"), State.NewLabel().IsSet());
                 State.SolvedFrames = Frames;
                 State.Stage = 30;
                 return false;
@@ -731,9 +723,9 @@ namespace ck_test_procedural_action_pose_workspace
             }
             if (State.Stage == 31)
             {
-                State.Test->TestEqual(TEXT("scrubbing back keeps the solved frames"), Modes != nullptr ? Modes->GetFrameCount() : 0,
+                State.Test->TestEqual(TEXT("scrubbing back keeps the solved frames"), Modes != nullptr ? Modes->Get_FrameCount() : 0,
                     State.SolvedFrames);
-                State.GroupsBefore = State.Groups();
+                State.LabelsBefore = State.Labels();
                 Editor->RecordPose();
                 ++State.Actions;
                 ++State.SolvedAttempts;
@@ -742,8 +734,8 @@ namespace ck_test_procedural_action_pose_workspace
             }
             if (State.Stage == 33)
             {
-                const auto* Solved = State.NewGroup();
-                if (Solved == nullptr)
+                const auto Solved = State.NewLabel();
+                if (NOT Solved.IsSet())
                 {
                     State.Test->AddInfo(FString::Printf(TEXT("Solved capture attempt %d refused: %s"), State.SolvedAttempts,
                         *State.Message()));
@@ -754,8 +746,8 @@ namespace ck_test_procedural_action_pose_workspace
                 }
                 State.Test->AddInfo(FString::Printf(TEXT("Solved capture accepted on attempt %d: %s"), State.SolvedAttempts,
                     *State.Message()));
-                State.Test->TestEqual(TEXT("the solved capture records its provenance"), Solved->Get_Provenance(),
-                    ECk_ProceduralAction_PoseProvenance::Solved);
+                State.Test->TestTrue(TEXT("the solved capture keys the body"),
+                    State.IsKeyedAt(Body, Solved->Get_PhaseId(), Solved->Get_Time().Get_Value()));
                 State.Stage = 40;
                 return false;
             }
@@ -789,7 +781,7 @@ namespace ck_test_procedural_action_pose_workspace
                 State.Test->TestTrue(TEXT("the Details edit changed the recorded body key"),
                     After.IsSet() && NOT After.GetValue().Equals(State.BodyBefore));
                 State.Test->TestTrue(TEXT("the edit drops the previous revision's solved frames"),
-                    Modes != nullptr && Modes->GetFrameCount() < State.SolvedFrames);
+                    Modes != nullptr && Modes->Get_FrameCount() < State.SolvedFrames);
                 State.SolvedAttempts = 0;
                 State.Stage = 50;
                 return false;
@@ -797,10 +789,10 @@ namespace ck_test_procedural_action_pose_workspace
             if (State.Stage == 50)
             {
                 State.LastWaitReason = FString::Printf(TEXT("waiting for the new revision to solve the playhead: %s"), *State.Status());
-                if (Modes == nullptr || Modes->GetDisplayedFrame() == nullptr
-                    || Modes->GetTime().Get_Seconds() + 1.0e-6 < Model->Get_Time().Get_Seconds())
+                if (Modes == nullptr || Modes->Get_DisplayedFrame() == nullptr
+                    || Modes->Get_Time().Get_Seconds() + 1.0e-6 < Model->Get_Time().Get_Seconds())
                 { return false; }
-                State.GroupsBefore = State.Groups();
+                State.LabelsBefore = State.Labels();
                 Editor->RecordPose();
                 ++State.Actions;
                 ++State.SolvedAttempts;
@@ -809,7 +801,7 @@ namespace ck_test_procedural_action_pose_workspace
             }
             if (State.Stage == 53)
             {
-                if (State.NewGroup() == nullptr)
+                if (NOT State.NewLabel().IsSet())
                 {
                     State.Test->AddInfo(FString::Printf(TEXT("Solved capture after the edit, attempt %d refused: %s"),
                         State.SolvedAttempts, *State.Message()));

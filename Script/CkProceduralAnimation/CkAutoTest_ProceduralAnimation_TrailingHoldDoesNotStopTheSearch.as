@@ -120,8 +120,9 @@ class UCk_AutoTest_ProceduralAnimation_TrailingHoldDoesNotStopTheSearch : UCk_Au
 
     FCk_ProceduralWalker DoCompose_Walker(FCk_Handle_Transform InBody)
     {
-        return utils_procedural_animation::Add_Walker(InBody, ck::ProceduralTest_SideRig, ck::ProceduralTest_NarrowRingGait,
-            TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralTest_NarrowRingGait);
+        WalkerSpec.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        return utils_procedural_animation::Add_Walker(InBody, WalkerSpec);
     }
 
     FCk_Handle_ProceduralLeg Get_PlusLeg(FCk_ProceduralWalker InWalker)

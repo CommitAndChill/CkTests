@@ -260,8 +260,10 @@ FCkProceduralActionCarriedStartMirrorTest::RunTest(
     UCk_Utils_ProceduralActionBuilder_UE::Add_Slot(Draft, FCk_ProceduralAction_Slot{Right});
     UCk_Utils_ProceduralActionBuilder_UE::Add_Slot(Draft, FCk_ProceduralAction_Slot{Left});
     if (NOT TestEqual(TEXT("A key at the phase end only is a valid builder edit"),
-        UCk_Utils_ProceduralActionBuilder_UE::Add_LimbKey(Draft, Reach, FCk_FloatRange_0to1{1.0},
-            FCk_ProceduralAction_LimbPoseTarget{Right, FVector{70.0, 55.0, 85.0}}).Get_Status(), ECk_ProceduralAction_ReportStatus::Valid))
+        UCk_Utils_ProceduralActionBuilder_UE::Add_PoseKey(Draft, Reach,
+            FCk_ProceduralAction_PoseKey{FCk_FloatRange_0to1{1.0}}.Set_Limbs(TArray<FCk_ProceduralAction_LimbPoseTarget>{
+                FCk_ProceduralAction_LimbPoseTarget{Right, FVector{70.0, 55.0, 85.0}}})).Get_Status(),
+        ECk_ProceduralAction_ReportStatus::Valid))
     { return false; }
 
     TestEqual(TEXT("The track mirrors"), UCk_Utils_ProceduralActionBuilder_UE::Mirror_Slot(Draft,

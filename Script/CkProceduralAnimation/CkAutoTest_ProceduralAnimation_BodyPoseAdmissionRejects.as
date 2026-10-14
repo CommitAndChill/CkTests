@@ -92,7 +92,7 @@ class UCk_AutoTest_ProceduralAnimation_BodyPoseAdmissionRejects : UCk_AutoTest_B
         FCk_Handle_ProceduralLeg RiggedLeg = utils_procedural_leg::Create(Body, ck::ProceduralTest_SideRig.Get_Legs()[0]);
         FCk_Handle_ProceduralLeg OpenLeg = utils_procedural_leg::Create(Body, ck::ProceduralTest_SideRig.Get_Legs()[1]);
         Assert_True(ck::IsValid(RiggedLeg) && ck::IsValid(OpenLeg), "Precondition: the body gets its two legs");
-        auto Gait = utils_procedural_gait::Add(Body, ck::ProceduralGym_Gait);
+        auto Gait = utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(Body), ck::ProceduralGym_Gait);
         Assert_True(ck::IsValid(Gait), "Precondition: the body walks");
 
         auto Upper = CreateTransform(Body, _Origin + FVector(10.0, 0.0, 0.0));
@@ -195,7 +195,7 @@ class UCk_AutoTest_ProceduralAnimation_BodyPoseAdmissionRejects : UCk_AutoTest_B
         _Roots.Add(LossBody);
         FCk_Handle_ProceduralLeg KeptLeg = utils_procedural_leg::Create(LossBody, ck::ProceduralTest_SideRig.Get_Legs()[0]);
         _LostLeg = utils_procedural_leg::Create(LossBody, ck::ProceduralTest_SideRig.Get_Legs()[1]);
-        _LossGait = utils_procedural_gait::Add(LossBody, ck::ProceduralGym_Gait);
+        _LossGait = utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(LossBody), ck::ProceduralGym_Gait);
         _LossPresentation = CreateTransform(LossBody, _Origin + FVector(0.0, 400.0, 0.0));
         Assert_True(ck::IsValid(KeptLeg) && ck::IsValid(_LostLeg) && ck::IsValid(_LossGait),
             "Precondition: the second body walks on two legs");
