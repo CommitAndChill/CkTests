@@ -108,8 +108,8 @@ private:
                 FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.0f}, FVector::ZeroVector, FQuat::Identity},
                 FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{1.0f}, FVector{1.0, 0.0, 0.0}, FQuat::Identity}});
             Clip->Set_Phases({Phase});
-            const auto Action = UCk_Utils_ProceduralAction_UE::Create_FromLoadedClip(
-                _Scope, _Player, FCk_ProceduralAction_LoadedPlaySpec{Clip.Get()});
+            const auto Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(
+                _Scope, _Player, FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Clip.Get()}});
             if (ck::Is_NOT_Valid(Action))
             {
                 return DoFinish(false, TEXT("ActionAdmission"));

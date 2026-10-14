@@ -13,6 +13,7 @@
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 
+#include "../Action/CkTest_ProceduralActionClipFixture.h"
 #include "../CkTest_ProceduralWalkerFixture.h"
 #include "../../CkTest_CompletionListener.h"
 
@@ -29,6 +30,8 @@ namespace ck_test_procedural_articulation_query
     const auto ArmId = FName{TEXT("QueryArm")};
     const auto OtherArmId = FName{TEXT("QueryOtherArm")};
     const auto RejectionEnsure = FString{TEXT("ProceduralArticulation RecoverUnplantedLimbs rejected articulation")};
+    // Nothing consumes the clips' streams, so each needs room for every frame it plays and returns.
+    constexpr auto HeldRecords = 512;
 
     struct FArmState
     {
@@ -39,6 +42,7 @@ namespace ck_test_procedural_articulation_query
         FCk_Handle_ProceduralActionPlayer Player;
         FCk_Handle Scope;
         FCk_Handle_ProceduralAction Action;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         TStrongObjectPtr<UCk_Test_CompletionListener_UE> Listener;
         TStrongObjectPtr<UCk_Test_CompletionListener_UE> RejectedListener;
         bool ObservedReturning = false;
@@ -53,8 +57,9 @@ namespace ck_test_procedural_articulation_query
         FCk_Handle_ProceduralActionPlayer Player;
         FCk_Handle Scope;
         FCk_Handle_ProceduralAction Action;
-        TStrongObjectPtr<UCk_Test_CompletionListener_UE> ExplicitListener;
-        TStrongObjectPtr<UCk_Test_CompletionListener_UE> UnplantedListener;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
+        TStrongObjectPtr<UCk_Test_CompletionListener_UE> FirstListener;
+        TStrongObjectPtr<UCk_Test_CompletionListener_UE> SecondListener;
     };
 
     auto
@@ -115,8 +120,8 @@ namespace ck_test_procedural_articulation_query
         return Sets;
     }
 
-    // Borrows the two diagonal legs Leg0 and Leg3 together, then removes the floor and ends the action so both
-    // returns fail without ground and leave the limbs unplanted.
+    // Borrows the two diagonal legs Leg0 and Leg3 together for a short clip and removes the floor while it plays, so
+    // both returns fail without ground and leave the limbs unplanted.
     auto
         AddUnplantedPairCommands(
             FAutomationTestBase* InTest,
@@ -139,35 +144,38 @@ namespace ck_test_procedural_articulation_query
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
             [InState](UWorld*)
             {
-                auto Support = UCk_Utils_ProceduralActionPlayer_UE::Make_CountOnlySupport(2);
+                auto Support = FCk_ProceduralLimbControl_Support{ECk_ProceduralLimbControl_SupportMode::CountOnly, 2};
                 Support.Set_SupportHoldTimeout(FCk_Time{0.5});
                 auto Return = FCk_ProceduralLimbControl_Return{};
                 Return.Set_Duration(FCk_Time{0.2});
                 Return.Set_Timeout(FCk_Time{0.8});
                 Return.Set_MaxProbeAttempts(2);
-                InState->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(InState->Walker.Subject,
-                    UCk_Utils_ProceduralActionPlayer_UE::Make_BorrowingPlayerSpec(
-                        FCk_ProceduralActionPlayer_BorrowingSpec{Support, Return}));
+                auto Locomotion = FCk_ProceduralLimbControl_Locomotion{};
+                Locomotion.Set_Support(Support);
+                Locomotion.Set_Return(Return);
+                auto Spec = FCk_ProceduralActionPlayer_Spec{};
+                Spec.Set_Locomotion(Locomotion);
+                auto Capacity = Spec.Get_Capacity();
+                Capacity.Set_RecordsPerInstance(HeldRecords);
+                Spec.Set_Capacity(Capacity);
+                InState->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(InState->Walker.Subject, Spec);
                 InState->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(InState->Walker.Root);
-                auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId(0), LegId(3)}};
-                Control.Set_InputTimeout(FCk_Time{10.0});
-                InState->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(InState->Scope, InState->Player,
-                    Control);
+                const auto Legs = TArray<FName>{LegId(0), LegId(3)};
+                InState->Clip = ck_test_procedural_action_clip_fixture::MakeNodClip(Legs, FCk_Time{1.0});
+                InState->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(InState->Scope, InState->Player,
+                    ck_test_procedural_action_clip_fixture::MakePlay(InState->Clip.Get(), Legs));
             })));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(InTest,
             FCk_NetAutoTest_Condition::CreateLambda([InState]
             {
                 return ck::IsValid(InState->Action)
-                    && UCk_Utils_ProceduralAction_UE::Get_State(InState->Action) == ECk_ProceduralAction_State::Ready;
+                    && UCk_Utils_ProceduralAction_UE::Get_State(InState->Action) == ECk_ProceduralAction_State::Playing;
             }), WaitSeconds, TEXT("Both diagonal walking limbs are borrowed")));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
             [InState](UWorld*) { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(InState->Floor.Entity); })));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(InTest,
             FCk_NetAutoTest_Condition::CreateLambda([InState] { return NOT ck::IsValid(InState->Floor.Body); }),
             WaitSeconds, TEXT("Jolt floor removal completes before return")));
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-            [InState](UWorld*)
-            { UCk_Utils_ProceduralAction_UE::Request_End(InState->Action, FCk_Request_ProceduralAction_End{}, {}); })));
         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(InTest,
             FCk_NetAutoTest_Condition::CreateLambda([InState]
             {
@@ -219,19 +227,23 @@ auto
             Transition.Set_DedicatedReturn(FCk_Time{0.5});
             Transition.Set_ReturnTimeout(FCk_Time{3.0});
             Tuning.Set_Transition(Transition);
-            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject,
-                UCk_Utils_ProceduralActionPlayer_UE::Make_DedicatedPlayerSpec(Tuning));
+            auto Spec = FCk_ProceduralActionPlayer_Spec{};
+            Spec.Set_Tuning(Tuning);
+            auto Capacity = Spec.Get_Capacity();
+            Capacity.Set_RecordsPerInstance(HeldRecords);
+            Spec.Set_Capacity(Capacity);
+            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, Spec);
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{ArmId}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope, State->Player, Control);
+            State->Clip = ck_test_procedural_action_clip_fixture::MakeNodClip(TArray<FName>{ArmId}, FCk_Time{1.0});
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
+                ck_test_procedural_action_clip_fixture::MakePlay(State->Clip.Get(), TArray<FName>{ArmId}));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
             return ck::IsValid(State->Action)
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Ready;
-        }), WaitSeconds, TEXT("Manual action holds one arm")));
+                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Playing;
+        }), WaitSeconds, TEXT("The clip holds one arm")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
@@ -240,11 +252,10 @@ auto
                 ECk_ProceduralLimbControl_State::Controlled);
             TestTrue(TEXT("Controlled query matches the held arm"),
                 UCk_Utils_ProceduralArticulation_UE::Get_IsAnyLimbControlled(State->Subject));
-            TestFalse(TEXT("Nothing returns while the action holds"),
+            TestFalse(TEXT("Nothing returns while the clip plays"),
                 UCk_Utils_ProceduralArticulation_UE::Get_IsAnyLimbReturning(State->Subject));
             TestTrue(TEXT("Dedicated arms are never unplanted"),
                 UCk_Utils_ProceduralArticulation_UE::Get_UnplantedLimbIds(State->Subject).IsEmpty());
-            UCk_Utils_ProceduralAction_UE::Request_End(State->Action, FCk_Request_ProceduralAction_End{}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -259,7 +270,7 @@ auto
                     UCk_Utils_ProceduralArticulation_UE::Get_IsAnyLimbControlled(State->Subject);
             }
             return State->ObservedReturning;
-        }), WaitSeconds, TEXT("Ending the action starts the arm's return")));
+        }), WaitSeconds, TEXT("The clip's end starts the arm's return")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
@@ -354,8 +365,7 @@ auto
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
-            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject,
-                UCk_Utils_ProceduralActionPlayer_UE::Make_DedicatedPlayerSpec(FCk_ProceduralAction_Tuning{}));
+            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, FCk_ProceduralActionPlayer_Spec{});
             State->Listener = TStrongObjectPtr<UCk_Test_CompletionListener_UE>{
                 NewObject<UCk_Test_CompletionListener_UE>()};
             auto Completion = FCk_Delegate_Request_OnCompleted{};
@@ -436,48 +446,51 @@ auto
         {
             TestEqual(TEXT("Both limbs are unplanted at enqueue"),
                 UCk_Utils_ProceduralArticulation_UE::Get_UnplantedLimbIds(State->Walker.Subject).Num(), 2);
-            State->ExplicitListener = TStrongObjectPtr<UCk_Test_CompletionListener_UE>{
+            State->FirstListener = TStrongObjectPtr<UCk_Test_CompletionListener_UE>{
                 NewObject<UCk_Test_CompletionListener_UE>()};
-            State->UnplantedListener = TStrongObjectPtr<UCk_Test_CompletionListener_UE>{
+            State->SecondListener = TStrongObjectPtr<UCk_Test_CompletionListener_UE>{
                 NewObject<UCk_Test_CompletionListener_UE>()};
-            auto Explicit = FCk_Delegate_Request_OnCompleted{};
-            Explicit.BindDynamic(State->ExplicitListener.Get(), &UCk_Test_CompletionListener_UE::OnRequestCompleted);
-            auto Unplanted = FCk_Delegate_Request_OnCompleted{};
-            Unplanted.BindDynamic(State->UnplantedListener.Get(), &UCk_Test_CompletionListener_UE::OnRequestCompleted);
-            // Same queue, drained in order: the explicit request takes Leg0 first, so a set captured at enqueue
-            // ({Leg0, Leg3}) would collide with that claim, while the drain-time set is {Leg3} alone.
-            UCk_Utils_ProceduralArticulation_UE::Request_RecoverLimbs(State->Walker.Subject,
-                FCk_Request_ProceduralArticulation_RecoverLimbs{TArray<FName>{LegId(0)}}, Explicit);
+            auto First = FCk_Delegate_Request_OnCompleted{};
+            First.BindDynamic(State->FirstListener.Get(), &UCk_Test_CompletionListener_UE::OnRequestCompleted);
+            auto Second = FCk_Delegate_Request_OnCompleted{};
+            Second.BindDynamic(State->SecondListener.Get(), &UCk_Test_CompletionListener_UE::OnRequestCompleted);
+            // Same queue, drained in order: the first request takes the whole unplanted set, so a set captured at
+            // enqueue ({Leg0, Leg3}) would collide with that claim, while the second's drain-time set is empty.
             UCk_Utils_ProceduralArticulation_UE::Request_RecoverUnplantedLimbs(State->Walker.Subject,
-                FCk_Request_ProceduralArticulation_RecoverUnplantedLimbs{}, Unplanted);
+                FCk_Request_ProceduralArticulation_RecoverUnplantedLimbs{}, First);
+            UCk_Utils_ProceduralArticulation_UE::Request_RecoverUnplantedLimbs(State->Walker.Subject,
+                FCk_Request_ProceduralArticulation_RecoverUnplantedLimbs{}, Second);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
-            return State->ExplicitListener->_TimesRequestCompleted > 0
-                && State->UnplantedListener->_TimesRequestCompleted > 0;
+            return State->FirstListener->_TimesRequestCompleted > 0
+                && State->SecondListener->_TimesRequestCompleted > 0;
         }), WaitSeconds, TEXT("Both recovery requests drain")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
-            TestEqual(TEXT("Explicit recovery completes once"), State->ExplicitListener->_TimesRequestCompleted, 1);
-            TestEqual(TEXT("Unplanted recovery completes once"), State->UnplantedListener->_TimesRequestCompleted, 1);
-            TestEqual(TEXT("Explicit recovery of Leg0 is admitted"), State->ExplicitListener->_LastRequestResult,
-                ECk_Request_OperationResult::Succeeded);
+            TestEqual(TEXT("First recovery completes once"), State->FirstListener->_TimesRequestCompleted, 1);
+            TestEqual(TEXT("Second recovery completes once"), State->SecondListener->_TimesRequestCompleted, 1);
             const auto Sets = Get_ControllerLimbSets(State->Walker.Subject);
-            TestFalse(TEXT("No recovery claims both limbs at once"), Sets.ContainsByPredicate(
-                [](const TArray<FName>& InSet) { return InSet.Contains(LegId(0)) && InSet.Contains(LegId(3)); }));
-            if (State->UnplantedListener->_LastRequestResult == ECk_Request_OperationResult::Succeeded)
+            const auto ClaimsOf = [&Sets](FName InLimb)
             {
-                TestTrue(TEXT("The drain-time set recovers exactly Leg3"), Sets.ContainsByPredicate(
-                    [](const TArray<FName>& InSet) { return InSet == TArray<FName>{LegId(3)}; }));
+                return Sets.FilterByPredicate([InLimb](const TArray<FName>& InSet) { return InSet.Contains(InLimb); }).Num();
+            };
+            TestTrue(TEXT("No limb is claimed by two recoveries"), ClaimsOf(LegId(0)) <= 1 && ClaimsOf(LegId(3)) <= 1);
+            if (State->FirstListener->_LastRequestResult == ECk_Request_OperationResult::Succeeded)
+            {
+                TestTrue(TEXT("The first drain-time set recovers both unplanted limbs as one set"),
+                    Sets.ContainsByPredicate([](const TArray<FName>& InSet)
+                    { return InSet.Num() == 2 && InSet.Contains(LegId(0)) && InSet.Contains(LegId(3)); }));
+                TestEqual(TEXT("The second drain-time set is empty and succeeds without a claim"),
+                    State->SecondListener->_LastRequestResult, ECk_Request_OperationResult::Succeeded);
+                TestEqual(TEXT("Only one recovery holds a claim"), Sets.Num(), 1);
             }
             else
             {
-                TestEqual(TEXT("A failed recovery reports Failed"), State->UnplantedListener->_LastRequestResult,
+                TestEqual(TEXT("A failed recovery reports Failed"), State->FirstListener->_LastRequestResult,
                     ECk_Request_OperationResult::Failed);
-                TestFalse(TEXT("A failed recovery leaves no partial claim on Leg3"), Sets.ContainsByPredicate(
-                    [](const TArray<FName>& InSet) { return InSet.Contains(LegId(3)); }));
                 TestEqual(TEXT("A failed recovery leaves Leg3 unplanted"),
                     UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(State->Walker.Subject, LegId(3)).Get_State(),
                     ECk_ProceduralLimbControl_State::Unplanted);

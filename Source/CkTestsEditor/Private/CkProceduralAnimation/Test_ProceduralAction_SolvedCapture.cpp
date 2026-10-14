@@ -47,12 +47,10 @@ namespace ck_test_procedural_action_solved_capture
 
     auto
         Track(
-            FName InSlot,
-            ECk_ProceduralAction_TrackSpace InSpace)
+            FName InSlot)
         -> FCk_ProceduralAction_LimbTrack
     {
         auto Result = FCk_ProceduralAction_LimbTrack{InSlot};
-        Result.Set_Space(InSpace);
         Result.Set_PositionKeys(TArray<FCk_ProceduralAction_VectorKey>{
             FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{0.0}, FVector::ZeroVector},
             FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{1.0}, FVector::ZeroVector}});
@@ -66,11 +64,10 @@ namespace ck_test_procedural_action_solved_capture
         auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{
             NewObject<UCk_ProceduralAction_Data>(GetTransientPackage(), NAME_None, RF_Transient | RF_Transactional)};
         auto Draft = FCk_ProceduralAction_ClipDraft{};
-        Draft.Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{Arm}, FCk_ProceduralAction_Slot{Hand}});
+        Draft.Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{Arm},
+            FCk_ProceduralAction_Slot{Hand}.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized)});
         auto Phase = FCk_ProceduralAction_Phase{Reach, FCk_Time{1.0}};
-        Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{
-            Track(Arm, ECk_ProceduralAction_TrackSpace::BodyLocal),
-            Track(Hand, ECk_ProceduralAction_TrackSpace::LimbRestNormalized)});
+        Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track(Arm), Track(Hand)});
         Draft.Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
         UCk_Utils_ProceduralActionBuilder_UE::Build_Into(Draft, Clip.Get());
         return Clip;

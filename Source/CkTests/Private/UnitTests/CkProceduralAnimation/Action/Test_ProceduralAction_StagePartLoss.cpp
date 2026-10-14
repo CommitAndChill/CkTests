@@ -14,6 +14,8 @@
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 
+#include "CkTest_ProceduralActionClipFixture.h"
+
 #include "Engine/World.h"
 #include "Misc/AutomationTest.h"
 
@@ -83,6 +85,7 @@ namespace ck_test_procedural_action_stage_part_loss
         FCk_Handle Scope;
         FCk_Handle_ProceduralAction Action;
         FCk_ProceduralAction_Identity Identity;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         uint64 PreArmSettled = 0;
     };
 }
@@ -137,24 +140,13 @@ auto
                 State->Subject, FCk_ProceduralActionPlayer_Spec{});
             TestTrue(TEXT("Part-loss player attaches"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LimbId}};
-            Control.Set_InputTimeout(FCk_Time{30.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(
-                State->Scope, State->Player, Control);
+            State->Clip = ck_test_procedural_action_clip_fixture::MakeNodClip(TArray<FName>{LimbId}, FCk_Time{0.4});
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
+                ck_test_procedural_action_clip_fixture::MakePlay(State->Clip.Get(), TArray<FName>{LimbId}));
             TestTrue(TEXT("Part-loss action reserves identity"), ck::IsValid(State->Action));
             if (ck::IsValid(State->Action))
             { State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action); }
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            return ck::IsValid(State->Action)
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action)
-                    == ECk_ProceduralAction_State::Ready;
-        }), WaitSeconds, TEXT("Manual action captures a settled entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State](UWorld*)
-        {
+
             const auto& Pose = State->Subject.Get<ck::FFragment_ProceduralArticulation_Pose>();
             State->PreArmSettled = Pose.Get_SettledRevision();
             TestEqual(TEXT("Part-loss probe arms from coherent publication"),
@@ -164,16 +156,6 @@ auto
             Probe.Part = State->Segment;
             Probe.PreArmIssued = Pose.Get_IssuedRevision();
             Probe.Armed = true;
-
-            const auto Radians = FMath::DegreesToRadians(1.0f);
-            const auto Offset = FTransform{FQuat{FVector::UpVector, Radians},
-                FVector{FMath::Cos(Radians) - 1.0f, FMath::Sin(Radians), 0.0f}};
-            auto Target = FCk_ProceduralAction_LimbTarget{LimbId, Offset};
-            Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-            auto Batch = FCk_ProceduralAction_PoseBatch{};
-            Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-            UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(State->Action,
-                FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -227,7 +209,7 @@ auto
                 { ++AcceptedCount; }
             }
             TestEqual(TEXT("Exactly one terminal record is retained"), TerminalCount, 1);
-            TestEqual(TEXT("No failed staged batch is published as accepted"), AcceptedCount, 0);
+            TestEqual(TEXT("No failed staged sample is published as accepted"), AcceptedCount, 0);
             auto Root = State->Root.ConvertToHandle();
             UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Root);
         })));

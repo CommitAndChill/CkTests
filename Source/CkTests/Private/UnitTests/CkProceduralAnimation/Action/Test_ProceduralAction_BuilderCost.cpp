@@ -2,8 +2,6 @@
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
-#include "CkTest_ProceduralActionManagedListener.h"
-
 #include "CkCore/Validation/CkIsValid.h"
 #include "CkProceduralAnimation/Action/CkProceduralAction_Utils.h"
 #include "CkProceduralAnimation/ActionBuilder/CkProceduralActionBuilder_Utils.h"
@@ -35,13 +33,12 @@ namespace ck_test_procedural_action_builder_cost
     constexpr auto PoseKeyCount = 64;
     constexpr auto CompileIterations = 200;
     constexpr auto EvaluateSamples = 20000;
-    constexpr auto ExpandIterations = 200;
     constexpr auto MeasuredFrames = 300;
     constexpr auto WaitSeconds = 30.0;
-    constexpr auto ManagedClipCount = 4;
+    constexpr auto AutoClipCount = 4;
     constexpr auto ClipDurationSeconds = 60.0;
     const auto ArmSlot = FName{TEXT("Arm")};
-    const auto ManagedSlot = FName{TEXT("PerfArm")};
+    const auto AutoSlot = FName{TEXT("PerfArm")};
 
     struct FSpread
     {
@@ -121,28 +118,6 @@ namespace ck_test_procedural_action_builder_cost
     }
 
     auto
-    MakeCustomProgressDraft(
-        const FCk_ProceduralAction_ClipDraft& InDraft)
-        -> FCk_ProceduralAction_ClipDraft
-    {
-        auto Curve = FCk_ProceduralAction_ProgressCurve{};
-        Curve.Set_Mode(ECk_ProceduralAction_ProgressMode::CustomCurve);
-        auto Keys = TArray<FCk_ProceduralAction_ProgressKey>{};
-        for (const auto& Pair : TArray<TPair<double, double>>{{0.0, 0.0}, {0.25, 0.1}, {0.5, 0.5}, {0.75, 0.9}, {1.0, 1.0}})
-        { Keys.Emplace(FCk_FloatRange_0to1{Pair.Key}, FCk_FloatRange_0to1{Pair.Value}); }
-        Curve.Set_Keys(Keys);
-        auto Draft = InDraft;
-        auto Phases = Draft.Get_Phases();
-        for (auto& Phase : Phases)
-        {
-            Phase.Set_Easing(ECk_ProceduralAction_Easing::Linear);
-            Phase.Set_Progress(Curve);
-        }
-        Draft.Set_Phases(Phases);
-        return Draft;
-    }
-
-    auto
     MakeIdentityInitial(
         const ck::procedural_action::FCompiledClip& InClip)
         -> ck::procedural_action::FInitialPose
@@ -190,8 +165,7 @@ namespace ck_test_procedural_action_builder_cost
     MakeLongClip() -> TStrongObjectPtr<UCk_ProceduralAction_Data>
     {
         auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
-        auto Track = FCk_ProceduralAction_LimbTrack{ManagedSlot};
-        Track.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
+        auto Track = FCk_ProceduralAction_LimbTrack{AutoSlot};
         auto Keys = TArray<FCk_ProceduralAction_VectorKey>{};
         for (const auto& Key : TArray<TPair<double, double>>{{0.0, 0.0}, {0.02, 0.05}, {0.04, -0.05}, {1.0, 0.0}})
         {
@@ -201,7 +175,8 @@ namespace ck_test_procedural_action_builder_cost
         Track.Set_PositionKeys(Keys);
         auto Phase = FCk_ProceduralAction_Phase{FName{TEXT("Hold")}, FCk_Time{ClipDurationSeconds}};
         Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
-        Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{ManagedSlot}});
+        Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{
+            FCk_ProceduralAction_Slot{AutoSlot}.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized)});
         Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
         return Clip;
     }
@@ -240,43 +215,42 @@ namespace ck_test_procedural_action_builder_cost
             static_cast<long long>(InSample.PoseTransforms), static_cast<unsigned long long>(InSample.AllocatedBytes));
     }
 
-    struct FManagedCase
+    struct FAutoCase
     {
         FCk_Handle_Transform Root;
         FCk_Handle_ProceduralArticulation Subject;
         FCk_Handle_ProceduralActionPlayer Player;
         TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
-        TArray<TStrongObjectPtr<UCk_Test_ProceduralActionManagedListener_UE>> Listeners;
-        TArray<FCk_ProceduralAction_ManagedStart> Starts;
+        TArray<FCk_Handle_ProceduralAction> Actions;
+        TArray<FCk_ProceduralAction_Identity> Identities;
         FStoreSample BeforePlay;
         FStoreSample AfterRelease;
         int64 MaxRecordSlots = 0;
         int64 MaxPoseTransforms = 0;
         SIZE_T MaxAllocatedBytes = 0;
         FSpread IdleFrames;
-        FSpread ManagedFrames;
-        int32 RecordsAtMeasureStart = 0;
-        int32 RecordsAtMeasureEnd = 0;
-        int32 CallsAtMeasureStart = 0;
-        int32 CallsAtMeasureEnd = 0;
+        FSpread AutoFrames;
+        int64 RecordsAtMeasureStart = 0;
+        int64 RecordsAtMeasureEnd = 0;
         bool AllPlayingThroughout = true;
         int32 PollsAfterCompletion = 0;
     };
 
+    // Records the player has acknowledged on the case's streams so far.
     auto
-    Get_TotalRecords(
-        const FManagedCase& InCase,
-        int32& OutCalls)
-        -> int32
+    Get_AcknowledgedRecords(
+        const FAutoCase& InCase)
+        -> int64
     {
-        auto Records = 0;
-        OutCalls = 0;
-        for (const auto& Listener : InCase.Listeners)
+        if (ck::Is_NOT_Valid(InCase.Player))
+        { return 0; }
+        const auto& Store = InCase.Player.Get<ck::FFragment_ProceduralActionPlayer>().Get_Receipts();
+        auto Records = int64{0};
+        for (const auto Identity : InCase.Identities)
         {
-            if (NOT Listener.IsValid())
-            { continue; }
-            Records += Listener->Records.Num();
-            OutCalls += Listener->RecordsCalls;
+            auto Through = int64{0};
+            if (Store.Get_AcknowledgedThrough(Identity, Through))
+            { Records += Through; }
         }
         return Records;
     }
@@ -284,42 +258,42 @@ namespace ck_test_procedural_action_builder_cost
     class FMeasureFrames final : public IAutomationLatentCommand
     {
     private:
-        TSharedRef<FManagedCase> _Case;
-        bool _Managed = false;
+        TSharedRef<FAutoCase> _Case;
+        bool _Playing = false;
         int32 _Frame = 0;
         double _PreviousSeconds = 0.0;
 
     public:
         FMeasureFrames(
-            const TSharedRef<FManagedCase>& InCase,
-            bool InManaged)
+            const TSharedRef<FAutoCase>& InCase,
+            bool InPlaying)
             : _Case(InCase)
-            , _Managed(InManaged) {}
+            , _Playing(InPlaying) {}
 
         virtual auto Update() -> bool override
         {
             const auto Now = FPlatformTime::Seconds();
-            auto& Frames = _Managed ? _Case->ManagedFrames : _Case->IdleFrames;
-            if (_Frame == 0 && _Managed)
-            { _Case->RecordsAtMeasureStart = Get_TotalRecords(*_Case, _Case->CallsAtMeasureStart); }
+            auto& Frames = _Playing ? _Case->AutoFrames : _Case->IdleFrames;
+            if (_Frame == 0 && _Playing)
+            { _Case->RecordsAtMeasureStart = Get_AcknowledgedRecords(*_Case); }
             if (_PreviousSeconds > 0.0)
             { Frames.Add((Now - _PreviousSeconds) * 1000.0); }
             _PreviousSeconds = Now;
-            if (_Managed)
+            if (_Playing)
             {
                 const auto Sample = SampleStore(_Case->Player);
                 _Case->MaxRecordSlots = FMath::Max(_Case->MaxRecordSlots, Sample.RecordSlots);
                 _Case->MaxPoseTransforms = FMath::Max(_Case->MaxPoseTransforms, Sample.PoseTransforms);
                 _Case->MaxAllocatedBytes = FMath::Max(_Case->MaxAllocatedBytes, Sample.AllocatedBytes);
-                for (const auto& Start : _Case->Starts)
+                for (const auto& Action : _Case->Actions)
                 {
-                    _Case->AllPlayingThroughout &= ck::IsValid(Start.Get_Action())
-                        && UCk_Utils_ProceduralAction_UE::Get_State(Start.Get_Action()) == ECk_ProceduralAction_State::Playing;
+                    _Case->AllPlayingThroughout &= ck::IsValid(Action)
+                        && UCk_Utils_ProceduralAction_UE::Get_State(Action) == ECk_ProceduralAction_State::Playing;
                 }
             }
             ++_Frame;
-            if (_Frame > MeasuredFrames && _Managed)
-            { _Case->RecordsAtMeasureEnd = Get_TotalRecords(*_Case, _Case->CallsAtMeasureEnd); }
+            if (_Frame > MeasuredFrames && _Playing)
+            { _Case->RecordsAtMeasureEnd = Get_AcknowledgedRecords(*_Case); }
             return _Frame > MeasuredFrames;
         }
     };
@@ -379,7 +353,7 @@ FCkProceduralActionBuilderCostRecipePoseKeysBuildIntoTest::RunTest(
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
     FCkProceduralActionBuilderCostCompileEvaluateTest,
-    "Ck.ProceduralAnimation.Action.Performance.Builder.CompileAndEvaluatePresetVsCustomCurve",
+    "Ck.ProceduralAnimation.Action.Performance.Builder.CompileAndEvaluate",
     ck_test_procedural_action_builder_cost::TestFlags)
 
 auto
@@ -388,15 +362,12 @@ FCkProceduralActionBuilderCostCompileEvaluateTest::RunTest(
     -> bool
 {
     using namespace ck_test_procedural_action_builder_cost;
-    auto PresetDraft = FCk_ProceduralAction_ClipDraft{};
-    if (NOT TestTrue(TEXT("The posed draft builds"), MakePosedDraft(PresetDraft, nullptr, nullptr)))
+    auto Draft = FCk_ProceduralAction_ClipDraft{};
+    if (NOT TestTrue(TEXT("The posed draft builds"), MakePosedDraft(Draft, nullptr, nullptr)))
     { return true; }
-    const auto CustomDraft = MakeCustomProgressDraft(PresetDraft);
 
-    for (const auto Custom : {false, true})
     {
-        const auto& Draft = Custom ? CustomDraft : PresetDraft;
-        const auto* Mode = Custom ? TEXT("CustomCurve") : TEXT("Preset");
+        const auto* Mode = TEXT("Preset");
         for (auto Repetition = 1; Repetition <= Repetitions; ++Repetition)
         {
             auto Clip = ck::procedural_action::FCompiledClip{};
@@ -449,120 +420,20 @@ FCkProceduralActionBuilderCostCompileEvaluateTest::RunTest(
 // --------------------------------------------------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkProceduralActionBuilderCostExpandMirrorsTest,
-    "Ck.ProceduralAnimation.Action.Performance.Builder.ExpandMirrorsOneAndEight",
+    FCkProceduralActionBuilderCostAutoDeliveryTest,
+    "Ck.ProceduralAnimation.Action.Performance.Builder.AutoDeliverySteadyState",
     ck_test_procedural_action_builder_cost::TestFlags)
 
 auto
-FCkProceduralActionBuilderCostExpandMirrorsTest::RunTest(
+FCkProceduralActionBuilderCostAutoDeliveryTest::RunTest(
     const FString&)
     -> bool
 {
     using namespace ck_test_procedural_action_builder_cost;
-    struct FState
-    {
-        FCk_Handle_Transform Root;
-        FCk_Handle_ProceduralArticulation Subject;
-        TArray<FName> Limbs;
-    };
-    const auto State = MakeShared<FState>();
-    for (auto Index = 0; Index < 9; ++Index)
-    { State->Limbs.Add(FName{*FString::Printf(TEXT("MirrorLimb%d"), Index)}); }
-
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State](UWorld* InWorld)
-        {
-            State->Subject = AddLimbSubject(InWorld, FVector{0.0, -5000.0, 2000.0}, State->Limbs, State->Root);
-            TestTrue(TEXT("Nine-limb subject composes"), ck::IsValid(State->Subject));
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            return ck::IsValid(State->Subject)
-                && UCk_Utils_ProceduralArticulation_UE::Get_SettledRevision(State->Subject) > 0;
-        }), WaitSeconds, TEXT("Nine-limb subject settles")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State](UWorld*)
-        {
-            auto Draft = FCk_ProceduralAction_ClipDraft{};
-            if (NOT TestTrue(TEXT("The posed draft builds"), MakePosedDraft(Draft, nullptr, nullptr)))
-            { return; }
-            auto Source = ck::procedural_action::FCompiledClip{};
-            auto Diagnostics = TArray<ck::procedural_action::FDiagnostic>{};
-            if (NOT TestTrue(TEXT("The posed draft compiles"),
-                ck::procedural_action::Compile(ck::procedural_action::MakeClipSource(Draft), Source, Diagnostics)))
-            { return; }
-
-            for (const auto MirrorCount : {1, 8})
-            {
-                auto Mirrors = TArray<FCk_ProceduralAction_MirrorSpec>{};
-                auto Bindings = TArray<FCk_ProceduralAction_SlotBinding>{
-                    FCk_ProceduralAction_SlotBinding{ArmSlot, State->Limbs[0]}};
-                for (auto Index = 0; Index < MirrorCount; ++Index)
-                {
-                    const auto Destination = FName{*FString::Printf(TEXT("ArmMirror%d"), Index)};
-                    Mirrors.Emplace(ArmSlot, Destination, ECk_ProceduralAction_MirrorPlane::XZ);
-                    Bindings.Emplace(Destination, State->Limbs[Index + 1]);
-                }
-                for (auto Repetition = 1; Repetition <= Repetitions; ++Repetition)
-                {
-                    auto Spread = FSpread{};
-                    auto AllValid = true;
-                    auto Expanded = ck::procedural_action::FCompiledClip{};
-                    for (auto Iteration = 0; Iteration < ExpandIterations; ++Iteration)
-                    {
-                        auto ExpandDiagnostics = TArray<ck::procedural_action::FDiagnostic>{};
-                        const auto Start = FPlatformTime::Seconds();
-                        AllValid &= ck::procedural_action::ExpandMirrors(Source, Mirrors, Bindings, State->Subject,
-                            Expanded, ExpandDiagnostics);
-                        Spread.Add((FPlatformTime::Seconds() - Start) * 1000.0);
-                    }
-                    TestTrue(FString::Printf(TEXT("%d mirror(s) expand"), MirrorCount), AllValid);
-                    TestEqual(FString::Printf(TEXT("%d mirror(s) add their destination slots"), MirrorCount),
-                        Expanded.Get_Slots().Num(), Source.Get_Slots().Num() + MirrorCount);
-                    auto Keys = 0;
-                    for (const auto& Phase : Expanded.Get_Phases())
-                    {
-                        for (const auto& Track : Phase.Get_LimbTracks())
-                        { Keys += Track.Get_PositionKeys().Num(); }
-                    }
-                    ReportCost(*this, FString::Printf(TEXT("row=ExpandMirrors mirrors=%d repetition=%d sourcePositionKeys=%d expandedPositionKeys=%d %s perCallUs=%.3f"),
-                        MirrorCount, Repetition, 6 + PoseKeyCount, Keys, *Spread.ToString(), Spread.Get_AvgMs() * 1000.0));
-                }
-            }
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [State](UWorld*)
-        {
-            if (ck::IsValid(State->Root))
-            {
-                auto Root = State->Root.ConvertToHandle();
-                UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Root);
-            }
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
-    return true;
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkProceduralActionBuilderCostManagedDispatchTest,
-    "Ck.ProceduralAnimation.Action.Performance.Builder.ManagedDispatchSteadyState",
-    ck_test_procedural_action_builder_cost::TestFlags)
-
-auto
-FCkProceduralActionBuilderCostManagedDispatchTest::RunTest(
-    const FString&)
-    -> bool
-{
-    using namespace ck_test_procedural_action_builder_cost;
-    const auto Case = MakeShared<FManagedCase>();
+    const auto Case = MakeShared<FAutoCase>();
     auto Limbs = TArray<FName>{};
-    for (auto Index = 0; Index < ManagedClipCount; ++Index)
-    { Limbs.Add(FName{*FString::Printf(TEXT("ManagedLimb%d"), Index)}); }
+    for (auto Index = 0; Index < AutoClipCount; ++Index)
+    { Limbs.Add(FName{*FString::Printf(TEXT("AutoLimb%d"), Index)}); }
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
@@ -595,45 +466,37 @@ FCkProceduralActionBuilderCostManagedDispatchTest::RunTest(
             Case->Clip = MakeLongClip();
             for (const auto Limb : Limbs)
             {
-                auto Listener = TStrongObjectPtr<UCk_Test_ProceduralActionManagedListener_UE>{
-                    NewObject<UCk_Test_ProceduralActionManagedListener_UE>()};
                 auto Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Case->Root);
-                auto Spec = FCk_ProceduralAction_LoadedPlaySpec{Case->Clip.Get()};
+                auto Spec = FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Case->Clip.Get()}};
                 Spec.Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
-                    FCk_ProceduralAction_SlotBinding{ManagedSlot, Limb}});
-                const auto Start = UCk_Utils_ProceduralAction_UE::Play_Loaded(Scope, Case->Player, Spec,
-                    Listener->MakeCompletionDelegate());
-                TestTrue(TEXT("Managed clip starts"), ck::IsValid(Start.Get_Action()));
-                UCk_Utils_ProceduralActionPlayer_UE::BindTo_OnManagedRecords(Case->Player, Start.Get_Identity(),
-                    Listener->MakeRecordsDelegate());
-                Listener->Action = Start.Get_Action();
-                Case->Listeners.Add(Listener);
-                Case->Starts.Add(Start);
+                    FCk_ProceduralAction_SlotBinding{AutoSlot, Limb}});
+                Spec.Set_Delivery(ECk_ProceduralAction_Delivery::Auto);
+                const auto Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(Scope, Case->Player, Spec);
+                TestTrue(TEXT("Auto clip starts"), ck::IsValid(Action));
+                Case->Actions.Add(Action);
+                Case->Identities.Add(UCk_Utils_ProceduralAction_UE::Get_Identity(Action));
             }
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([Case]
         {
-            if (Case->Starts.Num() != ManagedClipCount)
+            if (Case->Actions.Num() != AutoClipCount)
             { return false; }
-            for (auto Index = 0; Index < Case->Starts.Num(); ++Index)
+            for (const auto& Action : Case->Actions)
             {
-                const auto& Action = Case->Starts[Index].Get_Action();
                 if (ck::Is_NOT_Valid(Action)
-                    || UCk_Utils_ProceduralAction_UE::Get_State(Action) != ECk_ProceduralAction_State::Playing
-                    || Case->Listeners[Index]->RecordsCalls == 0)
+                    || UCk_Utils_ProceduralAction_UE::Get_State(Action) != ECk_ProceduralAction_State::Playing)
                 { return false; }
             }
-            return true;
-        }), WaitSeconds, TEXT("Four managed clips play and deliver records")));
+            return Get_AcknowledgedRecords(*Case) >= AutoClipCount;
+        }), WaitSeconds, TEXT("Four auto clips play and the player acknowledges their records")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(8));
     ADD_LATENT_AUTOMATION_COMMAND(FMeasureFrames(Case, true));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [Case](UWorld*)
         {
-            for (const auto& Start : Case->Starts)
+            for (auto Action : Case->Actions)
             {
-                auto Action = Start.Get_Action();
                 if (ck::IsValid(Action))
                 {
                     UCk_Utils_ProceduralAction_UE::Request_Cancel(Action,
@@ -644,40 +507,31 @@ FCkProceduralActionBuilderCostManagedDispatchTest::RunTest(
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([Case]
         {
-            for (const auto& Listener : Case->Listeners)
-            {
-                if (NOT Listener.IsValid() || Listener->CompletionCount == 0)
-                { return false; }
-            }
-            return Case->Listeners.Num() == ManagedClipCount;
-        }), WaitSeconds, TEXT("Every managed clip completes after cancellation")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([Case]
-        {
             ++Case->PollsAfterCompletion;
             return SampleStore(Case->Player).RetainedCount == Case->BeforePlay.RetainedCount;
-        }), WaitSeconds, TEXT("Released managed streams leave the store")));
+        }), WaitSeconds, TEXT("Cancelled auto actions release themselves and their streams leave the store")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, Case](UWorld*)
         {
             Case->AfterRelease = SampleStore(Case->Player);
             const auto MeasuredRecords = Case->RecordsAtMeasureEnd - Case->RecordsAtMeasureStart;
-            const auto MeasuredCalls = Case->CallsAtMeasureEnd - Case->CallsAtMeasureStart;
             TestTrue(TEXT("All four clips stayed Playing through the measured frames"), Case->AllPlayingThroughout);
-            TestTrue(TEXT("Managed records were delivered during the measured frames"), MeasuredRecords > 0);
+            TestTrue(TEXT("Records were acknowledged during the measured frames"), MeasuredRecords > 0);
+            TestTrue(TEXT("Every released action entity is gone"), Case->Actions.FilterByPredicate(
+                [](const FCk_Handle_ProceduralAction& InAction) { return ck::IsValid(InAction); }).IsEmpty());
             TestEqual(TEXT("Idle frame intervals are complete"), Case->IdleFrames.Count, MeasuredFrames);
-            TestEqual(TEXT("Managed frame intervals are complete"), Case->ManagedFrames.Count, MeasuredFrames);
-            ReportCost(*this, FString::Printf(TEXT("row=ManagedDispatch clips=%d frames=%d idleFrameInterval %s"),
-                ManagedClipCount, MeasuredFrames, *Case->IdleFrames.ToString()));
-            ReportCost(*this, FString::Printf(TEXT("row=ManagedDispatch clips=%d frames=%d managedFrameInterval %s"),
-                ManagedClipCount, MeasuredFrames, *Case->ManagedFrames.ToString()));
-            ReportCost(*this, FString::Printf(TEXT("row=ManagedDispatch measuredRecords=%d measuredRecordsCallbacks=%d recordsPerFrame=%.3f"),
-                MeasuredRecords, MeasuredCalls, static_cast<double>(MeasuredRecords) / MeasuredFrames));
-            ReportCost(*this, FString::Printf(TEXT("row=ManagedDispatch store=beforePlay %s"), *DescribeStore(Case->BeforePlay)));
-            ReportCost(*this, FString::Printf(TEXT("row=ManagedDispatch store=maxDuringMeasured recordSlots=%lld poseTransforms=%lld allocatedBytes=%llu"),
+            TestEqual(TEXT("Auto frame intervals are complete"), Case->AutoFrames.Count, MeasuredFrames);
+            ReportCost(*this, FString::Printf(TEXT("row=AutoDelivery clips=%d frames=%d idleFrameInterval %s"),
+                AutoClipCount, MeasuredFrames, *Case->IdleFrames.ToString()));
+            ReportCost(*this, FString::Printf(TEXT("row=AutoDelivery clips=%d frames=%d autoFrameInterval %s"),
+                AutoClipCount, MeasuredFrames, *Case->AutoFrames.ToString()));
+            ReportCost(*this, FString::Printf(TEXT("row=AutoDelivery measuredRecords=%lld recordsPerFrame=%.3f"),
+                static_cast<long long>(MeasuredRecords), static_cast<double>(MeasuredRecords) / MeasuredFrames));
+            ReportCost(*this, FString::Printf(TEXT("row=AutoDelivery store=beforePlay %s"), *DescribeStore(Case->BeforePlay)));
+            ReportCost(*this, FString::Printf(TEXT("row=AutoDelivery store=maxDuringMeasured recordSlots=%lld poseTransforms=%lld allocatedBytes=%llu"),
                 static_cast<long long>(Case->MaxRecordSlots), static_cast<long long>(Case->MaxPoseTransforms),
                 static_cast<unsigned long long>(Case->MaxAllocatedBytes)));
-            ReportCost(*this, FString::Printf(TEXT("row=ManagedDispatch store=afterRelease %s pollsAfterCompletion=%d allocationCount=unavailable"),
+            ReportCost(*this, FString::Printf(TEXT("row=AutoDelivery store=afterRelease %s pollsAfterCompletion=%d allocationCount=unavailable"),
                 *DescribeStore(Case->AfterRelease), Case->PollsAfterCompletion));
             if (ck::IsValid(Case->Root))
             {

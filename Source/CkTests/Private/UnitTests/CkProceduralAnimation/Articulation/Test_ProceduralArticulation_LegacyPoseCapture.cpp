@@ -60,7 +60,6 @@ namespace ck_test_procedural_legacy_capture
         TArray<FTransform> FrozenBeforeBodyMove;
         TArray<FTransform> DetachedBeforeRelease;
         FVector FrozenFootLocal = FVector::ZeroVector;
-        int64 LegacySampleRevisionBeforePlayer = 0;
     };
 
     auto
@@ -295,9 +294,6 @@ auto
             auto Gait = State->Gait;
             State->BodyPose = UCk_Utils_ProceduralBodyPose_UE::Add(Gait, FCk_ProceduralBodyPose_Spec{State->Presentation});
             TestTrue(TEXT("Legacy body presentation composes"), ck::IsValid(State->BodyPose));
-            auto BodyPose = State->BodyPose;
-            UCk_Utils_ProceduralBodyPose_UE::Request_SetActionOffset(BodyPose,
-                FCk_Request_ProceduralBodyPose_SetActionOffset{FTransform{FVector{7.0, 0.0, 0.0}}, 17}, {});
             ResetConvergence(*State, UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(State->Root)
                 .Get_Sample().Get_Sequence() + 3);
         })));
@@ -305,14 +301,12 @@ auto
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
             return Get_IsRigConverged(State) && ck::IsValid(State->BodyPose)
-                && UCk_Utils_ProceduralBodyPose_UE::Get_ActionSample(State->BodyPose).Get_SampleId() == 17
-                && UCk_Utils_Transform_UE::Get_EntityCurrentTransform(State->Presentation).Equals(
-                    UCk_Utils_ProceduralBodyPose_UE::Get_ActionSample(State->BodyPose).Get_WorldTransform(), 0.01);
-        }), WaitSeconds, TEXT("Legacy body action pose settled on presentation")));
+                && UCk_Utils_ProceduralBodyPose_UE::Get_Status(State->BodyPose) == ECk_ProceduralAnimation_Status::Ready;
+        }), WaitSeconds, TEXT("Legacy body pose settles on its presentation")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
-            RecordPhase(*this, *State, TEXT("body-offset"));
+            RecordPhase(*this, *State, TEXT("body-pose"));
             auto Leg = UCk_Utils_ProceduralLeg_UE::TryGet_Leg(State->Root, AutoTwoId);
             UCk_Utils_ProceduralLeg_UE::Request_EnableDisable(Leg,
                 FCk_Request_ProceduralLeg_EnableDisable{ECk_EnableDisable::Disable}, {});
@@ -406,50 +400,22 @@ auto
                     UCk_Utils_Transform_UE::Get_EntityCurrentTransform(State->Cases[2].Segments[Index])
                         .Equals(State->DetachedBeforeRelease[Index], 0.01));
             }
-            auto BodyPose = State->BodyPose;
-            UCk_Utils_ProceduralBodyPose_UE::Request_SetActionOffset(BodyPose,
-                FCk_Request_ProceduralBodyPose_SetActionOffset{FTransform::Identity, 18}, {});
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            return UCk_Utils_ProceduralBodyPose_UE::Get_ActionSample(State->BodyPose).Get_SampleId() == 18
-                && UCk_Utils_ProceduralBodyPose_UE::Get_ActionOffset(State->BodyPose).Equals(FTransform::Identity);
-        }), WaitSeconds, TEXT("Legacy action offset returns to neutral before player installation")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State](UWorld*)
-        {
             auto Subject = UCk_Utils_ProceduralArticulation_UE::Cast(State->Root);
             const auto Player = UCk_Utils_ProceduralActionPlayer_UE::Add(
                 Subject, FCk_ProceduralActionPlayer_Spec{});
-            if (NOT TestTrue(TEXT("Player installs after neutral legacy offset"), ck::IsValid(Player)))
+            if (NOT TestTrue(TEXT("Player installs on the legacy walker"), ck::IsValid(Player)))
             { return; }
-            State->LegacySampleRevisionBeforePlayer =
-                UCk_Utils_ProceduralBodyPose_UE::Get_ActionSample(State->BodyPose).Get_PoseRevision();
-            AddExpectedError(TEXT("Procedural body pose Request_SetActionOffset rejected body pose"),
-                EAutomationExpectedErrorFlags::Contains, 2);
-            auto BodyPose = State->BodyPose;
-            UCk_Utils_ProceduralBodyPose_UE::Request_SetActionOffset(BodyPose,
-                FCk_Request_ProceduralBodyPose_SetActionOffset{FTransform{FVector{9.0, 0.0, 0.0}}, 19}, {});
-            TestTrue(TEXT("Player-owned subject does not enqueue legacy body action"),
-                NOT State->BodyPose.Has<ck::FFragment_ProceduralBodyPose_Requests>()
-                || State->BodyPose.Get<ck::FFragment_ProceduralBodyPose_Requests>().Get_Requests().IsEmpty());
-            TestTrue(TEXT("Rejected legacy action does not alter accepted offset"),
-                UCk_Utils_ProceduralBodyPose_UE::Get_ActionOffset(State->BodyPose).Equals(FTransform::Identity));
             ResetConvergence(*State, UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(State->Root)
                 .Get_Sample().Get_Sequence() + 3);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State] { return Get_IsRigSettled(State); }),
-        WaitSeconds, TEXT("Player-owned walker continues settling without legacy sample publication")));
+        WaitSeconds, TEXT("Player-owned walker continues settling")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
-            const auto Sample = UCk_Utils_ProceduralBodyPose_UE::Get_ActionSample(State->BodyPose);
-            TestEqual(TEXT("Player-owned publications do not advance legacy body action revision"),
-                Sample.Get_PoseRevision(), State->LegacySampleRevisionBeforePlayer);
-            TestEqual(TEXT("Player-owned publications retain the last legacy sample identity"),
-                Sample.Get_SampleId(), int64{18});
+            TestTrue(TEXT("Player-owned body pose stays ready"),
+                UCk_Utils_ProceduralBodyPose_UE::Get_Status(State->BodyPose) == ECk_ProceduralAnimation_Status::Ready);
             UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->Root);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
@@ -611,9 +577,6 @@ auto
             State->EmptyBodyPose = UCk_Utils_ProceduralBodyPose_UE::Add(EmptyGait,
                 FCk_ProceduralBodyPose_Spec{State->EmptyPresentation});
             TestTrue(TEXT("Body presentation composes without visual chains"), ck::IsValid(State->EmptyBodyPose));
-            auto BodyPose = State->EmptyBodyPose;
-            UCk_Utils_ProceduralBodyPose_UE::Request_SetActionOffset(BodyPose,
-                FCk_Request_ProceduralBodyPose_SetActionOffset{FTransform{FVector{7.0, 0.0, 0.0}}, 42}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -621,7 +584,7 @@ auto
             return ck::IsValid(State->Partial) && ck::IsValid(State->Empty)
                 && UCk_Utils_ProceduralArticulation_UE::Get_SettledRevision(State->Partial) > 0
                 && UCk_Utils_ProceduralArticulation_UE::Get_SettledRevision(State->Empty) > 0
-                && UCk_Utils_ProceduralBodyPose_UE::Get_ActionSample(State->EmptyBodyPose).Get_SampleId() == 42;
+                && UCk_Utils_ProceduralBodyPose_UE::Get_Status(State->EmptyBodyPose) == ECk_ProceduralAnimation_Status::Ready;
         }), WaitSeconds, TEXT("Partial rig and body-only presentation settle")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)

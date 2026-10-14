@@ -78,20 +78,36 @@ namespace ck_test_procedural_action_preview_scenario
         return Config;
     }
 
+    // Borrows the walking leg and holds it at its rest endpoint for InDuration, then returns it to the gait.
     auto
-        MakeBatch()
-        -> FCk_ProceduralAction_PoseBatch
+        MakeHoldClip(
+            FCk_Time InDuration)
+        -> TStrongObjectPtr<UCk_ProceduralAction_Data>
     {
-        auto Target = FCk_ProceduralAction_LimbTarget{LegId, FTransform::Identity};
-        Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-        auto Batch = FCk_ProceduralAction_PoseBatch{};
-        Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-        return Batch;
+        auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{
+            NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
+        auto Slot = FCk_ProceduralAction_Slot{LegId};
+        Slot.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
+        Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
+        auto Track = FCk_ProceduralAction_LimbTrack{LegId};
+        Track.Set_PositionKeys(TArray<FCk_ProceduralAction_VectorKey>{
+            FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{0.0}, FVector::ZeroVector},
+            FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{1.0}, FVector::ZeroVector}});
+        auto Phase = FCk_ProceduralAction_Phase{FName{TEXT("Hold")}, InDuration};
+        Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
+        Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
+        return Clip;
     }
+
+    auto
+        MakeSlotBindings()
+        -> TArray<FCk_ProceduralAction_SlotBinding>
+    { return TArray<FCk_ProceduralAction_SlotBinding>{FCk_ProceduralAction_SlotBinding{LegId, LegId}}; }
 
     struct FState
     {
         TStrongObjectPtr<UCk_ProceduralActionPreview_Config> Config;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         TUniquePtr<FCk_ProceduralActionSolverWorld> Solver;
         double Deadline = 0.0;
         int32 Pass = 0;
@@ -158,10 +174,6 @@ namespace ck_test_procedural_action_preview_scenario
                     _State->Solver->GetStep(), int64{0});
                 _Test->TestEqual(TEXT("first seeded environment event remains pending"),
                     _State->Solver->GetScenarioNextEventStep(), int64{10});
-                if (_State->Pass == 0
-                    && (NOT _State->Solver->QueuePoseAtStep(1, MakeBatch())
-                        || NOT _State->Solver->QueueEndAtStep(5)))
-                { _Test->AddError(TEXT("preview scenario rejected its public pose/End schedule")); return true; }
                 if (_State->Pass > 0 && NOT _State->Solver->Resume())
                 { _Test->AddError(TEXT("backward scenario replay did not resume after ready seed")); return true; }
                 _State->Scheduled = true;
@@ -295,11 +307,11 @@ auto
     auto Error = FString{};
     TestTrue(TEXT("authored preview scenario validates atomically"),
         State->Config->ValidateScenario(Error));
+    // The clip plays its five fixed steps from the first Ready step, so the leg is returning when the floor goes.
+    State->Clip = MakeHoldClip(FCk_Time{5.0 / 60.0});
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
-    auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
-    Control.Set_InputTimeout(FCk_Time{10.0});
     if (NOT TestTrue(TEXT("private walking scenario starts"),
-        State->Solver->StartManual(State->Config.Get(), Control, 1)))
+        State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), MakeSlotBindings(), 1)))
     { AddError(State->Solver->GetError()); return false; }
     TestEqual(TEXT("walking preparation starts before scenario origin"),
         State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Preparing);
@@ -333,9 +345,9 @@ auto
     TestFalse(TEXT("unknown walking limb rejects"), Config->ValidateScenario(Error));
     {
         auto RejectedSolver = FCk_ProceduralActionSolverWorld{};
-        auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
+        const auto RejectedClip = MakeHoldClip(FCk_Time{0.5});
         TestFalse(TEXT("invalid event prevents world creation"),
-            RejectedSolver.StartManual(Config.Get(), Control, 1));
+            RejectedSolver.StartClip(Config.Get(), RejectedClip.Get(), MakeSlotBindings(), 1));
         TestNull(TEXT("invalid event leaves no private world"), RejectedSolver.GetWorld());
         TestTrue(TEXT("invalid event has an actionable diagnostic"),
             RejectedSolver.GetError().Contains(TEXT("Unknown")));
@@ -351,10 +363,10 @@ auto
     TestTrue(TEXT("named walking detach validates"), Config->ValidateScenario(Error));
     auto State = MakeShared<FState>();
     State->Config = MoveTemp(Config);
+    State->Clip = MakeHoldClip(FCk_Time{0.5});
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
-    auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
     if (NOT TestTrue(TEXT("detach scenario composes without private mutation hooks"),
-        State->Solver->StartManual(State->Config.Get(), Control, 2)))
+        State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), MakeSlotBindings(), 2)))
     { AddError(State->Solver->GetError()); return false; }
     TestEqual(TEXT("detach event is scheduled after admission"),
         State->Solver->GetScenarioNextEventStep(), int64{5});

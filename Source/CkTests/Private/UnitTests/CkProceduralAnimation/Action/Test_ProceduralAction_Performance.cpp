@@ -32,8 +32,9 @@ namespace ck_test_procedural_action_performance
     constexpr auto WarmupFrames = 8;
     constexpr auto MeasuredFrames = 24;
     constexpr auto WalkingMeasuredFrames = 60;
-    constexpr auto SubmitPeriodFrames = 8;
     constexpr auto ClipDurationSeconds = 60.0;
+    // Nothing consumes the measured streams, so each one needs room for every frame it plays.
+    constexpr auto RecordsPerInstance = 512;
     const auto LimbId = FName{TEXT("PerfArm")};
     const auto SecondLimbId = FName{TEXT("PerfArmB")};
     const auto BorrowedLimbId = FName{TEXT("Leg0")};
@@ -46,8 +47,7 @@ namespace ck_test_procedural_action_performance
         WalkerIdle,
         WalkerWalking,
         WalkerBorrowed,
-        Disjoint,
-        LoadedClip
+        Disjoint
     };
 
     auto
@@ -64,7 +64,6 @@ namespace ck_test_procedural_action_performance
         case EScenario::WalkerWalking: return TEXT("WalkerWalking");
         case EScenario::WalkerBorrowed: return TEXT("WalkerBorrowed");
         case EScenario::Disjoint: return TEXT("Disjoint");
-        case EScenario::LoadedClip: return TEXT("LoadedClip");
         }
         return TEXT("Unknown");
     }
@@ -73,7 +72,7 @@ namespace ck_test_procedural_action_performance
     Get_HasActions(EScenario InScenario) -> bool
     {
         return InScenario == EScenario::Dedicated || InScenario == EScenario::WalkerBorrowed
-            || InScenario == EScenario::Disjoint || InScenario == EScenario::LoadedClip;
+            || InScenario == EScenario::Disjoint;
     }
 
     auto
@@ -108,7 +107,6 @@ namespace ck_test_procedural_action_performance
         TArray<FInstance> Instances;
         double FrameSumMs = 0.0;
         double FrameMaxMs = 0.0;
-        double DriverSubmitMs = 0.0;
         int32 FrameIntervals = 0;
         int64 MaxReservedRecordSlots = 0;
         int64 MaxRetainedTransforms = 0;
@@ -123,28 +121,11 @@ namespace ck_test_procedural_action_performance
     };
 
     auto
-    MakePoseBatch(
-        FName InLimbId,
-        double InDegrees)
-        -> FCk_ProceduralAction_PoseBatch
-    {
-        const auto Radians = FMath::DegreesToRadians(InDegrees);
-        auto Target = FCk_ProceduralAction_LimbTarget{InLimbId,
-            FTransform{FQuat{FVector::UpVector, Radians},
-                FVector{FMath::Cos(Radians) - 1.0, FMath::Sin(Radians), 0.0}}};
-        Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-        auto Batch = FCk_ProceduralAction_PoseBatch{};
-        Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-        return Batch;
-    }
-
-    auto
     MakeResidentClip() -> TStrongObjectPtr<UCk_ProceduralAction_Data>
     {
         auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{
             NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
         auto Track = FCk_ProceduralAction_LimbTrack{LimbId};
-        Track.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
         auto Keys = TArray<FCk_ProceduralAction_VectorKey>{};
         for (const auto& Key : TArray<TPair<double, double>>{
             {0.0, 0.0}, {0.02, 0.05}, {0.04, -0.05}, {1.0, 0.0}})
@@ -157,7 +138,8 @@ namespace ck_test_procedural_action_performance
         auto Phase = FCk_ProceduralAction_Phase{FName{TEXT("ReachCurve")},
             FCk_Time{ClipDurationSeconds}};
         Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
-        Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{LimbId}});
+        Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{
+            FCk_ProceduralAction_Slot{LimbId}.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized)});
         Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
         return Clip;
     }
@@ -295,10 +277,7 @@ namespace ck_test_procedural_action_performance
             for (const auto& Action : Instance.Actions)
             {
                 if (NOT ck::IsValid(Action)
-                    || UCk_Utils_ProceduralAction_UE::Get_State(Action)
-                        != (InCase.Scenario == EScenario::LoadedClip
-                            ? ECk_ProceduralAction_State::Playing
-                            : ECk_ProceduralAction_State::Ready))
+                    || UCk_Utils_ProceduralAction_UE::Get_State(Action) != ECk_ProceduralAction_State::Playing)
                 { return false; }
             }
         }
@@ -308,7 +287,7 @@ namespace ck_test_procedural_action_performance
     auto
     Get_AllClipAdvanced(const FCase& InCase) -> bool
     {
-        if (InCase.Scenario != EScenario::LoadedClip) { return false; }
+        if (NOT Get_HasActions(InCase.Scenario)) { return InCase.Instances.Num() == InCase.Subjects; }
         auto Index = 0;
         for (const auto& Instance : InCase.Instances)
         {
@@ -323,7 +302,7 @@ namespace ck_test_procedural_action_performance
                 ++Index;
             }
         }
-        return Index == InCase.Subjects;
+        return Index == InCase.ClipEntrySequences.Num();
     }
 
     auto
@@ -381,9 +360,9 @@ namespace ck_test_procedural_action_performance
         {
             if (_Frame == 0)
             {
-                if (_Case->Scenario == EScenario::LoadedClip)
+                if (Get_HasActions(_Case->Scenario))
                 {
-                    _Case->ClipEntrySequences.Reserve(_Case->Subjects);
+                    _Case->ClipEntrySequences.Reserve(_Case->Subjects * 2);
                     for (const auto& Instance : _Case->Instances)
                     {
                         for (const auto& Action : Instance.Actions)
@@ -470,15 +449,12 @@ namespace ck_test_procedural_action_performance
                     const auto Receipt = UCk_Utils_ProceduralAction_UE::Get_LastReceipt(Action);
                     if (Receipt.Get_HasAcceptedPose())
                     {
-                        if (_Case->Scenario == EScenario::LoadedClip)
-                        {
-                            _Case->ObservedClipIntermediate |=
-                                _Case->ClipEntrySequences.IsValidIndex(ClipActionIndex)
-                                && Receipt.Get_Stamp().Get_SampleSequence()
-                                    > _Case->ClipEntrySequences[ClipActionIndex]
-                                && NOT Receipt.Get_IntermediateSamples().IsEmpty()
-                                && Receipt.Get_Sampling().Get_EvaluatedSamples() > 1;
-                        }
+                        _Case->ObservedClipIntermediate |=
+                            _Case->ClipEntrySequences.IsValidIndex(ClipActionIndex)
+                            && Receipt.Get_Stamp().Get_SampleSequence()
+                                > _Case->ClipEntrySequences[ClipActionIndex]
+                            && NOT Receipt.Get_IntermediateSamples().IsEmpty()
+                            && Receipt.Get_Sampling().Get_EvaluatedSamples() > 1;
                         _Case->MaxLastReceiptBacklogSeconds = FMath::Max(
                             _Case->MaxLastReceiptBacklogSeconds,
                             Receipt.Get_Sampling().Get_Backlog().Get_Seconds());
@@ -506,28 +482,10 @@ namespace ck_test_procedural_action_performance
                 }
             }
 
-            if (Get_HasActions(_Case->Scenario) && _Case->Scenario != EScenario::LoadedClip
-                && _Frame < _MeasuredFrames && _Frame % SubmitPeriodFrames == 0)
-            {
-                const auto SubmitStart = FPlatformTime::Seconds();
-                for (auto& Instance : _Case->Instances)
-                {
-                    for (auto ActionIndex = 0; ActionIndex < Instance.Actions.Num(); ++ActionIndex)
-                    {
-                        const auto Batch = MakePoseBatch(Instance.ActionLimbIds[ActionIndex],
-                            (_Frame / SubmitPeriodFrames) % 2 == 0 ? 0.05 : -0.05);
-                        auto Action = Instance.Actions[ActionIndex];
-                        UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(Action,
-                            FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, {});
-                    }
-                }
-                _Case->DriverSubmitMs += (FPlatformTime::Seconds() - SubmitStart) * 1000.0;
-            }
             ++_Frame;
             if (_Frame > _MeasuredFrames)
             {
-                _Case->AcceptedWithinRegion = _Case->Scenario == EScenario::LoadedClip
-                    ? Get_AllClipAdvanced(*_Case) : Get_AllAccepted(*_Case, 4);
+                _Case->AcceptedWithinRegion = Get_AllClipAdvanced(*_Case);
                 TRACE_BOOKMARK(TEXT("CkActionPERF end scenario=%s subjects=%d links=%d repetition=%d"),
                     Get_Name(_Case->Scenario), _Case->Subjects, _Case->Links, _Case->Repetition);
                 CloseRegion();
@@ -538,12 +496,12 @@ namespace ck_test_procedural_action_performance
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkProceduralActionProductionManualMatrixTest,
-    "Ck.ProceduralAnimation.Action.Perf.ProductionManualMatrix",
+    FCkProceduralActionProductionClipMatrixTest,
+    "Ck.ProceduralAnimation.Action.Perf.ProductionClipMatrix",
     ck_test_procedural_action_performance::TestFlags)
 
 auto
-    FCkProceduralActionProductionManualMatrixTest::
+    FCkProceduralActionProductionClipMatrixTest::
     RunTest(
         const FString&)
     -> bool
@@ -559,8 +517,7 @@ auto
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
 
     for (const auto Scenario : {EScenario::Dedicated, EScenario::WalkerIdle,
-        EScenario::WalkerWalking, EScenario::WalkerBorrowed, EScenario::Disjoint,
-        EScenario::LoadedClip})
+        EScenario::WalkerWalking, EScenario::WalkerBorrowed, EScenario::Disjoint})
     {
         for (const auto Subjects : {1, 10, 100})
         {
@@ -574,7 +531,7 @@ auto
                     Case->Links = Links;
                     Case->Repetition = Repetition;
 
-                    if (Scenario == EScenario::LoadedClip)
+                    if (Get_HasActions(Scenario))
                     { Case->ResidentClip = MakeResidentClip(); }
 
                     if (Get_IsWalker(Scenario))
@@ -624,6 +581,9 @@ auto
                                     {
                                         if (NOT ck::IsValid(Instance.Subject)) { continue; }
                                         auto Spec = FCk_ProceduralActionPlayer_Spec{};
+                                        auto Capacity = Spec.Get_Capacity();
+                                        Capacity.Set_RecordsPerInstance(RecordsPerInstance);
+                                        Spec.Set_Capacity(Capacity);
                                         if (Case->Scenario == EScenario::WalkerBorrowed)
                                         {
                                             auto Locomotion = FCk_ProceduralLimbControl_Locomotion{};
@@ -646,24 +606,12 @@ auto
                                         {
                                             auto Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(
                                                 Instance.Root);
-                                            auto Action = FCk_Handle_ProceduralAction{};
-                                            if (Case->Scenario == EScenario::LoadedClip)
-                                            {
-                                                auto Play = FCk_ProceduralAction_LoadedPlaySpec{
-                                                    Case->ResidentClip.Get()};
-                                                Play.Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
-                                                    FCk_ProceduralAction_SlotBinding{LimbId, Limb}});
-                                                Action = UCk_Utils_ProceduralAction_UE::Create_FromLoadedClip(
-                                                    Scope, Instance.Player, Play);
-                                            }
-                                            else
-                                            {
-                                                auto Control = FCk_ProceduralAction_ControlSpec{
-                                                    TArray<FName>{Limb}};
-                                                Control.Set_InputTimeout(FCk_Time{30.0});
-                                                Action = UCk_Utils_ProceduralAction_UE::Create_Manual(
-                                                    Scope, Instance.Player, Control);
-                                            }
+                                            auto Play = FCk_ProceduralAction_PlaySpec{
+                                                TSoftObjectPtr<UCk_ProceduralAction_Data>{Case->ResidentClip.Get()}};
+                                            Play.Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
+                                                FCk_ProceduralAction_SlotBinding{LimbId, Limb}});
+                                            const auto Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(
+                                                Scope, Instance.Player, Play);
                                             if (NOT ck::IsValid(Action))
                                             {
                                                 AddError(FString::Printf(TEXT("[CkAction PERF] action admission failed scenario=%s subjects=%d links=%d repetition=%d limb=%s"),
@@ -680,24 +628,6 @@ auto
                         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
                             FCk_NetAutoTest_Condition::CreateLambda([Case] { return Get_AllReady(*Case); }),
                             WaitSeconds, TEXT("Performance actions acquire real claims")));
-                        if (Scenario != EScenario::LoadedClip)
-                        {
-                            ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-                                FCk_NetAutoTest_ServerAction::CreateLambda(
-                                    [Case](UWorld*)
-                                    {
-                                        for (auto& Instance : Case->Instances)
-                                        {
-                                            for (auto ActionIndex = 0; ActionIndex < Instance.Actions.Num(); ++ActionIndex)
-                                            {
-                                                auto Action = Instance.Actions[ActionIndex];
-                                                const auto Batch = MakePoseBatch(Instance.ActionLimbIds[ActionIndex], 0.05);
-                                                UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(Action,
-                                                    FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, {});
-                                            }
-                                        }
-                                    })));
-                        }
                         ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
                             FCk_NetAutoTest_Condition::CreateLambda([Case]
                             { return Get_AllAccepted(*Case, 1); }),
@@ -705,13 +635,6 @@ auto
                     }
                     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(WarmupFrames));
                     ADD_LATENT_AUTOMATION_COMMAND(FMeasureFrames(Case));
-                    if (Get_HasActions(Scenario) && Scenario != EScenario::LoadedClip)
-                    {
-                        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-                            FCk_NetAutoTest_Condition::CreateLambda([Case]
-                            { return Get_AllAccepted(*Case, 4); }),
-                            WaitSeconds, TEXT("Every measured manual request has an accepted receipt")));
-                    }
                     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
                         FCk_NetAutoTest_ServerAction::CreateLambda(
                             [this, Case](UWorld*)
@@ -722,8 +645,7 @@ auto
                                     for (auto ActionIndex = 0; ActionIndex < Instance.Actions.Num(); ++ActionIndex)
                                     {
                                         const auto Page = UCk_Utils_ProceduralActionPlayer_UE::Read_Receipts(
-                                            Instance.Player, Instance.Identities[ActionIndex], 0,
-                                            Case->Scenario == EScenario::LoadedClip ? 64 : 16);
+                                            Instance.Player, Instance.Identities[ActionIndex], 0, RecordsPerInstance + 2);
                                         auto ActionAccepted = 0;
                                         for (const auto& Record : Page.Get_Records())
                                         {
@@ -737,26 +659,21 @@ auto
                                         TestTrue(TEXT("Each action retains accepted workload poses"),
                                             (Page.Get_Result() == ECk_ProceduralAction_ReadResult::Pending
                                                 || Page.Get_Result() == ECk_ProceduralAction_ReadResult::Succeeded)
-                                                && NOT Page.Get_HasMore()
-                                                && (Case->Scenario == EScenario::LoadedClip
-                                                    ? ActionAccepted >= 2 : ActionAccepted == 4));
+                                                && NOT Page.Get_HasMore() && ActionAccepted >= 2);
                                     }
                                 }
                                 const auto ActionsPerSubject = Case->Scenario == EScenario::Disjoint ? 2
                                     : Get_HasActions(Case->Scenario) ? 1 : 0;
-                                if (Case->Scenario == EScenario::LoadedClip)
+                                if (Get_HasActions(Case->Scenario))
                                 {
-                                    TestTrue(TEXT("Loaded clips accept beyond warmup during measured frames"),
+                                    TestTrue(TEXT("Clips accept beyond warmup during measured frames"),
                                         Get_AllClipAdvanced(*Case));
-                                    TestTrue(TEXT("Loaded clip receipts include intermediate curve evaluations"),
+                                    TestTrue(TEXT("Clip receipts include intermediate curve evaluations"),
                                         Case->ObservedClipIntermediate);
-                                    TestTrue(TEXT("Loaded clips remain in Playing throughout measurement"),
+                                    TestTrue(TEXT("Clips remain in Playing throughout measurement"),
                                         Get_AllReady(*Case));
-                                }
-                                else
-                                {
-                                    TestEqual(TEXT("Every manual action accepted warmup and measured submissions"),
-                                        Accepted, static_cast<int64>(Case->Subjects) * ActionsPerSubject * 4);
+                                    TestTrue(TEXT("Every clip accepted at least two poses"),
+                                        Accepted >= static_cast<int64>(Case->Subjects) * ActionsPerSubject * 2);
                                 }
                                 TestTrue(TEXT("Every performance driver retained live subjects"),
                                     Case->DriverValid);
@@ -783,10 +700,10 @@ auto
                                 }
                                 const auto AverageMs = Case->FrameIntervals > 0
                                     ? Case->FrameSumMs / Case->FrameIntervals : 0.0;
-                                const auto Metrics = FString::Printf(TEXT("[CkAction PERF] scenario=%s subjects=%d links=%d repetition=%d warmupFrames=%d measuredFrameIntervals=%d frameIntervalAvgMs=%.6f frameIntervalMaxMs=%.6f driverSubmitTotalMs=%.6f acceptedIncludingWarmup=%lld acceptedPerSubject=%.3f maxReservedRecordSlots=%lld reservedPerSubject=%.3f maxRetainedPoseTransforms=%lld transformsPerSubject=%.3f maxRetainedStoreArrayHeapBytes=%llu maxLastReceiptBacklogSeconds=%.6f processorCpu=Insights/CkProcessors wholeGameThreadAllocations=unavailable joltQueries=unavailable"),
+                                const auto Metrics = FString::Printf(TEXT("[CkAction PERF] scenario=%s subjects=%d links=%d repetition=%d warmupFrames=%d measuredFrameIntervals=%d frameIntervalAvgMs=%.6f frameIntervalMaxMs=%.6f acceptedIncludingWarmup=%lld acceptedPerSubject=%.3f maxReservedRecordSlots=%lld reservedPerSubject=%.3f maxRetainedPoseTransforms=%lld transformsPerSubject=%.3f maxRetainedStoreArrayHeapBytes=%llu maxLastReceiptBacklogSeconds=%.6f processorCpu=Insights/CkProcessors wholeGameThreadAllocations=unavailable joltQueries=unavailable"),
                                     Get_Name(Case->Scenario), Case->Subjects, Case->Links, Case->Repetition,
                                      WarmupFrames, Case->FrameIntervals, AverageMs, Case->FrameMaxMs,
-                                    Case->DriverSubmitMs, static_cast<long long>(Accepted),
+                                    static_cast<long long>(Accepted),
                                     static_cast<double>(Accepted) / Case->Subjects,
                                     static_cast<long long>(Case->MaxReservedRecordSlots),
                                     static_cast<double>(Case->MaxReservedRecordSlots) / Case->Subjects,

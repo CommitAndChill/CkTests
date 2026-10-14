@@ -1,16 +1,19 @@
 #include "Misc/AutomationTest.h"
 
 #include "CkProceduralAnimation/Action/CkProceduralAction_Data.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionAuthoringSession.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionEditorModel.h"
+#include "CkProceduralAnimationEditor/CkProceduralAction_EditorToolkit.h"
 
 #include "CoreGlobals.h"
 #include "Editor.h"
 #include "Editor/TransBuffer.h"
 #include "Editor/Transactor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Framework/Docking/TabManager.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformTime.h"
 #include "InputCoreTypes.h"
-#include "Layout/WidgetPath.h"
 #include "Misc/PackageName.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
@@ -22,18 +25,15 @@
 #include "UObject/StrongObjectPtr.h"
 #include "UObject/UObjectGlobals.h"
 #include "Widgets/Docking/SDockTab.h"
-#include "Widgets/Input/SEditableTextBox.h"
-#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/SWindow.h"
-#include "Widgets/Text/STextBlock.h"
 
 namespace ck_test_procedural_action_save_reopen
 {
     constexpr auto TestFlags = EAutomationTestFlags::EditorContext
         | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI;
-    const FName EditorTabId{TEXT("CkProceduralAction_Editor")};
     const TCHAR* SourcePath = TEXT(
         "/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
+    const FName TimelineTag{TEXT("CkActionEditor.Timeline")};
 
     auto
         FindTaggedWidget(
@@ -56,179 +56,66 @@ namespace ck_test_procedural_action_save_reopen
     }
 
     auto
-        FindTaggedEntry(
-            const TSharedRef<SWidget>& InWidget,
-            FName InTag,
-            int32 InDepth = 0)
-        -> TSharedPtr<SEditableTextBox>
-    {
-        if (InDepth > 64)
-        { return {}; }
-        if (InWidget->GetTag() == InTag
-            && InWidget->GetType() == FName{TEXT("SEditableTextBox")})
-        { return StaticCastSharedRef<SEditableTextBox>(InWidget); }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (const auto Entry = FindTaggedEntry(Children->GetChildAt(Index), InTag, InDepth + 1))
-            { return Entry; }
-        }
-        return {};
-    }
-
-    auto
-        ContainsText(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InLabel,
-            int32 InDepth = 0)
-        -> bool
-    {
-        if (InDepth > 64)
-        { return false; }
-        if (InWidget->GetType() == FName{TEXT("STextBlock")}
-            && StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString() == InLabel)
-        { return true; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (ContainsText(Children->GetChildAt(Index), InLabel, InDepth + 1))
-            { return true; }
-        }
-        return false;
-    }
-
-    auto
-        FindButton(
-            const TSharedRef<SWidget>& InWidget,
-            const FString& InLabel,
-            int32 InDepth = 0)
-        -> TSharedPtr<SWidget>
-    {
-        if (InDepth > 64)
-        { return {}; }
-        if (InWidget->GetType() == FName{TEXT("SButton")}
-            && ContainsText(InWidget, InLabel))
-        { return InWidget; }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            if (const auto Found = FindButton(Children->GetChildAt(Index), InLabel, InDepth + 1))
-            { return Found; }
-        }
-        return {};
-    }
-
-    auto
-        ClickWidget(
-            const TSharedRef<SWidget>& InWidget)
-        -> bool
-    {
-        auto& Slate = FSlateApplication::Get();
-        auto Path = FWidgetPath{};
-        if (NOT InWidget->IsEnabled() || NOT Slate.FindPathToWidget(InWidget, Path)
-            || NOT Path.IsValid())
-        { return false; }
-        const auto Window = Slate.FindWidgetWindow(InWidget);
-        if (NOT Window.IsValid() || NOT Window->GetNativeWindow().IsValid())
-        { return false; }
-        const auto Position = FVector2D{Path.Widgets.Last().Geometry.GetAbsolutePositionAtCoordinates(
-            FVector2D{0.5, 0.5})};
-        const auto Released = TSet<FKey>{};
-        const auto Pressed = TSet<FKey>{EKeys::LeftMouseButton};
-        Slate.SetCursorPos(Position);
-        Slate.ProcessMouseMoveEvent(FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Released, EKeys::Invalid, 0.0f, FModifierKeysState{}});
-        const auto Down = FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Pressed, EKeys::LeftMouseButton, 0.0f, FModifierKeysState{}};
-        const auto Up = FPointerEvent{0, FSlateApplication::CursorPointerIndex,
-            Position, Position, Released, EKeys::LeftMouseButton, 0.0f, FModifierKeysState{}};
-        const auto PressHandled = Slate.ProcessMouseButtonDownEvent(Window->GetNativeWindow(), Down);
-        const auto ReleaseHandled = Slate.ProcessMouseButtonUpEvent(Up);
-        return PressHandled && ReleaseHandled;
-    }
-
-    // The per-track tools sit in the pose workspace's collapsed Advanced area, in their own scroll box.
-    auto
-        Reveal(
-            const TSharedRef<SWidget>& InRoot,
-            const TSharedRef<SWidget>& InTarget)
-        -> bool
-    {
-        auto& Slate = FSlateApplication::Get();
-        auto Path = FWidgetPath{};
-        if (NOT Slate.FindPathToWidget(InTarget, Path) || NOT Path.IsValid())
-        {
-            const auto Header = FindTaggedWidget(InRoot, FName{TEXT("CkActionEditorAdvancedHeader")});
-            if (Header.IsValid() && Slate.FindPathToWidget(Header.ToSharedRef(), Path) && Path.IsValid())
-            { ClickWidget(Header.ToSharedRef()); }
-            return false;
-        }
-        for (auto Index = Path.Widgets.Num() - 1; Index >= 0; --Index)
-        {
-            const auto& Widget = Path.Widgets[Index].Widget;
-            if (Widget->GetType() == FName{TEXT("SScrollBox")})
-            {
-                StaticCastSharedRef<SScrollBox>(Widget)->ScrollDescendantIntoView(InTarget, false);
-                break;
-            }
-        }
-        return true;
-    }
-
-    auto
-        TypeEntry(
-            const TSharedRef<SEditableTextBox>& InEntry,
-            const FString& InText)
-        -> bool
-    {
-        auto& Slate = FSlateApplication::Get();
-        if (NOT Slate.SetKeyboardFocus(InEntry, EFocusCause::SetDirectly)
-            || NOT InEntry->HasKeyboardFocus())
-        { return false; }
-        const FModifierKeysState Control{false, false, true, false, false, false, false, false, false};
-        const auto SelectAll = FKeyEvent{EKeys::A, Control, 0, false, 0, 0};
-        if (NOT Slate.ProcessKeyDownEvent(SelectAll))
-        { return false; }
-        Slate.ProcessKeyUpEvent(SelectAll);
-        for (const auto Character : InText)
-        {
-            if (NOT Slate.ProcessKeyCharEvent(FCharacterEvent{
-                Character, FModifierKeysState{}, 0, false}))
-            { return false; }
-        }
-        return InEntry->GetText().ToString() == InText;
-    }
-
-    auto
-        FindTimelineMessage(
-            const TSharedRef<SWidget>& InWidget,
-            int32 InDepth = 0)
-        -> FString
-    {
-        if (InDepth > 64)
-        { return {}; }
-        if (InWidget->GetTag() == FName{TEXT("CkActionEditorTimelineMessage")} && InWidget->GetType() == FName{TEXT("STextBlock")})
-        { return StaticCastSharedRef<STextBlock>(InWidget)->GetText().ToString(); }
-        auto* Children = InWidget->GetChildren();
-        for (auto Index = 0; Index < Children->Num(); ++Index)
-        {
-            const auto Found = FindTimelineMessage(Children->GetChildAt(Index), InDepth + 1);
-            if (NOT Found.IsEmpty())
-            { return Found; }
-        }
-        return {};
-    }
-
-    auto
-        TimelineMessage(
+        FindToolkit(
             UAssetEditorSubsystem* InEditors,
             UObject* InClip)
-        -> FString
+        -> FCk_ProceduralAction_EditorToolkit*
     {
-        auto* Editor = InEditors != nullptr && InClip != nullptr ? InEditors->FindEditorForAsset(InClip, false) : nullptr;
-        const auto Tab = Editor != nullptr && Editor->GetAssociatedTabManager() != nullptr
-            ? Editor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId}) : TSharedPtr<SDockTab>{};
-        return Tab.IsValid() ? FindTimelineMessage(Tab->GetContent()) : FString{TEXT("<no tab>")};
+        auto* Instance = InEditors != nullptr && InClip != nullptr ? InEditors->FindEditorForAsset(InClip, false) : nullptr;
+        if (Instance == nullptr || Instance->GetEditorName() != FCk_ProceduralAction_EditorToolkit::ToolkitName)
+        { return nullptr; }
+        return static_cast<FCk_ProceduralAction_EditorToolkit*>(Instance);
+    }
+
+    auto
+        FindTimelineTab(
+            FCk_ProceduralAction_EditorToolkit& InToolkit)
+        -> TSharedPtr<SDockTab>
+    {
+        const auto TabManager = InToolkit.GetAssociatedTabManager();
+        return TabManager.IsValid()
+            ? TabManager->FindExistingLiveTab(FTabId{FCk_ProceduralAction_EditorToolkit::TimelineTabId})
+            : TSharedPtr<SDockTab>{};
+    }
+
+    // The id the toolkit gives a new item: InPrefix followed by the first unused number from 1.
+    auto
+        FirstFreeId(
+            const TCHAR* InPrefix,
+            const TArray<FName>& InTaken)
+        -> FName
+    {
+        for (auto Index = 1; Index <= InTaken.Num() + 1; ++Index)
+        {
+            const auto Candidate = FName{*FString::Printf(TEXT("%s%d"), InPrefix, Index)};
+            if (NOT InTaken.Contains(Candidate))
+            { return Candidate; }
+        }
+        return NAME_None;
+    }
+
+    auto
+        PhaseIds(
+            const UCk_ProceduralAction_Data& InClip)
+        -> TArray<FName>
+    {
+        auto Ids = TArray<FName>{};
+        for (const auto& Phase : InClip.Get_Phases())
+        { Ids.Add(Phase.Get_Id()); }
+        return Ids;
+    }
+
+    auto
+        EventIds(
+            const UCk_ProceduralAction_Data& InClip)
+        -> TArray<FName>
+    {
+        auto Ids = TArray<FName>{};
+        for (const auto& Marker : InClip.Get_Markers())
+        { Ids.Add(Marker.Get_Id()); }
+        for (const auto& Window : InClip.Get_Windows())
+        { Ids.Add(Window.Get_Id()); }
+        return Ids;
     }
 
     struct FState
@@ -241,13 +128,15 @@ namespace ck_test_procedural_action_save_reopen
         FString PackageFile;
         FSoftObjectPath ClipPath;
         FName MarkerId;
-        FName PhaseId{TEXT("Cooldown")};
-        FName NewMarkerId{TEXT("CooldownStart")};
-        FName NewWindowId{TEXT("CooldownWindow")};
+        FName NewSectionId;
+        FName NewMarkerId;
+        FName NewWindowId;
+        TArray<FName> SectionOrder;
+        int32 SectionCountBefore = 0;
+        FString LastWaitReason;
         TStrongObjectPtr<UTransactor> PreviousTransactions;
         TStrongObjectPtr<UTransBuffer> PrivateTransactions;
         bool Mounted = false;
-        bool Revealed = false;
         int32 Stage = 0;
         double DeadlineSeconds = 0.0;
 
@@ -368,222 +257,189 @@ namespace ck_test_procedural_action_save_reopen
 
         auto Update() -> bool override
         {
-            if (FPlatformTime::Seconds() > _State->DeadlineSeconds)
+            auto& State = *_State;
+            if (FPlatformTime::Seconds() > State.DeadlineSeconds)
             {
-                _State->Test->AddError(FString::Printf(
-                    TEXT("Disposable action editor save/reopen timed out at stage %d; dirty=%d, fileBytes=%lld, focus=%s."),
-                    _State->Stage,
-                    Cast<UCk_ProceduralAction_Data>(_State->ClipPath.ResolveObject()) != nullptr
-                        && Cast<UCk_ProceduralAction_Data>(_State->ClipPath.ResolveObject())
+                State.Test->AddError(FString::Printf(
+                    TEXT("Disposable action editor save/reopen timed out at stage %d (%s); dirty=%d, fileBytes=%lld, focus=%s."),
+                    State.Stage, *State.LastWaitReason,
+                    Cast<UCk_ProceduralAction_Data>(State.ClipPath.ResolveObject()) != nullptr
+                        && Cast<UCk_ProceduralAction_Data>(State.ClipPath.ResolveObject())
                             ->GetOutermost()->IsDirty(),
-                    _State->PackageFile.IsEmpty() ? -1LL
-                        : IFileManager::Get().FileSize(*_State->PackageFile),
+                    State.PackageFile.IsEmpty() ? -1LL
+                        : IFileManager::Get().FileSize(*State.PackageFile),
                     FSlateApplication::IsInitialized()
                         && FSlateApplication::Get().GetKeyboardFocusedWidget().IsValid()
                         ? *FSlateApplication::Get().GetKeyboardFocusedWidget()->GetType().ToString()
                         : TEXT("None")));
                 return true;
             }
-            auto* Editors = _State->Editors.Get();
-            auto* Clip = Cast<UCk_ProceduralAction_Data>(_State->ClipPath.ResolveObject());
-            if (Editors == nullptr || (_State->Stage != 6 && Clip == nullptr))
-            { _State->Test->AddError(TEXT("Disposable authored clip disappeared before Save/Reopen.")); return true; }
-            if (_State->Stage == 0)
+            auto* Editors = State.Editors.Get();
+            auto* Clip = Cast<UCk_ProceduralAction_Data>(State.ClipPath.ResolveObject());
+            if (Editors == nullptr || (State.Stage != 7 && Clip == nullptr))
+            { State.Test->AddError(TEXT("Disposable authored clip disappeared before Save/Reopen.")); return true; }
+            auto* Toolkit = State.Stage != 7 ? FindToolkit(Editors, Clip) : nullptr;
+            if (State.Stage == 0)
             {
-                auto* Editor = Editors->FindEditorForAsset(Clip, false);
-                if (Editor == nullptr || Editor->GetAssociatedTabManager() == nullptr)
+                State.LastWaitReason = TEXT("toolkit timeline tab not mounted");
+                if (Toolkit == nullptr)
                 { return false; }
-                const auto Tab = Editor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId});
+                const auto Tab = FindTimelineTab(*Toolkit);
                 if (NOT Tab.IsValid())
                 { return false; }
-                Editor->FocusWindow(Clip);
-                if (const auto OwnerTab = Editor->GetAssociatedTabManager()->GetOwnerTab())
+                Toolkit->FocusWindow(Clip);
+                if (const auto OwnerTab = Toolkit->GetAssociatedTabManager()->GetOwnerTab())
                 { OwnerTab->ActivateInParent(ETabActivationCause::SetDirectly); }
                 Tab->ActivateInParent(ETabActivationCause::SetDirectly);
-                ++_State->Stage;
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 1)
+            if (State.Stage <= 6 && Toolkit == nullptr)
+            { State.Test->AddError(TEXT("The action toolkit closed before Save.")); return true; }
+            if (State.Stage == 1)
             {
-                auto* Editor = Editors->FindEditorForAsset(Clip, false);
-                if (Editor == nullptr || Editor->GetAssociatedTabManager() == nullptr)
-                { return false; }
-                const auto Tab = Editor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId});
+                const auto Tab = FindTimelineTab(*Toolkit);
+                State.LastWaitReason = TEXT("timeline tab has no Slate window");
                 if (NOT Tab.IsValid() || NOT FSlateApplication::Get().FindWidgetWindow(Tab.ToSharedRef()).IsValid())
                 { return false; }
-                const auto Entry = FindTaggedEntry(Tab->GetContent(),
-                    FName{TEXT("CkActionEditorNewPhaseId")});
-                if (NOT _State->Test->TestTrue(TEXT("mounted phase ID input is available"),
-                    Entry.IsValid()))
+                State.NewSectionId = FirstFreeId(TEXT("Section"), PhaseIds(*Clip));
+                State.SectionCountBefore = Clip->Get_Phases().Num();
+                const auto Added = Toolkit->AddSection();
+                State.Test->AddInfo(FString::Printf(TEXT("Add Section: %s"), *Toolkit->Get_Message()));
+                if (NOT State.Test->TestTrue(TEXT("Add Section adds a section"), Added))
                 { return true; }
-                if (NOT _State->Revealed)
-                {
-                    _State->Revealed = Reveal(Tab->GetContent(), Entry.ToSharedRef());
-                    return false;
-                }
-                auto& Slate = FSlateApplication::Get();
-                if (NOT _State->Test->TestTrue(TEXT("Slate focuses the mounted phase input"),
-                    Slate.SetKeyboardFocus(Entry, EFocusCause::SetDirectly)
-                    && Entry->HasKeyboardFocus()))
-                { return true; }
-                for (const auto Character : _State->PhaseId.ToString())
-                {
-                    if (NOT Slate.ProcessKeyCharEvent(FCharacterEvent{
-                        Character, FModifierKeysState{}, 0, false}))
-                    { _State->Test->AddError(TEXT("Slate rejected routed phase ID text")); return true; }
-                }
-                _State->Test->TestEqual(TEXT("routed text entered the phase ID"),
-                    Entry->GetText().ToString(), _State->PhaseId.ToString());
-                const auto AddPhase = FindButton(Tab->GetContent(), TEXT("Add phase"));
-                if (NOT _State->Test->TestTrue(TEXT("mounted Add phase control is available"),
-                        AddPhase.IsValid())
-                    || NOT _State->Test->TestTrue(TEXT("routed Slate click adds a phase"),
-                        ClickWidget(AddPhase.ToSharedRef())))
-                { return true; }
-                ++_State->Stage;
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 2)
+            if (State.Stage == 2)
             {
-                const auto Added = Clip->Get_Phases().ContainsByPredicate(
-                    [Id = _State->PhaseId](const FCk_ProceduralAction_Phase& InPhase)
+                const auto Ids = PhaseIds(*Clip);
+                if (NOT State.Test->TestTrue(FString::Printf(TEXT("mounted section creation adds %s to the authored clip"),
+                    *State.NewSectionId.ToString()), Ids.Contains(State.NewSectionId) && Ids.Num() == State.SectionCountBefore + 1))
+                { return true; }
+                const auto* Section = Clip->Get_Phases().FindByPredicate([Id = State.NewSectionId](const FCk_ProceduralAction_Phase& InPhase)
                     { return InPhase.Get_Id() == Id; });
-                if (NOT _State->Test->TestTrue(TEXT("mounted phase creation changes the authored clip"),
-                    Added && Clip->Get_Phases().Num() == 3))
-                { return true; }
-                auto* Editor = Editors->FindEditorForAsset(Clip, false);
-                const auto Tab = Editor != nullptr && Editor->GetAssociatedTabManager() != nullptr
-                    ? Editor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId})
-                    : TSharedPtr<SDockTab>{};
-                const auto Entry = Tab.IsValid() ? FindTaggedEntry(Tab->GetContent(),
-                    FName{TEXT("CkActionEditorNewEventId")}) : TSharedPtr<SEditableTextBox>{};
-                const auto MarkerButton = Tab.IsValid() ? FindButton(Tab->GetContent(),
-                    TEXT("Marker at cursor")) : TSharedPtr<SWidget>{};
-                if (MarkerButton.IsValid())
-                { Reveal(Tab->GetContent(), MarkerButton.ToSharedRef()); }
-                if (NOT _State->Test->TestTrue(TEXT("mounted marker lane controls are available"),
-                    Entry.IsValid() && MarkerButton.IsValid())
-                    || NOT _State->Test->TestTrue(TEXT("routed marker ID and click are accepted"),
-                        TypeEntry(Entry.ToSharedRef(), _State->NewMarkerId.ToString())
-                        && ClickWidget(MarkerButton.ToSharedRef())))
-                { return true; }
-                ++_State->Stage;
+                auto Start = FCk_Time{};
+                State.LastWaitReason = TEXT("the session does not know the new section's start yet");
+                if (NOT Toolkit->Get_Session()->Get_PhaseStart(State.NewSectionId, Start))
+                { return false; }
+                State.SectionOrder = Ids;
+                Toolkit->Get_Model()->SetTime(FCk_Time{Start.Get_Seconds() + 0.5 * Section->Get_Duration().Get_Seconds()});
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 3)
+            if (State.Stage == 3)
             {
-                const auto MarkerAdded = Clip->Get_Markers().ContainsByPredicate(
-                    [Id = _State->NewMarkerId](const FCk_ProceduralAction_Marker& InMarker)
+                State.NewMarkerId = FirstFreeId(TEXT("Marker"), EventIds(*Clip));
+                const auto Added = Toolkit->AddMarkerAtPlayhead();
+                State.Test->AddInfo(FString::Printf(TEXT("Add Marker: %s"), *Toolkit->Get_Message()));
+                if (NOT State.Test->TestTrue(TEXT("Add Marker at the playhead is accepted"), Added))
+                { return true; }
+                ++State.Stage;
+                return false;
+            }
+            if (State.Stage == 4)
+            {
+                const auto* Marker = Clip->Get_Markers().FindByPredicate([Id = State.NewMarkerId](const FCk_ProceduralAction_Marker& InMarker)
                     { return InMarker.Get_Id() == Id; });
-                if (NOT _State->Test->TestTrue(FString::Printf(TEXT("mounted marker creation changes the authored clip (timeline says: %s)"),
-                    *TimelineMessage(Editors, Clip)), MarkerAdded))
+                if (NOT State.Test->TestTrue(FString::Printf(TEXT("mounted marker creation adds %s at the playhead's section (editor says: %s)"),
+                    *State.NewMarkerId.ToString(), *Toolkit->Get_Message()),
+                    Marker != nullptr && Marker->Get_At().Get_PhaseId() == State.NewSectionId))
                 { return true; }
-                auto* Editor = Editors->FindEditorForAsset(Clip, false);
-                const auto Tab = Editor != nullptr && Editor->GetAssociatedTabManager() != nullptr
-                    ? Editor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId})
-                    : TSharedPtr<SDockTab>{};
-                const auto Entry = Tab.IsValid() ? FindTaggedEntry(Tab->GetContent(),
-                    FName{TEXT("CkActionEditorNewEventId")}) : TSharedPtr<SEditableTextBox>{};
-                const auto WindowButton = Tab.IsValid() ? FindButton(Tab->GetContent(),
-                    TEXT("Window from cursor")) : TSharedPtr<SWidget>{};
-                if (WindowButton.IsValid())
-                { Reveal(Tab->GetContent(), WindowButton.ToSharedRef()); }
-                if (NOT _State->Test->TestTrue(TEXT("mounted window lane controls are available"),
-                    Entry.IsValid() && WindowButton.IsValid())
-                    || NOT _State->Test->TestTrue(TEXT("routed window ID and click are accepted"),
-                        TypeEntry(Entry.ToSharedRef(), _State->NewWindowId.ToString())
-                        && ClickWidget(WindowButton.ToSharedRef())))
+                State.NewWindowId = FirstFreeId(TEXT("Window"), EventIds(*Clip));
+                const auto Added = Toolkit->AddWindowAtPlayhead();
+                State.Test->AddInfo(FString::Printf(TEXT("Add Window: %s"), *Toolkit->Get_Message()));
+                if (NOT State.Test->TestTrue(TEXT("Add Window from the playhead is accepted"), Added))
                 { return true; }
-                ++_State->Stage;
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 4)
+            if (State.Stage == 5)
             {
-                const auto WindowAdded = Clip->Get_Windows().ContainsByPredicate(
-                    [Id = _State->NewWindowId](const FCk_ProceduralAction_Window& InWindow)
+                const auto* Window = Clip->Get_Windows().FindByPredicate([Id = State.NewWindowId](const FCk_ProceduralAction_Window& InWindow)
                     { return InWindow.Get_Id() == Id; });
-                if (NOT _State->Test->TestTrue(TEXT("mounted window creation changes the authored clip"),
-                    WindowAdded))
+                if (NOT State.Test->TestTrue(FString::Printf(TEXT("mounted window creation adds %s from the playhead's section"),
+                    *State.NewWindowId.ToString()),
+                    Window != nullptr && Window->Get_Start().Get_PhaseId() == State.NewSectionId))
                 { return true; }
-                auto* Editor = Editors->FindEditorForAsset(Clip, false);
-                const auto Tab = Editor != nullptr && Editor->GetAssociatedTabManager() != nullptr
-                    ? Editor->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId})
-                    : TSharedPtr<SDockTab>{};
-                const auto Entry = Tab.IsValid() ? FindTaggedEntry(Tab->GetContent(),
-                    FName{TEXT("CkActionEditorNewPhaseId")}) : TSharedPtr<SEditableTextBox>{};
+                const auto Tab = FindTimelineTab(*Toolkit);
+                const auto Timeline = Tab.IsValid() ? FindTaggedWidget(Tab->GetContent(), TimelineTag) : TSharedPtr<SWidget>{};
                 auto& Slate = FSlateApplication::Get();
-                if (NOT _State->Test->TestTrue(TEXT("routed Ctrl+S starts from focused authoring input"),
-                    Entry.IsValid() && Slate.SetKeyboardFocus(Entry, EFocusCause::SetDirectly)
-                    && Entry->HasKeyboardFocus()))
+                if (NOT State.Test->TestTrue(TEXT("routed Ctrl+S starts from the focused timeline"),
+                    Timeline.IsValid() && Slate.SetKeyboardFocus(Timeline, EFocusCause::SetDirectly)
+                    && Timeline->HasKeyboardFocus()))
                 { return true; }
                 auto Markers = Clip->Get_Markers();
-                Markers[0].Set_At(FCk_ProceduralAction_TimeRef{
-                    Markers[0].Get_At().Get_PhaseId(), FCk_FloatRange_0to1{0.75f}});
+                const auto MarkerIndex = Markers.IndexOfByPredicate([Id = State.MarkerId](const FCk_ProceduralAction_Marker& InMarker)
+                    { return InMarker.Get_Id() == Id; });
+                if (NOT State.Test->TestTrue(TEXT("the saved marker is still on the clip"), Markers.IsValidIndex(MarkerIndex)))
+                { return true; }
+                Markers[MarkerIndex].Set_At(FCk_ProceduralAction_TimeRef{
+                    Markers[MarkerIndex].Get_At().Get_PhaseId(), FCk_FloatRange_0to1{0.75f}});
                 Clip->Modify();
                 Clip->Set_Markers(Markers);
                 Clip->MarkPackageDirty();
-                _State->Test->TestTrue(TEXT("disposable authored edit marks its package dirty"),
+                State.Test->TestTrue(TEXT("disposable authored edit marks its package dirty"),
                     Clip->GetOutermost()->IsDirty());
                 const FModifierKeysState Control{false, false, true, false, false, false, false, false, false};
                 const auto SaveKey = FKeyEvent{EKeys::S, Control, 0, false, 0, 0};
                 {
                     TGuardValue<bool> ScopedUnattendedSave{GIsRunningUnattendedScript, true};
-                    _State->Test->TestTrue(TEXT("mounted editor routes Ctrl+S from focused authoring input"),
+                    State.Test->TestTrue(TEXT("mounted editor routes Ctrl+S from the focused timeline"),
                         Slate.ProcessKeyDownEvent(SaveKey));
                     Slate.ProcessKeyUpEvent(SaveKey);
                 }
-                ++_State->Stage;
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 5)
+            if (State.Stage == 6)
             {
+                State.LastWaitReason = TEXT("waiting for Ctrl+S to clear the package's dirty flag");
                 if (Clip->GetOutermost()->IsDirty())
                 { return false; }
-                if (NOT _State->Test->TestTrue(TEXT("Ctrl+S saved the disposable authored package"),
-                    IFileManager::Get().FileSize(*_State->PackageFile) > 0))
+                if (NOT State.Test->TestTrue(TEXT("Ctrl+S saved the disposable authored package"),
+                    IFileManager::Get().FileSize(*State.PackageFile) > 0))
                 { return true; }
-                if (NOT _State->Test->TestTrue(TEXT("closing the saved toolkit releases its package"),
-                    _State->CloseAndUnload()))
+                if (NOT State.Test->TestTrue(TEXT("closing the saved toolkit releases its package"),
+                    State.CloseAndUnload()))
                 { return true; }
-                ++_State->Stage;
+                ++State.Stage;
                 return false;
             }
-            if (_State->Stage == 6)
+            if (State.Stage == 7)
             {
                 auto* Reloaded = LoadObject<UCk_ProceduralAction_Data>(nullptr,
-                    *_State->ClipPath.ToString());
-                if (NOT _State->Test->TestNotNull(TEXT("saved clip reloads from the unique package"), Reloaded))
+                    *State.ClipPath.ToString());
+                if (NOT State.Test->TestNotNull(TEXT("saved clip reloads from the unique package"), Reloaded))
                 { return true; }
                 const auto Markers = Reloaded->Get_Markers();
                 const auto* Marker = Markers.FindByPredicate(
-                    [Id = _State->MarkerId](const FCk_ProceduralAction_Marker& InMarker)
+                    [Id = State.MarkerId](const FCk_ProceduralAction_Marker& InMarker)
                     { return InMarker.Get_Id() == Id; });
-                if (NOT _State->Test->TestTrue(TEXT("reopened marker retains its stable ID"), Marker != nullptr))
+                if (NOT State.Test->TestTrue(TEXT("reopened marker retains its stable ID"), Marker != nullptr))
                 { return true; }
-                _State->Test->TestTrue(TEXT("reopened clip retains the saved marker time"),
+                State.Test->TestTrue(TEXT("reopened clip retains the saved marker time"),
                     FMath::IsNearlyEqual(Marker->Get_At().Get_Time().Get_Value(), 0.75f));
-                _State->Test->TestTrue(TEXT("reopened clip retains routed phase ID and order"),
-                    Reloaded->Get_Phases().Num() == 3
-                    && Reloaded->Get_Phases()[2].Get_Id() == _State->PhaseId);
-                _State->Test->TestTrue(TEXT("reopened clip retains routed marker"),
+                State.Test->TestTrue(TEXT("reopened clip retains the added section's ID and order"),
+                    PhaseIds(*Reloaded) == State.SectionOrder && State.SectionOrder.Contains(State.NewSectionId));
+                State.Test->TestTrue(TEXT("reopened clip retains the added marker"),
                     Reloaded->Get_Markers().ContainsByPredicate(
-                        [Id = _State->NewMarkerId](const FCk_ProceduralAction_Marker& InMarker)
+                        [Id = State.NewMarkerId](const FCk_ProceduralAction_Marker& InMarker)
                         { return InMarker.Get_Id() == Id; }));
-                _State->Test->TestTrue(TEXT("reopened clip retains routed window"),
+                State.Test->TestTrue(TEXT("reopened clip retains the added window"),
                     Reloaded->Get_Windows().ContainsByPredicate(
-                        [Id = _State->NewWindowId](const FCk_ProceduralAction_Window& InWindow)
+                        [Id = State.NewWindowId](const FCk_ProceduralAction_Window& InWindow)
                         { return InWindow.Get_Id() == Id; }));
-                _State->Test->TestTrue(TEXT("reloaded clip opens in the registered action toolkit"),
+                State.Test->TestTrue(TEXT("reloaded clip opens in the registered action toolkit"),
                     Editors->OpenEditorForAsset(Reloaded, EToolkitMode::Standalone));
-                ++_State->Stage;
+                ++State.Stage;
                 return false;
             }
-            auto* Reopened = Editors->FindEditorForAsset(Clip, false);
-            _State->Test->TestTrue(TEXT("saved clip reopens as a mounted editor instance"),
-                Reopened != nullptr && Reopened->GetAssociatedTabManager() != nullptr
-                && Reopened->GetAssociatedTabManager()->FindExistingLiveTab(FTabId{EditorTabId}).IsValid());
-            _State->Test->TestTrue(TEXT("reopened disposable package tears down cleanly"),
-                _State->CloseAndUnload());
+            auto* Reopened = FindToolkit(Editors, Clip);
+            State.Test->TestTrue(TEXT("saved clip reopens as a mounted editor instance"),
+                Reopened != nullptr && FindTimelineTab(*Reopened).IsValid());
+            State.Test->TestTrue(TEXT("reopened disposable package tears down cleanly"),
+                State.CloseAndUnload());
             return true;
         }
 

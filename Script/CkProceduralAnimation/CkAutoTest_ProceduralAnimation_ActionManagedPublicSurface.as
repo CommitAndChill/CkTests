@@ -1,6 +1,7 @@
 // Language=angelscript
 
-// A resident limb clip played with managed delivery: records arrive through a listener and the framework drains them.
+// A resident limb clip played with Auto delivery through the public surface: OnFinished fires once with the terminal,
+// the stream stays readable without being consumed, and the action releases itself once the player acknowledges it.
 class UCk_AutoTest_ProceduralAnimation_ActionManagedPublicSurface : UCk_AutoTest_Base
 {
     default _TimeoutSeconds = 15.0f;
@@ -9,11 +10,11 @@ class UCk_AutoTest_ProceduralAnimation_ActionManagedPublicSurface : UCk_AutoTest
     private FCk_Handle_Transform _Root;
     private FCk_Handle_ProceduralArticulation _Subject;
     private FCk_Handle_ProceduralActionPlayer _Player;
-    private FCk_ProceduralAction_ManagedStart _Start;
-    private int32 _RecordCount = 0;
-    private bool _LastRecordWasTerminal = false;
-    private int32 _CompletionCount = 0;
-    private FCk_ProceduralAction_ManagedCompletion _Completion;
+    private FCk_Handle_ProceduralAction _Action;
+    private FCk_ProceduralAction_Identity _Identity;
+    private int32 _FinishedCount = 0;
+    private FCk_ProceduralAction_Terminal _Terminal;
+    private bool _FinishedHandleMatched = false;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
@@ -41,9 +42,11 @@ class UCk_AutoTest_ProceduralAnimation_ActionManagedPublicSurface : UCk_AutoTest
             return;
         }
         Add_Step_WaitUntil("limb subject settles", n"Check_Settled", 600);
-        Add_Step("play the resident limb clip with managed delivery", n"Step_Play");
-        Add_Step_WaitUntil("managed completion arrives", n"Check_Completed", 600);
-        Add_Step("inspect the delivered records and the completion", n"Step_Verify");
+        Add_Step("play the resident limb clip with Auto delivery", n"Step_Play");
+        Add_Step_WaitUntil("OnFinished arrives", n"Check_Finished", 600);
+        Add_Step("inspect the terminal", n"Step_VerifyTerminal");
+        Add_Step_WaitUntil("the action releases itself", n"Check_Released", 600);
+        Add_Step("verify nothing is left to drain", n"Step_VerifyReleased");
         Run_Steps(InHandle);
     }
 
@@ -68,57 +71,68 @@ class UCk_AutoTest_ProceduralAnimation_ActionManagedPublicSurface : UCk_AutoTest
         }
         auto Slots = TArray<FCk_ProceduralAction_SlotBinding>();
         Slots.Add(FCk_ProceduralAction_SlotBinding(n"Nod", n"NodArm"));
-        auto Loaded = FCk_ProceduralAction_LoadedPlaySpec(Clip);
-        Loaded.Set_SlotBindings(Slots);
-        _Start = utils_procedural_action::Play_Loaded(Owner, _Player, Loaded,
-            FCk_Delegate_ProceduralAction_OnManagedCompleted(this, n"OnManagedCompleted"));
-        Assert_True(ck::IsValid(_Start.Get_Action()) && _Start.Get_Identity().Get_Value() > 0,
-            "Managed play returns its action and identity");
-        Assert_True(_CompletionCount == 0, "No completion fires inside Play_Loaded");
-        Assert_True(utils_procedural_action_player::Get_IsManagedDelivery(_Player, _Start.Get_Identity()),
-            "The started identity uses managed delivery");
-        Assert_True(_Player.Read_Receipts(_Start.Get_Identity(), 0, 8).Get_Result()
-            == ECk_ProceduralAction_ReadResult::Pending,
-            "A managed identity stays readable without being consumed");
-        auto Player = _Player;
-        utils_procedural_action_player::BindTo_OnManagedRecords(Player, _Start.Get_Identity(),
-            FCk_Delegate_ProceduralAction_OnManagedRecords(this, n"OnManagedRecords"));
-    }
-
-    UFUNCTION()
-    private void OnManagedRecords(FCk_Handle_ProceduralActionPlayer InPlayer, FCk_ProceduralAction_ManagedPage InPage)
-    {
-        for (auto Record : InPage.Get_Records())
+        auto Spec = FCk_ProceduralAction_PlaySpec(TSoftObjectPtr<UCk_ProceduralAction_Data>(Clip));
+        Spec.Set_SlotBindings(Slots).Set_Delivery(ECk_ProceduralAction_Delivery::Auto);
+        Assert_True(Spec.Get_SlotBindings().Num() == 1 && Spec.Get_Delivery() == ECk_ProceduralAction_Delivery::Auto,
+            "The play spec binds its fluent accessors in AngelScript");
+        _Action = utils_procedural_action::Create_FromClip(Owner, _Player, Spec);
+        if (ck::IsValid(_Action) == false)
         {
-            _RecordCount += 1;
-            _LastRecordWasTerminal = Record.Get_Kind() == ECk_ProceduralAction_RecordKind::Terminal;
+            FinishFailure("Create_FromClip must return the action for a resident clip");
+            return;
         }
+        _Identity = _Action.Get_Identity();
+        Assert_True(_Identity.Get_Value() > 0, "The action has an identity");
+        Assert_True(_Action.Get_State() == ECk_ProceduralAction_State::PendingAdmission,
+            "A resident clip compiles and binds inside Create_FromClip");
+        utils_procedural_action::BindTo_OnFinished(_Action, FCk_Delegate_ProceduralAction_OnFinished(this, n"OnFinished"));
+        Assert_True(_FinishedCount == 0, "OnFinished does not fire for an action that is still running");
+        Assert_True(_Player.Read_Receipts(_Identity, 0, 8).Get_Result() == ECk_ProceduralAction_ReadResult::Pending,
+            "An Auto identity stays readable");
     }
 
     UFUNCTION()
-    private void OnManagedCompleted(FCk_Handle_ProceduralActionPlayer InPlayer,
-        FCk_ProceduralAction_ManagedCompletion InCompletion)
+    private void OnFinished(FCk_Handle_ProceduralAction InAction, FCk_ProceduralAction_Terminal InTerminal)
     {
-        _CompletionCount += 1;
-        _Completion = InCompletion;
+        _FinishedCount += 1;
+        _Terminal = InTerminal;
+        _FinishedHandleMatched = InAction.Get_Identity().Get_Value() == _Identity.Get_Value();
     }
 
     UFUNCTION()
-    private void Check_Completed(FCk_Handle InHandle, FCk_SharedBool OutResult, FInstancedStruct InPayload)
+    private void Check_Finished(FCk_Handle InHandle, FCk_SharedBool OutResult, FInstancedStruct InPayload)
     {
         auto Result = OutResult;
-        Result.Set(_CompletionCount > 0);
+        Result.Set(_FinishedCount > 0);
     }
 
     UFUNCTION()
-    private void Step_Verify(FCk_Handle InHandle, FInstancedStruct InPayload)
+    private void Step_VerifyTerminal(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
-        Assert_True(_RecordCount >= 3 && _LastRecordWasTerminal,
-            "The records listener receives the stream through its terminal");
-        Assert_True(_CompletionCount == 1, "Managed completion fires once");
-        Assert_True(_Completion.Get_Result().Get_Outcome() == ECk_ProceduralAction_Outcome::Completed,
-            "The producer outcome is Completed");
-        Assert_True(_Completion.Get_Delivery() == ECk_ProceduralAction_DeliveryStatus::Complete,
-            "Every record was delivered");
+        Assert_True(_FinishedHandleMatched, "OnFinished passes the finished action");
+        Assert_True(_Terminal.Get_Identity().Get_Value() == _Identity.Get_Value(),
+            "The terminal names the started identity");
+        Assert_True(_Terminal.Get_Result().Get_Outcome() == ECk_ProceduralAction_Outcome::Completed,
+            "The limb clip completes");
+        Assert_True(utils_procedural_action::Get_ResultText(_Terminal.Get_Result(), _Terminal.Get_Context())
+            .ToString().Contains("Completed"),
+            "The terminal renders through the public result text");
+    }
+
+    UFUNCTION()
+    private void Check_Released(FCk_Handle InHandle, FCk_SharedBool OutResult, FInstancedStruct InPayload)
+    {
+        auto Retained = false;
+        for (const auto& Identity : _Player.Get_RetainedReceiptIdentities())
+        { Retained = Retained || Identity.Get_Value() == _Identity.Get_Value(); }
+        auto Result = OutResult;
+        Result.Set(ck::Is_NOT_Valid(_Action) && Retained == false);
+    }
+
+    UFUNCTION()
+    private void Step_VerifyReleased(FCk_Handle InHandle, FInstancedStruct InPayload)
+    {
+        Assert_True(_FinishedCount == 1, "OnFinished fired exactly once");
+        Assert_True(_Subject.Get_IsAnyLimbControlled() == false, "The limb is back under the subject");
     }
 }

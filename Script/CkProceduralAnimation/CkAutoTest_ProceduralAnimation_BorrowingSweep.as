@@ -18,8 +18,8 @@ class UCk_AutoTest_ProceduralAnimation_BorrowingSweep : UCk_AutoTest_Base
     private FCk_Handle_ProceduralActionPlayer _Player;
     private UCk_ProceduralAction_Data _ShortSweep;
     private UCk_ProceduralAction_Data _LongSweep;
-    private FCk_ProceduralAction_ManagedStart _Start;
-    private TArray<FCk_ProceduralAction_ManagedCompletion> _Completions;
+    private FCk_Handle_ProceduralAction _Action;
+    private TArray<FCk_ProceduralAction_Terminal> _Completions;
     private int32 _RecoveryCompletions = 0;
     private ECk_Request_OperationResult _RecoveryResult = ECk_Request_OperationResult::Failed;
     private int32 _RecoveryPolls = 0;
@@ -125,17 +125,16 @@ class UCk_AutoTest_ProceduralAnimation_BorrowingSweep : UCk_AutoTest_Base
         Return.Set_MaxProbeAttempts(2);
         _Player = ck_procedural_action_sweep::AddBorrowingSweepPlayer(_Subject, 3, Return);
         Assert_True(ck::IsValid(_Player), "The borrowing preset composes a player on the walker");
-        _Start = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _ShortSweep,
+        _Action = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _ShortSweep,
             FCk_ProceduralAction_SlotBinding(n"Sweep", n"Leg0"),
-            FCk_Delegate_ProceduralAction_OnManagedCompleted(this, n"OnCompleted"));
-        Assert_True(_Start.Get_Report().Get_Status() == ECk_ProceduralAction_ReportStatus::Valid,
-            "The short sweep starts on the walking leg");
+            FCk_Delegate_ProceduralAction_OnFinished(this, n"OnFinished"));
+        Assert_True(ck::IsValid(_Action), "The short sweep starts on the walking leg");
     }
 
     UFUNCTION()
-    private void OnCompleted(FCk_Handle_ProceduralActionPlayer InPlayer, FCk_ProceduralAction_ManagedCompletion InCompletion)
+    private void OnFinished(FCk_Handle_ProceduralAction InAction, FCk_ProceduralAction_Terminal InTerminal)
     {
-        _Completions.Add(InCompletion);
+        _Completions.Add(InTerminal);
     }
 
     UFUNCTION()
@@ -168,19 +167,18 @@ class UCk_AutoTest_ProceduralAnimation_BorrowingSweep : UCk_AutoTest_Base
     UFUNCTION()
     private void Step_SweepLong(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
-        _Start = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _LongSweep,
+        _Action = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _LongSweep,
             FCk_ProceduralAction_SlotBinding(n"Sweep", n"Leg0"),
-            FCk_Delegate_ProceduralAction_OnManagedCompleted(this, n"OnCompleted"));
-        Assert_True(_Start.Get_Report().Get_Status() == ECk_ProceduralAction_ReportStatus::Valid,
-            "The long sweep starts on the walking leg");
+            FCk_Delegate_ProceduralAction_OnFinished(this, n"OnFinished"));
+        Assert_True(ck::IsValid(_Action), "The long sweep starts on the walking leg");
     }
 
     UFUNCTION()
     private void Check_Playing(FCk_Handle InHandle, FCk_SharedBool OutResult, FInstancedStruct InPayload)
     {
         auto Result = OutResult;
-        Result.Set(ck::IsValid(_Start.Get_Action())
-            && utils_procedural_action::Get_State(_Start.Get_Action()) == ECk_ProceduralAction_State::Playing);
+        Result.Set(ck::IsValid(_Action)
+            && utils_procedural_action::Get_State(_Action) == ECk_ProceduralAction_State::Playing);
     }
 
     UFUNCTION()

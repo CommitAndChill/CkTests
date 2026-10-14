@@ -125,21 +125,46 @@ namespace ck_test_procedural_action_obstacle_preview
         return Config;
     }
 
+    // Holds the arm's endpoint at its authored rest endpoint, in the body frame, for 0.3 s.
     auto
-        MakeBatch()
-        -> FCk_ProceduralAction_PoseBatch
+        MakeHoldClip()
+        -> TStrongObjectPtr<UCk_ProceduralAction_Data>
     {
-        auto Target = FCk_ProceduralAction_LimbTarget{LimbId,
-            FTransform{FVector{100.0, 0.0, 0.0}}};
-        Target.Set_Space(ECk_ProceduralAction_TrackSpace::BodyLocal);
-        auto Batch = FCk_ProceduralAction_PoseBatch{};
-        Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-        return Batch;
+        auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{
+            NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
+        Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{LimbId}});
+        auto Track = FCk_ProceduralAction_LimbTrack{LimbId};
+        Track.Set_PositionKeys(TArray<FCk_ProceduralAction_VectorKey>{
+            FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{0.0}, FVector{100.0, 0.0, 0.0}},
+            FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{1.0}, FVector{100.0, 0.0, 0.0}}});
+        auto Phase = FCk_ProceduralAction_Phase{FName{TEXT("Hold")}, FCk_Time{0.3}};
+        Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
+        Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
+        return Clip;
+    }
+
+    auto
+        MakeSlotBindings()
+        -> TArray<FCk_ProceduralAction_SlotBinding>
+    { return TArray<FCk_ProceduralAction_SlotBinding>{FCk_ProceduralAction_SlotBinding{LimbId, LimbId}}; }
+
+    auto
+        TerminalOutcome(
+            const FCk_ProceduralActionSolverWorld& InSolver)
+        -> ECk_ProceduralAction_Outcome
+    {
+        for (const auto& Record : InSolver.GetRecording().Get_Records())
+        {
+            if (Record.Get_Kind() == ECk_ProceduralAction_RecordKind::Terminal)
+            { return Record.Get_Result().Get_Outcome(); }
+        }
+        return ECk_ProceduralAction_Outcome::None;
     }
 
     struct FState
     {
         TStrongObjectPtr<UCk_ProceduralActionPreview_Config> Config;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         TUniquePtr<FCk_ProceduralActionSolverWorld> Solver;
         double DeadlineSeconds = 0.0;
         int32 Pass = 0;
@@ -163,9 +188,7 @@ namespace ck_test_procedural_action_obstacle_preview
         Slot.Set_InitialSource(ECk_ProceduralAction_InitialSource::AuthoredRest);
         Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
         auto Track = FCk_ProceduralAction_LimbTrack{LimbId};
-        Track.Set_Space(ECk_ProceduralAction_TrackSpace::BodyLocal);
         Track.Set_ReachPolicy(ECk_ProceduralAction_ReachPolicy::ProjectToReach);
-        Track.Set_ClearanceResponse(ECk_ProceduralAction_ClearanceResponse::ObserveCrossing);
         Track.Set_PositionKeys(TArray<FCk_ProceduralAction_VectorKey>{
             FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{0.0}, FVector{100.0, 0.0, 0.0}},
             FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{1.0}, FVector{200.0, 0.0, 0.0}}});
@@ -176,14 +199,11 @@ namespace ck_test_procedural_action_obstacle_preview
     }
 
     auto
-        Schedule(
-            FCk_ProceduralActionSolverWorld& InSolver)
+        Start(
+            FState& InState,
+            uint64 InRevision)
         -> bool
-    {
-        return InSolver.QueuePoseAtStep(8, MakeBatch())
-            && InSolver.QueueEndAtStep(24)
-            && InSolver.SeekToStep(60);
-    }
+    { return InState.Solver->StartClip(InState.Config.Get(), InState.Clip.Get(), MakeSlotBindings(), InRevision); }
 
     class FRunObstaclePreview final : public IAutomationLatentCommand
     {
@@ -195,7 +215,7 @@ namespace ck_test_procedural_action_obstacle_preview
         {
             if (FPlatformTime::Seconds() > _State->DeadlineSeconds)
             {
-                _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("manual BodyLocal endpoint (100,0,0) at step 8; End at step 24")));
+                _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("clip BodyLocal endpoint hold (100,0,0), 0.3s")));
                 _Test->AddError(TEXT("production obstacle preview did not settle within 20 seconds"));
                 _State->Solver->Reset();
                 return true;
@@ -203,12 +223,12 @@ namespace ck_test_procedural_action_obstacle_preview
             _State->Solver->TickOncePerEditorFrame();
             if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("manual BodyLocal endpoint (100,0,0) at step 8; End at step 24")));
+                _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("clip BodyLocal endpoint hold (100,0,0), 0.3s")));
                 _Test->AddError(_State->Solver->GetError());
                 _State->Solver->Reset();
                 return true;
             }
-            if (_State->Solver->GetStep() < 60)
+            if (NOT _State->Solver->GetIsActionTerminal())
             { return false; }
             auto Accepted = int32{0};
             auto Crossing = int32{0};
@@ -225,9 +245,6 @@ namespace ck_test_procedural_action_obstacle_preview
                     { ++Crossing; }
                 }
             }
-            _Test->TestTrue(TEXT("production Jolt query participates in articulated preview"), Accepted > 0);
-            if (Accepted == 0)
-            { _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("manual BodyLocal endpoint (100,0,0) at step 8; End at step 24"))); }
             if (_State->Pass == 0)
             {
                 _Test->TestTrue(TEXT("separate obstacle body was added to production Jolt"),
@@ -237,19 +254,25 @@ namespace ck_test_procedural_action_obstacle_preview
                     FVector{100.0, 0.0, 200.0}, FCk_Jolt_QueryFilter{});
                 _Test->TestTrue(TEXT("production Jolt ray intersects the preview obstacle"),
                     Hit.Get_HasHit());
-                _Test->TestTrue(TEXT("unavoidable static wall is diagnosed as a crossing"), Crossing > 0);
+                // A crossing chain rejects the sample, so the unavoidable wall is never accepted as a pose.
+                _Test->TestEqual(TEXT("no accepted pose crosses the unavoidable static wall"), Crossing, 0);
+                _Test->TestTrue(TEXT("the unavoidable static wall prevents the clip from completing"),
+                    TerminalOutcome(*_State->Solver) != ECk_ProceduralAction_Outcome::Completed);
+                _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("clip BodyLocal endpoint hold (100,0,0), 0.3s against the wall")));
                 _State->Solver->Reset();
                 _State->Config->Set_StaticObstacles({});
-                auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LimbId}};
-                Control.Set_InputTimeout(FCk_Time{30.0});
                 if (NOT _Test->TestTrue(TEXT("clear fixture rebuilds through production Solver"),
-                    _State->Solver->StartManual(_State->Config.Get(), Control, 45)
-                    && Schedule(*_State->Solver)))
+                    Start(*_State, 45)))
                 { _Test->AddError(_State->Solver->GetError()); _State->Solver->Reset(); return true; }
                 _State->Pass = 1;
                 return false;
             }
+            _Test->TestTrue(TEXT("production Jolt query participates in articulated preview"), Accepted > 0);
+            if (Accepted == 0)
+            { _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("clip BodyLocal endpoint hold (100,0,0), 0.3s"))); }
             _Test->TestEqual(TEXT("same requested pose without obstacle has no crossing"), Crossing, 0);
+            _Test->TestEqual(TEXT("same requested pose without obstacle completes"),
+                TerminalOutcome(*_State->Solver), ECk_ProceduralAction_Outcome::Completed);
             _State->Solver->Reset();
             return true;
         }
@@ -337,12 +360,10 @@ auto
         State->Config->ValidateSurface(Error));
     TestTrue(TEXT("obstacle diagnostic identifies its index"), Error.Contains(TEXT("obstacle 0")));
     State->Config = MakeConfig();
+    State->Clip = MakeHoldClip();
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
-    auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LimbId}};
-    Control.Set_InputTimeout(FCk_Time{30.0});
     if (NOT TestTrue(TEXT("production Solver composes a clearance-enabled obstacle fixture"),
-        State->Solver->StartManual(State->Config.Get(), Control, 44)
-        && Schedule(*State->Solver)))
+        Start(*State, 44)))
     { AddError(State->Solver->GetError()); State->Solver->Reset(); return false; }
     TestEqual(TEXT("obstacle fixture waits for Jolt before action readiness"),
         State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Preparing);

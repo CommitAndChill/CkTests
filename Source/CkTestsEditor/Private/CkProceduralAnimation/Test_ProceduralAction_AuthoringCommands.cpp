@@ -217,12 +217,14 @@ auto
         || NOT TestTrue(TEXT("right slot"), Commands.AddSlot(Right, Error))
         || NOT TestTrue(TEXT("source track"), Commands.AddLimbTrack(Phase, Left, Error))
         || NOT TestTrue(TEXT("explicit root-space mode before keying"),
-            Commands.SetTrackSpace(Phase, Left, ECk_ProceduralAction_TrackSpace::RootAtStart, Error))
+            Commands.SetSlotSpace(Left, ECk_ProceduralAction_TrackSpace::RootAtStart, Error))
         || NOT TestTrue(TEXT("source key"), Commands.AddPositionKey(Phase, Left, 0.0,
             FVector{10.0, 20.0, 30.0}, Error)))
     { return false; }
     TestFalse(TEXT("changing keyed space refuses reinterpretation"),
-        Commands.SetTrackSpace(Phase, Left, ECk_ProceduralAction_TrackSpace::LimbRestNormalized, Error));
+        Commands.SetSlotSpace(Left, ECk_ProceduralAction_TrackSpace::LimbRestNormalized, Error));
+    TestEqual(TEXT("the slot keeps the frame its keys were authored in"),
+        Clip->Get_Slots()[0].Get_Space(), ECk_ProceduralAction_TrackSpace::RootAtStart);
     if (NOT TestTrue(TEXT("explicit mirror into destination slot"),
         Commands.MirrorSlot(Left, Right, EAxis::Y, Error)))
     { return false; }
@@ -265,12 +267,16 @@ auto
         || NOT TestTrue(TEXT("bind source slot to physical limb"),
             Commands.RetargetSlot(Config.Get(), Slot, Limb, Error)))
     { return false; }
-    TestEqual(TEXT("mapping keeps authored slot identity"), Config->Get_SlotBindings()[0].Get_Slot(), Slot);
-    TestEqual(TEXT("mapping selects physical limb"), Config->Get_SlotBindings()[0].Get_LimbId(), Limb);
+    const auto& Bindings = Clip->Get_EditorSubject().Get_SlotBindings();
+    if (NOT TestEqual(TEXT("the clip's subject keeps one mapping"), Bindings.Num(), 1))
+    { return false; }
+    TestEqual(TEXT("mapping keeps authored slot identity"), Bindings[0].Get_Slot(), Slot);
+    TestEqual(TEXT("mapping selects physical limb"), Bindings[0].Get_LimbId(), Limb);
+    TestTrue(TEXT("the preview config is only read"), Config->Get_SlotBindings().IsEmpty());
     TestFalse(TEXT("unknown target limb rejected"),
         Commands.RetargetSlot(Config.Get(), Slot, FName{TEXT("Missing")}, Error));
     TestEqual(TEXT("rejected retarget preserves mapping"),
-        Config->Get_SlotBindings()[0].Get_LimbId(), Limb);
+        Clip->Get_EditorSubject().Get_SlotBindings()[0].Get_LimbId(), Limb);
     return NOT HasAnyErrors();
 }
 
@@ -330,10 +336,8 @@ auto
     const auto NewId = FName{TEXT("NewArm")};
     const auto LimbId = FName{TEXT("PhysicalArm")};
     auto Slot = FCk_ProceduralAction_Slot{OldId};
-    Slot.Set_InitialSource(ECk_ProceduralAction_InitialSource::CapturedAcceptedPose);
-    Slot.Set_RequiresTerminalOrientation(true);
-    Slot.Set_HasExplicitRestTarget(true);
-    Slot.Set_ExplicitRestTarget(FTransform{FVector{3.0, 4.0, 5.0}});
+    Slot.Set_InitialSource(ECk_ProceduralAction_InitialSource::AuthoredRest);
+    Slot.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
     Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
     auto Phases = TArray<FCk_ProceduralAction_Phase>{};
     for (const auto Index : {0, 1, 2})
@@ -341,11 +345,8 @@ auto
         auto Phase = FCk_ProceduralAction_Phase{
             FName{*FString::Printf(TEXT("Phase%d"), Index)}, FCk_Time{0.2}};
         auto Track = FCk_ProceduralAction_LimbTrack{OldId};
-        Track.Set_Space(ECk_ProceduralAction_TrackSpace::AnchorAtStart);
-        Track.Set_AnchorId(FName{TEXT("Pivot")});
         Track.Set_Interpolation(ECk_ProceduralAction_Interpolation::Smooth);
         Track.Set_ReachPolicy(ECk_ProceduralAction_ReachPolicy::ProjectToReach);
-        Track.Set_ClearanceResponse(ECk_ProceduralAction_ClearanceResponse::ObserveCrossing);
         auto Position = FCk_ProceduralAction_VectorKey{
             FCk_FloatRange_0to1{0.5}, FVector{static_cast<double>(Index), 2.0, 3.0}};
         Position.Set_ArriveTangent(FVector{4.0, 5.0, 6.0});
@@ -392,9 +393,6 @@ auto
     TestFalse(TEXT("missing old ID rejects atomically"),
         Commands.RenameSlot(Config.Get(), FName{TEXT("Missing")}, NewId, Error));
     TestTrue(TEXT("missing old ID leaves clip and preview intact"), OldStatePreserved());
-    TestFalse(TEXT("missing preview rejects atomically"),
-        Commands.RenameSlot(nullptr, OldId, NewId, Error));
-    TestTrue(TEXT("missing preview leaves clip intact"), OldStatePreserved());
     auto DuplicateSlots = Clip->Get_Slots();
     DuplicateSlots.Add(FCk_ProceduralAction_Slot{NewId});
     Clip->Set_Slots(DuplicateSlots);
@@ -459,10 +457,8 @@ auto
             || NOT Config->Get_InitialBendDirections().FindChecked(NewId).Equals(CapturedBend))
         { return false; }
         const auto& RenamedSlot = Clip->Get_Slots()[0];
-        if (RenamedSlot.Get_InitialSource() != Slot.Get_InitialSource()
-            || RenamedSlot.Get_RequiresTerminalOrientation() != Slot.Get_RequiresTerminalOrientation()
-            || RenamedSlot.Get_HasExplicitRestTarget() != Slot.Get_HasExplicitRestTarget()
-            || NOT RenamedSlot.Get_ExplicitRestTarget().Equals(Slot.Get_ExplicitRestTarget()))
+        if (RenamedSlot.Get_Space() != Slot.Get_Space()
+            || RenamedSlot.Get_InitialSource() != Slot.Get_InitialSource())
         { return false; }
         if (Clip->Get_Phases().Num() != 3)
         { return false; }
@@ -470,11 +466,9 @@ auto
         {
             const auto& Track = Clip->Get_Phases()[Index].Get_LimbTracks()[0];
             const auto& Original = Phases[Index].Get_LimbTracks()[0];
-            if (Track.Get_Slot() != NewId || Track.Get_Space() != Original.Get_Space()
-                || Track.Get_AnchorId() != Original.Get_AnchorId()
+            if (Track.Get_Slot() != NewId
                 || Track.Get_Interpolation() != Original.Get_Interpolation()
                 || Track.Get_ReachPolicy() != Original.Get_ReachPolicy()
-                || Track.Get_ClearanceResponse() != Original.Get_ClearanceResponse()
                 || Track.Get_PositionKeys().Num() != 1 || Track.Get_OrientationKeys().Num() != 1
                 || Track.Get_BendKeys().Num() != 1
                 || NOT Track.Get_PositionKeys()[0].Get_Value().Equals(Original.Get_PositionKeys()[0].Get_Value())
@@ -494,6 +488,62 @@ auto
     if (NOT TestTrue(TEXT("one redo reapplies clip and preview identities"), GEditor->RedoTransaction()))
     { return false; }
     TestTrue(TEXT("redo preserves every authored channel"), RenamedStatePreserved());
+    return NOT HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_AuthoringCommands_RenamePhaseUpdatesReferences,
+    "Ck.ProceduralAnimation.Action.Editor.AuthoringCommands.RenamePhaseUpdatesReferences",
+    ck_test_procedural_action_commands::TestFlags)
+
+auto
+    FCkTest_ProceduralAction_AuthoringCommands_RenamePhaseUpdatesReferences::
+    RunTest(
+        const FString&)
+    -> bool
+{
+    if (NOT TestNotNull(TEXT("editor transaction system"), GEditor))
+    { return false; }
+    auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{
+        NewObject<UCk_ProceduralAction_Data>(GetTransientPackage(), NAME_None, RF_Transient | RF_Transactional)};
+    auto Commands = FCk_ProceduralActionAuthoringCommands{Clip.Get()};
+    auto Error = FString{};
+    const auto Windup = FName{TEXT("Windup")};
+    const auto Strike = FName{TEXT("Strike")};
+    const auto Hit = FName{TEXT("Hit")};
+    if (NOT TestTrue(TEXT("add first phase"), Commands.AddPhase(Windup, FCk_Time{0.3}, Error))
+        || NOT TestTrue(TEXT("add second phase"), Commands.AddPhase(Strike, FCk_Time{0.4}, Error))
+        || NOT TestTrue(TEXT("add marker in the renamed phase"), Commands.AddMarker(FName{TEXT("Impact")}, Strike, 0.5, Error))
+        || NOT TestTrue(TEXT("add window ending in the renamed phase"),
+            Commands.AddWindow(FName{TEXT("Danger")}, Windup, 0.5, Strike, 0.5, Error)))
+    { AddError(Error); return false; }
+    Clip->Set_EditorPoseGroups(TArray<FCk_ProceduralAction_PoseGroup>{FCk_ProceduralAction_PoseGroup{FGuid::NewGuid(), Strike,
+        FCk_FloatRange_0to1{0.5}, TArray<FName>{FCk_ProceduralAction_PoseGroup::Get_BodyChannelName()}}});
+
+    const auto ReferencesName = [&Clip, Windup](FName InPhaseId)
+    {
+        return Clip->Get_Phases().Num() == 2
+            && Clip->Get_Phases()[0].Get_Id() == Windup
+            && Clip->Get_Phases()[1].Get_Id() == InPhaseId
+            && FMath::IsNearlyEqual(Clip->Get_Phases()[1].Get_Duration().Get_Seconds(), 0.4)
+            && Clip->Get_Markers().Num() == 1 && Clip->Get_Markers()[0].Get_At().Get_PhaseId() == InPhaseId
+            && Clip->Get_Windows().Num() == 1 && Clip->Get_Windows()[0].Get_Start().Get_PhaseId() == Windup
+            && Clip->Get_Windows()[0].Get_End().Get_PhaseId() == InPhaseId
+            && Clip->Get_EditorPoseGroups().Num() == 1 && Clip->Get_EditorPoseGroups()[0].Get_PhaseId() == InPhaseId;
+    };
+
+    TestFalse(TEXT("a duplicate name is refused"), Commands.RenamePhase(Strike, Windup, Error));
+    TestTrue(TEXT("the refusal names the conflict"), Error.Contains(Windup.ToString()));
+    TestTrue(TEXT("a refused duplicate changes nothing"), ReferencesName(Strike));
+    TestFalse(TEXT("an unknown section is refused"), Commands.RenamePhase(FName{TEXT("Missing")}, Hit, Error));
+    TestFalse(TEXT("an empty name is refused"), Commands.RenamePhase(Strike, NAME_None, Error));
+    TestTrue(TEXT("refused renames change nothing"), ReferencesName(Strike));
+
+    if (NOT TestTrue(TEXT("rename the referenced phase"), Commands.RenamePhase(Strike, Hit, Error)))
+    { AddError(Error); return false; }
+    TestTrue(TEXT("the phase, marker, window edge and pose group follow the rename"), ReferencesName(Hit));
+    if (NOT TestTrue(TEXT("undo the rename"), GEditor->UndoTransaction()))
+    { return false; }
+    TestTrue(TEXT("undo restores every reference to the old name"), ReferencesName(Strike));
     return NOT HasAnyErrors();
 }
 

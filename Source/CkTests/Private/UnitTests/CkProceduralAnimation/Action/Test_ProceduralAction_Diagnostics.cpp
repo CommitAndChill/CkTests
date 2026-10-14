@@ -12,9 +12,9 @@
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 
+#include "CkTest_ProceduralActionClipFixture.h"
 #include "CkTest_ProceduralActionReentry.h"
 #include "../CkTest_ProceduralWalkerFixture.h"
-#include "../../CkTest_CompletionListener.h"
 
 #include "Engine/World.h"
 #include "Misc/AutomationTest.h"
@@ -29,7 +29,8 @@ namespace ck_test_procedural_action_diagnostics
     const auto ArmId = FName{TEXT("DiagnosticArm")};
     const auto LocomotionReturnTimeout = FCk_Time{0.6};
     constexpr auto RecordsPerInstance = 4;
-    constexpr auto MaxSubmissions = RecordsPerInstance + 3;
+    // Nothing consumes the borrowed leg's stream, so it needs room for every frame the clip holds and returns.
+    constexpr auto HeldRecords = 4096;
 
     struct FState
     {
@@ -42,8 +43,7 @@ namespace ck_test_procedural_action_diagnostics
         FCk_Handle_ProceduralAction Action;
         FCk_ProceduralAction_Identity Identity;
         TStrongObjectPtr<UCk_Test_ProceduralActionReentry_UE> Listener;
-        TStrongObjectPtr<UCk_Test_CompletionListener_UE> SubmitListener;
-        int32 Submitted = 0;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
     };
 
     auto
@@ -121,21 +121,27 @@ auto
         {
             // A long support hold keeps the floor removal from interrupting the borrow, and a retry interval longer
             // than the deadline keeps probe exhaustion from ending the return first: only the deadline can fail it.
-            auto Support = UCk_Utils_ProceduralActionPlayer_UE::Make_CountOnlySupport(3);
+            auto Support = FCk_ProceduralLimbControl_Support{ECk_ProceduralLimbControl_SupportMode::CountOnly, 3};
             Support.Set_SupportHoldTimeout(FCk_Time{10.0});
             auto Return = FCk_ProceduralLimbControl_Return{};
             Return.Set_Duration(FCk_Time{0.2});
             Return.Set_Timeout(LocomotionReturnTimeout);
             Return.Set_MaxProbeAttempts(16);
             Return.Set_RetryInterval(FCk_Time{30.0});
-            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Walker.Subject,
-                UCk_Utils_ProceduralActionPlayer_UE::Make_BorrowingPlayerSpec(
-                    FCk_ProceduralActionPlayer_BorrowingSpec{Support, Return}));
+            auto Locomotion = FCk_ProceduralLimbControl_Locomotion{};
+            Locomotion.Set_Support(Support);
+            Locomotion.Set_Return(Return);
+            auto Spec = FCk_ProceduralActionPlayer_Spec{};
+            Spec.Set_Locomotion(Locomotion);
+            auto Capacity = Spec.Get_Capacity();
+            Capacity.Set_RecordsPerInstance(HeldRecords);
+            Spec.Set_Capacity(Capacity);
+            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Walker.Subject, Spec);
             TestTrue(TEXT("Borrowing player composes"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Walker.Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId(0)}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope, State->Player, Control);
+            State->Clip = ck_test_procedural_action_clip_fixture::MakeNodClip(TArray<FName>{LegId(0)}, FCk_Time{1.5});
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
+                ck_test_procedural_action_clip_fixture::MakePlay(State->Clip.Get(), TArray<FName>{LegId(0)}));
             State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
             BindFinished(*State);
         })));
@@ -143,16 +149,19 @@ auto
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
             return ck::IsValid(State->Action)
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Ready;
+                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Playing;
         }), WaitSeconds, TEXT("Walking limb is borrowed")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [State](UWorld*) { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->Floor.Entity); })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State] { return NOT ck::IsValid(State->Floor.Body); }),
-        WaitSeconds, TEXT("Jolt floor removal completes before return")));
+        WaitSeconds, TEXT("Jolt floor removal completes before the clip ends and returns")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [State](UWorld*)
-        { UCk_Utils_ProceduralAction_UE::Request_End(State->Action, FCk_Request_ProceduralAction_End{}, {}); })));
+        [this, State](UWorld*)
+        {
+            TestEqual(TEXT("The clip is still playing when the floor is gone"),
+                UCk_Utils_ProceduralAction_UE::Get_State(State->Action), ECk_ProceduralAction_State::Playing);
+        })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
@@ -240,55 +249,20 @@ auto
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
-            auto Spec = UCk_Utils_ProceduralActionPlayer_UE::Make_DedicatedPlayerSpec(FCk_ProceduralAction_Tuning{});
+            auto Spec = FCk_ProceduralActionPlayer_Spec{};
             auto Capacity = Spec.Get_Capacity();
             Capacity.Set_RecordsPerInstance(RecordsPerInstance);
             Spec.Set_Capacity(Capacity);
             State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, Spec);
             TestTrue(TEXT("Player with a small record budget composes"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{ArmId}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope, State->Player, Control);
+            State->Clip = ck_test_procedural_action_clip_fixture::MakeNodClip(TArray<FName>{ArmId}, FCk_Time{1.0});
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
+                ck_test_procedural_action_clip_fixture::MakePlay(State->Clip.Get(), TArray<FName>{ArmId}));
             State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
-            State->SubmitListener = TStrongObjectPtr<UCk_Test_CompletionListener_UE>{
-                NewObject<UCk_Test_CompletionListener_UE>()};
             BindFinished(*State);
         })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            return ck::IsValid(State->Action)
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Ready;
-        }), WaitSeconds, TEXT("Manual action holds the arm")));
-    // Every accepted batch publishes a record nobody consumes, so the batch after the budget overflows the stream.
-    for (auto Submission = 0; Submission < MaxSubmissions; ++Submission)
-    {
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-            [State, Submission](UWorld*)
-            {
-                if (UCk_Utils_ProceduralAction_UE::Get_State(State->Action) != ECk_ProceduralAction_State::Ready)
-                { return; }
-                // Alternating between one degree about the shoulder and the rest pose keeps every step in budget.
-                const auto Radians = Submission % 2 == 0 ? FMath::DegreesToRadians(1.0) : 0.0;
-                auto Target = FCk_ProceduralAction_LimbTarget{ArmId, FTransform{FQuat{FVector::UpVector, Radians},
-                    FVector{FMath::Cos(Radians) - 1.0, FMath::Sin(Radians), 0.0}}};
-                Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-                auto Batch = FCk_ProceduralAction_PoseBatch{};
-                Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-                auto Completion = FCk_Delegate_Request_OnCompleted{};
-                Completion.BindDynamic(State->SubmitListener.Get(), &UCk_Test_CompletionListener_UE::OnRequestCompleted);
-                ++State->Submitted;
-                UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(State->Action,
-                    FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, Completion);
-            })));
-        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-            FCk_NetAutoTest_Condition::CreateLambda([State]
-            {
-                return State->SubmitListener->_TimesRequestCompleted >= State->Submitted
-                    || UCk_Utils_ProceduralAction_UE::Get_State(State->Action) != ECk_ProceduralAction_State::Ready;
-            }), WaitSeconds, TEXT("Submitted batch completes")));
-    }
+    // Every accepted sample publishes a record nobody consumes, so the clip overflows its stream before it ends.
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
@@ -402,11 +376,11 @@ auto
     Context.Set_LimbIds(TArray<FName>{ArmId});
     Context.Set_Elapsed(FCk_Time{0.75});
     Context.Set_Limit(FCk_Time{0.5});
-    const auto Result = FCk_ProceduralAction_Result{ECk_ProceduralAction_Outcome::InputTimeout,
-        ECk_ProceduralAction_Recovery::Succeeded, FName{TEXT("InputTimeout")}};
+    const auto Result = FCk_ProceduralAction_Result{ECk_ProceduralAction_Outcome::AcquisitionTimeout,
+        ECk_ProceduralAction_Recovery::Succeeded, FName{TEXT("AcquisitionTimeout")}};
 
-    const auto Pending = FCk_ProceduralAction_Result{ECk_ProceduralAction_Outcome::InputTimeout,
-        ECk_ProceduralAction_Recovery::Pending, FName{TEXT("InputTimeout")}};
+    const auto Pending = FCk_ProceduralAction_Result{ECk_ProceduralAction_Outcome::AcquisitionTimeout,
+        ECk_ProceduralAction_Recovery::Pending, FName{TEXT("AcquisitionTimeout")}};
     TestTrue(TEXT("A context does not make a pending recovery terminal"),
         Store.Finish(WithContext, Pending, Context) == ck::procedural_action::EReceiptStoreWrite::InvalidRecord);
     TestTrue(TEXT("Finish with a context is accepted"),
@@ -427,7 +401,7 @@ auto
     {
         TestTrue(TEXT("Terminal record carries the captured context"), Get_AreEqual(Carried->Get_Context(), Context));
         TestEqual(TEXT("Terminal record keeps the result"), Carried->Get_Result().Get_Outcome(),
-            ECk_ProceduralAction_Outcome::InputTimeout);
+            ECk_ProceduralAction_Outcome::AcquisitionTimeout);
     }
     const auto Plain = Find(WithoutContext);
     if (TestTrue(TEXT("Contextless terminal record is readable"), Plain.IsSet()))

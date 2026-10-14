@@ -185,29 +185,60 @@ namespace ck_test_procedural_action_solver_world
         TSharedRef<FTuningState> _State;
     };
 
+    // One limb slot keyed in its rest-normalized frame, moving its endpoint from rest to InEndOffset (in chain lengths)
+    // over InDuration. Unreachable requests project onto the chain's reach, so a single-segment arm can follow it.
     auto
-        MakeBatch()
-        -> FCk_ProceduralAction_PoseBatch
+        MakeLimbClip(
+            FName InSlot,
+            const FVector& InEndOffset,
+            FCk_Time InDuration)
+        -> TStrongObjectPtr<UCk_ProceduralAction_Data>
     {
-        const auto Radians = FMath::DegreesToRadians(1.0f);
-        const auto Offset = FTransform{FQuat{FVector::UpVector, Radians},
-            FVector{FMath::Cos(Radians) - 1.0f, FMath::Sin(Radians), 0.0f}};
-        auto Target = FCk_ProceduralAction_LimbTarget{LimbId, Offset};
-        Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-        auto Batch = FCk_ProceduralAction_PoseBatch{};
-        Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-        return Batch;
+        auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{
+            NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
+        auto Slot = FCk_ProceduralAction_Slot{InSlot};
+        Slot.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
+        Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
+        auto Track = FCk_ProceduralAction_LimbTrack{InSlot};
+        Track.Set_ReachPolicy(ECk_ProceduralAction_ReachPolicy::ProjectToReach);
+        Track.Set_PositionKeys(TArray<FCk_ProceduralAction_VectorKey>{
+            FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{0.0}, FVector::ZeroVector},
+            FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{1.0}, InEndOffset}});
+        auto Phase = FCk_ProceduralAction_Phase{FName{TEXT("Move")}, InDuration};
+        Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
+        Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
+        return Clip;
     }
 
     auto
-        MakeWalkingBatch()
-        -> FCk_ProceduralAction_PoseBatch
+        MakeSlotBindings(
+            FName InLimbId)
+        -> TArray<FCk_ProceduralAction_SlotBinding>
+    { return TArray<FCk_ProceduralAction_SlotBinding>{FCk_ProceduralAction_SlotBinding{InLimbId, InLimbId}}; }
+
+    // A sideways sweep long enough to publish more accepted records than one stream's ordinary capacity.
+    auto
+        MakeSweepClip()
+        -> TStrongObjectPtr<UCk_ProceduralAction_Data>
+    { return MakeLimbClip(LimbId, FVector{0.0, 0.2, 0.0}, FCk_Time{1.3}); }
+
+    // A borrowed walking leg held at its rest endpoint for five fixed steps.
+    auto
+        MakeWalkingHoldClip()
+        -> TStrongObjectPtr<UCk_ProceduralAction_Data>
+    { return MakeLimbClip(FName{TEXT("Leg0")}, FVector::ZeroVector, FCk_Time{5.0 / 60.0}); }
+
+    auto
+        TerminalOutcome(
+            const FCk_ProceduralActionRecordedStore& InRecording)
+        -> ECk_ProceduralAction_Outcome
     {
-        auto Target = FCk_ProceduralAction_LimbTarget{FName{TEXT("Leg0")}, FTransform::Identity};
-        Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-        auto Batch = FCk_ProceduralAction_PoseBatch{};
-        Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-        return Batch;
+        for (const auto& Record : InRecording.Get_Records())
+        {
+            if (Record.Get_Kind() == ECk_ProceduralAction_RecordKind::Terminal)
+            { return Record.Get_Result().Get_Outcome(); }
+        }
+        return ECk_ProceduralAction_Outcome::None;
     }
 
     auto
@@ -365,7 +396,7 @@ namespace ck_test_procedural_action_solver_world
                     return false;
                 }
                 const auto& Recording = _State->Solver->GetRecording();
-                _Test->TestTrue(TEXT("production manual action copied an accepted receipt"),
+                _Test->TestTrue(TEXT("production clip action copied an accepted receipt"),
                     Recording.Get_Records().ContainsByPredicate([](const auto& InRecord)
                     { return InRecord.Get_Kind() == ECk_ProceduralAction_RecordKind::AcceptedPose; }));
                 auto AcceptedCount = int32{0};
@@ -376,7 +407,7 @@ namespace ck_test_procedural_action_solver_world
                 }
                 _Test->TestTrue(TEXT("copied and acknowledged stream passed its 64 ordinary-record capacity"),
                     AcceptedCount > 64);
-                _Test->TestTrue(TEXT("production manual action copied a terminal record"), Recording.Get_Terminal());
+                _Test->TestTrue(TEXT("production clip action copied a terminal record"), Recording.Get_Terminal());
                 const auto* LastAccepted = static_cast<const FCk_ProceduralAction_Record*>(nullptr);
                 for (const auto& Record : Recording.Get_Records())
                 {
@@ -484,9 +515,9 @@ namespace ck_test_procedural_action_solver_world
             }
             if (NOT _State->Solver->GetIsActionTerminal())
             { return false; }
-            const auto Action = _State->Solver->GetAction();
-            _Test->TestTrue(TEXT("the body clip completes on the walking subject"), ck::IsValid(Action)
-                && UCk_Utils_ProceduralAction_UE::Get_Result(Action).Get_Outcome() == ECk_ProceduralAction_Outcome::Completed);
+            // The copied terminal outlives the action, which releases itself once the Solver acknowledges it.
+            _Test->TestEqual(TEXT("the body clip completes on the walking subject"),
+                TerminalOutcome(_State->Solver->GetRecording()), ECk_ProceduralAction_Outcome::Completed);
             _State->Solver->Reset();
             return true;
         }
@@ -544,9 +575,6 @@ namespace ck_test_procedural_action_solver_world
                     UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(
                         _State->Solver->GetSubject(), FName{TEXT("Leg0")}).Get_State()
                         == ECk_ProceduralLimbControl_State::Controlled);
-                if (NOT _State->Solver->QueuePoseAtStep(1, MakeWalkingBatch())
-                    || NOT _State->Solver->QueueEndAtStep(5))
-                { _Test->AddError(TEXT("walking preview rejected its deterministic manual schedule")); return true; }
                 _Scheduled = true;
                 return false;
             }
@@ -615,18 +643,20 @@ namespace ck_test_procedural_action_solver_world
     {
         TStrongObjectPtr<UCk_ProceduralActionPreview_Config> Config;
         TUniquePtr<FCk_ProceduralActionSolverWorld> Solver;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         FCk_ProceduralArticulation_Pose FirstAcceptedPose;
         double DeadlineSeconds = 0.0;
         int32 Pass = 0;
     };
 
     auto
-        QueueAppearanceProof(
-            FCk_ProceduralActionSolverWorld& InSolver)
+        StartAppearanceProof(
+            FCk_ProceduralActionSolverWorld& InSolver,
+            const FAppearanceScaleState& InState,
+            uint64 InRevision)
         -> bool
     {
-        return InSolver.QueuePoseAtStep(8, MakeBatch())
-            && InSolver.QueueEndAtStep(30)
+        return InSolver.StartClip(InState.Config.Get(), InState.Clip.Get(), MakeSlotBindings(LimbId), InRevision)
             && InSolver.SeekToStep(60);
     }
 
@@ -686,11 +716,8 @@ namespace ck_test_procedural_action_solver_world
                 if (NOT _Test->TestTrue(TEXT("nonuniform appearance scale validates"),
                     _State->Config->ValidateAppearance(AppearanceError)))
                 { return true; }
-                auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LimbId}};
-                Control.Set_InputTimeout(FCk_Time{30.0});
                 if (NOT _Test->TestTrue(TEXT("production preview rebuilds with only appearance scale changed"),
-                    _State->Solver->StartManual(_State->Config.Get(), Control, 23)
-                    && QueueAppearanceProof(*_State->Solver)))
+                    StartAppearanceProof(*_State->Solver, *_State, 23)))
                 { _Test->AddError(_State->Solver->GetError()); _State->Solver->Reset(); return true; }
                 _State->Pass = 1;
                 return false;
@@ -724,12 +751,12 @@ namespace ck_test_procedural_action_solver_world
     };
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_SolverWorld_ManualReplay,
-    "Ck.ProceduralAnimation.Action.Editor.SolverWorld.ManualReplay",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_SolverWorld_ClipReplay,
+    "Ck.ProceduralAnimation.Action.Editor.SolverWorld.ClipReplay",
     ck_test_procedural_action_solver_world::TestFlags)
 
 auto
-    FCkTest_ProceduralAction_SolverWorld_ManualReplay::
+    FCkTest_ProceduralAction_SolverWorld_ClipReplay::
     RunTest(
         const FString&)
     -> bool
@@ -737,11 +764,10 @@ auto
     using namespace ck_test_procedural_action_solver_world;
     auto State = MakeShared<FState>();
     State->Config = MakeConfig();
+    State->Clip = MakeSweepClip();
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
-    auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LimbId}};
-    Control.Set_InputTimeout(FCk_Time{30.0});
-    if (NOT TestTrue(TEXT("private production manual Solver starts"),
-        State->Solver->StartManual(State->Config.Get(), Control, 17)))
+    if (NOT TestTrue(TEXT("private production Solver starts a limb clip"),
+        State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), MakeSlotBindings(LimbId), 17)))
     {
         AddError(State->Solver->GetError());
         return false;
@@ -750,16 +776,8 @@ auto
         State->Solver->GetWorld()->WorldType, EWorldType::GamePreview);
     TestTrue(TEXT("private Solver excludes gameplay AngelScript world subsystems"),
         State->Solver->GetWorld()->GetSubsystemArrayCopy<UScriptWorldSubsystem>().IsEmpty());
-    for (auto Step = int64{8}; Step < 78; ++Step)
-    {
-        if (NOT TestTrue(TEXT("fixed input schedule accepts a pose"),
-            State->Solver->QueuePoseAtStep(Step, MakeBatch())))
-        { return false; }
-    }
-    if (NOT TestTrue(TEXT("fixed input schedule accepts an End"),
-            State->Solver->QueueEndAtStep(90))
-        || NOT TestTrue(TEXT("forward seek is scheduled without synchronous world ticks"),
-            State->Solver->SeekToStep(120)))
+    if (NOT TestTrue(TEXT("forward seek is scheduled without synchronous world ticks"),
+        State->Solver->SeekToStep(120)))
     { return false; }
     State->DeadlineSeconds = FPlatformTime::Seconds() + 15.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunSolver(this, State));
@@ -777,13 +795,18 @@ auto
     -> bool
 {
     using namespace ck_test_procedural_action_solver_world;
-    auto Config = MakeConfig();
-    Config->Set_Layout(FCk_ProceduralArticulation_Layout{TArray<FCk_ProceduralLimb_Layout>{}});
-    Config->Set_LimbBindings(TArray<FCk_ProceduralActionPreview_LimbBinding>{});
-    auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{}};
-    Control.Set_BodyChannel(ECk_EnableDisable::Enable);
+    auto Config = MakeBodyConfig();
+    auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
+    auto Body = FCk_ProceduralAction_BodyChannel{};
+    Body.Set_Enabled(true);
+    Clip->Set_BodyChannel(Body);
+    auto Phase = FCk_ProceduralAction_Phase{FName{TEXT("Lean")}, FCk_Time{0.5}};
+    Phase.Set_BodyKeys(TArray<FCk_ProceduralAction_TransformKey>{
+        FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.0}, FVector::ZeroVector, FQuat::Identity},
+        FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{1.0}, FVector{5.0, 0.0, 0.0}, FQuat::Identity}});
+    Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
     auto Solver = FCk_ProceduralActionSolverWorld{};
-    const auto Started = Solver.StartManual(Config.Get(), Control, 18);
+    const auto Started = Solver.StartClip(Config.Get(), Clip.Get(), {}, 18);
     TestTrue(TEXT("production Solver accepts body-only articulation"), Started);
     if (NOT Started)
     { AddError(Solver.GetError()); }
@@ -847,11 +870,10 @@ auto
     auto State = MakeShared<FState>();
     State->Config = MakeWalkingConfig();
     State->Config->Set_ObservationHorizonStep(120);
+    State->Clip = MakeWalkingHoldClip();
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
-    auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{FName{TEXT("Leg0")}}};
-    Control.Set_InputTimeout(FCk_Time{10.0});
     if (NOT TestTrue(TEXT("production walking preview composes"),
-        State->Solver->StartManual(State->Config.Get(), Control, 19)))
+        State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), MakeSlotBindings(FName{TEXT("Leg0")}), 19)))
     {
         AddError(State->Solver->GetError());
         return false;
@@ -922,12 +944,10 @@ auto
     TestTrue(TEXT("invalid appearance scale explains the correction"),
         AppearanceError.Contains(TEXT("finite, nonzero")));
     State->Config->Set_BodyPreviewMeshScale(FVector::OneVector);
+    State->Clip = MakeLimbClip(LimbId, FVector{0.0, 0.1, 0.0}, FCk_Time{0.4});
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
-    auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LimbId}};
-    Control.Set_InputTimeout(FCk_Time{30.0});
     if (NOT TestTrue(TEXT("production preview composes with unit appearance scale"),
-        State->Solver->StartManual(State->Config.Get(), Control, 22)
-        && QueueAppearanceProof(*State->Solver)))
+        StartAppearanceProof(*State->Solver, *State, 22)))
     { AddError(State->Solver->GetError()); State->Solver->Reset(); return false; }
     State->DeadlineSeconds = FPlatformTime::Seconds() + 15.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunAppearanceScale(this, State));

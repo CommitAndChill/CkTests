@@ -126,33 +126,22 @@ auto
         GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralArticulation_UE, Get_Limb));
     auto* RevisionFunction = Utils->FindFunctionByName(
         GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralArticulation_UE, Get_SettledRevision));
-    auto* LoadedFunction = UCk_Utils_ProceduralAction_UE::StaticClass()->FindFunctionByName(
-        GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralAction_UE, Create_FromLoadedClip));
+    auto* CreateFunction = UCk_Utils_ProceduralAction_UE::StaticClass()->FindFunctionByName(
+        GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralAction_UE, Create_FromClip));
     auto* ValidateFunction = UCk_Utils_ProceduralAction_UE::StaticClass()->FindFunctionByName(
         GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralAction_UE, Validate_Data));
-    auto* AdmissionFunction = UCk_Utils_ProceduralActionPlayer_UE::StaticClass()->FindFunctionByName(
-        GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralActionPlayer_UE, Get_AdmissionReport));
     if (NOT TestNotNull(TEXT("public Articulation Add node"), AddFunction)
         || NOT TestNotNull(TEXT("public Articulation Get_Limb node"), LimbFunction)
         || NOT TestNotNull(TEXT("public Articulation Get_SettledRevision node"), RevisionFunction)
-        || NOT TestNotNull(TEXT("public loaded clip create node"), LoadedFunction)
-        || NOT TestNotNull(TEXT("public clip validation node"), ValidateFunction)
-        || NOT TestNotNull(TEXT("public player admission report node"), AdmissionFunction))
+        || NOT TestNotNull(TEXT("public clip create node"), CreateFunction)
+        || NOT TestNotNull(TEXT("public clip validation node"), ValidateFunction))
     { return false; }
 
     auto* Add = DoAddCall(*Graph, *AddFunction);
     auto* Limb = DoAddCall(*Graph, *LimbFunction);
     auto* Revision = DoAddCall(*Graph, *RevisionFunction);
-    auto* Loaded = DoAddCall(*Graph, *LoadedFunction);
+    auto* Create = DoAddCall(*Graph, *CreateFunction);
     auto* Validate = DoAddCall(*Graph, *ValidateFunction);
-    auto* Admission = DoAddCall(*Graph, *AdmissionFunction);
-
-    auto* MakeLoadedSpec = NewObject<UK2Node_MakeStruct>(Graph);
-    MakeLoadedSpec->StructType = FCk_ProceduralAction_LoadedPlaySpec::StaticStruct();
-    Graph->AddNode(MakeLoadedSpec, false, false);
-    MakeLoadedSpec->CreateNewGuid();
-    MakeLoadedSpec->PostPlacedNewNode();
-    MakeLoadedSpec->AllocateDefaultPins();
 
     auto* MakePlaySpec = NewObject<UK2Node_MakeStruct>(Graph);
     MakePlaySpec->StructType = FCk_ProceduralAction_PlaySpec::StaticStruct();
@@ -167,12 +156,6 @@ auto
     ValidationBreak->CreateNewGuid();
     ValidationBreak->PostPlacedNewNode();
     ValidationBreak->AllocateDefaultPins();
-    auto* AdmissionBreak = NewObject<UK2Node_BreakStruct>(Graph);
-    AdmissionBreak->StructType = FCk_ProceduralAction_ValidationReport::StaticStruct();
-    Graph->AddNode(AdmissionBreak, false, false);
-    AdmissionBreak->CreateNewGuid();
-    AdmissionBreak->PostPlacedNewNode();
-    AdmissionBreak->AllocateDefaultPins();
 
     auto* PlayerGet = NewObject<UK2Node_VariableGet>(Graph);
     PlayerGet->VariableReference.SetSelfMember(PlayerName);
@@ -184,11 +167,11 @@ auto
     constexpr auto BodyPulsePath = TEXT("/CkFoundation/ProceduralAnimation/Examples/"
         "Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
     auto* BodyPulse = LoadObject<UCk_ProceduralAction_Data>(nullptr, BodyPulsePath);
-    auto* ClipPin = MakeLoadedSpec->FindPin(TEXT("_Clip"));
+    auto* ClipPin = MakePlaySpec->FindPin(TEXT("_Clip"));
     if (NOT TestNotNull(TEXT("persisted BodyPulse clip"), BodyPulse)
-        || NOT TestNotNull(TEXT("loaded play spec Clip input"), ClipPin))
+        || NOT TestNotNull(TEXT("play spec Clip input"), ClipPin))
     { return false; }
-    Graph->GetSchema()->TrySetDefaultObject(*ClipPin, BodyPulse);
+    Graph->GetSchema()->TrySetDefaultValue(*ClipPin, BodyPulse->GetPathName());
 
     auto* MakeSpec = NewObject<UK2Node_MakeStruct>(Graph);
     MakeSpec->StructType = FCk_ProceduralArticulation_Spec::StaticStruct();
@@ -243,27 +226,18 @@ auto
         DoConnect(*Graph, Event->FindPin(UEdGraphSchema_K2::PN_Then),
             Validate->FindPin(UEdGraphSchema_K2::PN_Execute))
         && DoConnect(*Graph, Validate->FindPin(UEdGraphSchema_K2::PN_Then),
-            Admission->FindPin(UEdGraphSchema_K2::PN_Execute))
-        && DoConnect(*Graph, Admission->FindPin(UEdGraphSchema_K2::PN_Then),
-            Loaded->FindPin(UEdGraphSchema_K2::PN_Execute))
-        && DoConnect(*Graph, Loaded->FindPin(UEdGraphSchema_K2::PN_Then),
+            Create->FindPin(UEdGraphSchema_K2::PN_Execute))
+        && DoConnect(*Graph, Create->FindPin(UEdGraphSchema_K2::PN_Then),
             Add->FindPin(UEdGraphSchema_K2::PN_Execute))
         && DoConnect(*Graph, Validate->GetReturnValuePin(),
             ValidationBreak->FindPin(FCk_ProceduralAction_ValidationReport::StaticStruct()->GetFName()))
-        && DoConnect(*Graph, Admission->GetReturnValuePin(),
-            AdmissionBreak->FindPin(FCk_ProceduralAction_ValidationReport::StaticStruct()->GetFName()))
+        && DoConnect(*Graph, Event->FindPin(TEXT("InEntity")),
+            Create->FindPin(TEXT("InScope")))
         && DoConnect(*Graph, PlayerGet->GetValuePin(),
-            Admission->FindPin(TEXT("InPlayer")))
+            Create->FindPin(TEXT("InPlayer")))
         && DoConnect(*Graph,
             MakePlaySpec->FindPin(FCk_ProceduralAction_PlaySpec::StaticStruct()->GetFName()),
-            Admission->FindPin(TEXT("InSpec")))
-        && DoConnect(*Graph, Event->FindPin(TEXT("InEntity")),
-            Loaded->FindPin(TEXT("InScope")))
-        && DoConnect(*Graph, PlayerGet->GetValuePin(),
-            Loaded->FindPin(TEXT("InPlayer")))
-        && DoConnect(*Graph,
-            MakeLoadedSpec->FindPin(FCk_ProceduralAction_LoadedPlaySpec::StaticStruct()->GetFName()),
-            Loaded->FindPin(TEXT("InSpec")))
+            Create->FindPin(TEXT("InSpec")))
         && DoConnect(*Graph, Event->FindPin(TEXT("InDisplayOwner")),
             Add->FindPin(TEXT("InRoot")))
         && DoConnect(*Graph, MakeSpec->FindPin(FCk_ProceduralArticulation_Spec::StaticStruct()->GetFName()),
@@ -298,15 +272,15 @@ auto
         || NOT TestNotNull(TEXT("page records read pin"), PageBreak->FindPin(TEXT("_Records")))
         || NOT TestNotNull(TEXT("validation status read pin"), ValidationBreak->FindPin(TEXT("_Status")))
         || NOT TestNotNull(TEXT("validation diagnostics read pin"), ValidationBreak->FindPin(TEXT("_Diagnostics")))
-        || NOT TestNotNull(TEXT("admission status read pin"), AdmissionBreak->FindPin(TEXT("_Status")))
-        || NOT TestNotNull(TEXT("admission advisory read pin"), AdmissionBreak->FindPin(TEXT("_Advisory")))
-        || NOT TestNotNull(TEXT("admission diagnostics read pin"), AdmissionBreak->FindPin(TEXT("_Diagnostics"))))
+        || NOT TestNotNull(TEXT("play spec delivery input"), MakePlaySpec->FindPin(TEXT("_Delivery")))
+        || NOT TestNotNull(TEXT("play spec slot bindings input"), MakePlaySpec->FindPin(TEXT("_SlotBindings"))))
     { return false; }
-    if (NOT TestTrue(TEXT("loaded play spec carries the persisted clip object"),
-            ClipPin->DefaultObject == BodyPulse)
-        || NOT TestTrue(TEXT("loaded create accepts reflected loaded spec"),
-            Loaded->FindPin(TEXT("InSpec"))->PinType.PinSubCategoryObject.Get()
-                == FCk_ProceduralAction_LoadedPlaySpec::StaticStruct()))
+    if (NOT TestTrue(TEXT("play spec carries the persisted clip as a soft reference"),
+            ClipPin->PinType.PinCategory == UEdGraphSchema_K2::PC_SoftObject
+            && ClipPin->DefaultValue.Contains(BodyPulse->GetName()))
+        || NOT TestTrue(TEXT("Create_FromClip accepts the reflected play spec"),
+            Create->FindPin(TEXT("InSpec"))->PinType.PinSubCategoryObject.Get()
+                == FCk_ProceduralAction_PlaySpec::StaticStruct()))
     { return false; }
     if (NOT TestNotNull(TEXT("Validate_Data clip input"), Validate->FindPin(TEXT("InData"))))
     { return false; }
@@ -327,9 +301,12 @@ auto
         || NOT TestTrue(TEXT("validation status field is the reflected report enum"),
             ValidationBreak->FindPin(TEXT("_Status"))->PinType.PinSubCategoryObject.Get()
                 == StaticEnum<ECk_ProceduralAction_ReportStatus>())
-        || NOT TestTrue(TEXT("admission diagnostics field is a reflected array"),
-            AdmissionBreak->FindPin(TEXT("_Diagnostics"))->PinType.ContainerType
-                == EPinContainerType::Array))
+        || NOT TestTrue(TEXT("validation diagnostics field is a reflected array"),
+            ValidationBreak->FindPin(TEXT("_Diagnostics"))->PinType.ContainerType
+                == EPinContainerType::Array)
+        || NOT TestTrue(TEXT("play spec delivery field is the reflected delivery enum"),
+            MakePlaySpec->FindPin(TEXT("_Delivery"))->PinType.PinSubCategoryObject.Get()
+                == StaticEnum<ECk_ProceduralAction_Delivery>()))
     { return false; }
 
     FKismetEditorUtilities::CompileBlueprint(Blueprint.Get());
@@ -405,12 +382,12 @@ auto
     Event->AllocateDefaultPins();
 
     auto* Function = UCk_Utils_ProceduralAction_UE::StaticClass()->FindFunctionByName(
-        GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralAction_UE, Create_FromLoadedClip));
-    if (NOT TestNotNull(TEXT("loaded clip public UFunction"), Function))
+        GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralAction_UE, Create_FromClip));
+    if (NOT TestNotNull(TEXT("clip create public UFunction"), Function))
     { return false; }
     auto* Loaded = DoAddCall(*Graph, *Function);
     auto* MakeSpec = NewObject<UK2Node_MakeStruct>(Graph);
-    MakeSpec->StructType = FCk_ProceduralAction_LoadedPlaySpec::StaticStruct();
+    MakeSpec->StructType = FCk_ProceduralAction_PlaySpec::StaticStruct();
     Graph->AddNode(MakeSpec, false, false);
     MakeSpec->CreateNewGuid();
     MakeSpec->PostPlacedNewNode();
@@ -433,9 +410,9 @@ auto
     auto* BodyPulse = LoadObject<UCk_ProceduralAction_Data>(nullptr, BodyPulsePath);
     auto* ClipPin = MakeSpec->FindPin(TEXT("_Clip"));
     if (NOT TestNotNull(TEXT("saved BodyPulse clip"), BodyPulse)
-        || NOT TestNotNull(TEXT("loaded spec clip pin"), ClipPin))
+        || NOT TestNotNull(TEXT("play spec clip pin"), ClipPin))
     { return false; }
-    Graph->GetSchema()->TrySetDefaultObject(*ClipPin, BodyPulse);
+    Graph->GetSchema()->TrySetDefaultValue(*ClipPin, BodyPulse->GetPathName());
     const auto Connected =
         DoConnect(*Graph, Event->FindPin(UEdGraphSchema_K2::PN_Then),
             Loaded->FindPin(UEdGraphSchema_K2::PN_Execute))
@@ -445,7 +422,7 @@ auto
             Loaded->FindPin(TEXT("InScope")))
         && DoConnect(*Graph, PlayerGet->GetValuePin(), Loaded->FindPin(TEXT("InPlayer")))
         && DoConnect(*Graph,
-            MakeSpec->FindPin(FCk_ProceduralAction_LoadedPlaySpec::StaticStruct()->GetFName()),
+            MakeSpec->FindPin(FCk_ProceduralAction_PlaySpec::StaticStruct()->GetFName()),
             Loaded->FindPin(TEXT("InSpec")))
         && DoConnect(*Graph, Loaded->GetReturnValuePin(),
             ActionSet->FindPin(ActionName, EGPD_Input));
@@ -627,349 +604,6 @@ auto
     Fixture.ForwardErrorMessages(this);
     TestTrue(TEXT("VM world was destroyed"), Destroyed);
     TestFalse(TEXT("VM-created action handle invalid after teardown"), ck::IsValid(StaleAction));
-    return NOT HasAnyErrors();
-}
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_BlueprintParity_ManagedPlayLoadedVm,
-    "Ck.ProceduralAnimation.Action.Editor.BlueprintParity.ManagedPlayLoadedVm",
-    ck_test_procedural_action_blueprint::TestFlags)
-
-auto
-    FCkTest_ProceduralAction_BlueprintParity_ManagedPlayLoadedVm::
-    RunTest(
-        const FString&)
-    -> bool
-{
-    using namespace ck_test_procedural_action_blueprint;
-
-    auto Blueprint = TStrongObjectPtr<UBlueprint>{FKismetEditorUtilities::CreateBlueprint(
-        UCk_Test_RuntimeMeshBpHarness_UE::StaticClass(), GetTransientPackage(),
-        FName(*FString::Printf(TEXT("ProceduralActionManagedVm_%s"),
-            *FGuid::NewGuid().ToString(EGuidFormats::Digits))),
-        BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass())};
-    auto* Graph = Blueprint.IsValid() ? FBlueprintEditorUtils::FindEventGraph(Blueprint.Get()) : nullptr;
-    if (NOT TestNotNull(TEXT("transient Blueprint event graph"), Graph))
-    { return false; }
-
-    auto PlayerType = FEdGraphPinType{};
-    PlayerType.PinCategory = UEdGraphSchema_K2::PC_Struct;
-    PlayerType.PinSubCategoryObject = FCk_Handle_ProceduralActionPlayer::StaticStruct();
-    auto StartType = FEdGraphPinType{};
-    StartType.PinCategory = UEdGraphSchema_K2::PC_Struct;
-    StartType.PinSubCategoryObject = FCk_ProceduralAction_ManagedStart::StaticStruct();
-    auto CompletionType = FEdGraphPinType{};
-    CompletionType.PinCategory = UEdGraphSchema_K2::PC_Struct;
-    CompletionType.PinSubCategoryObject = FCk_ProceduralAction_ManagedCompletion::StaticStruct();
-    const FName PlayerName{TEXT("VmManagedPlayer")};
-    const FName StartName{TEXT("VmManagedStart")};
-    const FName CompletionName{TEXT("VmManagedCompletion")};
-    if (NOT TestTrue(TEXT("VM Blueprint owns typed player variable"),
-            FBlueprintEditorUtils::AddMemberVariable(Blueprint.Get(), PlayerName, PlayerType))
-        || NOT TestTrue(TEXT("VM Blueprint owns managed start variable"),
-            FBlueprintEditorUtils::AddMemberVariable(Blueprint.Get(), StartName, StartType))
-        || NOT TestTrue(TEXT("VM Blueprint owns managed completion variable"),
-            FBlueprintEditorUtils::AddMemberVariable(Blueprint.Get(), CompletionName, CompletionType)))
-    { return false; }
-
-    auto* Event = NewObject<UK2Node_Event>(Graph);
-    Event->EventReference.SetExternalMember(
-        GET_FUNCTION_NAME_CHECKED(UCk_Test_RuntimeMeshBpHarness_UE, ComposeResult),
-        UCk_Test_RuntimeMeshBpHarness_UE::StaticClass());
-    Event->bOverrideFunction = true;
-    Graph->AddNode(Event, false, false);
-    Event->CreateNewGuid();
-    Event->PostPlacedNewNode();
-    Event->AllocateDefaultPins();
-
-    auto* Function = UCk_Utils_ProceduralAction_UE::StaticClass()->FindFunctionByName(
-        GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralAction_UE, Play_Loaded));
-    if (NOT TestNotNull(TEXT("managed loaded play public UFunction"), Function))
-    { return false; }
-    const auto* CompletionProperty = CastField<FDelegateProperty>(Function->FindPropertyByName(TEXT("InOnCompleted")));
-    if (NOT TestNotNull(TEXT("managed completion is a dynamic delegate parameter"), CompletionProperty)
-        || NOT TestNotNull(TEXT("managed completion signature"), CompletionProperty->SignatureFunction.Get()))
-    { return false; }
-    auto* Play = DoAddCall(*Graph, *Function);
-    auto* MakeSpec = NewObject<UK2Node_MakeStruct>(Graph);
-    MakeSpec->StructType = FCk_ProceduralAction_LoadedPlaySpec::StaticStruct();
-    Graph->AddNode(MakeSpec, false, false);
-    MakeSpec->CreateNewGuid();
-    MakeSpec->PostPlacedNewNode();
-    MakeSpec->AllocateDefaultPins();
-    auto* PlayerGet = NewObject<UK2Node_VariableGet>(Graph);
-    PlayerGet->VariableReference.SetSelfMember(PlayerName);
-    Graph->AddNode(PlayerGet, false, false);
-    PlayerGet->CreateNewGuid();
-    PlayerGet->PostPlacedNewNode();
-    PlayerGet->AllocateDefaultPins();
-    auto* StartSet = NewObject<UK2Node_VariableSet>(Graph);
-    StartSet->VariableReference.SetSelfMember(StartName);
-    Graph->AddNode(StartSet, false, false);
-    StartSet->CreateNewGuid();
-    StartSet->PostPlacedNewNode();
-    StartSet->AllocateDefaultPins();
-    constexpr auto SelectNewNode = false;
-    auto* Completed = UK2Node_CustomEvent::CreateFromFunction(FVector2D::ZeroVector, Graph,
-        TEXT("OnVmManagedCompleted"), CompletionProperty->SignatureFunction.Get(), SelectNewNode);
-    auto* CompletionSet = NewObject<UK2Node_VariableSet>(Graph);
-    CompletionSet->VariableReference.SetSelfMember(CompletionName);
-    Graph->AddNode(CompletionSet, false, false);
-    CompletionSet->CreateNewGuid();
-    CompletionSet->PostPlacedNewNode();
-    CompletionSet->AllocateDefaultPins();
-
-    constexpr auto BodyPulsePath = TEXT("/CkFoundation/ProceduralAnimation/Examples/"
-        "Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
-    auto* BodyPulse = LoadObject<UCk_ProceduralAction_Data>(nullptr, BodyPulsePath);
-    auto* ClipPin = MakeSpec->FindPin(TEXT("_Clip"));
-    if (NOT TestNotNull(TEXT("saved BodyPulse clip"), BodyPulse)
-        || NOT TestNotNull(TEXT("loaded spec clip pin"), ClipPin)
-        || NOT TestNotNull(TEXT("completion custom event"), Completed))
-    { return false; }
-    Graph->GetSchema()->TrySetDefaultObject(*ClipPin, BodyPulse);
-    const auto Connected =
-        DoConnect(*Graph, Event->FindPin(UEdGraphSchema_K2::PN_Then),
-            Play->FindPin(UEdGraphSchema_K2::PN_Execute))
-        && DoConnect(*Graph, Play->FindPin(UEdGraphSchema_K2::PN_Then),
-            StartSet->FindPin(UEdGraphSchema_K2::PN_Execute))
-        && DoConnect(*Graph, Event->FindPin(TEXT("InEntity")), Play->FindPin(TEXT("InScope")))
-        && DoConnect(*Graph, PlayerGet->GetValuePin(), Play->FindPin(TEXT("InPlayer")))
-        && DoConnect(*Graph,
-            MakeSpec->FindPin(FCk_ProceduralAction_LoadedPlaySpec::StaticStruct()->GetFName()),
-            Play->FindPin(TEXT("InSpec")))
-        && DoConnect(*Graph, Completed->FindPin(UK2Node_Event::DelegateOutputName),
-            Play->FindPin(TEXT("InOnCompleted")))
-        && DoConnect(*Graph, Play->GetReturnValuePin(), StartSet->FindPin(StartName, EGPD_Input))
-        && DoConnect(*Graph, Completed->FindPin(UEdGraphSchema_K2::PN_Then),
-            CompletionSet->FindPin(UEdGraphSchema_K2::PN_Execute))
-        && DoConnect(*Graph, Completed->FindPin(TEXT("InCompletion")),
-            CompletionSet->FindPin(CompletionName, EGPD_Input));
-    if (NOT TestTrue(TEXT("VM managed play graph pins connect"), Connected))
-    { return false; }
-    FKismetEditorUtilities::CompileBlueprint(Blueprint.Get());
-    if (NOT TestTrue(TEXT("VM managed play graph compiles"),
-        (Blueprint->Status == BS_UpToDate || Blueprint->Status == BS_UpToDateWithWarnings)
-        && Blueprint->GeneratedClass != nullptr))
-    { return false; }
-
-    auto Fixture = FTestWorldWrapper{};
-    if (NOT TestTrue(TEXT("production Game world created"),
-            Fixture.CreateTestWorld(EWorldType::Game))
-        || NOT TestTrue(TEXT("production Game world began play"),
-            Fixture.BeginPlayInTestWorld()))
-    {
-        Fixture.ForwardErrorMessages(this);
-        return false;
-    }
-    auto* World = Fixture.GetTestWorld();
-    auto Root = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(World);
-    auto RootTransform = UCk_Utils_Transform_UE::Add(Root, FTransform::Identity,
-        ECk_Replication::DoesNotReplicate);
-    auto PresentationEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Root);
-    auto Presentation = UCk_Utils_Transform_UE::Add(PresentationEntity, FTransform::Identity,
-        ECk_Replication::DoesNotReplicate);
-    auto Layout = FCk_ProceduralArticulation_Layout{};
-    Layout.Set_BodyEnvelopeMin(FVector{-2.0, -2.0, -2.0});
-    Layout.Set_BodyEnvelopeMax(FVector{2.0, 2.0, 2.0});
-    auto SubjectSpec = FCk_ProceduralArticulation_Spec{
-        MoveTemp(Layout), TArray<FCk_ProceduralLimb_Binding>{}};
-    SubjectSpec.Set_Presentation(Presentation);
-    auto Subject = UCk_Utils_ProceduralArticulation_UE::Add(RootTransform, SubjectSpec);
-    auto Player = UCk_Utils_ProceduralActionPlayer_UE::Add(Subject,
-        FCk_ProceduralActionPlayer_Spec{});
-    auto Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Root);
-    auto Harness = TStrongObjectPtr<UCk_Test_RuntimeMeshBpHarness_UE>{
-        NewObject<UCk_Test_RuntimeMeshBpHarness_UE>(GetTransientPackage(),
-            Blueprint->GeneratedClass)};
-    auto* PlayerProperty = FindFProperty<FStructProperty>(Blueprint->GeneratedClass, PlayerName);
-    auto* StartProperty = FindFProperty<FStructProperty>(Blueprint->GeneratedClass, StartName);
-    auto* CompletionMember = FindFProperty<FStructProperty>(Blueprint->GeneratedClass, CompletionName);
-    if (NOT TestTrue(TEXT("production body-only subject, player, and scope composed"),
-            ck::IsValid(Subject) && ck::IsValid(Player) && ck::IsValid(Scope))
-        || NOT TestNotNull(TEXT("VM player reflected member"), PlayerProperty)
-        || NOT TestNotNull(TEXT("VM start reflected member"), StartProperty)
-        || NOT TestNotNull(TEXT("VM completion reflected member"), CompletionMember))
-    {
-        Fixture.DestroyTestWorld(true);
-        Fixture.ForwardErrorMessages(this);
-        return false;
-    }
-    PlayerProperty->CopyCompleteValue(PlayerProperty->ContainerPtrToValuePtr<void>(Harness.Get()),
-        &Player);
-    Harness->ComposeResult(RootTransform, Scope,
-        FCk_RuntimeMeshDisplay_Spec{}, FCk_JoltBody_Spec{});
-    auto Start = FCk_ProceduralAction_ManagedStart{};
-    StartProperty->CopyCompleteValue(&Start, StartProperty->ContainerPtrToValuePtr<void>(Harness.Get()));
-    auto Completion = FCk_ProceduralAction_ManagedCompletion{};
-    CompletionMember->CopyCompleteValue(&Completion,
-        CompletionMember->ContainerPtrToValuePtr<void>(Harness.Get()));
-    TestTrue(TEXT("Blueprint VM started a managed action through the public node"),
-        ck::IsValid(Start.Get_Action()) && Start.Get_Identity().Get_Value() > 0);
-    TestEqual(TEXT("Blueprint VM completion does not fire inside the node"),
-        Completion.Get_Identity().Get_Value(), int64{0});
-    for (auto TickIndex = 0; TickIndex < 600 && Completion.Get_Identity().Get_Value() == 0; ++TickIndex)
-    {
-        if (NOT Fixture.TickTestWorld(1.0f / 60.0f))
-        { break; }
-        CompletionMember->CopyCompleteValue(&Completion,
-            CompletionMember->ContainerPtrToValuePtr<void>(Harness.Get()));
-    }
-    TestEqual(TEXT("Blueprint custom event received the managed completion"),
-        Completion.Get_Identity().Get_Value(), Start.Get_Identity().Get_Value());
-    TestEqual(TEXT("Blueprint VM managed BodyPulse completed"),
-        Completion.Get_Result().Get_Outcome(), ECk_ProceduralAction_Outcome::Completed);
-    TestEqual(TEXT("Blueprint VM managed delivery is complete"),
-        Completion.Get_Delivery(), ECk_ProceduralAction_DeliveryStatus::Complete);
-    const auto Destroyed = Fixture.DestroyTestWorld(true);
-    Fixture.ForwardErrorMessages(this);
-    TestTrue(TEXT("VM world was destroyed"), Destroyed);
-    return NOT HasAnyErrors();
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_BlueprintParity_MirrorVm,
-    "Ck.ProceduralAnimation.Action.Editor.BlueprintParity.MirrorVm",
-    ck_test_procedural_action_blueprint::TestFlags)
-
-auto
-    FCkTest_ProceduralAction_BlueprintParity_MirrorVm::
-    RunTest(
-        const FString&)
-    -> bool
-{
-    using namespace ck_test_procedural_action_blueprint;
-
-    auto Blueprint = TStrongObjectPtr<UBlueprint>{FKismetEditorUtilities::CreateBlueprint(
-        UCk_Test_RuntimeMeshBpHarness_UE::StaticClass(), GetTransientPackage(),
-        FName(*FString::Printf(TEXT("ProceduralActionMirrorVm_%s"),
-            *FGuid::NewGuid().ToString(EGuidFormats::Digits))),
-        BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass())};
-    auto* Graph = Blueprint.IsValid() ? FBlueprintEditorUtils::FindEventGraph(Blueprint.Get()) : nullptr;
-    if (NOT TestNotNull(TEXT("transient Blueprint event graph"), Graph))
-    { return false; }
-
-    auto DraftType = FEdGraphPinType{};
-    DraftType.PinCategory = UEdGraphSchema_K2::PC_Struct;
-    DraftType.PinSubCategoryObject = FCk_ProceduralAction_ClipDraft::StaticStruct();
-    auto ReportType = FEdGraphPinType{};
-    ReportType.PinCategory = UEdGraphSchema_K2::PC_Struct;
-    ReportType.PinSubCategoryObject = FCk_ProceduralAction_ValidationReport::StaticStruct();
-    const FName DraftName{TEXT("VmMirrorDraft")};
-    const FName ReportName{TEXT("VmMirrorReport")};
-    if (NOT TestTrue(TEXT("VM Blueprint owns a draft variable"),
-            FBlueprintEditorUtils::AddMemberVariable(Blueprint.Get(), DraftName, DraftType))
-        || NOT TestTrue(TEXT("VM Blueprint owns a report variable"),
-            FBlueprintEditorUtils::AddMemberVariable(Blueprint.Get(), ReportName, ReportType)))
-    { return false; }
-
-    auto* Event = NewObject<UK2Node_Event>(Graph);
-    Event->EventReference.SetExternalMember(
-        GET_FUNCTION_NAME_CHECKED(UCk_Test_RuntimeMeshBpHarness_UE, ComposeResult),
-        UCk_Test_RuntimeMeshBpHarness_UE::StaticClass());
-    Event->bOverrideFunction = true;
-    Graph->AddNode(Event, false, false);
-    Event->CreateNewGuid();
-    Event->PostPlacedNewNode();
-    Event->AllocateDefaultPins();
-
-    auto* Function = UCk_Utils_ProceduralActionBuilder_UE::StaticClass()->FindFunctionByName(
-        GET_FUNCTION_NAME_CHECKED(UCk_Utils_ProceduralActionBuilder_UE, Mirror_Slot));
-    if (NOT TestNotNull(TEXT("draft mirror public UFunction"), Function))
-    { return false; }
-    auto* Mirror = DoAddCall(*Graph, *Function);
-    auto* MakeMirror = NewObject<UK2Node_MakeStruct>(Graph);
-    MakeMirror->StructType = FCk_ProceduralAction_MirrorSpec::StaticStruct();
-    Graph->AddNode(MakeMirror, false, false);
-    MakeMirror->CreateNewGuid();
-    MakeMirror->PostPlacedNewNode();
-    MakeMirror->AllocateDefaultPins();
-    auto* DraftGet = NewObject<UK2Node_VariableGet>(Graph);
-    DraftGet->VariableReference.SetSelfMember(DraftName);
-    Graph->AddNode(DraftGet, false, false);
-    DraftGet->CreateNewGuid();
-    DraftGet->PostPlacedNewNode();
-    DraftGet->AllocateDefaultPins();
-    auto* ReportSet = NewObject<UK2Node_VariableSet>(Graph);
-    ReportSet->VariableReference.SetSelfMember(ReportName);
-    Graph->AddNode(ReportSet, false, false);
-    ReportSet->CreateNewGuid();
-    ReportSet->PostPlacedNewNode();
-    ReportSet->AllocateDefaultPins();
-
-    auto* SourcePin = MakeMirror->FindPin(TEXT("_SourceSlot"));
-    auto* DestinationPin = MakeMirror->FindPin(TEXT("_DestinationSlot"));
-    if (NOT TestNotNull(TEXT("mirror source slot pin"), SourcePin)
-        || NOT TestNotNull(TEXT("mirror destination slot pin"), DestinationPin))
-    { return false; }
-    Graph->GetSchema()->TrySetDefaultValue(*SourcePin, TEXT("Left"));
-    Graph->GetSchema()->TrySetDefaultValue(*DestinationPin, TEXT("Right"));
-    const auto Connected =
-        DoConnect(*Graph, Event->FindPin(UEdGraphSchema_K2::PN_Then),
-            Mirror->FindPin(UEdGraphSchema_K2::PN_Execute))
-        && DoConnect(*Graph, Mirror->FindPin(UEdGraphSchema_K2::PN_Then),
-            ReportSet->FindPin(UEdGraphSchema_K2::PN_Execute))
-        && DoConnect(*Graph, DraftGet->GetValuePin(), Mirror->FindPin(TEXT("InDraft")))
-        && DoConnect(*Graph,
-            MakeMirror->FindPin(FCk_ProceduralAction_MirrorSpec::StaticStruct()->GetFName()),
-            Mirror->FindPin(TEXT("InMirror")))
-        && DoConnect(*Graph, Mirror->GetReturnValuePin(), ReportSet->FindPin(ReportName, EGPD_Input));
-    if (NOT TestTrue(TEXT("VM mirror graph pins connect"), Connected))
-    { return false; }
-
-    auto* MakeLoaded = NewObject<UK2Node_MakeStruct>(Graph);
-    MakeLoaded->StructType = FCk_ProceduralAction_LoadedPlaySpec::StaticStruct();
-    Graph->AddNode(MakeLoaded, false, false);
-    MakeLoaded->CreateNewGuid();
-    MakeLoaded->PostPlacedNewNode();
-    MakeLoaded->AllocateDefaultPins();
-    TestNotNull(TEXT("A loaded play spec exposes the runtime mirror list to Blueprint"),
-        MakeLoaded->FindPin(TEXT("_Mirrors")));
-    Graph->RemoveNode(MakeLoaded);
-
-    FKismetEditorUtilities::CompileBlueprint(Blueprint.Get());
-    if (NOT TestTrue(TEXT("VM mirror graph compiles"),
-        (Blueprint->Status == BS_UpToDate || Blueprint->Status == BS_UpToDateWithWarnings)
-        && Blueprint->GeneratedClass != nullptr))
-    { return false; }
-
-    auto Draft = FCk_ProceduralAction_ClipDraft{};
-    Draft.Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{FName{TEXT("Left")}},
-        FCk_ProceduralAction_Slot{FName{TEXT("Right")}}});
-    auto Track = FCk_ProceduralAction_LimbTrack{FName{TEXT("Left")}};
-    Track.Set_PositionKeys(TArray<FCk_ProceduralAction_VectorKey>{
-        FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{0.0}, FVector{10.0, 20.0, 30.0}},
-        FCk_ProceduralAction_VectorKey{FCk_FloatRange_0to1{1.0}, FVector{40.0, 50.0, 60.0}}});
-    auto Phase = FCk_ProceduralAction_Phase{FName{TEXT("Reach")}, FCk_Time{0.5}};
-    Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
-    Draft.Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
-
-    auto Harness = TStrongObjectPtr<UCk_Test_RuntimeMeshBpHarness_UE>{
-        NewObject<UCk_Test_RuntimeMeshBpHarness_UE>(GetTransientPackage(), Blueprint->GeneratedClass)};
-    auto* DraftProperty = FindFProperty<FStructProperty>(Blueprint->GeneratedClass, DraftName);
-    auto* ReportProperty = FindFProperty<FStructProperty>(Blueprint->GeneratedClass, ReportName);
-    if (NOT TestNotNull(TEXT("VM draft reflected member"), DraftProperty)
-        || NOT TestNotNull(TEXT("VM report reflected member"), ReportProperty))
-    { return false; }
-    DraftProperty->CopyCompleteValue(DraftProperty->ContainerPtrToValuePtr<void>(Harness.Get()), &Draft);
-    auto DisplayOwner = FCk_Handle_Transform{};
-    auto Entity = FCk_Handle{};
-    Harness->ComposeResult(DisplayOwner, Entity, FCk_RuntimeMeshDisplay_Spec{}, FCk_JoltBody_Spec{});
-
-    auto Report = FCk_ProceduralAction_ValidationReport{};
-    ReportProperty->CopyCompleteValue(&Report, ReportProperty->ContainerPtrToValuePtr<void>(Harness.Get()));
-    auto Mirrored = FCk_ProceduralAction_ClipDraft{};
-    DraftProperty->CopyCompleteValue(&Mirrored, DraftProperty->ContainerPtrToValuePtr<void>(Harness.Get()));
-    TestEqual(TEXT("Blueprint VM mirror reports Valid"), Report.Get_Status(), ECk_ProceduralAction_ReportStatus::Valid);
-    const auto Tracks = Mirrored.Get_Phases().IsEmpty()
-        ? TArray<FCk_ProceduralAction_LimbTrack>{} : Mirrored.Get_Phases()[0].Get_LimbTracks();
-    if (TestEqual(TEXT("Blueprint VM mirror writes the destination track into the referenced draft"), Tracks.Num(), 2))
-    {
-        TestEqual(TEXT("The written track is the destination slot"), Tracks[1].Get_Slot(), FName{TEXT("Right")});
-        TestTrue(TEXT("The written keys are reflected across XZ"), Tracks[1].Get_PositionKeys().Num() == 2
-            && Tracks[1].Get_PositionKeys()[0].Get_Value().Equals(FVector{10.0, -20.0, 30.0})
-            && Tracks[1].Get_PositionKeys()[1].Get_Value().Equals(FVector{40.0, -50.0, 60.0}));
-    }
     return NOT HasAnyErrors();
 }
 

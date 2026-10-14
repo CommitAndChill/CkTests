@@ -323,39 +323,39 @@ FCkProceduralActionNoNumericalProgressTest::RunTest(
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkProceduralActionFrameContinuityTest,
-    "Ck.ProceduralAnimation.Action.SpaceChangesAcrossPhasesRejected",
+    FCkProceduralActionSlotFrameTest,
+    "Ck.ProceduralAnimation.Action.SlotFrameValidated",
     ck::tests::kCkUnitTestFlags)
 
 auto
-FCkProceduralActionFrameContinuityTest::RunTest(
+FCkProceduralActionSlotFrameTest::RunTest(
     const FString&)
     -> bool
 {
     auto* Asset = ck_test_procedural_action_data::MakeClip();
-    Asset->Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{FName{TEXT("Hand")}}});
+    auto Hand = FCk_ProceduralAction_Slot{FName{TEXT("Hand")}};
+    Hand.Set_Space(static_cast<ECk_ProceduralAction_TrackSpace>(0xFF));
+    Asset->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Hand});
     auto First = Asset->Get_Phases()[0];
-    auto Local = FCk_ProceduralAction_LimbTrack{FName{TEXT("Hand")}};
-    First.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Local});
+    First.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{FCk_ProceduralAction_LimbTrack{FName{TEXT("Hand")}}});
     auto Second = FCk_ProceduralAction_Phase{FName{TEXT("Release")}, FCk_Time{0.1}};
-    auto Root = FCk_ProceduralAction_LimbTrack{FName{TEXT("Hand")}};
-    Root.Set_Space(ECk_ProceduralAction_TrackSpace::RootAtStart);
-    Second.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Root});
+    Second.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{FCk_ProceduralAction_LimbTrack{FName{TEXT("Hand")}}});
     Asset->Set_Phases(TArray<FCk_ProceduralAction_Phase>{First, Second});
     auto Clip = ck::procedural_action::FCompiledClip{};
     auto Diagnostics = TArray<ck::procedural_action::FDiagnostic>{};
-    TestFalse(TEXT("A held limb cannot change frames"), ck_test_procedural_action_data::Compile(*Asset, Clip, Diagnostics));
-    TestTrue(TEXT("Frame diagnostic identifies slot"), Diagnostics.ContainsByPredicate([](const auto& InDiagnostic)
-    { return InDiagnostic.Get_Code() == FName{TEXT("SpaceChangesAcrossPhases")}
+    TestFalse(TEXT("A slot in an unsupported space is rejected"),
+        ck_test_procedural_action_data::Compile(*Asset, Clip, Diagnostics));
+    TestTrue(TEXT("Frame diagnostic names the slot's space"), Diagnostics.ContainsByPredicate([](const auto& InDiagnostic)
+    { return InDiagnostic.Get_Code() == FName{TEXT("TrackSpace")}
+        && InDiagnostic.Get_FieldPath() == TEXT("Slots[0].Space")
         && InDiagnostic.Get_Slot() == FName{TEXT("Hand")}; }));
     TestEqual(TEXT("Rejected clip is empty"), Clip.Get_Phases().Num(), 0);
 
-    Root.Set_Space(ECk_ProceduralAction_TrackSpace::BodyLocal);
-    Second.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Root});
-    Asset->Set_Phases(TArray<FCk_ProceduralAction_Phase>{First, Second});
-    TestTrue(TEXT("Stable frame compiles"), ck_test_procedural_action_data::Compile(*Asset, Clip, Diagnostics));
-    TestTrue(TEXT("Canonical frame copied to slot"), Clip.Get_Slots().Num() == 1
-        && Clip.Get_Slots()[0].Get_Space() == ECk_ProceduralAction_TrackSpace::BodyLocal);
+    Hand.Set_Space(ECk_ProceduralAction_TrackSpace::RootAtStart);
+    Asset->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Hand});
+    TestTrue(TEXT("A valid slot frame compiles"), ck_test_procedural_action_data::Compile(*Asset, Clip, Diagnostics));
+    TestTrue(TEXT("The compiled slot reports its frame"), Clip.Get_Slots().Num() == 1
+        && Clip.Get_Slots()[0].Get_Space() == ECk_ProceduralAction_TrackSpace::RootAtStart);
     return true;
 }
 

@@ -577,9 +577,9 @@ auto
     const auto Left = FName{TEXT("Left")};
     const auto Right = FName{TEXT("Right")};
     auto Source = FCk_ProceduralAction_ClipDraft{};
-    Source.Set_Slots(TArray<FCk_ProceduralAction_Slot>{FCk_ProceduralAction_Slot{Left}, FCk_ProceduralAction_Slot{Right}});
+    Source.Set_Slots(TArray<FCk_ProceduralAction_Slot>{
+        FCk_ProceduralAction_Slot{Left}.Set_Space(ECk_ProceduralAction_TrackSpace::RootAtStart), FCk_ProceduralAction_Slot{Right}});
     auto Track = FCk_ProceduralAction_LimbTrack{Left};
-    Track.Set_Space(ECk_ProceduralAction_TrackSpace::RootAtStart);
     Track.Set_Interpolation(ECk_ProceduralAction_Interpolation::Smooth);
     auto Positions = TArray<FCk_ProceduralAction_VectorKey>{VectorKey(0.0, FVector{10.0, 20.0, 30.0}),
         VectorKey(0.5, FVector{12.0, 25.0, 31.0}), VectorKey(1.0, FVector{15.0, 22.0, 28.0})};
@@ -614,12 +614,9 @@ auto
 
     auto Rejected = MakeTransientClip();
     UCk_Utils_ProceduralActionBuilder_UE::Build_Into(Source, Rejected.Get());
-    auto Normalized = Source;
-    auto NormalizedPhases = Normalized.Get_Phases();
-    auto NormalizedTracks = NormalizedPhases[0].Get_LimbTracks();
-    NormalizedTracks[0].Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-    NormalizedPhases[0].Set_LimbTracks(NormalizedTracks);
-    Rejected->Set_Phases(NormalizedPhases);
+    auto NormalizedSlots = Source.Get_Slots();
+    NormalizedSlots[0].Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
+    Rejected->Set_Slots(NormalizedSlots);
     TestFalse(TEXT("the command rejects what the builder rejects"),
         FCk_ProceduralActionAuthoringCommands{Rejected.Get()}.MirrorSlot(Left, Right, EAxis::Y, Error));
     TestTrue(TEXT("rejection carries the builder's field code"), Error.Contains(TEXT("MirrorSpace")));

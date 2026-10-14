@@ -1,7 +1,7 @@
 // Language=angelscript
 
 // A sweep built in script (recipe, extra pose key, Build_Into) plays on a dedicated arm through the sweep example: one
-// completed run, one cancelled run, and one run rejected at binding, each reported through its managed completion.
+// completed run, one cancelled run, and one run rejected at binding, each reported once through its OnFinished terminal.
 class UCk_AutoTest_ProceduralAnimation_BuilderSweep : UCk_AutoTest_Base
 {
     default _TimeoutSeconds = 20.0f;
@@ -11,10 +11,10 @@ class UCk_AutoTest_ProceduralAnimation_BuilderSweep : UCk_AutoTest_Base
     private FCk_Handle_ProceduralArticulation _Subject;
     private FCk_Handle_ProceduralActionPlayer _Player;
     private UCk_ProceduralAction_Data _Sweep;
-    private FCk_ProceduralAction_ManagedStart _Completed;
-    private FCk_ProceduralAction_ManagedStart _Cancelled;
-    private FCk_ProceduralAction_ManagedStart _Rejected;
-    private TArray<FCk_ProceduralAction_ManagedCompletion> _Completions;
+    private FCk_ProceduralAction_Identity _Completed;
+    private FCk_ProceduralAction_Identity _Cancelled;
+    private FCk_ProceduralAction_Identity _Rejected;
+    private TArray<FCk_ProceduralAction_Terminal> _Completions;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
@@ -77,38 +77,39 @@ class UCk_AutoTest_ProceduralAnimation_BuilderSweep : UCk_AutoTest_Base
     {
         _Player = ck_procedural_action_sweep::AddDedicatedSweepPlayer(_Subject);
         Assert_True(ck::IsValid(_Player), "The dedicated preset composes a player");
-        _Completed = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _Sweep,
+        const auto Action = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _Sweep,
             FCk_ProceduralAction_SlotBinding(n"Sweep", n"SweepArm"),
-            FCk_Delegate_ProceduralAction_OnManagedCompleted(this, n"OnCompleted"));
-        Assert_True(_Completed.Get_Report().Get_Status() == ECk_ProceduralAction_ReportStatus::Valid,
-            "The sweep starts");
+            FCk_Delegate_ProceduralAction_OnFinished(this, n"OnFinished"));
+        Assert_True(ck::IsValid(Action), "The sweep starts");
+        _Completed = utils_procedural_action::Get_Identity(Action);
     }
 
     UFUNCTION()
     private void Step_PlayCancelled(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
-        _Cancelled = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _Sweep,
+        const auto Action = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _Sweep,
             FCk_ProceduralAction_SlotBinding(n"Sweep", n"SweepArm"),
-            FCk_Delegate_ProceduralAction_OnManagedCompleted(this, n"OnCompleted"));
-        Assert_True(_Cancelled.Get_Report().Get_Status() == ECk_ProceduralAction_ReportStatus::Valid,
-            "The second sweep starts");
-        ck_procedural_action_sweep::CancelSweep(_Cancelled);
+            FCk_Delegate_ProceduralAction_OnFinished(this, n"OnFinished"));
+        Assert_True(ck::IsValid(Action), "The second sweep starts");
+        _Cancelled = utils_procedural_action::Get_Identity(Action);
+        ck_procedural_action_sweep::CancelSweep(Action);
     }
 
     UFUNCTION()
     private void Step_PlayRejected(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
-        _Rejected = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _Sweep,
+        const auto Action = ck_procedural_action_sweep::StartSweep(InHandle, _Player, _Sweep,
             FCk_ProceduralAction_SlotBinding(n"Sweep", n"MissingArm"),
-            FCk_Delegate_ProceduralAction_OnManagedCompleted(this, n"OnCompleted"));
-        Assert_True(_Rejected.Get_Report().Get_Status() == ECk_ProceduralAction_ReportStatus::Valid,
-            "A binding rejection is not a start rejection: the action exists and reports through its completion");
+            FCk_Delegate_ProceduralAction_OnFinished(this, n"OnFinished"));
+        Assert_True(ck::IsValid(Action),
+            "A binding rejection is not a start rejection: the action exists and reports through OnFinished");
+        _Rejected = utils_procedural_action::Get_Identity(Action);
     }
 
     UFUNCTION()
-    private void OnCompleted(FCk_Handle_ProceduralActionPlayer InPlayer, FCk_ProceduralAction_ManagedCompletion InCompletion)
+    private void OnFinished(FCk_Handle_ProceduralAction InAction, FCk_ProceduralAction_Terminal InTerminal)
     {
-        _Completions.Add(InCompletion);
+        _Completions.Add(InTerminal);
     }
 
     UFUNCTION()
@@ -138,16 +139,15 @@ class UCk_AutoTest_ProceduralAnimation_BuilderSweep : UCk_AutoTest_Base
         Assert_True(_Completions.Num() == 3, "Each sweep completes exactly once");
         if (_Completions.Num() != 3)
         { return; }
-        Assert_True(_Completions[0].Get_Identity().Get_Value() == _Completed.Get_Identity().Get_Value()
-            && _Completions[0].Get_Result().Get_Outcome() == ECk_ProceduralAction_Outcome::Completed
-            && _Completions[0].Get_Delivery() == ECk_ProceduralAction_DeliveryStatus::Complete,
-            "The first sweep completes and is fully delivered");
-        Assert_True(_Completions[1].Get_Identity().Get_Value() == _Cancelled.Get_Identity().Get_Value()
+        Assert_True(_Completions[0].Get_Identity().Get_Value() == _Completed.Get_Value()
+            && _Completions[0].Get_Result().Get_Outcome() == ECk_ProceduralAction_Outcome::Completed,
+            "The first sweep completes");
+        Assert_True(_Completions[1].Get_Identity().Get_Value() == _Cancelled.Get_Value()
             && _Completions[1].Get_Result().Get_Outcome() == ECk_ProceduralAction_Outcome::Cancelled,
             "The cancelled sweep reports Cancelled");
         const auto Rejection = ck_procedural_action_sweep::DescribeOutcome(_Completions[2]);
         Log(f"[BuilderSweep] rejected sweep: {Rejection}");
-        Assert_True(_Completions[2].Get_Identity().Get_Value() == _Rejected.Get_Identity().Get_Value()
+        Assert_True(_Completions[2].Get_Identity().Get_Value() == _Rejected.Get_Value()
             && _Completions[2].Get_Result().Get_Outcome() == ECk_ProceduralAction_Outcome::Rejected
             && Rejection.Contains("Rejected"),
             "The rejected sweep reports Rejected, and the example's description says so");

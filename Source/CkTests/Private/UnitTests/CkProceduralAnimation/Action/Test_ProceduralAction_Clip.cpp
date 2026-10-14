@@ -15,12 +15,14 @@
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 
+#include "CkTest_ProceduralActionClipFixture.h"
+#include "../CkTest_ProceduralWalkerFixture.h"
+
 #include "Engine/World.h"
 #include "Misc/AutomationTest.h"
-#include "String/LexFromString.h"
 #include "UObject/GarbageCollection.h"
+#include "UObject/StrongObjectPtr.h"
 #include "UObject/UObjectGlobals.h"
-#include "UObject/UnrealType.h"
 
 namespace ck_test_procedural_action_clip
 {
@@ -50,76 +52,26 @@ namespace ck_test_procedural_action_clip
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkProceduralActionPlayOptionsAccessorsTest,
-    "Ck.ProceduralAnimation.Action.Clip.PlayOptionsAccessors",
+    FCkProceduralActionPlaySpecAccessorsTest,
+    "Ck.ProceduralAnimation.Action.Clip.PlaySpecAccessors",
     ck_test_procedural_action_clip::TestFlags)
 
 auto
-FCkProceduralActionPlayOptionsAccessorsTest::RunTest(
+FCkProceduralActionPlaySpecAccessorsTest::RunTest(
     const FString&)
     -> bool
 {
+    using namespace ck_test_procedural_action_clip;
     const auto Slots = TArray<FCk_ProceduralAction_SlotBinding>{
         FCk_ProceduralAction_SlotBinding{TEXT("Nod"), TEXT("NodArm")}};
-    const auto Anchors = TArray<FCk_ProceduralAction_AnchorBinding>{
-        FCk_ProceduralAction_AnchorBinding{TEXT("Inspection"), FTransform::Identity}};
-    auto Tuning = FCk_ProceduralAction_Tuning{};
-    auto Playback = Tuning.Get_Playback();
-    Playback.Set_PlayRate(1.25f);
-    Tuning.Set_Playback(Playback);
-
-    auto Soft = FCk_ProceduralAction_PlaySpec{};
-    auto* SoftFluent = &Soft.Set_SlotBindings(Slots).Set_AnchorBindings(Anchors).Set_Tuning(Tuning);
-    TestTrue(TEXT("Soft play setters retain the concrete fluent type"), SoftFluent == &Soft);
-    TestEqual(TEXT("Soft play stores named bindings"), Soft.Get_SlotBindings().Num(), 1);
-    TestEqual(TEXT("Soft play stores named anchors"), Soft.Get_AnchorBindings().Num(), 1);
-    TestEqual(TEXT("Setting tuning selects Override"), Soft.Get_TuningMode(),
-        ECk_ProceduralAction_TuningMode::Override);
-    TestTrue(TEXT("Selected tuning remains coherent"), Soft.Get_HasConsistentTuningSelection());
-    Soft.Set_TuningMode(ECk_ProceduralAction_TuningMode::PlayerDefault);
-    TestEqual(TEXT("Returning to PlayerDefault clears inactive tuning"),
-        Soft.Get_Tuning().Get_Playback().Get_PlayRate(), 1.0f);
-
-    auto Loaded = FCk_ProceduralAction_LoadedPlaySpec{};
-    auto* LoadedFluent = &Loaded.Set_SlotBindings(Slots).Set_AnchorBindings(Anchors).Set_Tuning(Tuning);
-    TestTrue(TEXT("Loaded play setters retain the concrete fluent type"), LoadedFluent == &Loaded);
-    TestEqual(TEXT("Loaded play stores named bindings"), Loaded.Get_SlotBindings().Num(), 1);
-    TestEqual(TEXT("Loaded play stores named anchors"), Loaded.Get_AnchorBindings().Num(), 1);
-    TestEqual(TEXT("Loaded tuning selects Override"), Loaded.Get_TuningMode(),
-        ECk_ProceduralAction_TuningMode::Override);
-    Loaded.Set_TuningMode(ECk_ProceduralAction_TuningMode::PlayerDefault);
-    TestTrue(TEXT("Loaded PlayerDefault is coherent"), Loaded.Get_HasConsistentTuningSelection());
-
-    auto Inconsistent = FCk_ProceduralAction_PlaySpec{};
-    auto* TuningProperty = FindFProperty<FStructProperty>(
-        FCk_ProceduralAction_PlayOptions::StaticStruct(), TEXT("_Tuning"));
-    if (NOT TestNotNull(TEXT("Blueprint tuning property exists"), TuningProperty)) { return false; }
-    *TuningProperty->ContainerPtrToValuePtr<FCk_ProceduralAction_Tuning>(&Inconsistent) = Tuning;
-    TestFalse(TEXT("Direct reflected edit cannot leave ignored inactive tuning unnoticed"),
-        Inconsistent.Get_HasConsistentTuningSelection());
-
-    const auto DefaultTuning = FCk_ProceduralAction_Tuning{};
-    const auto DefaultSeconds = DefaultTuning.Get_Sampling().Get_MaxAdvance().Get_Seconds();
-    const auto DefaultText = LexToString(DefaultSeconds);
-    auto BlueprintSeconds = double{};
-    LexFromString(BlueprintSeconds, FStringView{*DefaultText, DefaultText.Len()});
-    TestTrue(TEXT("Blueprint text roundtrip exercises a rounded default"),
-        BlueprintSeconds != DefaultSeconds);
-
-    auto RoundedTuning = DefaultTuning;
-    auto RoundedSampling = RoundedTuning.Get_Sampling();
-    RoundedSampling.Set_MaxAdvance(FCk_Time{BlueprintSeconds});
-    RoundedTuning.Set_Sampling(RoundedSampling);
-    auto Rounded = FCk_ProceduralAction_LoadedPlaySpec{};
-    *TuningProperty->ContainerPtrToValuePtr<FCk_ProceduralAction_Tuning>(&Rounded) = RoundedTuning;
-    TestTrue(TEXT("Untouched Blueprint PlayerDefault accepts only its text-rounded default"),
-        Rounded.Get_HasConsistentTuningSelection());
-
-    RoundedSampling.Set_MaxAdvance(FCk_Time{0.02});
-    RoundedTuning.Set_Sampling(RoundedSampling);
-    *TuningProperty->ContainerPtrToValuePtr<FCk_ProceduralAction_Tuning>(&Rounded) = RoundedTuning;
-    TestFalse(TEXT("A modified sampling value still requires explicit Override"),
-        Rounded.Get_HasConsistentTuningSelection());
+    auto Play = FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{LimbClipPath}};
+    TestEqual(TEXT("A play delivers explicitly by default"), Play.Get_Delivery(),
+        ECk_ProceduralAction_Delivery::Explicit);
+    auto* Fluent = &Play.Set_SlotBindings(Slots).Set_Delivery(ECk_ProceduralAction_Delivery::Auto);
+    TestTrue(TEXT("Play setters retain the concrete fluent type"), Fluent == &Play);
+    TestEqual(TEXT("Play stores named bindings"), Play.Get_SlotBindings().Num(), 1);
+    TestEqual(TEXT("Play stores its delivery"), Play.Get_Delivery(), ECk_ProceduralAction_Delivery::Auto);
+    TestTrue(TEXT("Play keeps the clip it was made with"), Play.Get_Clip().ToSoftObjectPath() == LimbClipPath);
     return true;
 }
 
@@ -243,15 +195,10 @@ FCkProceduralActionAuthoredRestSparseEntryTest::RunTest(
                 MakeShared<ck::procedural_action::FCompiledClip>(MoveTemp(Compiled));
             const auto CompiledFragment = ck::FFragment_ProceduralAction_Compiled{
                 SharedClip, TArray<FName>{LimbId}};
-            const auto Params = ck::FProceduralActionClipParams{
-                TSoftObjectPtr<UCk_ProceduralAction_Data>{Sparse},
-                TArray<FCk_ProceduralAction_SlotBinding>{
-                    FCk_ProceduralAction_SlotBinding{FName{TEXT("Nod")}, LimbId}},
-                TArray<FCk_ProceduralAction_AnchorBinding>{}};
             auto Initial = ck::procedural_action::FInitialPose{};
             if (NOT TestTrue(TEXT("Runtime initial capture resolves"),
                 ck_procedural_action_player_service::CaptureClipInitial(
-                    State->Subject, Params, CompiledFragment, Entry, Default, Initial)))
+                    State->Subject, CompiledFragment, Entry, Default, Initial)))
             { return; }
             const auto* InitialRest = Initial.Get_Limbs().Find(FName{TEXT("Nod")});
             if (NOT TestNotNull(TEXT("Sparse slot has a topology initial value"), InitialRest))
@@ -479,10 +426,12 @@ FCkProceduralActionManagedBodyPulseTest::RunTest(
             State->CancelAction = UCk_Utils_ProceduralAction_UE::Create_FromClip(
                 State->CancelScope, State->Player, FCk_ProceduralAction_PlaySpec{
                     TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath}});
-            TestTrue(TEXT("Existing soft clip enters pending load before service"),
+            TestTrue(TEXT("Existing soft clip waits for admission before service"),
                 ck::IsValid(State->CancelAction)
-                    && UCk_Utils_ProceduralAction_UE::Get_State(State->CancelAction)
-                        == ECk_ProceduralAction_State::PendingLoad);
+                    && (UCk_Utils_ProceduralAction_UE::Get_State(State->CancelAction)
+                            == ECk_ProceduralAction_State::PendingLoad
+                        || UCk_Utils_ProceduralAction_UE::Get_State(State->CancelAction)
+                            == ECk_ProceduralAction_State::PendingAdmission));
             State->CancelIdentity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->CancelAction);
             UCk_Utils_ProceduralAction_UE::Request_Cancel(State->CancelAction,
                 FCk_Request_ProceduralAction_Cancel{FName{TEXT("CancelBeforePlayback")}}, {});
@@ -572,49 +521,6 @@ FCkProceduralActionLoadedClipSnapshotTest::RunTest(
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
             auto* Source = LoadObject<UCk_ProceduralAction_Data>(nullptr, *ClipPath.ToString());
             if (NOT TestNotNull(TEXT("Saved noncombat body clip loads"), Source)) { return; }
-            const auto Admission = UCk_Utils_ProceduralActionPlayer_UE::Get_AdmissionReport(
-                State->Player, FCk_ProceduralAction_PlaySpec{
-                    TSoftObjectPtr<UCk_ProceduralAction_Data>{Source}});
-            TestEqual(TEXT("Resident body clip passes advisory static admission"),
-                Admission.Get_Status(), ECk_ProceduralAction_ReportStatus::Valid);
-            TestTrue(TEXT("Admission report cannot reserve or promise dynamic claims"),
-                Admission.Get_Advisory());
-            auto InactiveTuning = FCk_ProceduralAction_PlaySpec{
-                TSoftObjectPtr<UCk_ProceduralAction_Data>{Source}};
-            auto* TuningProperty = FindFProperty<FStructProperty>(
-                FCk_ProceduralAction_PlayOptions::StaticStruct(), TEXT("_Tuning"));
-            if (NOT TestNotNull(TEXT("Reflected play tuning is editable by Blueprint"), TuningProperty))
-            { return; }
-            auto Ignored = FCk_ProceduralAction_Tuning{};
-            auto IgnoredPlayback = Ignored.Get_Playback();
-            IgnoredPlayback.Set_PlayRate(1.25f);
-            Ignored.Set_Playback(IgnoredPlayback);
-            *TuningProperty->ContainerPtrToValuePtr<FCk_ProceduralAction_Tuning>(&InactiveTuning) = Ignored;
-            const auto InactiveReport = UCk_Utils_ProceduralActionPlayer_UE::Get_AdmissionReport(
-                State->Player, InactiveTuning);
-            TestEqual(TEXT("Advisory rejects a Blueprint-authored ignored tuning value"),
-                InactiveReport.Get_Status(), ECk_ProceduralAction_ReportStatus::Invalid);
-            TestTrue(TEXT("Advisory identifies inactive tuning"),
-                InactiveReport.Get_Diagnostics().ContainsByPredicate([](const auto& InDiagnostic)
-                { return InDiagnostic.Get_Code() == FName{TEXT("InactiveTuning")}; }));
-            auto InvalidBindings = FCk_ProceduralAction_PlaySpec{
-                TSoftObjectPtr<UCk_ProceduralAction_Data>{Source}};
-            InvalidBindings.Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
-                FCk_ProceduralAction_SlotBinding{FName{TEXT("UnknownSlot")}, FName{TEXT("UnknownLimb")}}});
-            const auto BindingReport = UCk_Utils_ProceduralActionPlayer_UE::Get_AdmissionReport(
-                State->Player, InvalidBindings);
-            TestEqual(TEXT("Advisory rejects mismatched slot bindings"), BindingReport.Get_Status(),
-                ECk_ProceduralAction_ReportStatus::Invalid);
-            TestTrue(TEXT("Advisory names the binding field"),
-                BindingReport.Get_Diagnostics().ContainsByPredicate([](const auto& InDiagnostic)
-                { return InDiagnostic.Get_Code() == FName{TEXT("SlotBindingCount")}
-                    && InDiagnostic.Get_FieldPath() == TEXT("SlotBindings"); }));
-            const auto Missing = UCk_Utils_ProceduralActionPlayer_UE::Get_AdmissionReport(
-                State->Player, FCk_ProceduralAction_PlaySpec{
-                    TSoftObjectPtr<UCk_ProceduralAction_Data>{FSoftObjectPath{TEXT(
-                        "/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_NotResident_DA.Ck_ProceduralAction_NotResident_DA")}}});
-            TestEqual(TEXT("Advisory query does not load missing content"),
-                Missing.Get_Status(), ECk_ProceduralAction_ReportStatus::ContentNotResident);
             auto Mutable = TStrongObjectPtr<UCk_ProceduralAction_Data>{
                 DuplicateObject<UCk_ProceduralAction_Data>(Source, GetTransientPackage())};
             if (NOT TestTrue(TEXT("Loaded fixture has a first phase"), NOT Mutable->Get_Phases().IsEmpty()))
@@ -624,8 +530,8 @@ FCkProceduralActionLoadedClipSnapshotTest::RunTest(
                 FCk_ProceduralAction_Window{FName{TEXT("TimeZero")},
                     FCk_ProceduralAction_TimeRef{FirstPhaseId, FCk_FloatRange_0to1{0.0}},
                     FCk_ProceduralAction_TimeRef{FirstPhaseId, FCk_FloatRange_0to1{0.37}}}});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromLoadedClip(State->Scope,
-                State->Player, FCk_ProceduralAction_LoadedPlaySpec{Mutable.Get()});
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
+                FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Mutable.Get()}});
             TestTrue(TEXT("Loaded entry reserves an action"), ck::IsValid(State->Action));
             if (ck::Is_NOT_Valid(State->Action)) { return; }
             State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
@@ -697,9 +603,9 @@ FCkProceduralActionLoadedClipSnapshotTest::RunTest(
                     InvalidReport.Get_Diagnostics().ContainsByPredicate([](const auto& InDiagnostic)
                     { return InDiagnostic.Get_FieldPath() == TEXT("Phases"); }));
                 auto InvalidScope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-                const auto InvalidAction = UCk_Utils_ProceduralAction_UE::Create_FromLoadedClip(
+                const auto InvalidAction = UCk_Utils_ProceduralAction_UE::Create_FromClip(
                     InvalidScope, State->Player,
-                    FCk_ProceduralAction_LoadedPlaySpec{InvalidClip.Get()});
+                    FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{InvalidClip.Get()}});
                 TestTrue(TEXT("Invalid loaded content reserves a typed terminal stream"),
                     ck::IsValid(InvalidAction));
                 if (ck::IsValid(InvalidAction))
@@ -854,72 +760,70 @@ FCkProceduralActionClipOwnerLossTest::RunTest(
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkProceduralActionMixedLimbBatchTest,
-    "Ck.ProceduralAnimation.Action.Clip.MixedManualAndClipShareSettledBatch",
+    FCkProceduralActionDisjointClipsBatchTest,
+    "Ck.ProceduralAnimation.Action.Clip.DisjointClipsShareSettledBatch",
     ck_test_procedural_action_clip::TestFlags)
 
 auto
-FCkProceduralActionMixedLimbBatchTest::RunTest(
+FCkProceduralActionDisjointClipsBatchTest::RunTest(
     const FString&)
     -> bool
 {
     using namespace ck_test_procedural_action_clip;
-    struct FMixedState
+    struct FDisjointState
     {
         FCk_Handle_Transform Root;
         FCk_Handle_ProceduralArticulation Subject;
         FCk_Handle_ProceduralActionPlayer Player;
-        FCk_Handle ClipScope;
-        FCk_Handle ManualScope;
-        FCk_Handle_ProceduralAction Clip;
-        FCk_Handle_ProceduralAction Manual;
-        FCk_ProceduralAction_Identity ClipIdentity;
-        FCk_ProceduralAction_Identity ManualIdentity;
-        FCk_ProceduralAction_Receipt JointClipReceipt;
-        FCk_ProceduralAction_Receipt JointManualReceipt;
+        FCk_Handle_ProceduralAction First;
+        FCk_Handle_ProceduralAction Second;
+        FCk_ProceduralAction_Identity FirstIdentity;
+        FCk_ProceduralAction_Identity SecondIdentity;
+        FCk_ProceduralAction_Receipt JointFirstReceipt;
+        FCk_ProceduralAction_Receipt JointSecondReceipt;
     };
-    const auto State = MakeShared<FMixedState>();
-    const auto ClipLimb = FName{TEXT("ManualArm")};
-    const auto ManualLimb = FName{TEXT("OtherArm")};
+    const auto State = MakeShared<FDisjointState>();
+    const auto FirstLimb = FName{TEXT("FirstArm")};
+    const auto SecondLimb = FName{TEXT("SecondArm")};
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State, ClipLimb, ManualLimb](UWorld* InWorld)
+        [this, State, FirstLimb, SecondLimb](UWorld* InWorld)
         {
             auto RootEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(InWorld);
             State->Root = UCk_Utils_Transform_UE::Add(RootEntity, RootPose,
                 ECk_Replication::DoesNotReplicate);
-            auto ClipPartEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            const auto ClipPart = UCk_Utils_Transform_UE::Add(ClipPartEntity,
+            auto FirstPartEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
+            const auto FirstPart = UCk_Utils_Transform_UE::Add(FirstPartEntity,
                 FTransform::Identity, ECk_Replication::DoesNotReplicate);
-            auto ManualPartEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            const auto ManualPart = UCk_Utils_Transform_UE::Add(ManualPartEntity,
+            auto SecondPartEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
+            const auto SecondPart = UCk_Utils_Transform_UE::Add(SecondPartEntity,
                 FTransform::Identity, ECk_Replication::DoesNotReplicate);
-            const auto ClipLayout = FCk_ProceduralLimb_Layout{ClipLimb, FTransform::Identity,
+            const auto FirstLayout = FCk_ProceduralLimb_Layout{FirstLimb, FTransform::Identity,
                 TArray<float>{100.0f}, FTransform{FQuat::Identity, FVector{100.0, 0.0, 0.0}},
                 FVector::UpVector};
-            const auto ManualLayout = FCk_ProceduralLimb_Layout{ManualLimb,
+            const auto SecondLayout = FCk_ProceduralLimb_Layout{SecondLimb,
                 FTransform{FQuat::Identity, FVector{0.0, 100.0, 0.0}},
                 TArray<float>{100.0f}, FTransform{FQuat::Identity, FVector{100.0, 0.0, 0.0}},
                 FVector::UpVector};
             const auto Layout = FCk_ProceduralArticulation_Layout{
-                TArray<FCk_ProceduralLimb_Layout>{ClipLayout, ManualLayout}};
+                TArray<FCk_ProceduralLimb_Layout>{FirstLayout, SecondLayout}};
             const auto Bindings = TArray<FCk_ProceduralLimb_Binding>{
-                FCk_ProceduralLimb_Binding{ClipLimb, TArray<FCk_Handle_Transform>{ClipPart}},
-                FCk_ProceduralLimb_Binding{ManualLimb, TArray<FCk_Handle_Transform>{ManualPart}}};
+                FCk_ProceduralLimb_Binding{FirstLimb, TArray<FCk_Handle_Transform>{FirstPart}},
+                FCk_ProceduralLimb_Binding{SecondLimb, TArray<FCk_Handle_Transform>{SecondPart}}};
             State->Subject = UCk_Utils_ProceduralArticulation_UE::Add(
                 State->Root, FCk_ProceduralArticulation_Spec{Layout, Bindings});
-            TestTrue(TEXT("Mixed subject composes"), ck::IsValid(State->Subject));
+            TestTrue(TEXT("Two-arm subject composes"), ck::IsValid(State->Subject));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
             return ck::IsValid(State->Subject)
                 && UCk_Utils_ProceduralArticulation_UE::Get_SettledRevision(State->Subject) > 0;
-        }), WaitSeconds, TEXT("Mixed subject has a settled entry")));
+        }), WaitSeconds, TEXT("Two-arm subject has a settled entry")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State, ClipLimb, ManualLimb](UWorld*)
+        [this, State, FirstLimb, SecondLimb](UWorld*)
         {
             auto PlayerSpec = FCk_ProceduralActionPlayer_Spec{};
             auto Tuning = PlayerSpec.Get_Tuning();
@@ -931,141 +835,149 @@ FCkProceduralActionMixedLimbBatchTest::RunTest(
             Capacity.Set_RecordsPerInstance(256);
             PlayerSpec.Set_Capacity(Capacity);
             State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, PlayerSpec);
-            TestTrue(TEXT("Mixed player attaches"), ck::IsValid(State->Player));
-            State->ManualScope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{ManualLimb}};
-            Control.Set_InputTimeout(FCk_Time{30.0});
-            State->Manual = UCk_Utils_ProceduralAction_UE::Create_Manual(
-                State->ManualScope, State->Player, Control);
-            State->ManualIdentity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Manual);
-            TestTrue(TEXT("Manual action reserves before clip load"), ck::IsValid(State->Manual));
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            return ck::IsValid(State->Manual)
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Manual)
-                    == ECk_ProceduralAction_State::Ready;
-        }), WaitSeconds, TEXT("Manual claim is ready before the managed clip begins")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State, ClipLimb](UWorld*)
-        {
-            State->ClipScope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Play = FCk_ProceduralAction_PlaySpec{
-                TSoftObjectPtr<UCk_ProceduralAction_Data>{LimbClipPath}};
-            Play.Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
-                FCk_ProceduralAction_SlotBinding{FName{TEXT("Nod")}, ClipLimb}});
-            State->Clip = UCk_Utils_ProceduralAction_UE::Create_FromClip(
-                State->ClipScope, State->Player, Play);
-            State->ClipIdentity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Clip);
-            TestTrue(TEXT("Disjoint clip action reserves"), ck::IsValid(State->Clip));
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            return ck::IsValid(State->Manual) && ck::IsValid(State->Clip)
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Manual)
-                    == ECk_ProceduralAction_State::Ready
-                && UCk_Utils_ProceduralAction_UE::Get_State(State->Clip)
-                    == ECk_ProceduralAction_State::Playing;
-        }), WaitSeconds, TEXT("Disjoint claims acquired and clip playback started")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [State, ClipLimb, ManualLimb](UWorld*)
-        {
-            const auto ManualState = UCk_Utils_ProceduralAction_UE::Get_State(State->Manual);
-            const auto ClipState = UCk_Utils_ProceduralAction_UE::Get_State(State->Clip);
-            const auto ManualResult = UCk_Utils_ProceduralAction_UE::Get_Result(State->Manual);
-            const auto ClipResult = UCk_Utils_ProceduralAction_UE::Get_Result(State->Clip);
-            const auto ManualPage = UCk_Utils_ProceduralActionPlayer_UE::Read_Receipts(
-                State->Player, State->ManualIdentity, 0, 8);
-            const auto ClipPage = UCk_Utils_ProceduralActionPlayer_UE::Read_Receipts(
-                State->Player, State->ClipIdentity, 0, 8);
-            const auto ManualClaimant = FCk_ProceduralArticulation_Control::GetClaimant(
-                State->Subject, ManualLimb, false);
-            const auto ClipClaimant = FCk_ProceduralArticulation_Control::GetClaimant(
-                State->Subject, ClipLimb, false);
-            auto ClipRecordKinds = FString{};
-            for (const auto& Record : ClipPage.Get_Records())
-            { ClipRecordKinds += FString::Printf(TEXT("%d,"), static_cast<int32>(Record.Get_Kind())); }
-            UE_LOG(LogTemp, Display, TEXT("[MixedClipDiagnostic] manualState=%d manualOutcome=%d manualReason=%s manualRecords=%d manualTerminal=%d manualClaim=%lld clipState=%d clipOutcome=%d clipReason=%s clipRead=%d clipRecords=%d clipKinds=%s clipTerminal=%d clipClaim=%lld clipAccepted=%d"),
-                static_cast<int32>(ManualState), static_cast<int32>(ManualResult.Get_Outcome()),
-                *ManualResult.Get_Reason().ToString(), ManualPage.Get_Records().Num(),
-                ManualPage.Get_Terminal() ? 1 : 0,
-                static_cast<int64>(ManualClaimant.Get_InstanceId()), static_cast<int32>(ClipState),
-                static_cast<int32>(ClipResult.Get_Outcome()), *ClipResult.Get_Reason().ToString(),
-                static_cast<int32>(ClipPage.Get_Result()), ClipPage.Get_Records().Num(),
-                *ClipRecordKinds, ClipPage.Get_Terminal() ? 1 : 0,
-                static_cast<int64>(ClipClaimant.Get_InstanceId()),
-                UCk_Utils_ProceduralAction_UE::Get_LastReceipt(State->Clip).Get_HasAcceptedPose() ? 1 : 0);
-            const auto Radians = FMath::DegreesToRadians(1.0f);
-            auto Target = FCk_ProceduralAction_LimbTarget{ManualLimb,
-                FTransform{FQuat{FVector::UpVector, Radians},
-                    FVector{FMath::Cos(Radians) - 1.0f, FMath::Sin(Radians), 0.0f}}};
-            Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-            auto Batch = FCk_ProceduralAction_PoseBatch{};
-            Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-            UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(State->Manual,
-                FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, {});
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        {
-            const auto ManualReceipt = UCk_Utils_ProceduralAction_UE::Get_LastReceipt(State->Manual);
-            const auto ClipReceipt = UCk_Utils_ProceduralAction_UE::Get_LastReceipt(State->Clip);
-            if (NOT ManualReceipt.Get_HasAcceptedPose() || NOT ClipReceipt.Get_HasAcceptedPose()
-                || ManualReceipt.Get_Stamp().Get_SubjectPoseRevision()
-                    != ClipReceipt.Get_Stamp().Get_SubjectPoseRevision())
-            { return false; }
-            State->JointManualReceipt = ManualReceipt;
-            State->JointClipReceipt = ClipReceipt;
-            return true;
-        }), WaitSeconds, TEXT("Manual and clip jointly settle an accepted batch")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [this, State, ClipLimb, ManualLimb](UWorld*)
-        {
-            const auto& ManualReceipt = State->JointManualReceipt;
-            const auto& ClipReceipt = State->JointClipReceipt;
-            TestTrue(TEXT("Clip and manual have actual receipts"),
-                ManualReceipt.Get_HasAcceptedPose() && ClipReceipt.Get_HasAcceptedPose());
-            if (ManualReceipt.Get_HasAcceptedPose() && ClipReceipt.Get_HasAcceptedPose())
+            TestTrue(TEXT("Two-arm player attaches"), ck::IsValid(State->Player));
+            const auto PlayNod = [this, State](FName InLimb) -> FCk_Handle_ProceduralAction
             {
-                TestEqual(TEXT("Joint batch stamps one settled subject revision"),
-                    ManualReceipt.Get_Stamp().Get_SubjectPoseRevision(),
-                    ClipReceipt.Get_Stamp().Get_SubjectPoseRevision());
-                TestTrue(TEXT("Manual receipt contains only its claimed limb"),
-                    ManualReceipt.Get_CurrentPose().Get_Limbs().Num() == 1
-                        && ManualReceipt.Get_CurrentPose().Get_Limbs()[0].Get_Id() == ManualLimb);
-                TestTrue(TEXT("Clip receipt contains only its claimed limb"),
-                    ClipReceipt.Get_CurrentPose().Get_Limbs().Num() == 1
-                        && ClipReceipt.Get_CurrentPose().Get_Limbs()[0].Get_Id() == ClipLimb);
-            }
+                auto Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
+                auto Spec = FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{LimbClipPath}};
+                Spec.Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
+                    FCk_ProceduralAction_SlotBinding{FName{TEXT("Nod")}, InLimb}});
+                const auto Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(Scope, State->Player, Spec);
+                TestTrue(TEXT("Disjoint clip action reserves"), ck::IsValid(Action));
+                return Action;
+            };
+            State->First = PlayNod(FirstLimb);
+            State->Second = PlayNod(SecondLimb);
+            State->FirstIdentity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->First);
+            State->SecondIdentity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Second);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        {
+            const auto FirstReceipt = UCk_Utils_ProceduralAction_UE::Get_LastReceipt(State->First);
+            const auto SecondReceipt = UCk_Utils_ProceduralAction_UE::Get_LastReceipt(State->Second);
+            if (NOT FirstReceipt.Get_HasAcceptedPose() || NOT SecondReceipt.Get_HasAcceptedPose()
+                || FirstReceipt.Get_Stamp().Get_SubjectPoseRevision()
+                    != SecondReceipt.Get_Stamp().Get_SubjectPoseRevision())
+            { return false; }
+            State->JointFirstReceipt = FirstReceipt;
+            State->JointSecondReceipt = SecondReceipt;
+            return true;
+        }), WaitSeconds, TEXT("Both clips jointly settle an accepted batch")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, FirstLimb, SecondLimb](UWorld*)
+        {
+            const auto& FirstReceipt = State->JointFirstReceipt;
+            const auto& SecondReceipt = State->JointSecondReceipt;
+            TestEqual(TEXT("Joint batch stamps one settled subject revision"),
+                FirstReceipt.Get_Stamp().Get_SubjectPoseRevision(),
+                SecondReceipt.Get_Stamp().Get_SubjectPoseRevision());
+            TestTrue(TEXT("First receipt contains only its claimed limb"),
+                FirstReceipt.Get_CurrentPose().Get_Limbs().Num() == 1
+                    && FirstReceipt.Get_CurrentPose().Get_Limbs()[0].Get_Id() == FirstLimb);
+            TestTrue(TEXT("Second receipt contains only its claimed limb"),
+                SecondReceipt.Get_CurrentPose().Get_Limbs().Num() == 1
+                    && SecondReceipt.Get_CurrentPose().Get_Limbs()[0].Get_Id() == SecondLimb);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
             return UCk_Utils_ProceduralActionPlayer_UE::Read_Receipts(
-                State->Player, State->ClipIdentity, 0, 64).Get_Terminal();
-        }), WaitSeconds, TEXT("Mixed clip finishes and returns while manual claim remains")));
+                    State->Player, State->FirstIdentity, 0, 8).Get_Terminal()
+                && UCk_Utils_ProceduralActionPlayer_UE::Read_Receipts(
+                    State->Player, State->SecondIdentity, 0, 8).Get_Terminal();
+        }), WaitSeconds, TEXT("Both disjoint clips finish and return")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
-            TestEqual(TEXT("Manual action remains ready after disjoint clip return"),
-                UCk_Utils_ProceduralAction_UE::Get_State(State->Manual),
-                ECk_ProceduralAction_State::Ready);
-            UCk_Utils_ProceduralAction_UE::Request_End(State->Manual,
-                FCk_Request_ProceduralAction_End{}, {});
+            TestEqual(TEXT("First clip completes"),
+                UCk_Utils_ProceduralAction_UE::Get_Result(State->First).Get_Outcome(),
+                ECk_ProceduralAction_Outcome::Completed);
+            TestEqual(TEXT("Second clip completes"),
+                UCk_Utils_ProceduralAction_UE::Get_Result(State->Second).Get_Outcome(),
+                ECk_ProceduralAction_Outcome::Completed);
+            auto Root = State->Root.ConvertToHandle();
+            UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Root);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralActionWalkingLimbWithoutSupportTest,
+    "Ck.ProceduralAnimation.Action.Clip.WalkingLimbWithoutSupportPolicyIsRejected",
+    ck_test_procedural_action_clip::TestFlags)
+
+auto
+FCkProceduralActionWalkingLimbWithoutSupportTest::RunTest(
+    const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_action_clip;
+    using namespace ck_test_procedural_walker_fixture;
+    struct FWalkerState
+    {
+        FFloor Floor;
+        FWalker Walker;
+        FCk_Handle_ProceduralActionPlayer Player;
+        FCk_Handle_ProceduralAction Action;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
+    };
+    const auto State = MakeShared<FWalkerState>();
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [State](UWorld* InWorld) { State->Floor = AddFloor(InWorld); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State] { return Get_IsFloorReady(State->Floor); }),
+        WaitSeconds, TEXT("Walker floor is present in Jolt")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [State](UWorld* InWorld) { State->Walker = AddWalker(InWorld, TArray<FName>{LegId(0)}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State] { return Get_IsWalkerSettled(State->Walker); }),
+        WaitSeconds, TEXT("Walker settles over four planted feet")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State](UWorld*)
+        {
+            const auto Spec = FCk_ProceduralActionPlayer_Spec{};
+            TestEqual(TEXT("The default locomotion policy borrows no walking limb"),
+                Spec.Get_Locomotion().Get_Support().Get_Mode(), ECk_ProceduralLimbControl_SupportMode::Disabled);
+            State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Walker.Subject, Spec);
+            TestTrue(TEXT("Default player composes on the walker"), ck::IsValid(State->Player));
+            auto Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Walker.Root);
+            State->Clip = ck_test_procedural_action_clip_fixture::MakeNodClip(TArray<FName>{LegId(0)}, FCk_Time{0.5});
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(Scope, State->Player,
+                ck_test_procedural_action_clip_fixture::MakePlay(State->Clip.Get(), TArray<FName>{LegId(0)}));
+            TestTrue(TEXT("The walking-limb clip reserves an action"), ck::IsValid(State->Action));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
-            return UCk_Utils_ProceduralActionPlayer_UE::Read_Receipts(
-                State->Player, State->ManualIdentity, 0, 8).Get_Terminal();
-        }), WaitSeconds, TEXT("Manual return finishes after mixed clip")));
+            return ck::IsValid(State->Action)
+                && UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Finished;
+        }), WaitSeconds, TEXT("The walking-limb clip finishes at admission")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [State](UWorld*)
+        [this, State](UWorld*)
         {
-            auto Root = State->Root.ConvertToHandle();
-            UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(Root);
+            const auto Result = UCk_Utils_ProceduralAction_UE::Get_Result(State->Action);
+            TestEqual(TEXT("A walking limb without a support policy is rejected"), Result.Get_Outcome(),
+                ECk_ProceduralAction_Outcome::Rejected);
+            TestEqual(TEXT("A rejection at admission needs no recovery"), Result.Get_Recovery(),
+                ECk_ProceduralAction_Recovery::NotRequired);
+            TestEqual(TEXT("The rejection names the missing support"), Result.Get_Reason(),
+                FName{TEXT("SupportUnavailable")});
+            TestTrue(TEXT("No accepted pose was published"),
+                NOT UCk_Utils_ProceduralAction_UE::Get_LastReceipt(State->Action).Get_HasAcceptedPose());
+            const auto Control = UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(State->Walker.Subject, LegId(0));
+            TestEqual(TEXT("The leg stays under the gait"), Control.Get_State(), ECk_ProceduralLimbControl_State::Default);
+            TestTrue(TEXT("The leg keeps participating in the gait"), Control.Get_Participating());
+            TestEqual(TEXT("The walker keeps four planted feet"),
+                UCk_Utils_ProceduralGait_UE::Get_PlantedCount(State->Walker.Gait), 4);
+            UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->Walker.Root);
+            UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->Floor.Entity);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     return true;

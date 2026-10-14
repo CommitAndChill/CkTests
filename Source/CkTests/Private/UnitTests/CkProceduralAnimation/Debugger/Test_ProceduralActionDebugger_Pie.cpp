@@ -6,6 +6,7 @@
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 #include "CkProceduralAnimation/Action/CkProceduralAction_Utils.h"
+#include "CkProceduralAnimation/ActionPlayer/CkProceduralActionPlayer_Fragment.h"
 #include "CkProceduralAnimation/ActionPlayer/CkProceduralActionPlayer_Utils.h"
 #include "CkProceduralAnimation/Articulation/CkProceduralArticulation_Utils.h"
 #include "CkProceduralAnimation/Debug/CkProceduralAnimation_Debug.h"
@@ -108,7 +109,7 @@ auto
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
             State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
                 FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath}});
-            TestTrue(TEXT("Saved BodyPulse starts a managed action"), ck::IsValid(State->Action));
+            TestTrue(TEXT("Saved BodyPulse starts an action"), ck::IsValid(State->Action));
             State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
@@ -208,12 +209,12 @@ auto
 // --------------------------------------------------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkProceduralActionDebuggerManagedStreamTest,
-    "Ck.ProceduralAnimation.Debugger.ActionPie.ManagedStreamKeepsRecording",
+    FCkProceduralActionDebuggerAutoStreamTest,
+    "Ck.ProceduralAnimation.Debugger.ActionPie.AutoDeliveredStreamKeepsRecording",
     ck_test_procedural_action_debugger_pie::TestFlags)
 
 auto
-    FCkProceduralActionDebuggerManagedStreamTest::
+    FCkProceduralActionDebuggerAutoStreamTest::
     RunTest(const FString&)
     -> bool
 {
@@ -261,12 +262,13 @@ auto
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
             auto* Clip = LoadObject<UCk_ProceduralAction_Data>(nullptr, *ClipPath.ToString());
             if (NOT TestNotNull(TEXT("Saved BodyPulse loads"), Clip)) { return; }
-            const auto Start = UCk_Utils_ProceduralAction_UE::Play_Loaded(State->Scope, State->Player,
-                FCk_ProceduralAction_LoadedPlaySpec{Clip}, {});
-            State->Action = Start.Get_Action();
-            State->Identity = Start.Get_Identity();
-            TestTrue(TEXT("Saved BodyPulse starts with managed delivery"), ck::IsValid(State->Action)
-                && UCk_Utils_ProceduralActionPlayer_UE::Get_IsManagedDelivery(State->Player, State->Identity));
+            auto Play = FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Clip}};
+            Play.Set_Delivery(ECk_ProceduralAction_Delivery::Auto);
+            State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player, Play);
+            State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
+            TestTrue(TEXT("Saved BodyPulse starts with auto delivery"), ck::IsValid(State->Action)
+                && State->Player.Get<ck::FFragment_ProceduralActionPlayer>().Get_Receipts()
+                    .Get_IsAutoDelivered(State->Identity));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -278,15 +280,15 @@ auto
                 || Result == ECk_ProceduralAction_ReadResult::Pending
                 || Result == ECk_ProceduralAction_ReadResult::Gap;
             return Recording.Get_Terminal() || NOT StillRecording;
-        }), WaitSeconds, TEXT("The debugger copies the managed stream until its terminal")));
+        }), WaitSeconds, TEXT("The debugger copies the auto-delivered stream until its terminal")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
             const auto& Recording = State->Model->Get_ActionRecording();
-            TestEqual(TEXT("The debugger auto-selected the managed stream"), Recording.Get_Identity().Get_Value(),
+            TestEqual(TEXT("The debugger auto-selected the auto-delivered stream"), Recording.Get_Identity().Get_Value(),
                 State->Identity.Get_Value());
             const auto Result = Recording.Get_LastReadResult();
-            TestTrue(TEXT("Every read of the managed stream was accepted, so recording never stopped"),
+            TestTrue(TEXT("Every read of the auto-delivered stream was accepted, so recording never stopped"),
                 Result == ECk_ProceduralAction_ReadResult::Succeeded
                     || Result == ECk_ProceduralAction_ReadResult::Pending
                     || Result == ECk_ProceduralAction_ReadResult::Gap);

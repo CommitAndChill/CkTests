@@ -1,6 +1,7 @@
 // Language=angelscript
 
-// A loaded plugin clip drives a noncombat body-only inspection mechanism.
+// Create_FromClip with a resident clip compiles and binds before it returns: a body-only clip and a limb clip with a
+// named slot binding both start PendingAdmission and play to completion with Explicit delivery.
 class UCk_AutoTest_ProceduralAnimation_ActionLoadedClipPublicSurface : UCk_AutoTest_Base
 {
     default _TimeoutSeconds = 15.0f;
@@ -44,42 +45,13 @@ class UCk_AutoTest_ProceduralAnimation_ActionLoadedClipPublicSurface : UCk_AutoT
         Assert_True(Validation.Get_Status() == ECk_ProceduralAction_ReportStatus::Valid
             && Validation.Get_Advisory() == false,
             "Structured public validation reports the resident clip as valid");
-        const auto Soft = TSoftObjectPtr<UCk_ProceduralAction_Data>(FSoftObjectPath(
-            "/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA"));
-        auto SoftSpec = FCk_ProceduralAction_PlaySpec(Soft);
-        auto EmptySlots = TArray<FCk_ProceduralAction_SlotBinding>();
-        auto EmptyAnchors = TArray<FCk_ProceduralAction_AnchorBinding>();
-        auto Tuning = FCk_ProceduralAction_Tuning();
-        auto Playback = Tuning.Get_Playback();
-        Playback.Set_PlayRate(1.25f);
-        Tuning.Set_Playback(Playback);
-        SoftSpec.Set_SlotBindings(EmptySlots).Set_AnchorBindings(EmptyAnchors);
-        SoftSpec.Set_Tuning(Tuning);
-        Assert_True(SoftSpec.Get_SlotBindings().Num() == 0 && SoftSpec.Get_AnchorBindings().Num() == 0
-            && SoftSpec.Get_TuningMode() == ECk_ProceduralAction_TuningMode::Override
-            && SoftSpec.Get_Tuning().Get_Playback().Get_PlayRate() == 1.25f,
-            "Soft play spec binds fluent accessor calls and selects explicit tuning override");
-        SoftSpec.Set_TuningMode(ECk_ProceduralAction_TuningMode::PlayerDefault);
-        Assert_True(SoftSpec.Get_TuningMode() == ECk_ProceduralAction_TuningMode::PlayerDefault
-            && SoftSpec.Get_Tuning().Get_Playback().Get_PlayRate() == 1.0f,
-            "Explicit PlayerDefault clears an inactive override");
-        const auto Admission = utils_procedural_action_player::Get_AdmissionReport(_Player,
-            SoftSpec);
-        Assert_True(Admission.Get_Status() == ECk_ProceduralAction_ReportStatus::Valid
-            && Admission.Get_Advisory(),
-            "Resident clip admission is advisory and does not claim resources");
-        auto LoadedSpec = FCk_ProceduralAction_LoadedPlaySpec(Clip);
-        LoadedSpec.Set_SlotBindings(EmptySlots).Set_AnchorBindings(EmptyAnchors);
-        LoadedSpec.Set_Tuning(Tuning);
-        Assert_True(LoadedSpec.Get_SlotBindings().Num() == 0 && LoadedSpec.Get_AnchorBindings().Num() == 0
-            && LoadedSpec.Get_TuningMode() == ECk_ProceduralAction_TuningMode::Override
-            && LoadedSpec.Get_Tuning().Get_Playback().Get_PlayRate() == 1.25f,
-            "Loaded play spec binds fluent accessors on its concrete AngelScript type");
-        LoadedSpec.Set_TuningMode(ECk_ProceduralAction_TuningMode::PlayerDefault);
-        _Action = utils_procedural_action::Create_FromLoadedClip(Owner, _Player, LoadedSpec);
+        auto Spec = FCk_ProceduralAction_PlaySpec(TSoftObjectPtr<UCk_ProceduralAction_Data>(Clip));
+        Assert_True(Spec.Get_SlotBindings().Num() == 0 && Spec.Get_Delivery() == ECk_ProceduralAction_Delivery::Explicit,
+            "A play spec defaults to no slot bindings and Explicit delivery");
+        _Action = utils_procedural_action::Create_FromClip(Owner, _Player, Spec);
         if (ck::IsValid(_Action) == false)
         {
-            FinishFailure("Loaded clip must reserve a public action instance");
+            FinishFailure("A resident clip must reserve a public action instance");
             return;
         }
         _Identity = _Action.Get_Identity();
@@ -165,13 +137,17 @@ class UCk_AutoTest_ProceduralAnimation_ActionLoadedClipPublicSurface : UCk_AutoT
         }
         auto Slots = TArray<FCk_ProceduralAction_SlotBinding>();
         Slots.Add(FCk_ProceduralAction_SlotBinding(n"Nod", n"NodArm"));
-        auto Loaded = FCk_ProceduralAction_LoadedPlaySpec(Clip);
-        Loaded.Set_SlotBindings(Slots);
-        Assert_True(Loaded.Get_SlotBindings().Num() == 1,
-            "Concrete loaded play spec exposes the authored limb binding in AngelScript");
-        _LimbAction = utils_procedural_action::Create_FromLoadedClip(Owner, _LimbPlayer, Loaded);
+        auto Spec = FCk_ProceduralAction_PlaySpec(TSoftObjectPtr<UCk_ProceduralAction_Data>(Clip));
+        Spec.Set_SlotBindings(Slots);
+        Assert_True(Spec.Get_SlotBindings().Num() == 1, "The play spec carries the named limb binding in AngelScript");
+        _LimbAction = utils_procedural_action::Create_FromClip(Owner, _LimbPlayer, Spec);
         Assert_True(ck::IsValid(_LimbAction), "Resident limb clip reserves an action");
-        if (ck::IsValid(_LimbAction)) { _LimbIdentity = _LimbAction.Get_Identity(); }
+        if (ck::IsValid(_LimbAction))
+        {
+            _LimbIdentity = _LimbAction.Get_Identity();
+            Assert_True(_LimbAction.Get_State() == ECk_ProceduralAction_State::PendingAdmission,
+                "The resident limb clip binds its slot inside Create_FromClip");
+        }
     }
 
     UFUNCTION()

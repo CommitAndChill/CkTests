@@ -27,9 +27,12 @@
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkTests/CkTests_Log.h"
 
+#include "../Action/CkTest_ProceduralActionClipFixture.h"
+
 #include "Engine/World.h"
 #include "Misc/App.h"
 #include "Misc/AutomationTest.h"
+#include "UObject/StrongObjectPtr.h"
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -127,6 +130,8 @@ namespace ck_test_procedural_gait_recovery_pie
     const auto LegId = FName{TEXT("Leg0")};
     const auto BodyLocation = FVector{0.0, 47000.0, 5060.0};
     const auto FloorLocation = FVector{0.0, 47000.0, 4975.0};
+    // Nothing consumes the held streams, so each needs room for every frame it holds and returns.
+    constexpr auto HeldRecords = 4096;
 
     struct FState
     {
@@ -137,6 +142,7 @@ namespace ck_test_procedural_gait_recovery_pie
         FCk_Handle_ProceduralActionPlayer Player;
         FCk_Handle Scope;
         FCk_Handle_ProceduralAction Action;
+        TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         FCk_Handle Floor;
         FCk_Handle_JoltBody FloorBody;
         FDelegateHandle RecoveryMonitor;
@@ -252,6 +258,35 @@ namespace ck_test_procedural_gait_recovery_pie
         InOutState.Gait = Walker.Get_Gait();
         InOutState.Subject = UCk_Utils_ProceduralArticulation_UE::Cast(InOutState.Root);
     }
+
+    // Holds the bound leg's foot where it stands now, in the frame the root had when the clip starts.
+    auto
+        DoPlayFootHold(
+            FState& InOutState,
+            FCk_Time InDuration)
+        -> FCk_Handle_ProceduralAction
+    {
+        const auto Leg = UCk_Utils_ProceduralLeg_UE::TryGet_Leg(InOutState.Root, LegId);
+        const auto FootWorld = UCk_Utils_ProceduralLeg_UE::Get_Foot(Leg).Get_Position();
+        const auto RootWorld = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(InOutState.Body);
+        InOutState.Clip = ck_test_procedural_action_clip_fixture::MakeHoldClip(LegId,
+            ECk_ProceduralAction_TrackSpace::RootAtStart, RootWorld.InverseTransformPosition(FootWorld), InDuration);
+        return UCk_Utils_ProceduralAction_UE::Create_FromClip(InOutState.Scope, InOutState.Player,
+            ck_test_procedural_action_clip_fixture::MakePlay(InOutState.Clip.Get(), TArray<FName>{LegId}));
+    }
+
+    // Lifts the bound leg's foot slightly off its rest pose for InDuration, then the clip ends and the leg returns.
+    auto
+        DoPlayLift(
+            FState& InOutState,
+            FCk_Time InDuration)
+        -> FCk_Handle_ProceduralAction
+    {
+        InOutState.Clip = ck_test_procedural_action_clip_fixture::MakeHoldClip(LegId,
+            ECk_ProceduralAction_TrackSpace::LimbRestNormalized, FVector{0.0, 0.0, 0.005}, InDuration);
+        return UCk_Utils_ProceduralAction_UE::Create_FromClip(InOutState.Scope, InOutState.Player,
+            ck_test_procedural_action_clip_fixture::MakePlay(InOutState.Clip.Get(), TArray<FName>{LegId}));
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -306,6 +341,9 @@ auto
             Locomotion.Set_Return(Return);
             auto Spec = FCk_ProceduralActionPlayer_Spec{};
             Spec.Set_Locomotion(Locomotion);
+            auto Capacity = Spec.Get_Capacity();
+            Capacity.Set_RecordsPerInstance(HeldRecords);
+            Spec.Set_Capacity(Capacity);
             const auto Limb = UCk_Utils_ProceduralArticulation_UE::Get_Limb(State->Subject, LegId);
             TestTrue(TEXT("The bound legacy leg is a live controllable limb"), ck::IsValid(Limb));
             auto Layout = FCk_ProceduralLimb_Layout{};
@@ -317,17 +355,15 @@ auto
             State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, Spec);
             TestTrue(TEXT("Player admits configured locomotor borrowing"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope, State->Player, Control);
-            TestTrue(TEXT("Manual action admits the bound walking limb"), ck::IsValid(State->Action));
+            State->Action = DoPlayFootHold(*State, FCk_Time{1.5});
+            TestTrue(TEXT("A clip admits the bound walking limb"), ck::IsValid(State->Action));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
             return ck::IsValid(State->Action)
                 && UCk_Utils_ProceduralAction_UE::Get_State(State->Action)
-                    == ECk_ProceduralAction_State::Ready
+                    == ECk_ProceduralAction_State::Playing
                 && UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(State->Subject, LegId).Get_State()
                     == ECk_ProceduralLimbControl_State::Controlled
                 && NOT FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
@@ -341,12 +377,6 @@ auto
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State] { return NOT ck::IsValid(State->FloorBody); }),
         WaitSeconds, TEXT("Jolt floor removal completes before return")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [State](UWorld*)
-        {
-            UCk_Utils_ProceduralAction_UE::Request_End(State->Action,
-                FCk_Request_ProceduralAction_End{}, {});
-        })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         {
@@ -494,8 +524,8 @@ auto
                         }
                     }
                 });
-            UCk_Utils_ProceduralArticulation_UE::Request_RecoverLimbs(State->Subject,
-                FCk_Request_ProceduralArticulation_RecoverLimbs{TArray<FName>{LegId}}, {});
+            UCk_Utils_ProceduralArticulation_UE::Request_RecoverUnplantedLimbs(State->Subject,
+                FCk_Request_ProceduralArticulation_RecoverUnplantedLimbs{}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -635,23 +665,23 @@ auto
             Locomotion.Set_Return(Return);
             auto Spec = FCk_ProceduralActionPlayer_Spec{};
             Spec.Set_Locomotion(Locomotion);
+            auto Capacity = Spec.Get_Capacity();
+            Capacity.Set_RecordsPerInstance(HeldRecords);
+            Spec.Set_Capacity(Capacity);
             State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, Spec);
             TestTrue(TEXT("Moved-root player admits locomotor policy"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope,
-                State->Player, Control);
-            TestTrue(TEXT("Moved-root manual action is admitted"), ck::IsValid(State->Action));
+            State->Action = DoPlayFootHold(*State, FCk_Time{30.0});
+            TestTrue(TEXT("Moved-root hold clip is admitted"), ck::IsValid(State->Action));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         { return ck::IsValid(State->Action)
             && UCk_Utils_ProceduralAction_UE::Get_State(State->Action)
-                == ECk_ProceduralAction_State::Ready
+                == ECk_ProceduralAction_State::Playing
             && UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(State->Subject, LegId).Get_State()
                 == ECk_ProceduralLimbControl_State::Controlled; }),
-        WaitSeconds, TEXT("Moved-root locomotor leg is under manual control")));
+        WaitSeconds, TEXT("Moved-root locomotor leg is held by the clip")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [State, RevisionBeforeMove](UWorld*)
         {
@@ -788,7 +818,7 @@ auto
                         && Lease.Get_AcceptedElapsed() == FCk_Time{})
                     {
                         auto Actual = FCk_ProceduralArticulation_Pose{};
-                        auto Budget = FCk_ProceduralLimbControl_MotionBudget{};
+                        auto Budget = FCk_ProceduralAction_Sampling{};
                         if (FCk_ProceduralLimbControl_Control::Get_ReturnActualPose(Pinned->Subject,
                                 Controllers[0].Get_Token(), Actual)
                             && FCk_ProceduralLimbControl_Control::Get_ReturnMotionBudget(Pinned->Subject,
@@ -868,7 +898,7 @@ auto
                         && CandidateResult == ECk_ProceduralGaitParticipation_Result::Accepted)
                     {
                         auto Previous = FCk_ProceduralArticulation_Pose{};
-                        auto Budget = FCk_ProceduralLimbControl_MotionBudget{};
+                        auto Budget = FCk_ProceduralAction_Sampling{};
                         if (FCk_ProceduralLimbControl_Control::Get_ReturnActualPose(Pinned->Subject,
                                 Controllers[0].Get_Token(), Previous)
                             && FCk_ProceduralLimbControl_Control::Get_ReturnMotionBudget(Pinned->Subject,
@@ -997,8 +1027,8 @@ auto
                         }
                     }
                 });
-            UCk_Utils_ProceduralAction_UE::Request_End(State->Action,
-                FCk_Request_ProceduralAction_End{}, {});
+            UCk_Utils_ProceduralAction_UE::Request_Cancel(State->Action,
+                FCk_Request_ProceduralAction_Cancel{FName{TEXT("MovedRootReturn")}}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -1137,20 +1167,20 @@ auto
             Locomotion.Set_Return(Return);
             auto Spec = FCk_ProceduralActionPlayer_Spec{};
             Spec.Set_Locomotion(Locomotion);
+            auto Capacity = Spec.Get_Capacity();
+            Capacity.Set_RecordsPerInstance(HeldRecords);
+            Spec.Set_Capacity(Capacity);
             State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, Spec);
             TestTrue(TEXT("Contact-loss player admits the policy"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope,
-                State->Player, Control);
-            TestTrue(TEXT("Contact-loss manual action is admitted"), ck::IsValid(State->Action));
+            State->Action = DoPlayFootHold(*State, FCk_Time{30.0});
+            TestTrue(TEXT("Contact-loss hold clip is admitted"), ck::IsValid(State->Action));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
         { return ck::IsValid(State->Action)
             && UCk_Utils_ProceduralAction_UE::Get_State(State->Action)
-                == ECk_ProceduralAction_State::Ready
+                == ECk_ProceduralAction_State::Playing
             && UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(State->Subject, LegId).Get_State()
                 == ECk_ProceduralLimbControl_State::Controlled; }),
         WaitSeconds, TEXT("Contact-loss limb is controlled under protection")));
@@ -1243,37 +1273,20 @@ auto
             Locomotion.Set_Return(Return);
             auto Spec = FCk_ProceduralActionPlayer_Spec{};
             Spec.Set_Locomotion(Locomotion);
+            auto Capacity = Spec.Get_Capacity();
+            Capacity.Set_RecordsPerInstance(HeldRecords);
+            Spec.Set_Capacity(Capacity);
             State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, Spec);
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope,
-                State->Player, Control);
+            State->Action = DoPlayLift(*State, FCk_Time{1.0});
             TestTrue(TEXT("Detach-return action admits one bound locomotor limb"),
                 ck::IsValid(State->Action));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
-        { return ck::IsValid(State->Action)
-            && UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Ready
-            && UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(State->Subject, LegId).Get_State()
-                == ECk_ProceduralLimbControl_State::Controlled; }),
-        WaitSeconds, TEXT("Detach-return action controls the walking limb")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [State](UWorld*)
-        {
-            auto Target = FCk_ProceduralAction_LimbTarget{
-                LegId, FTransform{FVector{0.0, 0.0, 0.005}}};
-            Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-            auto Batch = FCk_ProceduralAction_PoseBatch{};
-            Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-            UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(State->Action,
-                FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, {});
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        { return UCk_Utils_ProceduralAction_UE::Get_LastReceipt(State->Action).Get_HasAcceptedPose(); }),
-        WaitSeconds, TEXT("Detach-return action has an actual accepted moved pose")));
+        { return UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Playing
+            && UCk_Utils_ProceduralAction_UE::Get_LastReceipt(State->Action).Get_HasAcceptedPose(); }),
+        WaitSeconds, TEXT("Detach-return action is playing with an accepted moved pose (the entry blend is over)")));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
@@ -1294,8 +1307,8 @@ auto
             if (Binding->Get_Terminal() != FCk_Handle_Transform{})
             { Probe.Parts.Add(Binding->Get_Terminal()); }
             Probe.Armed = true;
-            UCk_Utils_ProceduralAction_UE::Request_End(State->Action,
-                FCk_Request_ProceduralAction_End{}, {});
+            TestEqual(TEXT("The probe arms before the lift clip ends"),
+                UCk_Utils_ProceduralAction_UE::Get_State(State->Action), ECk_ProceduralAction_State::Playing);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -1391,32 +1404,14 @@ auto
             Locomotion.Set_Return(Return);
             auto Spec = FCk_ProceduralActionPlayer_Spec{};
             Spec.Set_Locomotion(Locomotion);
+            auto Capacity = Spec.Get_Capacity();
+            Capacity.Set_RecordsPerInstance(HeldRecords);
+            Spec.Set_Capacity(Capacity);
             State->Player = UCk_Utils_ProceduralActionPlayer_UE::Add(State->Subject, Spec);
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
-            auto Control = FCk_ProceduralAction_ControlSpec{TArray<FName>{LegId}};
-            Control.Set_InputTimeout(FCk_Time{10.0});
-            State->Action = UCk_Utils_ProceduralAction_UE::Create_Manual(State->Scope,
-                State->Player, Control);
+            State->Action = DoPlayLift(*State, FCk_Time{1.0});
             TestTrue(TEXT("Disable-return action admits one bound locomotor limb"),
                 ck::IsValid(State->Action));
-        })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
-        FCk_NetAutoTest_Condition::CreateLambda([State]
-        { return ck::IsValid(State->Action)
-            && UCk_Utils_ProceduralAction_UE::Get_State(State->Action) == ECk_ProceduralAction_State::Ready
-            && UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(State->Subject, LegId).Get_State()
-                == ECk_ProceduralLimbControl_State::Controlled; }),
-        WaitSeconds, TEXT("Disable-return action controls the walking limb")));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
-        [State](UWorld*)
-        {
-            auto Target = FCk_ProceduralAction_LimbTarget{
-                LegId, FTransform{FVector{0.0, 0.0, 0.005}}};
-            Target.Set_Space(ECk_ProceduralAction_TrackSpace::LimbRestNormalized);
-            auto Batch = FCk_ProceduralAction_PoseBatch{};
-            Batch.Set_Limbs(TArray<FCk_ProceduralAction_LimbTarget>{Target});
-            UCk_Utils_ProceduralAction_UE::Request_SubmitPoseBatch(State->Action,
-                FCk_Request_ProceduralAction_SubmitPoseBatch{Batch}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
@@ -1430,8 +1425,6 @@ auto
                 Legs.IsValidIndex(0) && ck::IsValid(Legs[0])))
             { return; }
             *DisabledLeg = Legs[0];
-            UCk_Utils_ProceduralAction_UE::Request_End(State->Action,
-                FCk_Request_ProceduralAction_End{}, {});
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State]
