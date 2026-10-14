@@ -112,7 +112,7 @@ namespace ck_test_procedural_action_pie_coexist
         TStrongObjectPtr<UCk_ProceduralAction_Data> Clip;
         TStrongObjectPtr<ULevelEditorPlaySettings> PlaySettings;
         TStrongObjectPtr<UWorld> EntrySourceWorld;
-        FCk_ProceduralAction_EditorSubject PreviousSubject;
+        FCk_ProceduralActionEditor_Subject PreviousSubject;
         UWorld* SolverWorld = nullptr;
         TSharedPtr<SDockTab> EditorTab;
         double SolverTimeBeforePie = 0.0;
@@ -136,7 +136,7 @@ namespace ck_test_procedural_action_pie_coexist
         {
             const auto* Editor = Toolkit();
             const auto* Modes = Editor != nullptr ? Editor->Get_Modes() : nullptr;
-            return Editor != nullptr && Editor->Get_Model()->Get_IsPlaying() && Modes != nullptr && Modes->GetSolver() != nullptr;
+            return Editor != nullptr && Editor->Get_Model()->Get_IsPlaying() && Modes != nullptr && Modes->Get_Solver() != nullptr;
         }
 
         auto AdvanceStage() -> void
@@ -172,7 +172,7 @@ namespace ck_test_procedural_action_pie_coexist
             { GUnrealEd->RequestEndPlayMap(); }
             if (PreviewOverrideApplied && Clip.IsValid())
             {
-                Clip->Set_EditorSubject(PreviousSubject);
+                UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(Clip.Get())->Set_Subject(PreviousSubject);
                 PreviewOverrideApplied = false;
             }
             EditorTab.Reset();
@@ -482,10 +482,10 @@ auto
     { return false; }
     if (State->Editors->FindEditorForAsset(State->Clip.Get(), false) != nullptr)
     { AddError(TEXT("PIE coexistence refuses to borrow an already open asset toolkit.")); return false; }
-    State->PreviousSubject = State->Clip->Get_EditorSubject();
-    auto Subject = FCk_ProceduralAction_EditorSubject{};
-    Subject.Set_Scenario(TSoftObjectPtr<UObject>{FSoftObjectPath{PreviewPath}});
-    State->Clip->Set_EditorSubject(Subject);
+    State->PreviousSubject = ck::procedural_action_editor::Get_Subject(*State->Clip);
+    auto Subject = FCk_ProceduralActionEditor_Subject{};
+    Subject.Set_Scenario(TSoftObjectPtr<UCk_ProceduralActionPreview_Config>{FSoftObjectPath{PreviewPath}});
+    UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(State->Clip.Get())->Set_Subject(Subject);
     State->PreviewOverrideApplied = true;
     State->PlaySettings.Reset(NewObject<ULevelEditorPlaySettings>(GetTransientPackage()));
     if (NOT TestTrue(TEXT("isolated PIE settings exist"), State->PlaySettings.IsValid()))

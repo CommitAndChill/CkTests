@@ -99,8 +99,8 @@ namespace ck_test_procedural_action_shared_preview_refresh
         TStrongObjectPtr<UCk_ProceduralActionPreview_Config> Preview;
         TArray<FCk_ProceduralActionPreview_Obstacle> OriginalObstacles;
         TArray<FCk_ProceduralAction_Phase> OriginalBodyPhases;
-        FCk_ProceduralAction_EditorSubject OriginalBodySubject;
-        FCk_ProceduralAction_EditorSubject OriginalLimbSubject;
+        FCk_ProceduralActionEditor_Subject OriginalBodySubject;
+        FCk_ProceduralActionEditor_Subject OriginalLimbSubject;
         double DeadlineSeconds = 0.0;
         uint64 BodyActivationFrame = 0;
         int32 Stage = 0;
@@ -144,8 +144,8 @@ namespace ck_test_procedural_action_shared_preview_refresh
             }
             if (SettingsChanged && Body.IsValid() && Limb.IsValid())
             {
-                Body->Set_EditorSubject(OriginalBodySubject);
-                Limb->Set_EditorSubject(OriginalLimbSubject);
+                UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(Body.Get())->Set_Subject(OriginalBodySubject);
+                UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(Limb.Get())->Set_Subject(OriginalLimbSubject);
                 SettingsChanged = false;
             }
         }
@@ -237,8 +237,8 @@ namespace ck_test_procedural_action_shared_preview_refresh
                 { return false; }
                 // Each open tab in Solved runs its own Solver world; take the Body tab's.
                 const auto* BodyModes = Body->Get_Modes();
-                _State->SolverWorld = BodyModes != nullptr && BodyModes->GetSolver() != nullptr
-                    ? BodyModes->GetSolver()->GetWorld() : nullptr;
+                _State->SolverWorld = BodyModes != nullptr && BodyModes->Get_Solver() != nullptr
+                    ? BodyModes->Get_Solver()->Get_World() : nullptr;
                 if (NOT _State->Test->TestTrue(TEXT("Solver owns a private production world"),
                     _State->SolverWorld != nullptr))
                 { _State->Cleanup(); return true; }
@@ -258,7 +258,7 @@ namespace ck_test_procedural_action_shared_preview_refresh
             for (const auto& Context : GEngine->GetWorldContexts())
             { WorldContextStillPresent |= Context.World() == _State->SolverWorld; }
             const auto* Modes = Body->Get_Modes();
-            if (WorldContextStillPresent || Modes == nullptr || Modes->GetSolver() == nullptr
+            if (WorldContextStillPresent || Modes == nullptr || Modes->Get_Solver() == nullptr
                 || NOT StatusOf(Body).Contains(TEXT("SOLVER:")))
             { return false; }
             _State->Test->TestTrue(TEXT("the viewport HUD shows the restarted Solver"),
@@ -305,12 +305,12 @@ auto
     State->OriginalDirty = State->Preview->GetOutermost()->IsDirty();
     State->OriginalBodyPhases = State->Body->Get_Phases();
     State->OriginalBodyDirty = State->Body->GetOutermost()->IsDirty();
-    State->OriginalBodySubject = State->Body->Get_EditorSubject();
-    State->OriginalLimbSubject = State->Limb->Get_EditorSubject();
-    auto Shared = FCk_ProceduralAction_EditorSubject{};
-    Shared.Set_Scenario(TSoftObjectPtr<UObject>{State->Preview.Get()});
-    State->Body->Set_EditorSubject(Shared);
-    State->Limb->Set_EditorSubject(Shared);
+    State->OriginalBodySubject = ck::procedural_action_editor::Get_Subject(*State->Body);
+    State->OriginalLimbSubject = ck::procedural_action_editor::Get_Subject(*State->Limb);
+    auto Shared = FCk_ProceduralActionEditor_Subject{};
+    Shared.Set_Scenario(TSoftObjectPtr<UCk_ProceduralActionPreview_Config>{State->Preview.Get()});
+    UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(State->Body.Get())->Set_Subject(Shared);
+    UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(State->Limb.Get())->Set_Subject(Shared);
     State->SettingsChanged = true;
     State->OwnsEditors = true;
     if (NOT TestTrue(TEXT("two independent toolkits open with one referenced preview"),

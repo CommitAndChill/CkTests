@@ -431,8 +431,8 @@ namespace ck_test_procedural_action_mounted_toolkit
         int32 Stage = 0;
         int32 SettleFrames = 0;
         FString LastWaitReason;
-        FCk_ProceduralAction_EditorSubject PreviousBodySubject;
-        FCk_ProceduralAction_EditorSubject PreviousLimbSubject;
+        FCk_ProceduralActionEditor_Subject PreviousBodySubject;
+        FCk_ProceduralActionEditor_Subject PreviousLimbSubject;
         bool SettingsCaptured = false;
         FName LimbSlot;
         FAxisDragState AxisDrag;
@@ -502,8 +502,8 @@ namespace ck_test_procedural_action_mounted_toolkit
             }
             if (SettingsCaptured && BodyPulse.IsValid() && LimbNod.IsValid())
             {
-                BodyPulse->Set_EditorSubject(PreviousBodySubject);
-                LimbNod->Set_EditorSubject(PreviousLimbSubject);
+                UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(BodyPulse.Get())->Set_Subject(PreviousBodySubject);
+                UCk_Utils_ProceduralActionEditor_UE::Get_EditorData(LimbNod.Get())->Set_Subject(PreviousLimbSubject);
                 SettingsCaptured = false;
             }
         }
@@ -566,7 +566,7 @@ namespace ck_test_procedural_action_mounted_toolkit
             {
                 Body->SetScenario(State.BodyPreview.Get());
                 State.Test->TestEqual(TEXT("BodyPulse selected its saved sibling preview"),
-                    State.BodyPulse->Get_EditorSubject().Get_Scenario().ToString(), FString{BodyPreviewPath});
+                    ck::procedural_action_editor::Get_Subject(*State.BodyPulse).Get_Scenario().ToString(), FString{BodyPreviewPath});
                 Body->Get_Model()->SelectClip();
                 ++State.Stage;
                 return false;
@@ -696,11 +696,9 @@ namespace ck_test_procedural_action_mounted_toolkit
             if (State.Stage == 9)
             {
                 const auto Model = Body->Get_Model();
-                const auto Session = Body->Get_Session();
                 State.Test->TestFalse(TEXT("reset leaves the transport paused"), Model->Get_IsPlaying());
                 State.Test->TestTrue(TEXT("reset returns the authored transport to zero"),
-                    FMath::IsNearlyZero(Model->Get_Time().Get_Seconds(), 1.0e-4)
-                    && Session.IsValid() && FMath::IsNearlyZero(Session->GetTime().Get_Seconds(), 1.0e-4));
+                    FMath::IsNearlyZero(Model->Get_Time().Get_Seconds(), 1.0e-4));
                 Model->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Solved);
                 State.Test->TestTrue(TEXT("RestartSolver starts the production Solver"), Body->RestartSolver());
                 State.Stage = 10;
@@ -763,7 +761,7 @@ namespace ck_test_procedural_action_mounted_toolkit
                 { return false; }
                 Limb->SetScenario(State.LimbPreview.Get());
                 State.Test->TestEqual(TEXT("LimbNod selected its saved sibling preview"),
-                    State.LimbNod->Get_EditorSubject().Get_Scenario().ToString(), FString{LimbPreviewPath});
+                    ck::procedural_action_editor::Get_Subject(*State.LimbNod).Get_Scenario().ToString(), FString{LimbPreviewPath});
                 Limb->Get_Model()->SetPreviewMode(ECk_ProceduralActionEditor_PreviewMode::Authored);
                 ++State.Stage;
                 return false;
@@ -926,8 +924,8 @@ auto
             && NOT State->LimbNod->Get_Phases()[0].Get_LimbTracks().IsEmpty()))
     { return false; }
     State->LimbSlot = State->LimbNod->Get_Phases()[0].Get_LimbTracks()[0].Get_Slot();
-    State->PreviousBodySubject = State->BodyPulse->Get_EditorSubject();
-    State->PreviousLimbSubject = State->LimbNod->Get_EditorSubject();
+    State->PreviousBodySubject = ck::procedural_action_editor::Get_Subject(*State->BodyPulse);
+    State->PreviousLimbSubject = ck::procedural_action_editor::Get_Subject(*State->LimbNod);
     State->SettingsCaptured = true;
     if (NOT TestTrue(TEXT("BodyPulse opens through its registered asset definition"),
         State->Editors->OpenEditorForAsset(State->BodyPulse.Get(), EToolkitMode::Standalone))

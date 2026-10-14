@@ -234,8 +234,7 @@ namespace ck_test_procedural_action_performance
         }
         auto* Rig = NewObject<UCk_ProceduralRig_Data>();
         Rig->Set_Legs(Legs);
-        const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Instance.Root,
-            Rig, NewObject<UCk_ProceduralGait_Data>(), Chains);
+        const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Instance.Root, FCk_ProceduralWalker_Spec{Rig, NewObject<UCk_ProceduralGait_Data>()}.Set_Chains(Chains));
         Instance.Gait = Walker.Get_Gait();
         Instance.Subject = UCk_Utils_ProceduralArticulation_UE::Cast(Instance.Root);
         Instance.ActionLimbIds.Add(BorrowedLimbId);
@@ -453,7 +452,6 @@ namespace ck_test_procedural_action_performance
                             _Case->ClipEntrySequences.IsValidIndex(ClipActionIndex)
                             && Receipt.Get_Stamp().Get_SampleSequence()
                                 > _Case->ClipEntrySequences[ClipActionIndex]
-                            && NOT Receipt.Get_IntermediateSamples().IsEmpty()
                             && Receipt.Get_Sampling().Get_EvaluatedSamples() > 1;
                         _Case->MaxLastReceiptBacklogSeconds = FMath::Max(
                             _Case->MaxLastReceiptBacklogSeconds,

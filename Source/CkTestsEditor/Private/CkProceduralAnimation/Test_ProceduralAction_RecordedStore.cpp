@@ -32,10 +32,7 @@ namespace ck_test_procedural_action_recorded_store
         const auto Pose = FCk_ProceduralArticulation_Pose{
             FTransform::Identity, FTransform::Identity, false,
             TArray<FCk_ProceduralArticulation_LimbPose>{Limb}};
-        const auto Sample = FCk_ProceduralAction_Sample{
-            {}, Pose, ECk_ProceduralAction_SampleEvidence::Evaluated};
-        const auto Receipt = FCk_ProceduralAction_Receipt{
-            true, {}, {}, Pose, Pose, TArray<FCk_ProceduralAction_Sample>{Sample}, {}};
+        const auto Receipt = FCk_ProceduralAction_Receipt{true, {}, {}, Pose, Pose, {}};
         return FCk_ProceduralAction_Record{InIdentity, InSequence,
             ECk_ProceduralAction_RecordKind::AcceptedPose, Receipt, {}, {}};
     }
@@ -119,20 +116,20 @@ auto
 {
     using namespace ck_test_procedural_action_recorded_store;
     const auto Identity = FCk_ProceduralAction_Identity{43};
-    auto Store = FCk_ProceduralActionRecordedStore{18};
+    auto Store = FCk_ProceduralActionRecordedStore{12};
     Store.Reset(Identity, {});
     const auto First = FCk_ProceduralAction_ReadPage{
         ECk_ProceduralAction_ReadResult::Succeeded,
         TArray<FCk_ProceduralAction_Record>{MakePoseRecord(Identity, 1)},
         1, false, false};
     if (NOT TestTrue(TEXT("one pose receipt fits the transform budget"), Store.AppendPage(First))
-        || NOT TestEqual(TEXT("previous, current, and sample poses counted"),
-            Store.Get_CopiedPoseTransforms(), int64{18}))
+        || NOT TestEqual(TEXT("previous and current poses counted"),
+            Store.Get_CopiedPoseTransforms(), int64{12}))
     { return false; }
 
     if (NOT TestTrue(TEXT("overlapping page does not count transforms again"), Store.AppendPage(First))
         || NOT TestEqual(TEXT("overlap preserves transform count"),
-            Store.Get_CopiedPoseTransforms(), int64{18}))
+            Store.Get_CopiedPoseTransforms(), int64{12}))
     { return false; }
 
     const auto Second = FCk_ProceduralAction_ReadPage{
@@ -143,9 +140,9 @@ auto
         || NOT TestEqual(TEXT("rejection preserves copied cursor"), Store.Get_LastCopiedSequence(), int64{1})
         || NOT TestEqual(TEXT("rejection preserves copied records"), Store.Get_Records().Num(), 1)
         || NOT TestEqual(TEXT("rejection preserves transform count"),
-            Store.Get_CopiedPoseTransforms(), int64{18})
+            Store.Get_CopiedPoseTransforms(), int64{12})
         || NOT TestTrue(TEXT("budget diagnostic states the limit"),
-            Store.Get_LastError().Contains(TEXT("18-pose-transform budget"))))
+            Store.Get_LastError().Contains(TEXT("12-pose-transform budget"))))
     { return false; }
 
     Store.Reset(Identity, {});

@@ -125,7 +125,7 @@ namespace ck_test_procedural_action_preview_scenario
             const FCk_ProceduralActionSolverWorld& InSolver)
         -> ECk_ProceduralAction_Outcome
     {
-        for (const auto& Record : InSolver.GetRecording().Get_Records())
+        for (const auto& Record : InSolver.Get_Recording().Get_Records())
         {
             if (Record.Get_Kind() == ECk_ProceduralAction_RecordKind::Terminal)
             { return Record.Get_Result().Get_Outcome(); }
@@ -146,7 +146,7 @@ namespace ck_test_procedural_action_preview_scenario
             if (FPlatformTime::Seconds() > _State->Deadline)
             {
                 _Test->AddError(FString::Printf(TEXT("preview scenario timed out at pass %d step %lld: %s"),
-                    _State->Pass, _State->Solver->GetStep(), *_State->Solver->GetError()));
+                    _State->Pass, _State->Solver->Get_Step(), *_State->Solver->Get_Error()));
                 _State->Solver->Reset();
                 return true;
             }
@@ -160,34 +160,34 @@ namespace ck_test_procedural_action_preview_scenario
                     GFrameCounter, FrameBefore);
                 _State->CheckedSingleTick = true;
             }
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
             if (NOT _State->Scheduled)
             {
-                if (_State->Solver->GetStatus() != FCk_ProceduralActionSolverWorld::EStatus::Ready)
+                if (_State->Solver->Get_Status() != FCk_ProceduralActionSolverWorld::EStatus::Ready)
                 { return false; }
                 _Test->TestEqual(TEXT("preparation consumes no preview scenario steps"),
-                    _State->Solver->GetStep(), int64{0});
+                    _State->Solver->Get_Step(), int64{0});
                 _Test->TestEqual(TEXT("first seeded environment event remains pending"),
-                    _State->Solver->GetScenarioNextEventStep(), int64{10});
+                    _State->Solver->Get_ScenarioNextEventStep(), int64{10});
                 if (_State->Pass > 0 && NOT _State->Solver->Resume())
                 { _Test->AddError(TEXT("backward scenario replay did not resume after ready seed")); return true; }
                 _State->Scheduled = true;
                 return false;
             }
-            const auto Step = _State->Solver->GetStep();
+            const auto Step = _State->Solver->Get_Step();
             if (Step >= 5 && Step < 10
                 && UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(
-                    _State->Solver->GetSubject(), LegId).Get_State()
+                    _State->Solver->Get_Subject(), LegId).Get_State()
                     == ECk_ProceduralLimbControl_State::Returning)
             { _State->ObservedReturnBeforeLoss = true; }
-            if (Step >= 10 && Step < 120 && NOT _State->Solver->GetIsFloorReady())
+            if (Step >= 10 && Step < 120 && NOT _State->Solver->Get_IsFloorReady())
             { _State->ObservedLoss = true; }
-            if (Step < 120 && _State->Solver->GetIsActionTerminal()
+            if (Step < 120 && _State->Solver->Get_IsActionTerminal()
                 && NOT _State->ObservedTerminalBeforeRestore)
             {
                 _State->ObservedTerminalBeforeRestore = true;
@@ -196,7 +196,7 @@ namespace ck_test_procedural_action_preview_scenario
             }
             if (Step >= 130 && Step < 210
                 && UCk_Utils_ProceduralArticulation_UE::Get_LimbControl(
-                    _State->Solver->GetSubject(), LegId).Get_State()
+                    _State->Solver->Get_Subject(), LegId).Get_State()
                     == ECk_ProceduralLimbControl_State::Default)
             { _State->ObservedRecovery = true; }
             if (Step < 210)
@@ -206,10 +206,10 @@ namespace ck_test_procedural_action_preview_scenario
                 _State->ObservedReturnBeforeLoss);
             _Test->TestTrue(TEXT("action terminal precedes preview observation horizon"),
                 _State->ObservedTerminalBeforeRestore);
-            _Test->TestTrue(TEXT("restored floor became Jolt-ready"), _State->Solver->GetIsFloorReady());
+            _Test->TestTrue(TEXT("restored floor became Jolt-ready"), _State->Solver->Get_IsFloorReady());
             _Test->TestTrue(TEXT("explicit public recovery returns the named leg"), _State->ObservedRecovery);
             _Test->TestEqual(TEXT("preview ends only at its observation horizon"),
-                _State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Finished);
+                _State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Finished);
             if (_State->Pass == 0)
             {
                 _State->FirstOutcome = TerminalOutcome(*_State->Solver);
@@ -225,9 +225,9 @@ namespace ck_test_procedural_action_preview_scenario
                 if (NOT _State->Solver->SeekToStep(0))
                 { _Test->AddError(TEXT("backward scenario seek rejected")); return true; }
                 _Test->TestEqual(TEXT("backward seek rebuilds the seeded event cursor"),
-                    _State->Solver->GetScenarioNextEventStep(), int64{10});
+                    _State->Solver->Get_ScenarioNextEventStep(), int64{10});
                 _Test->TestEqual(TEXT("backward seek keeps the pinned observation horizon"),
-                    _State->Solver->GetObservationHorizonStep(), int64{210});
+                    _State->Solver->Get_ObservationHorizonStep(), int64{210});
                 return false;
             }
             _Test->TestEqual(TEXT("backward replay retains terminal outcome"),
@@ -258,16 +258,16 @@ namespace ck_test_procedural_action_preview_scenario
                 return true;
             }
             _State->Solver->TickOncePerEditorFrame();
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
-            if (_State->Solver->GetStep() < 20)
+            if (_State->Solver->Get_Step() < 20)
             { return false; }
             const auto Leg = UCk_Utils_ProceduralLeg_UE::TryGet_Leg(
-                _State->Solver->GetSubject(), LegId);
+                _State->Solver->Get_Subject(), LegId);
             _Test->TestTrue(TEXT("scenario detach resolves the named leg"), ck::IsValid(Leg));
             if (ck::IsValid(Leg))
             {
@@ -275,7 +275,7 @@ namespace ck_test_procedural_action_preview_scenario
                     UCk_Utils_ProceduralLeg_UE::Get_Status(Leg), ECk_ProceduralLeg_Status::Detached);
             }
             _Test->TestEqual(TEXT("separate detach scenario stops at its horizon"),
-                _State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Finished);
+                _State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Finished);
             _State->Solver->Reset();
             return true;
         }
@@ -312,9 +312,9 @@ auto
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
     if (NOT TestTrue(TEXT("private walking scenario starts"),
         State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), MakeSlotBindings(), 1)))
-    { AddError(State->Solver->GetError()); return false; }
+    { AddError(State->Solver->Get_Error()); return false; }
     TestEqual(TEXT("walking preparation starts before scenario origin"),
-        State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Preparing);
+        State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Preparing);
     State->Deadline = FPlatformTime::Seconds() + 35.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunScenario(this, State));
     return true;
@@ -348,9 +348,9 @@ auto
         const auto RejectedClip = MakeHoldClip(FCk_Time{0.5});
         TestFalse(TEXT("invalid event prevents world creation"),
             RejectedSolver.StartClip(Config.Get(), RejectedClip.Get(), MakeSlotBindings(), 1));
-        TestNull(TEXT("invalid event leaves no private world"), RejectedSolver.GetWorld());
+        TestNull(TEXT("invalid event leaves no private world"), RejectedSolver.Get_World());
         TestTrue(TEXT("invalid event has an actionable diagnostic"),
-            RejectedSolver.GetError().Contains(TEXT("Unknown")));
+            RejectedSolver.Get_Error().Contains(TEXT("Unknown")));
     }
     Config->Set_ScenarioEvents({Event(5, ECk_ProceduralActionPreview_ScenarioEventKind::DetachLimb,
         {LegId}), Event(10, ECk_ProceduralActionPreview_ScenarioEventKind::RecoverLimbs, {LegId})});
@@ -367,9 +367,9 @@ auto
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
     if (NOT TestTrue(TEXT("detach scenario composes without private mutation hooks"),
         State->Solver->StartClip(State->Config.Get(), State->Clip.Get(), MakeSlotBindings(), 2)))
-    { AddError(State->Solver->GetError()); return false; }
+    { AddError(State->Solver->Get_Error()); return false; }
     TestEqual(TEXT("detach event is scheduled after admission"),
-        State->Solver->GetScenarioNextEventStep(), int64{5});
+        State->Solver->Get_ScenarioNextEventStep(), int64{5});
     State->Deadline = FPlatformTime::Seconds() + 20.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunDetach(this, State));
     return true;

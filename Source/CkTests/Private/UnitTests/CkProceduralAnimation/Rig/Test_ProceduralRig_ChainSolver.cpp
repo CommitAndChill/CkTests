@@ -196,8 +196,7 @@ auto
                 auto InvalidRig = InvalidChains[0].Get_Rig();
                 InvalidRig.Set_SegmentClearanceRadii(Radii);
                 InvalidChains[0] = FCk_ProceduralWalker_LegChain{State->Cases[0].LegId, InvalidRig};
-                const auto Rejected = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, MakeRig(),
-                    NewObject<UCk_ProceduralGait_Data>(), InvalidChains);
+                const auto Rejected = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, FCk_ProceduralWalker_Spec{MakeRig(), NewObject<UCk_ProceduralGait_Data>()}.Set_Chains(InvalidChains));
                 TestFalse(TEXT("Malformed, negative or nonfinite radii reject walker admission"), ck::IsValid(Rejected.Get_Gait()));
                 TestFalse(TEXT("Rejected radii add no gait fragment"), UCk_Utils_ProceduralGait_UE::Has(Body));
                 TestEqual(TEXT("Rejected radii create no legs"), UCk_Utils_ProceduralLeg_UE::Get_Legs(Body).Num(), 0);
@@ -211,7 +210,7 @@ auto
                 }
             }
 
-            const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, MakeRig(), NewObject<UCk_ProceduralGait_Data>(), Chains);
+            const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, FCk_ProceduralWalker_Spec{MakeRig(), NewObject<UCk_ProceduralGait_Data>()}.Set_Chains(Chains));
             TestTrue(TEXT("The walker admits an Auto, a Fabrik and a Curve chain"), ck::IsValid(Walker.Get_Gait()));
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,

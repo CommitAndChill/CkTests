@@ -107,8 +107,7 @@ namespace ck_test_procedural_walker_fixture
             RigSpec.Set_Foot(Foot);
             Chains.Emplace(Id, RigSpec);
         }
-        const auto Composed = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Walker.Body,
-            Rig, NewObject<UCk_ProceduralGait_Data>(), Chains);
+        const auto Composed = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Walker.Body, FCk_ProceduralWalker_Spec{Rig, NewObject<UCk_ProceduralGait_Data>()}.Set_Chains(Chains));
         Walker.Gait = Composed.Get_Gait();
         Walker.Subject = UCk_Utils_ProceduralArticulation_UE::Cast(Walker.Root);
         return Walker;

@@ -54,8 +54,9 @@ class UCk_AutoTest_ProceduralAnimation_FootholdAvoidsOccludedTarget : UCk_AutoTe
         _Fixture.Entities.Add(Root);
         auto Body = utils_transform::Add(Root, FTransform(_Origin + FVector(0.0, 0.0, _BodyHeight)), ECk_Replication::DoesNotReplicate);
 
-        auto Walker = utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait,
-            TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        auto Walker = utils_procedural_animation::Add_Walker(Body, WalkerSpec);
         _Gait = Walker.Get_Gait();
         _Legs = Walker.Get_Legs();
         Assert_True(ck::IsValid(_Gait) && _Legs.Num() == 2, "A gait-only side walker is admitted");

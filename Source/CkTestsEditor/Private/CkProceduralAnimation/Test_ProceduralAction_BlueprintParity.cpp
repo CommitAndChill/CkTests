@@ -216,11 +216,6 @@ auto
     PageBranch->CreateNewGuid();
     PageBranch->PostPlacedNewNode();
     PageBranch->AllocateDefaultPins();
-    auto* ReportBranch = NewObject<UK2Node_IfThenElse>(Graph);
-    Graph->AddNode(ReportBranch, false, false);
-    ReportBranch->CreateNewGuid();
-    ReportBranch->PostPlacedNewNode();
-    ReportBranch->AllocateDefaultPins();
 
     const auto Connected =
         DoConnect(*Graph, Event->FindPin(UEdGraphSchema_K2::PN_Then),
@@ -257,11 +252,7 @@ auto
         && DoConnect(*Graph, ReceiptBranch->FindPin(UEdGraphSchema_K2::PN_Then),
             PageBranch->FindPin(UEdGraphSchema_K2::PN_Execute))
         && DoConnect(*Graph, PageBreak->FindPin(TEXT("_Terminal")),
-            PageBranch->GetConditionPin())
-        && DoConnect(*Graph, PageBranch->FindPin(UEdGraphSchema_K2::PN_Then),
-            ReportBranch->FindPin(UEdGraphSchema_K2::PN_Execute))
-        && DoConnect(*Graph, ValidationBreak->FindPin(TEXT("_Advisory")),
-            ReportBranch->GetConditionPin());
+            PageBranch->GetConditionPin());
     if (NOT TestTrue(TEXT("Articulation and observation pins connect"), Connected)
         || NOT TestNotNull(TEXT("Articulation spec pin"), Add->FindPin(TEXT("InSpec")))
         || NOT TestNotNull(TEXT("Get_Limb ID pin"), Limb->FindPin(TEXT("InId")))

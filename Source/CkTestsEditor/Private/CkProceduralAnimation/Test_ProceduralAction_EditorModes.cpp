@@ -21,13 +21,13 @@ auto
 {
     int64 PureStep = INDEX_NONE;
     TestTrue(TEXT("negative seek time maps to initial step"),
-        FCkProceduralActionEditorModes::ToStep(FCk_Time{-0.25}, PureStep)
+        FCk_ProceduralActionEditorModes::ToStep(FCk_Time{-0.25}, PureStep)
             && PureStep == 0);
     TestTrue(TEXT("ordinary seek time maps to 60 Hz step"),
-        FCkProceduralActionEditorModes::ToStep(FCk_Time{0.2}, PureStep)
+        FCk_ProceduralActionEditorModes::ToStep(FCk_Time{0.2}, PureStep)
             && PureStep == 12);
     TestFalse(TEXT("huge finite seek time rejects before int64 conversion"),
-        FCkProceduralActionEditorModes::ToStep(FCk_Time{1.0e300}, PureStep));
+        FCk_ProceduralActionEditorModes::ToStep(FCk_Time{1.0e300}, PureStep));
     TestEqual(TEXT("rejected pure conversion preserves previous step"), PureStep, int64{12});
     constexpr auto ClipPath = TEXT("/CkFoundation/ProceduralAnimation/Examples/"
         "Ck_ProceduralAction_BodyPulse_DA.Ck_ProceduralAction_BodyPulse_DA");
@@ -40,22 +40,27 @@ auto
     { return false; }
     auto Session = MakeShared<FCk_ProceduralActionAuthoringSession>(Clip);
     Session->SetPreviewConfig(Preview);
-    auto Modes = FCkProceduralActionEditorModes{Session};
+    auto Modes = FCk_ProceduralActionEditorModes{Session};
     if (NOT TestTrue(TEXT("production Solver starts"), Modes.StartSolver()))
     { Modes.Close(); return false; }
-    TestNull(TEXT("no solved frame before the Solver has run"), Modes.GetDisplayedFrame());
+    TestNull(TEXT("no solved frame before the Solver has run"), Modes.Get_DisplayedFrame());
     TestTrue(TEXT("a requested time is accepted before it is solved"), Modes.Show(FCk_Time{0.3}));
-    TestEqual(TEXT("an unsolved time displays the start"), Modes.GetTime().Get_Seconds(), 0.0);
+    TestEqual(TEXT("an unsolved time displays the start"), Modes.Get_Time().Get_Seconds(), 0.0);
     TestFalse(TEXT("an unrepresentable time is rejected"), Modes.Show(FCk_Time{1.0e300}));
-    TestTrue(TEXT("the rejected time is reported"), Modes.GetStatusText().ToString().Contains(TEXT("cannot be represented")));
+    TestTrue(TEXT("the rejected time is reported"), Modes.Get_StatusText().ToString().Contains(TEXT("cannot be represented")));
+    const auto RevisionBefore = Session->Get_Revision();
     Session->Refresh();
+    TestEqual(TEXT("a refresh that changes nothing keeps the revision"), Session->Get_Revision(), RevisionBefore);
+    auto OtherPreview = TStrongObjectPtr<UCk_ProceduralActionPreview_Config>{
+        DuplicateObject<UCk_ProceduralActionPreview_Config>(Preview, GetTransientPackage())};
+    Session->SetPreviewConfig(OtherPreview.Get());
     Modes.SourceChanged();
-    TestNotNull(TEXT("a source revision restarts the Solver"), Modes.GetSolver());
-    TestEqual(TEXT("the restart drops the solved frames"), Modes.GetFrameCount(), 0);
-    TestFalse(TEXT("the restart clears the rejected-time report"), Modes.GetStatusText().ToString().Contains(TEXT("cannot be represented")));
-    const auto* WorldAfter = Modes.GetSolver()->GetWorld();
+    TestNotNull(TEXT("a source revision restarts the Solver"), Modes.Get_Solver());
+    TestEqual(TEXT("the restart drops the solved frames"), Modes.Get_FrameCount(), 0);
+    TestFalse(TEXT("the restart clears the rejected-time report"), Modes.Get_StatusText().ToString().Contains(TEXT("cannot be represented")));
+    const auto* WorldAfter = Modes.Get_Solver()->Get_World();
     Modes.SourceChanged();
-    TestTrue(TEXT("an unchanged revision keeps the Solver"), Modes.GetSolver() != nullptr && Modes.GetSolver()->GetWorld() == WorldAfter);
+    TestTrue(TEXT("an unchanged revision keeps the Solver"), Modes.Get_Solver() != nullptr && Modes.Get_Solver()->Get_World() == WorldAfter);
     Modes.Close();
     return NOT HasAnyErrors();
 }

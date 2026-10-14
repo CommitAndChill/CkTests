@@ -47,7 +47,9 @@ class UCk_AutoTest_ProceduralAnimation_AdmissionAndRequestLifetime : UCk_AutoTes
 
         auto Chains = TArray<FCk_ProceduralWalker_LegChain>();
         Chains.Add(FCk_ProceduralWalker_LegChain(n"Leg0", MakeChain(WalkerUpper, WalkerLower)));
-        auto Walker = utils_procedural_animation::Add_Walker(Root, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait, Chains);
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(Chains);
+        auto Walker = utils_procedural_animation::Add_Walker(Root, WalkerSpec);
         Assert_True(ck::IsValid(Walker.Get_Gait()) && Walker.Get_Legs().Num() == 2,
             "The target starts with a valid walker composition");
         if (Walker.Get_Legs().Num() != 2)

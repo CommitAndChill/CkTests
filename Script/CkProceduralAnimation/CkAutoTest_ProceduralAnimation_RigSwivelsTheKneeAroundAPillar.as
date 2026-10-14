@@ -86,7 +86,9 @@ class UCk_AutoTest_ProceduralAnimation_RigSwivelsTheKneeAroundAPillar : UCk_Auto
             RigParams.Set_Clearance(InClearance);
             Chains.Add(FCk_ProceduralWalker_LegChain(LegParams.Get_Id(), RigParams));
         }
-        return utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait, Chains);
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(Chains);
+        return utils_procedural_animation::Add_Walker(Body, WalkerSpec);
     }
 
     FCk_Handle_ProceduralLeg Get_PlusLeg(FCk_ProceduralWalker InWalker)

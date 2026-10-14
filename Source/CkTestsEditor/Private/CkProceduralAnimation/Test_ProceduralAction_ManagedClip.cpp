@@ -55,14 +55,14 @@ namespace ck_test_procedural_action_managed_clip
                 _State->Solver->Reset();
                 return true;
             }
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
             _State->Solver->TickOncePerEditorFrame();
-            const auto& Recording = _State->Solver->GetRecording();
+            const auto& Recording = _State->Solver->Get_Recording();
             if (NOT Recording.Get_Terminal())
             { return false; }
 
@@ -131,14 +131,14 @@ namespace ck_test_procedural_action_managed_clip
                 _State->Solver->Reset();
                 return true;
             }
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
             _State->Solver->TickOncePerEditorFrame();
-            const auto& Recording = _State->Solver->GetRecording();
+            const auto& Recording = _State->Solver->Get_Recording();
             if (NOT Recording.Get_Terminal())
             { return false; }
             auto Accepted = int32{0};
@@ -203,10 +203,10 @@ auto
         State->Solver->StartClip(State->Config.Get(), State->Clip.Get(),
             State->Config->Get_SlotBindings(), 27)))
     {
-        AddError(State->Solver->GetError());
+        AddError(State->Solver->Get_Error());
         return false;
     }
-    State->Subject = State->Solver->GetSubject();
+    State->Subject = State->Solver->Get_Subject();
     State->DeadlineSeconds = FPlatformTime::Seconds() + 15.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunClip(this, State));
     return true;
@@ -238,10 +238,10 @@ auto
         State->Solver->StartClip(State->Config.Get(), State->Clip.Get(),
             State->Config->Get_SlotBindings(), 28)))
     {
-        AddError(State->Solver->GetError());
+        AddError(State->Solver->Get_Error());
         return false;
     }
-    State->Subject = State->Solver->GetSubject();
+    State->Subject = State->Solver->Get_Subject();
     State->DeadlineSeconds = FPlatformTime::Seconds() + 15.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunLimbClip(this, State));
     return true;

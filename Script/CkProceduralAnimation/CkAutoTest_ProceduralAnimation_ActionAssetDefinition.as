@@ -15,8 +15,7 @@ class UCk_AutoTest_ProceduralAnimation_ActionAssetDefinition : UCk_AutoTest_Base
             return;
         }
         const auto Validation = utils_procedural_action::Validate_Data(Clip);
-        Assert_True(Validation.Get_Status() == ECk_ProceduralAction_ReportStatus::Valid
-            && Validation.Get_Advisory() == false,
+        Assert_True(Validation.Get_Status() == ECk_ProceduralAction_ReportStatus::Valid,
             "The script-declared clip validates through the public surface");
         Assert_True(Clip.Get_BodyChannel().Get_Enabled() && Clip.Get_Slots().Num() == 1 && Clip.Get_Phases().Num() == 1,
             "The asset initializer filled the body channel, slots and phases");

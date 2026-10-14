@@ -77,10 +77,9 @@ auto
     auto Pose = FCk_ProceduralAction_PoseKey{Key.Get_KeyTime()};
     Pose.Set_BodyMode(ECk_ProceduralAction_ValueMode::Set);
     Pose.Set_Body(FTransform{Captured});
-    auto PoseId = FGuid{};
     auto Error = FString{};
-    if (NOT TestTrue(TEXT("the pose is captured at the key time"), FCk_ProceduralActionAuthoringCommands{Clip.Get()}.CapturePose(
-        Ease, Pose, TArray<FName>{FCk_ProceduralAction_PoseGroup::Get_BodyChannelName()}, NAME_None, PoseId, Error)))
+    if (NOT TestTrue(TEXT("the pose is recorded at the key time"), FCk_ProceduralActionAuthoringCommands{Clip.Get()}.RecordPose(
+        Ease, Pose, NAME_None, Error)))
     { AddInfo(Error); return false; }
 
     Session.Refresh();

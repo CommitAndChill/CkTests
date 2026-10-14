@@ -50,9 +50,9 @@ auto
     auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{
         NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
     auto Session = FCk_ProceduralActionAuthoringSession{Clip.Get()};
-    if (NOT TestFalse(TEXT("empty draft cannot play"), Session.CanPlay())
-        || NOT TestFalse(TEXT("empty draft does not compile"), Session.IsCompiled())
-        || NOT TestTrue(TEXT("empty draft has field diagnostics"), Session.GetDiagnostics().Num() > 0))
+    if (NOT TestFalse(TEXT("empty draft cannot play"), Session.Get_CanPlay())
+        || NOT TestFalse(TEXT("empty draft does not compile"), Session.Get_IsCompiled())
+        || NOT TestTrue(TEXT("empty draft has field diagnostics"), Session.Get_Diagnostics().Num() > 0))
     { return false; }
 
     auto Body = FCk_ProceduralAction_BodyChannel{};
@@ -64,27 +64,24 @@ auto
         FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{1.0}, FVector{10.0, 0.0, 0.0}, FQuat::Identity}});
     Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
     Session.Refresh();
-    if (NOT TestTrue(TEXT("edited clip compiles"), Session.IsCompiled() && Session.CanPlay()))
+    if (NOT TestTrue(TEXT("edited clip compiles"), Session.Get_IsCompiled() && Session.Get_CanPlay()))
     { return false; }
 
-    Session.SetTime(FCk_Time{0.5});
-    if (NOT TestTrue(TEXT("authored pose evaluates at scrubbed time"),
-        Session.HasPose() && FMath::IsNearlyEqual(Session.GetPose().Get_Body().GetTranslation().X, 5.0)))
+    auto Pose = ck::procedural_action::FEvaluatedPose{};
+    if (NOT TestTrue(TEXT("authored pose evaluates at a scrubbed time"),
+        Session.EvaluateAt(FCk_Time{0.5}, Pose) && FMath::IsNearlyEqual(Pose.Get_Body().GetTranslation().X, 5.0)))
     { return false; }
-    Session.SetPlaying(true);
-    Session.Advance(FCk_Time{0.5});
-    if (NOT TestTrue(TEXT("authored playback reaches final key"),
-        FMath::IsNearlyEqual(Session.GetTime().Get_Seconds(), 1.0)
-            && FMath::IsNearlyEqual(Session.GetPose().Get_Body().GetTranslation().X, 10.0)
-            && NOT Session.IsPlaying()))
+    if (NOT TestTrue(TEXT("authored pose reaches the final key at the clip's end"),
+        Session.EvaluateAt(FCk_Time{1.0}, Pose) && FMath::IsNearlyEqual(Pose.Get_Body().GetTranslation().X, 10.0)))
     { return false; }
+    TestFalse(TEXT("a time past the clip does not evaluate"), Session.EvaluateAt(FCk_Time{1.5}, Pose));
 
     Phase.Set_Duration(FCk_Time{0.0});
     Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
     Session.Refresh();
-    return TestFalse(TEXT("invalid edit removes playable revision"), Session.CanPlay())
-        && TestFalse(TEXT("invalid edit stops playback"), Session.IsPlaying())
-        && TestTrue(TEXT("invalid edit reports field diagnostics"), Session.GetDiagnostics().Num() > 0);
+    return TestFalse(TEXT("invalid edit removes playable revision"), Session.Get_CanPlay())
+        && TestFalse(TEXT("an invalid edit evaluates nothing"), Session.EvaluateAt(FCk_Time{0.5}, Pose))
+        && TestTrue(TEXT("invalid edit reports field diagnostics"), Session.Get_Diagnostics().Num() > 0);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_AuthoringSession_AuthoredRestFromTopology,
@@ -126,22 +123,24 @@ auto
     auto Session = FCk_ProceduralActionAuthoringSession{Clip.Get()};
     Session.SetPreviewConfig(Preview.Get());
     if (NOT TestTrue(TEXT("non-explicit authored rest plays without an initial-endpoint map"),
-        Preview->Get_InitialLimbEndpoints().IsEmpty() && Session.IsCompiled() && Session.CanPlay()))
+        Preview->Get_InitialLimbEndpoints().IsEmpty() && Session.Get_IsCompiled() && Session.Get_CanPlay()))
     { return false; }
+    auto Pose = ck::procedural_action::FEvaluatedPose{};
+    const auto StartPose = [&Session, &Pose]() { return Session.EvaluateAt(FCk_Time{}, Pose); };
     if (NOT TestTrue(TEXT("rest-normalized source resolves to zero offset from topology rest"),
-        Session.GetPose().Get_Limbs().Num() == 1
-            && Session.GetPose().Get_Limbs()[0].Get_Position().Equals(FVector::ZeroVector)))
+        StartPose() && Pose.Get_Limbs().Num() == 1
+            && Pose.Get_Limbs()[0].Get_Position().Equals(FVector::ZeroVector)))
     { return false; }
     if (NOT TestFalse(TEXT("topology rest ignores captured preview bend seed"),
-        Session.GetPose().Get_Limbs()[0].Get_HasBend()))
+        Pose.Get_Limbs()[0].Get_HasBend()))
     { return false; }
 
     Slot.Set_Space(ECk_ProceduralAction_TrackSpace::BodyLocal);
     Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
     Session.Refresh();
     if (NOT TestTrue(TEXT("body-local source resolves topology rest relative to root"),
-        Session.CanPlay() && Session.GetPose().Get_Limbs().Num() == 1
-            && Session.GetPose().Get_Limbs()[0].Get_Position().Equals(FVector{20.0, 0.0, 0.0})))
+        Session.Get_CanPlay() && StartPose() && Pose.Get_Limbs().Num() == 1
+            && Pose.Get_Limbs()[0].Get_Position().Equals(FVector{20.0, 0.0, 0.0})))
     { return false; }
 
     Track.Set_BendKeys(TArray<FCk_ProceduralAction_VectorKey>{
@@ -151,9 +150,9 @@ auto
     Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
     Session.Refresh();
     if (NOT TestTrue(TEXT("authored bend keys still override the rest initial source"),
-        Session.CanPlay() && Session.GetPose().Get_Limbs().Num() == 1
-            && Session.GetPose().Get_Limbs()[0].Get_HasBend()
-            && Session.GetPose().Get_Limbs()[0].Get_BendDirection().Equals(FVector::RightVector)))
+        Session.Get_CanPlay() && StartPose() && Pose.Get_Limbs().Num() == 1
+            && Pose.Get_Limbs()[0].Get_HasBend()
+            && Pose.Get_Limbs()[0].Get_BendDirection().Equals(FVector::RightVector)))
     { return false; }
     Track.Set_BendKeys(TArray<FCk_ProceduralAction_VectorKey>{});
     Phase.Set_LimbTracks(TArray<FCk_ProceduralAction_LimbTrack>{Track});
@@ -161,7 +160,7 @@ auto
 
     Preview->Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{});
     Session.Refresh();
-    if (NOT TestFalse(TEXT("unbound authored rest cannot silently use identity"), Session.CanPlay()))
+    if (NOT TestFalse(TEXT("unbound authored rest cannot silently use identity"), Session.Get_CanPlay()))
     { return false; }
     Preview->Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{
         FCk_ProceduralAction_SlotBinding{SlotId, LimbId}});
@@ -169,11 +168,11 @@ auto
     Slot.Set_InitialSource(ECk_ProceduralAction_InitialSource::CapturedAcceptedPose);
     Clip->Set_Slots(TArray<FCk_ProceduralAction_Slot>{Slot});
     Session.Refresh();
-    if (NOT TestTrue(TEXT("a bound captured slot previews from its limb's rest when no start is authored"), Session.CanPlay()))
+    if (NOT TestTrue(TEXT("a bound captured slot previews from its limb's rest when no start is authored"), Session.Get_CanPlay()))
     { return false; }
     Preview->Set_SlotBindings(TArray<FCk_ProceduralAction_SlotBinding>{});
     Session.Refresh();
-    return TestFalse(TEXT("an unbound captured slot has no start to preview from"), Session.CanPlay());
+    return TestFalse(TEXT("an unbound captured slot has no start to preview from"), Session.Get_CanPlay());
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_ProceduralAction_AuthoringSession_AppearanceScale,
@@ -200,24 +199,24 @@ auto
     Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Phase});
     auto Session = FCk_ProceduralActionAuthoringSession{Clip.Get()};
     Session.SetPreviewConfig(Preview.Get());
-    Session.SetTime(FCk_Time{0.25});
-    if (NOT TestTrue(TEXT("unit-scale authored body pose is available"), Session.CanPlay()))
+    auto Pose = ck::procedural_action::FEvaluatedPose{};
+    if (NOT TestTrue(TEXT("unit-scale authored body pose is available"), Session.Get_CanPlay() && Session.EvaluateAt(FCk_Time{0.25}, Pose)))
     { return false; }
-    const auto Before = Session.GetPose().Get_Body();
+    const auto Before = Pose.Get_Body();
     Preview->Set_BodyPreviewMeshScale(FVector{1.5, 0.5, 2.0});
     Session.Refresh();
     if (NOT TestTrue(TEXT("visual-only scale preserves authored body pose"),
-        Session.CanPlay() && Session.GetPose().Get_Body().Equals(Before, 1.0e-4)))
+        Session.Get_CanPlay() && Session.EvaluateAt(FCk_Time{0.25}, Pose) && Pose.Get_Body().Equals(Before, 1.0e-4)))
     { return false; }
     Preview->Set_BodyPreviewMeshScale(FVector{1.0, 0.0, 1.0});
     Session.Refresh();
-    if (NOT TestFalse(TEXT("zero visual scale disables preview playback"), Session.CanPlay())
+    if (NOT TestFalse(TEXT("zero visual scale disables preview playback"), Session.Get_CanPlay())
         || NOT TestTrue(TEXT("invalid visual scale has an actionable status"),
-            Session.GetStatusText().ToString().Contains(TEXT("finite, nonzero"))))
+            Session.Get_StatusText(FCk_Time{}).ToString().Contains(TEXT("finite, nonzero"))))
     { return false; }
     Preview->Set_BodyPreviewMeshScale(FVector::OneVector);
     Session.Refresh();
-    return TestTrue(TEXT("corrected visual scale restores authored playback"), Session.CanPlay());
+    return TestTrue(TEXT("corrected visual scale restores authored playback"), Session.Get_CanPlay());
 }
 
 #endif

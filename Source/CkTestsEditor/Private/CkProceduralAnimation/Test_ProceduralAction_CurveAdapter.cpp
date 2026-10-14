@@ -18,7 +18,7 @@ namespace ck_procedural_action_curve_test
     auto
         Body()
         -> FName
-    { return FCk_ProceduralAction_PoseGroup::Get_BodyChannelName(); }
+    { return ck::procedural_action_editor::Get_BodyChannelName(); }
 
     auto
         MakeClip()
@@ -59,8 +59,8 @@ auto
     auto Session = MakeShared<FCk_ProceduralActionAuthoringSession>(Clip.Get());
     auto Model = MakeShared<FCk_ProceduralActionEditorModel>();
     Model->SelectSection(FName(TEXT("Move")));
-    auto Adapter = MakeShared<FCkProceduralAction_CurveAdapter>();
-    Adapter->Init(Session, Model, FSimpleDelegate{});
+    auto Adapter = MakeShared<FCk_ProceduralAction_CurveAdapter>();
+    Adapter->Init(Session, Model);
     Adapter->Refresh();
     TestFalse(TEXT("proxy model owner is nontransactional"),
         Adapter->GetProxyOwner()->HasAnyFlags(RF_Transactional));
@@ -114,8 +114,8 @@ auto
     auto Session = MakeShared<FCk_ProceduralActionAuthoringSession>(Clip.Get());
     auto Model = MakeShared<FCk_ProceduralActionEditorModel>();
     Model->SelectSection(FName(TEXT("Move")));
-    TSharedPtr<FCkProceduralAction_CurveAdapter> Adapter = MakeShared<FCkProceduralAction_CurveAdapter>();
-    Adapter->Init(Session, Model, FSimpleDelegate{});
+    TSharedPtr<FCk_ProceduralAction_CurveAdapter> Adapter = MakeShared<FCk_ProceduralAction_CurveAdapter>();
+    Adapter->Init(Session, Model);
     Adapter->Refresh();
     auto* MixedCurve = Adapter->FindCurve(ck_procedural_action_curve_test::Body(), 0);
     if (NOT TestNotNull(TEXT("the body's X axis has a curve"), MixedCurve))
@@ -129,8 +129,8 @@ auto
         Clip->Get_Phases()[0].Get_BodyInterpolation(), ECk_ProceduralAction_Interpolation::Linear);
     Adapter.Reset();
 
-    Adapter = MakeShared<FCkProceduralAction_CurveAdapter>();
-    Adapter->Init(Session, Model, FSimpleDelegate{});
+    Adapter = MakeShared<FCk_ProceduralAction_CurveAdapter>();
+    Adapter->Init(Session, Model);
     Adapter->Refresh();
     auto* Curve = Adapter->FindCurve(ck_procedural_action_curve_test::Body(), 0);
     if (NOT TestNotNull(TEXT("the body's X axis has a curve after reopening"), Curve))
@@ -143,7 +143,7 @@ auto
     TestTrue(TEXT("rebuild is deferred outside model callback"), Adapter->GetHasPendingRebuild());
     TestEqual(TEXT("rejected edit leaves authored key unchanged"),
         Clip->Get_Phases()[0].Get_BodyKeys()[0].Get_Time().Get_Value(), 0.25);
-    const auto WeakAdapter = TWeakPtr<FCkProceduralAction_CurveAdapter>{Adapter};
+    const auto WeakAdapter = TWeakPtr<FCk_ProceduralAction_CurveAdapter>{Adapter};
     Adapter.Reset();
     FTSTicker::GetCoreTicker().Tick(0.0f);
     TestFalse(TEXT("closing with pending rebuild releases adapter"), WeakAdapter.IsValid());
@@ -170,8 +170,8 @@ auto
     auto Session = MakeShared<FCk_ProceduralActionAuthoringSession>(Clip.Get());
     auto Model = MakeShared<FCk_ProceduralActionEditorModel>();
     Model->SelectSection(FName(TEXT("Move")));
-    auto Adapter = MakeShared<FCkProceduralAction_CurveAdapter>();
-    Adapter->Init(Session, Model, FSimpleDelegate{});
+    auto Adapter = MakeShared<FCk_ProceduralAction_CurveAdapter>();
+    Adapter->Init(Session, Model);
     Adapter->Refresh();
     TestTrue(TEXT("out-of-order draft displays a Details correction"),
         Adapter->GetStatusText().ToString().Contains(TEXT("correct this draft in Details")));

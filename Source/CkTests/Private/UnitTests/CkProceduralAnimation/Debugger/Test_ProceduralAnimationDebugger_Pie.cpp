@@ -284,8 +284,7 @@ auto
             auto Body = UCk_Utils_Transform_UE::Add(Root, FTransform::Identity, ECk_Replication::DoesNotReplicate);
             TestFalse(TEXT("A transform without gait is not a procedural snapshot"),
                 UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(Root).Get_Status().Get_Available());
-            const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, MakePendingRig(),
-                NewObject<UCk_ProceduralGait_Data>(), {});
+            const auto Walker = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, FCk_ProceduralWalker_Spec{MakePendingRig(), NewObject<UCk_ProceduralGait_Data>()}.Set_Chains({}));
             TestTrue(TEXT("The pending walker admits its gait"), ck::IsValid(Walker.Get_Gait()));
             const auto Pending = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(Root);
             TestTrue(TEXT("Admission is available before the first solve"), Pending.Get_Status().Get_Available());

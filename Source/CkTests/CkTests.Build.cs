@@ -10,14 +10,6 @@ public class CkTests : CkModuleRules
         // Bend-side admission tests inspect the actual two-bone and FABRIK solver joint results.
         PrivateDependencyModuleNames.Add("AnimationCore");
 
-        PrivateIncludePaths.AddRange(new string[] {
-            // ... add other private include paths required here ...
-            // Native integration fixtures exercise the internal articulation/return protocol directly.
-            // This is a test-only seam; production consumers use the public Utils and observation values.
-            Path.GetFullPath(Path.Combine(ModuleDirectory, "..", "..", "..", "CkFoundation",
-                "Source", "CkProceduralAnimation", "Private")),
-        });
-
         PrivateDependencyModuleNames.AddRange(new string[]
         {
             // The layout lifecycle fixture creates and activates CommonUI widgets directly.

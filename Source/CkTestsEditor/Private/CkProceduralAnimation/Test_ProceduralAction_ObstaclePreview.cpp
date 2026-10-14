@@ -55,7 +55,7 @@ namespace ck_test_procedural_action_obstacle_preview
             const TCHAR* InRequest)
         -> FString
     {
-        const auto& Recording = InSolver.GetRecording();
+        const auto& Recording = InSolver.Get_Recording();
         auto Accepted = int32{0};
         auto Closure = int32{0};
         auto Terminal = int32{0};
@@ -79,7 +79,7 @@ namespace ck_test_procedural_action_obstacle_preview
                 break;
             }
         }
-        const auto Action = InSolver.GetAction();
+        const auto Action = InSolver.Get_Action();
         const auto ActionStatus = ck::IsValid(Action)
             ? FString::Printf(TEXT("state=%d outcome=%d reason=%s"),
                 static_cast<int32>(UCk_Utils_ProceduralAction_UE::Get_State(Action)),
@@ -88,12 +88,12 @@ namespace ck_test_procedural_action_obstacle_preview
             : FString{TEXT("handle invalid")};
         return FString::Printf(
             TEXT("request=%s solverStatus=%d step=%lld action={%s} records=%d accepted=%d closure=%d terminal=%d {%s} readResult=%d copiedThrough=%lld gaps=%d recordingError=%s solverError=%s"),
-            InRequest, static_cast<int32>(InSolver.GetStatus()),
-            static_cast<long long>(InSolver.GetStep()), *ActionStatus,
+            InRequest, static_cast<int32>(InSolver.Get_Status()),
+            static_cast<long long>(InSolver.Get_Step()), *ActionStatus,
             Recording.Get_Records().Num(), Accepted, Closure, Terminal,
             *TerminalResult, static_cast<int32>(Recording.Get_LastReadResult()),
             static_cast<long long>(Recording.Get_LastCopiedSequence()),
-            Recording.Get_Gaps().Num(), *Recording.Get_LastError(), *InSolver.GetError());
+            Recording.Get_Gaps().Num(), *Recording.Get_LastError(), *InSolver.Get_Error());
     }
 
     auto
@@ -153,7 +153,7 @@ namespace ck_test_procedural_action_obstacle_preview
             const FCk_ProceduralActionSolverWorld& InSolver)
         -> ECk_ProceduralAction_Outcome
     {
-        for (const auto& Record : InSolver.GetRecording().Get_Records())
+        for (const auto& Record : InSolver.Get_Recording().Get_Records())
         {
             if (Record.Get_Kind() == ECk_ProceduralAction_RecordKind::Terminal)
             { return Record.Get_Result().Get_Outcome(); }
@@ -221,18 +221,18 @@ namespace ck_test_procedural_action_obstacle_preview
                 return true;
             }
             _State->Solver->TickOncePerEditorFrame();
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
                 _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("clip BodyLocal endpoint hold (100,0,0), 0.3s")));
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
-            if (NOT _State->Solver->GetIsActionTerminal())
+            if (NOT _State->Solver->Get_IsActionTerminal())
             { return false; }
             auto Accepted = int32{0};
             auto Crossing = int32{0};
-            for (const auto& Record : _State->Solver->GetRecording().Get_Records())
+            for (const auto& Record : _State->Solver->Get_Recording().Get_Records())
             {
                 if (Record.Get_Kind() != ECk_ProceduralAction_RecordKind::AcceptedPose
                     || NOT Record.Get_Receipt().Get_HasAcceptedPose())
@@ -248,9 +248,9 @@ namespace ck_test_procedural_action_obstacle_preview
             if (_State->Pass == 0)
             {
                 _Test->TestTrue(TEXT("separate obstacle body was added to production Jolt"),
-                    _State->Solver->GetAreObstaclesReady());
+                    _State->Solver->Get_AreObstaclesReady());
                 const auto Hit = UCk_Utils_JoltQuery_UE::Get_RayCast(
-                    _State->Solver->GetWorld(), FVector{0.0, 0.0, 200.0},
+                    _State->Solver->Get_World(), FVector{0.0, 0.0, 200.0},
                     FVector{100.0, 0.0, 200.0}, FCk_Jolt_QueryFilter{});
                 _Test->TestTrue(TEXT("production Jolt ray intersects the preview obstacle"),
                     Hit.Get_HasHit());
@@ -263,7 +263,7 @@ namespace ck_test_procedural_action_obstacle_preview
                 _State->Config->Set_StaticObstacles({});
                 if (NOT _Test->TestTrue(TEXT("clear fixture rebuilds through production Solver"),
                     Start(*_State, 45)))
-                { _Test->AddError(_State->Solver->GetError()); _State->Solver->Reset(); return true; }
+                { _Test->AddError(_State->Solver->Get_Error()); _State->Solver->Reset(); return true; }
                 _State->Pass = 1;
                 return false;
             }
@@ -298,17 +298,17 @@ namespace ck_test_procedural_action_obstacle_preview
                 return true;
             }
             _State->Solver->TickOncePerEditorFrame();
-            if (_State->Solver->GetStatus() == FCk_ProceduralActionSolverWorld::EStatus::Error)
+            if (_State->Solver->Get_Status() == FCk_ProceduralActionSolverWorld::EStatus::Error)
             {
                 _Test->AddInfo(DescribeSolver(*_State->Solver, TEXT("clip BodyLocal endpoint X 100->200, ProjectToReach, 1s")));
-                _Test->AddError(_State->Solver->GetError());
+                _Test->AddError(_State->Solver->Get_Error());
                 _State->Solver->Reset();
                 return true;
             }
-            if (_State->Solver->GetStep() < 120)
+            if (_State->Solver->Get_Step() < 120)
             { return false; }
             auto FoundProjection = false;
-            for (const auto& Record : _State->Solver->GetRecording().Get_Records())
+            for (const auto& Record : _State->Solver->Get_Recording().Get_Records())
             {
                 if (Record.Get_Kind() != ECk_ProceduralAction_RecordKind::AcceptedPose
                     || NOT Record.Get_Receipt().Get_HasAcceptedPose())
@@ -364,9 +364,9 @@ auto
     State->Solver = MakeUnique<FCk_ProceduralActionSolverWorld>();
     if (NOT TestTrue(TEXT("production Solver composes a clearance-enabled obstacle fixture"),
         Start(*State, 44)))
-    { AddError(State->Solver->GetError()); State->Solver->Reset(); return false; }
+    { AddError(State->Solver->Get_Error()); State->Solver->Reset(); return false; }
     TestEqual(TEXT("obstacle fixture waits for Jolt before action readiness"),
-        State->Solver->GetStatus(), FCk_ProceduralActionSolverWorld::EStatus::Preparing);
+        State->Solver->Get_Status(), FCk_ProceduralActionSolverWorld::EStatus::Preparing);
     State->DeadlineSeconds = FPlatformTime::Seconds() + 20.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunObstaclePreview(this, State));
     return true;
@@ -396,7 +396,7 @@ auto
         State->Solver->StartClip(State->Config.Get(), State->Clip.Get(),
             State->Config->Get_SlotBindings(), 46)
         && State->Solver->SeekToStep(120)))
-    { AddError(State->Solver->GetError()); State->Solver->Reset(); return false; }
+    { AddError(State->Solver->Get_Error()); State->Solver->Reset(); return false; }
     State->DeadlineSeconds = FPlatformTime::Seconds() + 20.0;
     ADD_LATENT_AUTOMATION_COMMAND(FRunProjectionPreview(this, State));
     return true;

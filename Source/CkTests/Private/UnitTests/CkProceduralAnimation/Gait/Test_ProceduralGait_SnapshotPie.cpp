@@ -223,8 +223,8 @@ namespace ck_test_procedural_gait_snapshot_pie
         { return Walker; }
 
         Walker.Body = UCk_Utils_Transform_UE::Add(Walker.Root, FTransform{InLocation}, ECk_Replication::DoesNotReplicate);
-        Walker.Gait = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Walker.Body, MakeRig(InLegCount, InFrontFootLead),
-            NewObject<UCk_ProceduralGait_Data>(), {}).Get_Gait();
+        Walker.Gait = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Walker.Body, FCk_ProceduralWalker_Spec{
+            MakeRig(InLegCount, InFrontFootLead), NewObject<UCk_ProceduralGait_Data>()}.Set_Chains({})).Get_Gait();
         InTest->TestTrue(TEXT("The walker admits its gait"), ck::IsValid(Walker.Gait));
         return Walker;
     }

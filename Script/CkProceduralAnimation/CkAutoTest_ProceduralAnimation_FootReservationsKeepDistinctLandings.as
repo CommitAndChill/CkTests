@@ -118,8 +118,9 @@ class UCk_AutoTest_ProceduralAnimation_FootReservationsKeepDistinctLandings : UC
         auto Body = utils_transform::Add(Entity, FTransform(_ContentionOrigin + FVector(0.0, 0.0, 65.0)),
             ECk_Replication::DoesNotReplicate);
         _ContentionBody = Body;
-        auto Walker = utils_procedural_animation::Add_Walker(Body, Rig, ck::ProceduralGym_Gait,
-            TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(Rig, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        auto Walker = utils_procedural_animation::Add_Walker(Body, WalkerSpec);
         _ContentionGait = Walker.Get_Gait();
         _ContentionLegs = Walker.Get_Legs();
         Assert_True(ck::IsValid(_ContentionGait) && _ContentionLegs.Num() == 2,
@@ -182,8 +183,8 @@ class UCk_AutoTest_ProceduralAnimation_FootReservationsKeepDistinctLandings : UC
         // Keep the ordinary search ring on the tiny top, where every down hit must be rejected as Reserved.
         Foothold.Set_SearchRadius(4.0f);
         GaitPreset.Set_Foothold(Foothold);
-        auto Walker = utils_procedural_animation::Add_Walker(_CoveredTopBody, Rig, GaitPreset,
-            TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(Rig, GaitPreset);
+        auto Walker = utils_procedural_animation::Add_Walker(_CoveredTopBody, WalkerSpec);
         _CoveredTopGait = Walker.Get_Gait();
         _CoveredTopLegs = Walker.Get_Legs();
         Assert_True(ck::IsValid(_CoveredTopGait) && _CoveredTopLegs.Num() == 2,

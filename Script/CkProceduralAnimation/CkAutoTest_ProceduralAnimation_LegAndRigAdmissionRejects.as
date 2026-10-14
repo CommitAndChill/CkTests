@@ -88,7 +88,7 @@ class UCk_AutoTest_ProceduralAnimation_LegAndRigAdmissionRejects : UCk_AutoTest_
         _Roots.Add(GaitBody);
         utils_procedural_leg::Create(GaitBody, LegA);
         utils_procedural_leg::Create(GaitBody, LegB);
-        Assert_True(ck::IsValid(utils_procedural_gait::Add(GaitBody, ck::ProceduralGym_Gait)), "Precondition: the gait body walks");
+        Assert_True(ck::IsValid(utils_procedural_gait::Add(utils_procedural_leg::Get_Legs(GaitBody), ck::ProceduralGym_Gait)), "Precondition: the gait body walks");
         auto ThirdLeg = ck_procedural_gym_assets::MakeRadialLeg(2, 4, 2);
         EnsuresBefore = utils_ensure::Get_EnsureCount();
         AssertLegRejected(utils_procedural_leg::Create(GaitBody, ThirdLeg), GaitBody, 2, EnsuresBefore, "Leg after gait");

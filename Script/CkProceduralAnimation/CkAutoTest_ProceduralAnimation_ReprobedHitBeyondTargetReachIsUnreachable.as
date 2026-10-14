@@ -81,8 +81,9 @@ class UCk_AutoTest_ProceduralAnimation_ReprobedHitBeyondTargetReachIsUnreachable
         _Fixture.Entities.Add(Root);
         auto Body = utils_transform::Add(Root, FTransform(_Origin + FVector(InSceneX, 0.0, _BodyHeight)),
             ECk_Replication::DoesNotReplicate);
-        return utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait,
-            TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        return utils_procedural_animation::Add_Walker(Body, WalkerSpec);
     }
 
     FCk_Handle_ProceduralLeg Get_PlusLeg(FCk_ProceduralWalker InWalker)

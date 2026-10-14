@@ -45,31 +45,41 @@ class UCk_AutoTest_ProceduralAnimation_WalkerAdmissionRejects : UCk_AutoTest_Bas
         auto UnknownLeg = TArray<FCk_ProceduralWalker_LegChain>();
         UnknownLeg.Add(MakeLegChain(n"LegX", Body, 2));
         auto EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait, UnknownLeg),
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec.Set_Chains(UnknownLeg);
+        AssertRejected(utils_procedural_animation::Add_Walker(Body, WalkerSpec),
             Body, EnsuresBefore, "Chain names an unknown leg");
 
         auto RepeatedLeg = TArray<FCk_ProceduralWalker_LegChain>();
         RepeatedLeg.Add(MakeLegChain(n"Leg0", Body, 2));
         RepeatedLeg.Add(MakeLegChain(n"Leg0", Body, 2));
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait, RepeatedLeg),
+        auto WalkerSpec2 = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec2.Set_Chains(RepeatedLeg);
+        AssertRejected(utils_procedural_animation::Add_Walker(Body, WalkerSpec2),
             Body, EnsuresBefore, "Two chains for one leg");
 
         auto WrongCount = TArray<FCk_ProceduralWalker_LegChain>();
         WrongCount.Add(MakeLegChain(n"Leg0", Body, 3));
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait, WrongCount),
+        auto WalkerSpec3 = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec3.Set_Chains(WrongCount);
+        AssertRejected(utils_procedural_animation::Add_Walker(Body, WalkerSpec3),
             Body, EnsuresBefore, "Segment count mismatch");
 
         auto NoChains = TArray<FCk_ProceduralWalker_LegChain>();
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        AssertRejected(utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralTest_TightReachGait, NoChains),
+        auto WalkerSpec4 = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralTest_TightReachGait);
+        WalkerSpec4.Set_Chains(NoChains);
+        AssertRejected(utils_procedural_animation::Add_Walker(Body, WalkerSpec4),
             Body, EnsuresBefore, "Preset target reach excludes a rest foot");
 
         auto Valid = TArray<FCk_ProceduralWalker_LegChain>();
         Valid.Add(MakeLegChain(n"Leg0", Body, 2));
         EnsuresBefore = utils_ensure::Get_EnsureCount();
-        auto Walker = utils_procedural_animation::Add_Walker(Body, ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait, Valid);
+        auto WalkerSpec5 = FCk_ProceduralWalker_Spec(ck::ProceduralTest_SideRig, ck::ProceduralGym_Gait);
+        WalkerSpec5.Set_Chains(Valid);
+        auto Walker = utils_procedural_animation::Add_Walker(Body, WalkerSpec5);
         Assert_True(ck::IsValid(Walker.Get_Gait()) && Walker.Get_Legs().Num() == 2,
             "Positive control: the same body accepts a well-formed walker after the rejections");
         Assert_Equals_Int(utils_procedural_leg::Get_Legs(Body).Num(), 2, "Positive control: both legs are connected");

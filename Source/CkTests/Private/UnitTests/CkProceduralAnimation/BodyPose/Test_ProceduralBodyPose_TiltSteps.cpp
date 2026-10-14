@@ -379,7 +379,7 @@ namespace ck_test_procedural_body_pose_tilt_steps
                     auto PresentationEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Body);
                     auto Presentation = UCk_Utils_Transform_UE::Add(PresentationEntity, Start, ECk_Replication::DoesNotReplicate);
 
-                    const auto Walked = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, MakeRig(), NewObject<UCk_ProceduralGait_Data>(), {});
+                    const auto Walked = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Body, FCk_ProceduralWalker_Spec{MakeRig(), NewObject<UCk_ProceduralGait_Data>()}.Set_Chains({}));
                     auto Gait = Walked.Get_Gait();
                     if (NOT InTest->TestTrue(FString::Printf(TEXT("The walker %s admits its gait"), *Walker.Name), ck::IsValid(Gait)))
                     { return; }

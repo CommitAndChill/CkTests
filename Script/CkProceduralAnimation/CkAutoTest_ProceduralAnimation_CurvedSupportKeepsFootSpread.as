@@ -63,8 +63,9 @@ class UCk_AutoTest_ProceduralAnimation_CurvedSupportKeepsFootSpread : UCk_AutoTe
         _Fixture.Entities.Add(Root);
         _Body = utils_transform::Add(Root, FTransform(FRotator(0.0, 0.0, -90.0),
             _Origin + FVector(0.0, -180.0, 200.0)), ECk_Replication::DoesNotReplicate);
-        auto Walker = utils_procedural_animation::Add_Walker(_Body, ck::ProceduralTest_CurvedSpreadRig,
-            ck::ProceduralGym_GaitSpider, TArray<FCk_ProceduralWalker_LegChain>());
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(ck::ProceduralTest_CurvedSpreadRig, ck::ProceduralGym_GaitSpider);
+        WalkerSpec.Set_Chains(TArray<FCk_ProceduralWalker_LegChain>());
+        auto Walker = utils_procedural_animation::Add_Walker(_Body, WalkerSpec);
         _Gait = Walker.Get_Gait();
         _Leg = Walker.Get_Legs()[0];
     }

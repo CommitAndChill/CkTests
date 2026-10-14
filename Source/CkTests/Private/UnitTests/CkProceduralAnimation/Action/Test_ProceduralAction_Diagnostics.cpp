@@ -186,8 +186,8 @@ auto
                 Context.Get_Elapsed() >= Context.Get_Limit());
             TestTrue(TEXT("The context names the returning limb"),
                 Context.Get_LimbIds() == TArray<FName>{LegId(0)});
-            TestTrue(TEXT("A time limit carries no count budget"),
-                Context.Get_BudgetUnit().IsNone() && Context.Get_Observed() == 0 && Context.Get_Budget() == 0);
+            TestEqual(TEXT("A time limit is a deadline measurement, not a count budget"),
+                Context.Get_Measurement(), ECk_ProceduralAction_FailureMeasurement::Deadline);
             auto Terminal = FCk_ProceduralAction_Record{};
             if (TestTrue(TEXT("The terminal record is retained"),
                 Get_TerminalRecord(State->Player, State->Identity, Terminal)))
@@ -283,8 +283,8 @@ auto
             TestTrue(*FString::Printf(TEXT("Observed records [%lld] reached the budget [%lld]"),
                 Context.Get_Observed(), Context.Get_Budget()), Context.Get_Observed() >= Context.Get_Budget());
             TestTrue(TEXT("The context names the claimed arm"), Context.Get_LimbIds() == TArray<FName>{ArmId});
-            TestTrue(TEXT("A count budget carries no time limit"),
-                Context.Get_Elapsed() == FCk_Time{} && Context.Get_Limit() == FCk_Time{});
+            TestEqual(TEXT("A count budget is a budget measurement, not a time limit"),
+                Context.Get_Measurement(), ECk_ProceduralAction_FailureMeasurement::Budget);
             auto Terminal = FCk_ProceduralAction_Record{};
             if (TestTrue(TEXT("The terminal record is retained"),
                 Get_TerminalRecord(State->Player, State->Identity, Terminal)))
@@ -332,13 +332,13 @@ auto
 
     auto Context = FCk_ProceduralAction_FailureContext{};
     Context.Set_PhaseId(FName{TEXT("Windup")});
-    Context.Set_Elapsed(FCk_Time{1.25});
+    Context.Set_Deadline(FCk_Time{1.25}, FCk_Time{1.0});
     const auto Partial = UCk_Utils_ProceduralAction_UE::Get_ResultText(Unknown, Context).ToString();
     TestTrue(*FString::Printf(TEXT("[%s] renders the captured phase"), *Partial), Partial.Contains(TEXT("Windup")));
-    TestTrue(*FString::Printf(TEXT("[%s] renders the captured elapsed time"), *Partial),
-        Partial.Contains(TEXT("1.250")));
-    TestFalse(*FString::Printf(TEXT("[%s] omits the uncaptured limit and budget"), *Partial),
-        Partial.Contains(TEXT("Limit")) || Partial.Contains(TEXT("Budget")) || Partial.Contains(TEXT("Limbs")));
+    TestTrue(*FString::Printf(TEXT("[%s] renders the captured elapsed time and its limit"), *Partial),
+        Partial.Contains(TEXT("1.250")) && Partial.Contains(TEXT("1.000")));
+    TestFalse(*FString::Printf(TEXT("[%s] omits the uncaptured budget and limbs"), *Partial),
+        Partial.Contains(TEXT("Budget")) || Partial.Contains(TEXT("Limbs")));
 
     const auto NoReason = UCk_Utils_ProceduralAction_UE::Get_ResultText(FCk_ProceduralAction_Result{}, {}).ToString();
     TestFalse(*FString::Printf(TEXT("[%s] renders an empty reason as absent, not as None"), *NoReason),
@@ -374,8 +374,7 @@ auto
     auto Context = FCk_ProceduralAction_FailureContext{};
     Context.Set_PhaseId(FName{TEXT("Strike")});
     Context.Set_LimbIds(TArray<FName>{ArmId});
-    Context.Set_Elapsed(FCk_Time{0.75});
-    Context.Set_Limit(FCk_Time{0.5});
+    Context.Set_Deadline(FCk_Time{0.75}, FCk_Time{0.5});
     const auto Result = FCk_ProceduralAction_Result{ECk_ProceduralAction_Outcome::AcquisitionTimeout,
         ECk_ProceduralAction_Recovery::Succeeded, FName{TEXT("AcquisitionTimeout")}};
 

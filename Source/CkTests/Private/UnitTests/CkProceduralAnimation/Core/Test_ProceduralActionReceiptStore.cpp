@@ -21,17 +21,17 @@ namespace ck_test_procedural_action_receipts
         const auto Pose = FCk_ProceduralArticulation_Pose{FTransform::Identity,
             FTransform::Identity, true, {}};
         const auto Sampling = FCk_ProceduralAction_SamplingReport{1, 1, 0.0f, 0.0f, FCk_Time{0.0}};
-        return FCk_ProceduralAction_Receipt{true, Stamp, Interval, Pose, Pose, {}, Sampling};
+        return FCk_ProceduralAction_Receipt{true, Stamp, Interval, Pose, Pose, Sampling};
     }
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkProceduralActionReceiptSampleOrderTest,
-    "Ck.ProceduralAnimation.Action.ReceiptStoreRejectsMalformedSampleOrder",
+    FCkProceduralActionReceiptSamplingReportTest,
+    "Ck.ProceduralAnimation.Action.ReceiptStoreRejectsMalformedSamplingReport",
     ck::tests::kCkUnitTestFlags)
 
 auto
-FCkProceduralActionReceiptSampleOrderTest::RunTest(
+FCkProceduralActionReceiptSamplingReportTest::RunTest(
     const FString&)
     -> bool
 {
@@ -44,43 +44,27 @@ FCkProceduralActionReceiptSampleOrderTest::RunTest(
     { return false; }
 
     const auto Base = ck_test_procedural_action_receipts::MakeAccepted(Identity, 1);
-    auto Samples = TArray<FCk_ProceduralAction_Sample>{};
-    Samples.Add(FCk_ProceduralAction_Sample{FCk_Time{0.08}, Base.Get_CurrentPose(),
-        ECk_ProceduralAction_SampleEvidence::Evaluated});
-    Samples.Add(FCk_ProceduralAction_Sample{FCk_Time{0.02}, Base.Get_CurrentPose(),
-        ECk_ProceduralAction_SampleEvidence::Evaluated});
-    const auto Descending = FCk_ProceduralAction_Receipt{true, Base.Get_Stamp(), Base.Get_Interval(),
-        Base.Get_PreviousPose(), Base.Get_CurrentPose(), Samples,
-        FCk_ProceduralAction_SamplingReport{3, 1, 0.0f, 0.0f, FCk_Time{}}};
-    TestTrue(TEXT("Descending evaluated times reject atomically"), Store.PublishAccepted(Identity, Descending)
-        == ck::procedural_action::EReceiptStoreWrite::InvalidRecord);
-    Samples.Pop();
     const auto Underreported = FCk_ProceduralAction_Receipt{true, Base.Get_Stamp(), Base.Get_Interval(),
-        Base.Get_PreviousPose(), Base.Get_CurrentPose(), Samples,
-        FCk_ProceduralAction_SamplingReport{1, 1, 0.0f, 0.0f, FCk_Time{}}};
-    TestTrue(TEXT("Evaluated count must cover intermediate and settled sample"),
+        Base.Get_PreviousPose(), Base.Get_CurrentPose(),
+        FCk_ProceduralAction_SamplingReport{0, 1, 0.0f, 0.0f, FCk_Time{}}};
+    TestTrue(TEXT("Evaluated count must cover the settled sample"),
         Store.PublishAccepted(Identity, Underreported) == ck::procedural_action::EReceiptStoreWrite::InvalidRecord);
     const auto NoAccepted = FCk_ProceduralAction_Receipt{true, Base.Get_Stamp(), Base.Get_Interval(),
-        Base.Get_PreviousPose(), Base.Get_CurrentPose(), {},
+        Base.Get_PreviousPose(), Base.Get_CurrentPose(),
         FCk_ProceduralAction_SamplingReport{1, 0, 0.0f, 0.0f, FCk_Time{}}};
     TestTrue(TEXT("Accepted record requires one settled sample"), Store.PublishAccepted(Identity, NoAccepted)
         == ck::procedural_action::EReceiptStoreWrite::InvalidRecord);
     TestTrue(TEXT("Rejected records did not consume sequence or emit closure"),
         Store.Read(Identity, 0, 3).Get_Records().IsEmpty());
 
-    // Entry blend may report multiple qualified samples at the same authored time zero.
-    Samples.Reset();
-    Samples.Add(FCk_ProceduralAction_Sample{FCk_Time{}, Base.Get_CurrentPose(),
-        ECk_ProceduralAction_SampleEvidence::Evaluated});
-    Samples.Add(FCk_ProceduralAction_Sample{FCk_Time{}, Base.Get_CurrentPose(),
-        ECk_ProceduralAction_SampleEvidence::Evaluated});
+    // An entry blend may evaluate several candidates inside one zero-length interval.
     const auto ZeroInterval = FCk_ProceduralAction_Interval{FCk_Time{}, FCk_Time{},
         FName{TEXT("EntryBlend")}, ECk_ProceduralAction_Continuity::FirstSample, {}, {}};
-    const auto RepeatedZero = FCk_ProceduralAction_Receipt{true, Base.Get_Stamp(), ZeroInterval,
-        Base.Get_PreviousPose(), Base.Get_CurrentPose(), Samples,
+    const auto ZeroLength = FCk_ProceduralAction_Receipt{true, Base.Get_Stamp(), ZeroInterval,
+        Base.Get_PreviousPose(), Base.Get_CurrentPose(),
         FCk_ProceduralAction_SamplingReport{3, 1, 0.0f, 0.0f, FCk_Time{}}};
-    TestTrue(TEXT("Nondecreasing repeated zero-time blend samples remain valid"),
-        Store.PublishAccepted(Identity, RepeatedZero) == ck::procedural_action::EReceiptStoreWrite::Accepted);
+    TestTrue(TEXT("A zero-length blend interval with several evaluated candidates remains valid"),
+        Store.PublishAccepted(Identity, ZeroLength) == ck::procedural_action::EReceiptStoreWrite::Accepted);
     TestEqual(TEXT("Only the valid record was retained"), Store.Read(Identity, 0, 3).Get_Records().Num(), 1);
     return true;
 }
@@ -113,7 +97,7 @@ FCkProceduralActionReceiptMemoryTest::RunTest(
             false, TArray<FCk_ProceduralArticulation_LimbPose>{Limb}};
         const auto Base = ck_test_procedural_action_receipts::MakeAccepted(OutIdentity, 1);
         const auto Receipt = FCk_ProceduralAction_Receipt{true, Base.Get_Stamp(), Base.Get_Interval(),
-            Pose, Pose, {}, Base.Get_Sampling()};
+            Pose, Pose, Base.Get_Sampling()};
         TestTrue(TEXT("Measured receipt admitted"), InStore.PublishAccepted(OutIdentity, Receipt)
             == ck::procedural_action::EReceiptStoreWrite::Accepted);
     };
@@ -158,7 +142,7 @@ FCkProceduralActionBudgetValidationTest::RunTest(
     auto Tuning = FCk_ProceduralAction_Tuning{};
     TestTrue(TEXT("Default tuning valid"), ck::procedural_action::ValidateTuning(Tuning, Field));
     auto Sampling = Tuning.Get_Sampling();
-    Sampling.Set_MaxSamples(ck::procedural_action::receipt_limits::MaxSamplesPerReceipt + 1);
+    Sampling.Set_MaxSamples(ck::procedural_action::receipt_limits::MaxSamplingSteps + 1);
     Tuning.Set_Sampling(Sampling);
     TestFalse(TEXT("Excess sample budget rejected"), ck::procedural_action::ValidateTuning(Tuning, Field));
     TestEqual(TEXT("Named field"), Field, FName{TEXT("Sampling.MaxSamples")});
@@ -237,17 +221,6 @@ FCkProceduralActionReceiptReservedRecordsTest::RunTest(
     TestTrue(TEXT("First accepted"), Store.PublishAccepted(Identity,
         ck_test_procedural_action_receipts::MakeAccepted(Identity, 1))
         == ck::procedural_action::EReceiptStoreWrite::Accepted);
-    const auto OversizedBase = ck_test_procedural_action_receipts::MakeAccepted(Identity, 2);
-    auto OversizedSamples = TArray<FCk_ProceduralAction_Sample>{};
-    for (auto Index = 0; Index <= ck::procedural_action::receipt_limits::MaxSamplesPerReceipt; ++Index)
-    { OversizedSamples.Add(FCk_ProceduralAction_Sample{FCk_Time{0.1}, OversizedBase.Get_CurrentPose(),
-        ECk_ProceduralAction_SampleEvidence::Evaluated}); }
-    const auto Oversized = FCk_ProceduralAction_Receipt{true, OversizedBase.Get_Stamp(),
-        OversizedBase.Get_Interval(), OversizedBase.Get_PreviousPose(), OversizedBase.Get_CurrentPose(),
-        OversizedSamples, FCk_ProceduralAction_SamplingReport{OversizedSamples.Num() + 1, 1, 0.0f, 0.0f, FCk_Time{}}};
-    TestTrue(TEXT("Oversized nested samples reject before overflow mutation"), Store.PublishAccepted(Identity, Oversized)
-        == ck::procedural_action::EReceiptStoreWrite::InvalidRecord);
-    TestEqual(TEXT("No closure emitted by malformed record"), Store.Read(Identity, 0, 3).Get_Records().Num(), 1);
     TestTrue(TEXT("Overflow closes windows without overwriting accepted evidence"), Store.PublishAccepted(Identity,
         ck_test_procedural_action_receipts::MakeAccepted(Identity, 2))
         == ck::procedural_action::EReceiptStoreWrite::Overflow);
@@ -290,12 +263,16 @@ FCkProceduralActionAggregateBudgetTest::RunTest(
     auto Store = ck::procedural_action::FReceiptStore{};
     if (NOT TestTrue(TEXT("Small aggregate budget configured"), Store.Configure(Capacity)))
     { return false; }
-    const auto ArmId = FName{TEXT("BudgetArm")};
+    // Enough claimed limbs that one receipt's two poses outgrow what the aggregate budget has left.
+    constexpr auto ArmCount = 16;
+    auto ArmIds = TArray<FName>{};
+    for (auto Index = 0; Index < ArmCount; ++Index)
+    { ArmIds.Add(FName{*FString::Printf(TEXT("BudgetArm%d"), Index)}); }
     auto First = FCk_ProceduralAction_Identity{};
     auto Second = FCk_ProceduralAction_Identity{};
     TestTrue(TEXT("First reserves closure and terminal globally"), Store.Reserve({}, true, First)
         == ck::procedural_action::EReceiptStoreWrite::Accepted);
-    TestTrue(TEXT("Second reserves closure and terminal globally"), Store.Reserve(TArray<FName>{ArmId}, false, Second)
+    TestTrue(TEXT("Second reserves closure and terminal globally"), Store.Reserve(ArmIds, false, Second)
         == ck::procedural_action::EReceiptStoreWrite::Accepted);
     TestEqual(TEXT("Four reserved record slots"), Store.Get_RetainedRecordSlots(), int64{4});
     TestTrue(TEXT("First stream publishes an accepted pose"), Store.PublishAccepted(First,
@@ -306,18 +283,17 @@ FCkProceduralActionAggregateBudgetTest::RunTest(
 
     auto Segments = TArray<FTransform>{};
     Segments.Init(FTransform::Identity, ck::procedural_action::receipt_limits::MaxSegmentsPerLimb);
-    const auto Limb = FCk_ProceduralArticulation_LimbPose{ArmId, FTransform::Identity,
-        FTransform::Identity, Segments, 0.0f, ECk_ProceduralRig_ChainState::Clear,
-        ECk_ProceduralArticulation_ContactEvidence::None};
-    const auto ArmPose = FCk_ProceduralArticulation_Pose{FTransform::Identity, FTransform::Identity,
-        false, TArray<FCk_ProceduralArticulation_LimbPose>{Limb}};
-    auto Samples = TArray<FCk_ProceduralAction_Sample>{};
-    for (auto Index = 0; Index < ck::procedural_action::receipt_limits::MaxSamplesPerReceipt; ++Index)
-    { Samples.Add(FCk_ProceduralAction_Sample{FCk_Time{0.05}, ArmPose, ECk_ProceduralAction_SampleEvidence::Evaluated}); }
+    auto Limbs = TArray<FCk_ProceduralArticulation_LimbPose>{};
+    for (const auto ArmId : ArmIds)
+    {
+        Limbs.Emplace(ArmId, FTransform::Identity, FTransform::Identity, Segments, 0.0f,
+            ECk_ProceduralRig_ChainState::Clear, ECk_ProceduralArticulation_ContactEvidence::None);
+    }
+    const auto ArmPose = FCk_ProceduralArticulation_Pose{FTransform::Identity, FTransform::Identity, false, Limbs};
     const auto SecondBase = ck_test_procedural_action_receipts::MakeAccepted(Second, 1);
     const auto Large = FCk_ProceduralAction_Receipt{true, SecondBase.Get_Stamp(), SecondBase.Get_Interval(),
-        ArmPose, ArmPose, Samples, FCk_ProceduralAction_SamplingReport{Samples.Num() + 1, 1, 0.0f, 0.0f, FCk_Time{}}};
-    const auto LargeTransforms = static_cast<int64>(Samples.Num() + 2) * (3 + Segments.Num());
+        ArmPose, ArmPose, FCk_ProceduralAction_SamplingReport{1, 1, 0.0f, 0.0f, FCk_Time{}}};
+    const auto LargeTransforms = int64{2} * (1 + ArmCount * (2 + Segments.Num()));
     if (NOT TestTrue(TEXT("Precondition: the large receipt alone exceeds what the aggregate budget has left"),
         LargeTransforms > ck::procedural_action::Get_MaxRetainedPoseTransforms(Capacity) - Store.Get_RetainedPoseTransforms()))
     { return false; }
@@ -681,7 +657,7 @@ FCkProceduralActionReceiptMalformedTest::RunTest(
     const auto BadLimbPose = FCk_ProceduralArticulation_Pose{FTransform::Identity,
         FTransform::Identity, false, TArray<FCk_ProceduralArticulation_LimbPose>{Limb}};
     const auto BadLimbReceipt = FCk_ProceduralAction_Receipt{true, HandBase.Get_Stamp(),
-        HandBase.Get_Interval(), {}, BadLimbPose, {}, HandBase.Get_Sampling()};
+        HandBase.Get_Interval(), {}, BadLimbPose, HandBase.Get_Sampling()};
     TestTrue(TEXT("Malformed claimed segment rejected atomically"), Store.PublishAccepted(Identity, BadLimbReceipt)
         == ck::procedural_action::EReceiptStoreWrite::InvalidRecord);
     auto BodyIdentity = FCk_ProceduralAction_Identity{};
@@ -691,7 +667,7 @@ FCkProceduralActionReceiptMalformedTest::RunTest(
         FVector{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}, FVector::OneVector};
     const auto BadPose = FCk_ProceduralArticulation_Pose{BadRoot, FTransform::Identity, true, {}};
     const auto BadGeometry = FCk_ProceduralAction_Receipt{true, Accepted.Get_Stamp(),
-        Accepted.Get_Interval(), Accepted.Get_PreviousPose(), BadPose, {}, Accepted.Get_Sampling()};
+        Accepted.Get_Interval(), Accepted.Get_PreviousPose(), BadPose, Accepted.Get_Sampling()};
     TestTrue(TEXT("Nonfinite accepted geometry rejected"), Store.PublishAccepted(BodyIdentity, BadGeometry)
         == ck::procedural_action::EReceiptStoreWrite::InvalidRecord);
     const auto BadEvents = TArray<FCk_ProceduralAction_Event>{
@@ -702,7 +678,7 @@ FCkProceduralActionReceiptMalformedTest::RunTest(
     const auto BadInterval = FCk_ProceduralAction_Interval{FCk_Time{0.0}, FCk_Time{0.1},
         FName{TEXT("Reach")}, ECk_ProceduralAction_Continuity::FirstSample, {}, BadEvents};
     const auto BadOrder = FCk_ProceduralAction_Receipt{true, Accepted.Get_Stamp(), BadInterval,
-        Accepted.Get_PreviousPose(), Accepted.Get_CurrentPose(), {}, Accepted.Get_Sampling()};
+        Accepted.Get_PreviousPose(), Accepted.Get_CurrentPose(), Accepted.Get_Sampling()};
     TestTrue(TEXT("Wrong equal-time event order rejected"), Store.PublishAccepted(BodyIdentity, BadOrder)
         == ck::procedural_action::EReceiptStoreWrite::InvalidRecord);
     TestTrue(TEXT("Malformed receipts did not append"), Store.Read(BodyIdentity, 0, 3).Get_Records().IsEmpty());

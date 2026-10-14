@@ -2081,7 +2081,9 @@ struct FCkProceduralAnimationGym_Fixture
             Crawler.Evidence.CylinderWallPlantCycles.Add(0);
         }
 
-        auto Walker = utils_procedural_animation::Add_Walker(Crawler.Handles.Root, InstanceRig, Crawler.Layout.GaitPreset, Chains);
+        auto WalkerSpec = FCk_ProceduralWalker_Spec(InstanceRig, Crawler.Layout.GaitPreset);
+        WalkerSpec.Set_Chains(Chains);
+        auto Walker = utils_procedural_animation::Add_Walker(Crawler.Handles.Root, WalkerSpec);
         Crawler.Handles.Gait = Walker.Get_Gait();
         Crawler.Handles.Legs = Walker.Get_Legs();
         if (ck::IsValid(Crawler.Handles.Gait))
@@ -2182,7 +2184,9 @@ struct FCkProceduralAnimationGym_Fixture
             }
             Segment.VisibleFeet = SegmentView.Handles.VisibleFeet;
 
-            auto Walker = utils_procedural_animation::Add_Walker(Segment.Root, InstanceRig, InOutCrawler.Layout.GaitPreset, Chains);
+            auto WalkerSpec2 = FCk_ProceduralWalker_Spec(InstanceRig, InOutCrawler.Layout.GaitPreset);
+            WalkerSpec2.Set_Chains(Chains);
+            auto Walker = utils_procedural_animation::Add_Walker(Segment.Root, WalkerSpec2);
             Segment.Gait = Walker.Get_Gait();
             Segment.Legs = Walker.Get_Legs();
             if (ck::IsValid(Segment.Gait))
