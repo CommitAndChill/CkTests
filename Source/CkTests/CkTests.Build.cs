@@ -12,6 +12,10 @@ public class CkTests : CkModuleRules
 
         PrivateIncludePaths.AddRange(new string[] {
             // ... add other private include paths required here ...
+            // Native integration fixtures exercise the internal articulation/return protocol directly.
+            // This is a test-only seam; production consumers use the public Utils and observation values.
+            Path.GetFullPath(Path.Combine(ModuleDirectory, "..", "..", "..", "CkFoundation",
+                "Source", "CkProceduralAnimation", "Private")),
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
