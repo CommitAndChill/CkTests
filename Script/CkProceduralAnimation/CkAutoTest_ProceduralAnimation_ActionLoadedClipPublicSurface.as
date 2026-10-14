@@ -46,8 +46,10 @@ class UCk_AutoTest_ProceduralAnimation_ActionLoadedClipPublicSurface : UCk_AutoT
             && Validation.Get_Advisory() == false,
             "Structured public validation reports the resident clip as valid");
         auto Spec = FCk_ProceduralAction_PlaySpec(TSoftObjectPtr<UCk_ProceduralAction_Data>(Clip));
-        Assert_True(Spec.Get_SlotBindings().Num() == 0 && Spec.Get_Delivery() == ECk_ProceduralAction_Delivery::Explicit,
-            "A play spec defaults to no slot bindings and Explicit delivery");
+        Assert_True(Spec.Get_SlotBindings().Num() == 0 && Spec.Get_Delivery() == ECk_ProceduralAction_Delivery::Auto,
+            "A play spec defaults to no slot bindings and Auto delivery");
+        // This test reads the terminal record and the result after the action finishes, so it acknowledges itself.
+        Spec.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit);
         _Action = utils_procedural_action::Create_FromClip(Owner, _Player, Spec);
         if (ck::IsValid(_Action) == false)
         {
@@ -139,6 +141,7 @@ class UCk_AutoTest_ProceduralAnimation_ActionLoadedClipPublicSurface : UCk_AutoT
         Slots.Add(FCk_ProceduralAction_SlotBinding(n"Nod", n"NodArm"));
         auto Spec = FCk_ProceduralAction_PlaySpec(TSoftObjectPtr<UCk_ProceduralAction_Data>(Clip));
         Spec.Set_SlotBindings(Slots);
+        Spec.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit);
         Assert_True(Spec.Get_SlotBindings().Num() == 1, "The play spec carries the named limb binding in AngelScript");
         _LimbAction = utils_procedural_action::Create_FromClip(Owner, _LimbPlayer, Spec);
         Assert_True(ck::IsValid(_LimbAction), "Resident limb clip reserves an action");

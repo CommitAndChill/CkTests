@@ -92,6 +92,7 @@ class UCk_AutoTest_ProceduralAnimation_ActionBuilderPublicSurface : UCk_AutoTest
         Bindings.Add(FCk_ProceduralAction_SlotBinding(n"Reach", n"Arm"));
         auto Spec = FCk_ProceduralAction_PlaySpec(TSoftObjectPtr<UCk_ProceduralAction_Data>(_Clip));
         Spec.Set_SlotBindings(Bindings);
+        Spec.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit);
         _Action = utils_procedural_action::Create_FromClip(Owner, _Player, Spec);
         Assert_True(ck::IsValid(_Action), "The built clip reserves an action");
         if (ck::IsValid(_Action)) { _Identity = _Action.Get_Identity(); }

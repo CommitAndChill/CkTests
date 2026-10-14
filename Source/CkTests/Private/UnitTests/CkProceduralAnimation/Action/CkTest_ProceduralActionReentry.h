@@ -19,6 +19,7 @@ public:
     ECk_Request_OperationResult InvalidResult = ECk_Request_OperationResult::Succeeded;
     int32 ConsumeCompletionCount = 0;
     ECk_Request_OperationResult ConsumeResult = ECk_Request_OperationResult::Failed;
+    TArray<ECk_Request_OperationResult> CompletionResults;
 
     UFUNCTION()
     void OnStateChanged(FCk_Handle_ProceduralAction InAction, ECk_ProceduralAction_State InState)
@@ -46,5 +47,11 @@ public:
     {
         ++ConsumeCompletionCount;
         ConsumeResult = InResult;
+    }
+
+    UFUNCTION()
+    void OnRequestCompleted(FCk_Handle InRequestOwner, ECk_Request_OperationResult InResult)
+    {
+        CompletionResults.Add(InResult);
     }
 };

@@ -108,7 +108,7 @@ auto
             TestTrue(TEXT("Standalone subject admits a player"), ck::IsValid(State->Player));
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
             State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
-                FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath}});
+                FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath}}.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit));
             TestTrue(TEXT("Saved BodyPulse starts an action"), ck::IsValid(State->Action));
             State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
         })));

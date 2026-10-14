@@ -119,7 +119,7 @@ FCkProceduralActionClockCadenceTest::RunTest(
                     FCk_ProceduralAction_TimeRef{FName{TEXT("Windup")}, FCk_FloatRange_0to1{0.254}}});
                 Clip->Set_Windows(MoveTemp(Windows));
                 State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
-                    FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Clip.Get()}});
+                    FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Clip.Get()}}.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit));
                 State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
                 TestTrue(FString::Printf(TEXT("%s action reserves"), Case.Name),
                     ck::IsValid(State->Action));

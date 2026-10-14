@@ -65,12 +65,12 @@ FCkProceduralActionPlaySpecAccessorsTest::RunTest(
     const auto Slots = TArray<FCk_ProceduralAction_SlotBinding>{
         FCk_ProceduralAction_SlotBinding{TEXT("Nod"), TEXT("NodArm")}};
     auto Play = FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{LimbClipPath}};
-    TestEqual(TEXT("A play delivers explicitly by default"), Play.Get_Delivery(),
-        ECk_ProceduralAction_Delivery::Explicit);
-    auto* Fluent = &Play.Set_SlotBindings(Slots).Set_Delivery(ECk_ProceduralAction_Delivery::Auto);
+    TestEqual(TEXT("A play delivers automatically by default"), Play.Get_Delivery(),
+        ECk_ProceduralAction_Delivery::Auto);
+    auto* Fluent = &Play.Set_SlotBindings(Slots).Set_Delivery(ECk_ProceduralAction_Delivery::Explicit);
     TestTrue(TEXT("Play setters retain the concrete fluent type"), Fluent == &Play);
     TestEqual(TEXT("Play stores named bindings"), Play.Get_SlotBindings().Num(), 1);
-    TestEqual(TEXT("Play stores its delivery"), Play.Get_Delivery(), ECk_ProceduralAction_Delivery::Auto);
+    TestEqual(TEXT("Play stores its delivery"), Play.Get_Delivery(), ECk_ProceduralAction_Delivery::Explicit);
     TestTrue(TEXT("Play keeps the clip it was made with"), Play.Get_Clip().ToSoftObjectPath() == LimbClipPath);
     return true;
 }
@@ -268,7 +268,7 @@ FCkProceduralActionManagedBodyPulseTest::RunTest(
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
             const auto SoftClip = TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath};
             State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(
-                State->Scope, State->Player, FCk_ProceduralAction_PlaySpec{SoftClip});
+                State->Scope, State->Player, FCk_ProceduralAction_PlaySpec{SoftClip}.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit));
             TestTrue(TEXT("On-disk soft clip reserves an action"), ck::IsValid(State->Action));
             State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
             const auto Retained = UCk_Utils_ProceduralActionPlayer_UE::Get_RetainedReceiptIdentities(
@@ -392,7 +392,7 @@ FCkProceduralActionManagedBodyPulseTest::RunTest(
                 "/CkFoundation/ProceduralAnimation/Examples/Ck_ProceduralAction_Missing_DA.Ck_ProceduralAction_Missing_DA")};
             State->MissingAction = UCk_Utils_ProceduralAction_UE::Create_FromClip(
                 State->MissingScope, State->Player, FCk_ProceduralAction_PlaySpec{
-                    TSoftObjectPtr<UCk_ProceduralAction_Data>{MissingPath}});
+                    TSoftObjectPtr<UCk_ProceduralAction_Data>{MissingPath}}.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit));
             TestTrue(TEXT("Missing nonnull soft path reserves a stream"),
                 ck::IsValid(State->MissingAction));
             State->MissingIdentity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->MissingAction);
@@ -425,7 +425,7 @@ FCkProceduralActionManagedBodyPulseTest::RunTest(
             State->CancelScope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
             State->CancelAction = UCk_Utils_ProceduralAction_UE::Create_FromClip(
                 State->CancelScope, State->Player, FCk_ProceduralAction_PlaySpec{
-                    TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath}});
+                    TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath}}.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit));
             TestTrue(TEXT("Existing soft clip waits for admission before service"),
                 ck::IsValid(State->CancelAction)
                     && (UCk_Utils_ProceduralAction_UE::Get_State(State->CancelAction)
@@ -531,7 +531,7 @@ FCkProceduralActionLoadedClipSnapshotTest::RunTest(
                     FCk_ProceduralAction_TimeRef{FirstPhaseId, FCk_FloatRange_0to1{0.0}},
                     FCk_ProceduralAction_TimeRef{FirstPhaseId, FCk_FloatRange_0to1{0.37}}}});
             State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope, State->Player,
-                FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Mutable.Get()}});
+                FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{Mutable.Get()}}.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit));
             TestTrue(TEXT("Loaded entry reserves an action"), ck::IsValid(State->Action));
             if (ck::Is_NOT_Valid(State->Action)) { return; }
             State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
@@ -605,7 +605,7 @@ FCkProceduralActionLoadedClipSnapshotTest::RunTest(
                 auto InvalidScope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
                 const auto InvalidAction = UCk_Utils_ProceduralAction_UE::Create_FromClip(
                     InvalidScope, State->Player,
-                    FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{InvalidClip.Get()}});
+                    FCk_ProceduralAction_PlaySpec{TSoftObjectPtr<UCk_ProceduralAction_Data>{InvalidClip.Get()}}.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit));
                 TestTrue(TEXT("Invalid loaded content reserves a typed terminal stream"),
                     ck::IsValid(InvalidAction));
                 if (ck::IsValid(InvalidAction))
@@ -685,7 +685,7 @@ FCkProceduralActionClipOwnerLossTest::RunTest(
             State->Scope = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->Root);
             State->Action = UCk_Utils_ProceduralAction_UE::Create_FromClip(State->Scope,
                 State->Player, FCk_ProceduralAction_PlaySpec{
-                    TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath}});
+                    TSoftObjectPtr<UCk_ProceduralAction_Data>{ClipPath}}.Set_Delivery(ECk_ProceduralAction_Delivery::Explicit));
             TestTrue(TEXT("Owner-loss clip reserves"), ck::IsValid(State->Action));
             State->Identity = UCk_Utils_ProceduralAction_UE::Get_Identity(State->Action);
         })));
@@ -980,6 +980,58 @@ FCkProceduralActionWalkingLimbWithoutSupportTest::RunTest(
             UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->Floor.Entity);
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralActionCompilePhaseBoundaryTest,
+    "Ck.ProceduralAnimation.Action.Compile.PhaseBoundaryDiscontinuityRejected",
+    ck_test_procedural_action_clip::TestFlags)
+
+auto
+FCkProceduralActionCompilePhaseBoundaryTest::RunTest(
+    const FString&)
+    -> bool
+{
+    const auto LiftId = FName{TEXT("Lift")};
+    const auto SettleId = FName{TEXT("Settle")};
+    const auto Lifted = FVector{0.0, 0.0, 10.0};
+    const auto MakeClip = [&](const FVector& InSettleStart) -> TStrongObjectPtr<UCk_ProceduralAction_Data>
+    {
+        auto Clip = TStrongObjectPtr<UCk_ProceduralAction_Data>{
+            NewObject<UCk_ProceduralAction_Data>(GetTransientPackage())};
+        auto Body = FCk_ProceduralAction_BodyChannel{};
+        Body.Set_Enabled(true);
+        Clip->Set_BodyChannel(Body);
+        auto Lift = FCk_ProceduralAction_Phase{LiftId, FCk_Time{0.5}};
+        Lift.Set_BodyKeys(TArray<FCk_ProceduralAction_TransformKey>{
+            FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.0}, FVector::ZeroVector, FQuat::Identity},
+            FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{1.0}, Lifted, FQuat::Identity}});
+        auto Settle = FCk_ProceduralAction_Phase{SettleId, FCk_Time{0.5}};
+        Settle.Set_BodyKeys(TArray<FCk_ProceduralAction_TransformKey>{
+            FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{0.0}, InSettleStart, FQuat::Identity},
+            FCk_ProceduralAction_TransformKey{FCk_FloatRange_0to1{1.0}, FVector::ZeroVector, FQuat::Identity}});
+        Clip->Set_Phases(TArray<FCk_ProceduralAction_Phase>{Lift, Settle});
+        return Clip;
+    };
+
+    const auto Broken = MakeClip(FVector::ZeroVector);
+    auto Compiled = ck::procedural_action::FCompiledClip{};
+    auto Diagnostics = TArray<ck::procedural_action::FDiagnostic>{};
+    TestFalse(TEXT("A phase that starts away from where the previous one ended does not compile"),
+        ck::procedural_action::Compile(*Broken, Compiled, Diagnostics));
+    const auto* Boundary = Diagnostics.FindByPredicate([](const ck::procedural_action::FDiagnostic& InDiagnostic)
+    { return InDiagnostic.Get_Code() == FName{TEXT("PhaseBoundary")}; });
+    if (TestNotNull(TEXT("The discontinuity is reported as PhaseBoundary"), Boundary))
+    {
+        TestEqual(TEXT("The diagnostic names the phase that starts away"), Boundary->Get_PhaseId(), SettleId);
+        TestTrue(TEXT("The diagnostic names the body channel"), Boundary->Get_FieldPath().Contains(TEXT("BodyKeys")));
+    }
+
+    const auto Continuous = MakeClip(Lifted);
+    Diagnostics.Reset();
+    TestTrue(TEXT("The same clip with equal boundary keys compiles"),
+        ck::procedural_action::Compile(*Continuous, Compiled, Diagnostics));
     return true;
 }
 
