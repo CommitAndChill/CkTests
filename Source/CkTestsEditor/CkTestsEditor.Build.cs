@@ -37,17 +37,23 @@ public class CkTestsEditor : CkModuleRules
         });
         PrivateDependencyModuleNames.AddRange(new string[]
         {
+            "AngelscriptCode",
             "BlueprintGraph",
             "CkEcsExt",
             "CkJolt",
             "CkPixelSprite",
+            "CkProceduralAnimation",
+            "CkProceduralAnimationEditor",
+            "CkInsightsAnalyzer",
             "CkRuntimeMesh",
             "GeometryFramework",
+            "InputCore",
             "MaterialEditor",
             "MeshDescription",
             "RHI",
             "RenderCore",
             "StaticMeshDescription",
+            "TraceServices",
         });
     }
 }

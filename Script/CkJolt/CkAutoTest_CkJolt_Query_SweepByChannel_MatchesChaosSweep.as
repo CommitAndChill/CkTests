@@ -59,6 +59,20 @@ class UCk_AutoTest_CkJolt_Query_SweepByChannel_MatchesChaosSweep : UCk_AutoTest_
             SweepStart, SweepEnd, FRotator::ZeroRotator, SphereShape, Filter);
         Assert_True(JoltHit.Get_HasHit(), "Jolt sphere sweep should hit the baked cube");
 
+        auto StaticWorldFilter = FCk_Jolt_QueryFilter();
+        StaticWorldFilter.Set_BodySelection(ECk_Jolt_QueryBodySelection::StaticNonSensor);
+        StaticWorldFilter.Set_CollideWithBackFacesConvex(true);
+        const auto StaticHit = utils_jolt_query::Get_ShapeCast(
+            SweepStart, SweepEnd, FRotator::ZeroRotator, SphereShape, StaticWorldFilter);
+        Assert_True(StaticHit.Get_HasHit() &&
+            Math::Abs(StaticHit.Get_Fraction() - JoltHit.Get_Fraction()) < 0.0001f,
+            "Script static-world filter reaches the same baked cube through the closest-hit path");
+
+        const auto StationaryOverlap = utils_jolt_query::Get_ShapeCast(
+            _CubeCenter, _CubeCenter, FRotator::ZeroRotator, SphereShape, StaticWorldFilter);
+        Assert_True(StationaryOverlap.Get_HasHit() && StationaryOverlap.Get_Fraction() == 0.0f,
+            "Script zero-travel sphere inside the static cube reports initial overlap");
+
         // ---- Chaos sphere sweep -----------------------------------------------------------------
         TArray<AActor> IgnoreActors;
         FHitResult ChaosHit;

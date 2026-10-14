@@ -10,9 +10,14 @@
 #include "CkProceduralAnimation/CkProceduralAnimation_Utils.h"
 #include "CkProceduralAnimation/Debug/CkProceduralAnimation_Debug.h"
 #include "CkProceduralAnimation/Gait/CkProceduralGait_Utils.h"
+#include "CkProceduralAnimation/Gait/CkProceduralGait_Fragment.h"
+#include "CkProceduralAnimation/Gait/CkProceduralGait_Processor.h"
+#include "CkProceduralAnimation/Gait/CkProceduralGaitParticipation_Control.h"
 #include "CkProceduralAnimation/Leg/CkProceduralLeg_Utils.h"
 #include "CkProceduralAnimation/SurfaceMotion/CkSurfaceMotion_Utils.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
+#include "CkEcs/Processor/CkProcessor.h"
+#include "CkEcs/Scheduler/CkProcessorRegistration.h"
 
 #include "Engine/World.h"
 #include "Misc/AutomationTest.h"
@@ -21,6 +26,100 @@
 // ECS paths no core test observes, read back through the gait's debug snapshot in a PIE world on /Engine/Maps/Entry: the
 // probe under a swing's landing point and the lift it feeds, the yaw lead of the query point, and the surface-motion
 // contact waiting out its confirmation. Courses are static Jolt boxes far from the map's own geometry.
+// --------------------------------------------------------------------------------------------------------------------
+
+namespace ck
+{
+    struct FFragment_TestGaitWithdrawalBoundary
+    {
+        CK_GENERATED_BODY(FFragment_TestGaitWithdrawalBoundary);
+
+        bool Armed = false;
+        bool BeforeRan = false;
+        bool AfterRan = false;
+        uint64 BeforeFrame = 0;
+        uint64 AfterFrame = 0;
+        uint64 BeforeSequence = 0;
+        uint64 AfterSequence = 0;
+        ECk_ProceduralGaitParticipation_Result SnapshotResult = ECk_ProceduralGaitParticipation_Result::NotReady;
+        ECk_ProceduralGaitParticipation_Result WithdrawalResult = ECk_ProceduralGaitParticipation_Result::NotReady;
+        ECk_ProceduralGait_FeetPlane PlaneBefore = ECk_ProceduralGait_FeetPlane::None;
+        ECk_ProceduralGait_FeetPlane PlaneImmediatelyAfter = ECk_ProceduralGait_FeetPlane::None;
+        bool ParticipatingImmediatelyAfter = false;
+        bool ParticipatingAfterSolve = false;
+    };
+
+    class FProcessor_TestGaitWithdrawalBeforeUpdate : public ck_exp::TProcessor<
+        FProcessor_TestGaitWithdrawalBeforeUpdate,
+        FCk_Handle_ProceduralGait,
+        TReadWrite<FFragment_TestGaitWithdrawalBoundary>>
+    {
+    public:
+        using Group = FGroup_Transform_Derived;
+        using RunAfter = TDepList<FProcessor_ProceduralGait_Setup, FProcessor_ProceduralGait_HandleRequests>;
+        using RunBefore = TDepList<FProcessor_ProceduralGait_Update>;
+        using TProcessor::TProcessor;
+
+        static auto
+        ForEachEntity(
+            TimeType,
+            HandleType InGait,
+            FFragment_TestGaitWithdrawalBoundary& InProbe)
+            -> void
+        {
+            if (NOT InProbe.Armed || InProbe.BeforeRan)
+            { return; }
+            InProbe.BeforeRan = true;
+            InProbe.BeforeFrame = GFrameCounter;
+            auto Snapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+            InProbe.SnapshotResult = FCk_ProceduralGaitParticipation_Control::GetSnapshot(InGait, Snapshot);
+            InProbe.PlaneBefore = UCk_Utils_ProceduralGait_UE::Get_FeetPlane(InGait).Get_State();
+            if (InProbe.SnapshotResult != ECk_ProceduralGaitParticipation_Result::Accepted)
+            { return; }
+            InProbe.BeforeSequence = Snapshot.Get_SolveSequence();
+            auto Observation = FCk_ProceduralGaitParticipation_Observation{};
+            const auto Ids = TArray<FName>{FName{TEXT("Leg0")}};
+            const auto Policy = FCk_ProceduralLimbControl_Support{
+                ECk_ProceduralLimbControl_SupportMode::CountOnly, 3};
+            InProbe.WithdrawalResult = FCk_ProceduralGaitParticipation_Control::TryWithdraw(InGait,
+                FCk_ArticulationControlToken{9208, 1}, Ids, Policy, Snapshot, Observation);
+            InProbe.PlaneImmediatelyAfter = UCk_Utils_ProceduralGait_UE::Get_FeetPlane(InGait).Get_State();
+            InProbe.ParticipatingImmediatelyAfter = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                InGait, FName{TEXT("Leg0")}).Get_Participating();
+        }
+    };
+
+    class FProcessor_TestGaitWithdrawalAfterUpdate : public ck_exp::TProcessor<
+        FProcessor_TestGaitWithdrawalAfterUpdate,
+        FCk_Handle_ProceduralGait,
+        TReadWrite<FFragment_TestGaitWithdrawalBoundary>>
+    {
+    public:
+        using Group = FGroup_Transform_Derived;
+        using RunAfter = TDepList<FProcessor_ProceduralGait_Update, FProcessor_TestGaitWithdrawalBeforeUpdate>;
+        using TProcessor::TProcessor;
+
+        static auto
+        ForEachEntity(
+            TimeType,
+            HandleType InGait,
+            FFragment_TestGaitWithdrawalBoundary& InProbe)
+            -> void
+        {
+            if (NOT InProbe.BeforeRan || InProbe.AfterRan)
+            { return; }
+            InProbe.AfterRan = true;
+            InProbe.AfterFrame = GFrameCounter;
+            InProbe.AfterSequence = InGait.Get<FFragment_ProceduralGait>().Get_SolveSequence();
+            InProbe.ParticipatingAfterSolve = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                InGait, FName{TEXT("Leg0")}).Get_Participating();
+        }
+    };
+}
+
+CK_REGISTER_PROCESSOR(ck::FProcessor_TestGaitWithdrawalBeforeUpdate);
+CK_REGISTER_PROCESSOR(ck::FProcessor_TestGaitWithdrawalAfterUpdate);
+
 // --------------------------------------------------------------------------------------------------------------------
 
 namespace ck_test_procedural_gait_snapshot_pie
@@ -38,12 +137,14 @@ namespace ck_test_procedural_gait_snapshot_pie
     constexpr auto BodyHeight = 60.0;
 
     auto
-        MakeRig(double InFrontFootLead = 0.0)
+        MakeRig(
+            int32 InLegCount = 4,
+            double InFrontFootLead = 0.0)
         -> UCk_ProceduralRig_Data*
     {
         auto Legs = TArray<FCk_ProceduralLeg_Spec>{};
         const auto Corners = TArray<FVector2D>{{40.0, 30.0}, {40.0, -30.0}, {-40.0, 30.0}, {-40.0, -30.0}};
-        for (auto Index = 0; Index < Corners.Num(); ++Index)
+        for (auto Index = 0; Index < InLegCount; ++Index)
         {
             const auto& Corner = Corners[Index];
             auto Placement = FCk_ProceduralLeg_Placement{FVector{Corner.X, Corner.Y, 0.0},
@@ -112,6 +213,7 @@ namespace ck_test_procedural_gait_snapshot_pie
             FAutomationTestBase* InTest,
             UWorld* InWorld,
             const FVector& InLocation,
+            int32 InLegCount = 4,
             double InFrontFootLead = 0.0)
         -> FWalker
     {
@@ -121,7 +223,7 @@ namespace ck_test_procedural_gait_snapshot_pie
         { return Walker; }
 
         Walker.Body = UCk_Utils_Transform_UE::Add(Walker.Root, FTransform{InLocation}, ECk_Replication::DoesNotReplicate);
-        Walker.Gait = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Walker.Body, MakeRig(InFrontFootLead),
+        Walker.Gait = UCk_Utils_ProceduralAnimation_UE::Add_Walker(Walker.Body, MakeRig(InLegCount, InFrontFootLead),
             NewObject<UCk_ProceduralGait_Data>(), {}).Get_Gait();
         InTest->TestTrue(TEXT("The walker admits its gait"), ck::IsValid(Walker.Gait));
         return Walker;
@@ -447,6 +549,8 @@ namespace ck_test_procedural_gait_snapshot_pie
         int32 PendingWallSamples = 0;
         double MaxCandidateSeen = 0.0;
         bool WallAdopted = false;
+        bool ParticipationFrameObserved = false;
+        bool ParticipationFrameMatchesSupport = false;
         int32 PendingWallSamplesBeforeAdoption = 0;
         double CandidateSeenOnAdoption = -1.0;
     };
@@ -485,6 +589,11 @@ namespace ck_test_procedural_gait_snapshot_pie
         InState.FacePlantSamplesWhileFloor += HasFacePlant && FloorSupport ? 1 : 0;
         if (FVector::DotProduct(SupportNormal, FVector::BackwardVector) >= NormalDot)
         {
+            auto Participation = FCk_ProceduralGaitParticipation_Snapshot{};
+            InState.ParticipationFrameObserved = FCk_ProceduralGaitParticipation_Control::GetSnapshot(
+                InState.Walker.Gait, Participation) == ECk_ProceduralGaitParticipation_Result::Accepted;
+            InState.ParticipationFrameMatchesSupport = InState.ParticipationFrameObserved
+                && FVector::DotProduct(Participation.Get_SupportUp(), SupportNormal) >= NormalDot;
             InState.WallAdopted = true;
             InState.PendingWallSamplesBeforeAdoption = InState.PendingWallSamples;
             InState.CandidateSeenOnAdoption = Motion.Get_CandidateSeen().Get_Seconds();
@@ -717,6 +826,670 @@ auto
 // --------------------------------------------------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralGaitProtectedIdleAndCachedPlaneTest,
+    "Ck.ProceduralAnimation.Action.Gait.ProtectionIdleAndCachedPlane",
+    ck_test_procedural_gait_snapshot_pie::TestFlags)
+
+auto
+    FCkProceduralGaitProtectedIdleAndCachedPlaneTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_gait_snapshot_pie;
+
+    struct FState
+    {
+        FWalker Walker;
+        FCourse Course;
+        FCk_ProceduralGaitParticipation_Snapshot OldSnapshot;
+        double WithdrawalTime = 0.0;
+        uint64 WithdrawalSequence = 0;
+        bool Admitted = false;
+    };
+    const auto State = MakeShared<FState>();
+    const auto Origin = FVector{0.0, 43000.0, 5000.0};
+    const auto Token = FCk_ArticulationControlToken{9001, 1};
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [State, Origin](UWorld* InWorld)
+        { DoAdd_Box(InWorld, State->Course, Origin + FVector{0.0, 0.0, -25.0}, FVector{800.0, 800.0, 25.0}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State] { return Get_IsCourseReady(State->Course); }),
+        WaitSeconds, TEXT("Protection course floor is live")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Origin](UWorld* InWorld)
+        { State->Walker = DoAdd_Walker(this, InWorld, Origin + FVector{0.0, 0.0, BodyHeight}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        {
+            return Get_HasSolved(State->Walker)
+                && UCk_Utils_ProceduralGait_UE::Get_FeetPlane(State->Walker.Gait).Get_State()
+                    == ECk_ProceduralGait_FeetPlane::Fitted
+                && UCk_Utils_ProceduralGait_UE::Get_PlantedCount(State->Walker.Gait) == 4;
+        }), WaitSeconds, TEXT("All four feet trust the real floor and fit a plane")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Origin](UWorld*)
+        {
+            TestEqual(TEXT("Snapshot before root motion is fresh"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(State->Walker.Gait, State->OldSnapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            UCk_Utils_Transform_UE::Request_SetLocation(State->Walker.Body,
+                FCk_Request_Transform_SetLocation{Origin + FVector{2.0, 0.0, BodyHeight}}, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        {
+            return UCk_Utils_Transform_UE::Get_EntityCurrentLocation(State->Walker.Body).X
+                    > State->OldSnapshot.Get_RootFrame().GetLocation().X + 1.0
+                && UCk_Utils_ProceduralGait_UE::Get_PlantedCount(State->Walker.Gait) == 4;
+        }), WaitSeconds, TEXT("Root motion settles with all four contacts")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Token](UWorld*)
+        {
+            auto Snapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+            TestEqual(TEXT("Fresh gait snapshot for withdrawal"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(State->Walker.Gait, Snapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            auto Policy = FCk_ProceduralLimbControl_Support{
+                ECk_ProceduralLimbControl_SupportMode::CountOnly, 3};
+            Policy.Set_SupportHoldTimeout(FCk_Time{0.25});
+            auto Observation = FCk_ProceduralGaitParticipation_Observation{};
+            const auto LimbIds = TArray<FName>{FName{TEXT("Leg0")}};
+            TestEqual(TEXT("Pre-motion snapshot cannot admit a borrowed limb after root motion"),
+                FCk_ProceduralGaitParticipation_Control::TryWithdraw(State->Walker.Gait,
+                    Token, LimbIds, Policy, State->OldSnapshot, Observation),
+                ECk_ProceduralGaitParticipation_Result::Stale);
+            const auto Result = FCk_ProceduralGaitParticipation_Control::TryWithdraw(State->Walker.Gait,
+                Token, LimbIds, Policy, Snapshot, Observation);
+            State->Admitted = Result == ECk_ProceduralGaitParticipation_Result::Accepted;
+            TestEqual(TEXT("One of four planted limbs can withdraw under a three-contact policy"),
+                Result, ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestEqual(TEXT("Withdrawal invalidates the plane before the next Physics mover"),
+                UCk_Utils_ProceduralGait_UE::Get_FeetPlane(State->Walker.Gait).Get_State(),
+                ECk_ProceduralGait_FeetPlane::None);
+            auto SecondSnapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+            TestEqual(TEXT("Second claimant sees the same committed gait state"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(State->Walker.Gait, SecondSnapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            auto SecondObservation = FCk_ProceduralGaitParticipation_Observation{};
+            const auto SecondIds = TArray<FName>{FName{TEXT("Leg1")}};
+            TestEqual(TEXT("Second disjoint borrower cannot consume a required third support"),
+                FCk_ProceduralGaitParticipation_Control::TryWithdraw(State->Walker.Gait,
+                    FCk_ArticulationControlToken{9003, 1}, SecondIds, Policy, SecondSnapshot, SecondObservation),
+                ECk_ProceduralGaitParticipation_Result::SupportUnavailable);
+            const auto Sample = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(
+                State->Walker.Root).Get_Sample();
+            State->WithdrawalTime = Sample.Get_Time().Get_Seconds();
+            State->WithdrawalSequence = Sample.Get_Sequence();
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        {
+            const auto Sample = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(
+                State->Walker.Root).Get_Sample();
+            return State->Admitted && Sample.Get_Time().Get_Seconds() - State->WithdrawalTime > 0.35
+                && Sample.Get_Sequence() > State->WithdrawalSequence + 10;
+        }), WaitSeconds, TEXT("Protected gait remains live beyond the support-hold timeout")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Token](UWorld*)
+        {
+            const auto Observation = FCk_ProceduralGaitParticipation_Control::GetObservation(State->Walker.Gait, Token);
+            TestFalse(TEXT("Supported idle withdrawal does not spuriously interrupt"), Observation.Get_Interrupted());
+            const auto Borrowed = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                State->Walker.Gait, FName{TEXT("Leg0")});
+            TestFalse(TEXT("Borrowed limb stays outside normal gait participation"), Borrowed.Get_Participating());
+            TestEqual(TEXT("Failure retains an exact per-limb terminal reason"),
+                FCk_ProceduralGaitParticipation_Control::FailRecovery(
+                    State->Walker.Gait, Token, FName{TEXT("FixtureStop")}),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            const auto Limb = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                State->Walker.Gait, FName{TEXT("Leg0")});
+            TestTrue(TEXT("Failed limb remains unplanted"), Limb.Get_Unplanted());
+            TestEqual(TEXT("Unplanted diagnostic survives lease removal"), Limb.Get_Reason(), FName{TEXT("FixtureStop")});
+            auto Snapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+            TestEqual(TEXT("Explicit retry reads a fresh gait snapshot"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(State->Walker.Gait, Snapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            auto Policy = FCk_ProceduralLimbControl_Support{
+                ECk_ProceduralLimbControl_SupportMode::CountOnly, 3};
+            Policy.Set_SupportHoldTimeout(FCk_Time{0.25});
+            auto Retry = FCk_ProceduralGaitParticipation_Observation{};
+            const auto LimbIds = TArray<FName>{FName{TEXT("Leg0")}};
+            const auto RetryToken = FCk_ArticulationControlToken{9002, 1};
+            TestEqual(TEXT("Only an explicit new lease can revisit an unplanted limb"),
+                FCk_ProceduralGaitParticipation_Control::TryAcquireRecoveryLease(
+                    State->Walker.Gait, RetryToken, LimbIds, Policy, Snapshot, Retry),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestTrue(TEXT("Retry acquisition does not manufacture a trusted plant"),
+                FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                    State->Walker.Gait, FName{TEXT("Leg0")}).Get_Unplanted());
+            FCk_ProceduralGaitParticipation_Control::FailRecovery(
+                State->Walker.Gait, RetryToken, FName{TEXT("FixtureCleanup")});
+            DoDestroy(State->Walker, State->Course);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralGaitPhysicsDerivedWithdrawalTest,
+    "Ck.ProceduralAnimation.Action.Gait.PhysicsDerivedWithdrawal",
+    ck_test_procedural_gait_snapshot_pie::TestFlags)
+
+auto
+    FCkProceduralGaitPhysicsDerivedWithdrawalTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_gait_snapshot_pie;
+    struct FState
+    {
+        FWalker Walker;
+        FCourse Course;
+    };
+    const auto State = MakeShared<FState>();
+    const auto Origin = FVector{0.0, 55000.0, 5000.0};
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [State, Origin](UWorld* InWorld)
+        { DoAdd_Box(InWorld, State->Course, Origin + FVector{0.0, 0.0, -25.0}, FVector{800.0, 800.0, 25.0}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State] { return Get_IsCourseReady(State->Course); }),
+        WaitSeconds, TEXT("Boundary course floor is live")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Origin](UWorld* InWorld)
+        { State->Walker = DoAdd_Walker(this, InWorld, Origin + FVector{0.0, 0.0, BodyHeight}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        {
+            return Get_HasSolved(State->Walker)
+                && UCk_Utils_ProceduralGait_UE::Get_FeetPlane(State->Walker.Gait).Get_State()
+                    == ECk_ProceduralGait_FeetPlane::Fitted
+                && UCk_Utils_ProceduralGait_UE::Get_PlantedCount(State->Walker.Gait) == 4;
+        }), WaitSeconds, TEXT("Boundary walker has four trusted contacts and fitted plane")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [State](UWorld*)
+        { State->Walker.Gait.AddOrGet<ck::FFragment_TestGaitWithdrawalBoundary>().Armed = true; })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        { return State->Walker.Gait.Has<ck::FFragment_TestGaitWithdrawalBoundary>()
+            && State->Walker.Gait.Get<ck::FFragment_TestGaitWithdrawalBoundary>().AfterRan; }),
+        WaitSeconds, TEXT("Boundary probes bracket one Derived gait update")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State](UWorld*)
+        {
+            const auto& Probe = State->Walker.Gait.Get<ck::FFragment_TestGaitWithdrawalBoundary>();
+            TestEqual(TEXT("Derived pre-gait snapshot has fresh Physics support"),
+                Probe.SnapshotResult, ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestEqual(TEXT("Fresh pre-gait withdrawal is admitted"),
+                Probe.WithdrawalResult, ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestEqual(TEXT("Pre-withdrawal gait had a fitted feet plane"),
+                Probe.PlaneBefore, ECk_ProceduralGait_FeetPlane::Fitted);
+            TestEqual(TEXT("Withdrawal clears the old feet plane before gait update"),
+                Probe.PlaneImmediatelyAfter, ECk_ProceduralGait_FeetPlane::None);
+            TestFalse(TEXT("Withdrawn limb leaves participation immediately"),
+                Probe.ParticipatingImmediatelyAfter);
+            TestEqual(TEXT("Pre/post probes ran in the same engine frame"),
+                Probe.AfterFrame, Probe.BeforeFrame);
+            TestTrue(TEXT("The same Derived pass solved a new gait generation"),
+                Probe.AfterSequence > Probe.BeforeSequence);
+            TestFalse(TEXT("The new gait solve keeps the borrowed limb excluded"),
+                Probe.ParticipatingAfterSolve);
+            if (Probe.WithdrawalResult == ECk_ProceduralGaitParticipation_Result::Accepted)
+            {
+                FCk_ProceduralGaitParticipation_Control::FailRecovery(State->Walker.Gait,
+                    FCk_ArticulationControlToken{9208, 1}, FName{TEXT("FixtureCleanup")});
+            }
+            DoDestroy(State->Walker, State->Course);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralGaitBipedBorrowRequiresRemainingSupportTest,
+    "Ck.ProceduralAnimation.Action.Gait.BipedBorrowRequiresRemainingSupport",
+    ck_test_procedural_gait_snapshot_pie::TestFlags)
+
+auto
+    FCkProceduralGaitBipedBorrowRequiresRemainingSupportTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_gait_snapshot_pie;
+    const auto Walker = MakeShared<FWalker>();
+    const auto Course = MakeShared<FCourse>();
+    const auto Origin = FVector{0.0, 49000.0, 5000.0};
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [Course, Origin](UWorld* InWorld)
+        { DoAdd_Box(InWorld, *Course, Origin + FVector{0.0, 0.0, -25.0}, FVector{800.0, 800.0, 25.0}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Course] { return Get_IsCourseReady(*Course); }),
+        WaitSeconds, TEXT("Biped floor is live")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Walker, Origin](UWorld* InWorld)
+        { *Walker = DoAdd_Walker(this, InWorld, Origin + FVector{0.0, 0.0, BodyHeight}, 2); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Walker]
+        { return Get_HasSolved(*Walker)
+            && UCk_Utils_ProceduralGait_UE::Get_PlantedCount(Walker->Gait) == 2; }),
+        WaitSeconds, TEXT("Biped has two actual planted contacts")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Walker, Course](UWorld*)
+        {
+            auto Snapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+            TestEqual(TEXT("Biped support snapshot is fresh"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(Walker->Gait, Snapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            auto Observation = FCk_ProceduralGaitParticipation_Observation{};
+            const auto Result = FCk_ProceduralGaitParticipation_Control::TryWithdraw(Walker->Gait,
+                FCk_ArticulationControlToken{9101, 1}, TArray<FName>{FName{TEXT("Leg0")}},
+                FCk_ProceduralLimbControl_Support{
+                    ECk_ProceduralLimbControl_SupportMode::CountOnly, 2}, Snapshot, Observation);
+            TestEqual(TEXT("Biped cannot borrow one of its two required support legs"),
+                Result, ECk_ProceduralGaitParticipation_Result::SupportUnavailable);
+            const auto Leg = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                Walker->Gait, FName{TEXT("Leg0")});
+            TestTrue(TEXT("Rejected borrower leaves the leg participating and trusted"),
+                Leg.Get_Participating() && Leg.Get_TrustedSupport() && NOT Leg.Get_Protected());
+            DoDestroy(*Walker, *Course);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralGaitTwoBorrowersPreserveSupportTest,
+    "Ck.ProceduralAnimation.Action.Gait.TwoBorrowersPreserveSupport",
+    ck_test_procedural_gait_snapshot_pie::TestFlags)
+
+auto
+    FCkProceduralGaitTwoBorrowersPreserveSupportTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_gait_snapshot_pie;
+    const auto Walker = MakeShared<FWalker>();
+    const auto Course = MakeShared<FCourse>();
+    const auto Origin = FVector{0.0, 51000.0, 5000.0};
+    const auto FirstToken = FCk_ArticulationControlToken{9102, 1};
+    const auto SecondToken = FCk_ArticulationControlToken{9103, 1};
+    const auto WithdrawalSequence = MakeShared<uint64>(0);
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [Course, Origin](UWorld* InWorld)
+        { DoAdd_Box(InWorld, *Course, Origin + FVector{0.0, 0.0, -25.0}, FVector{800.0, 800.0, 25.0}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Course] { return Get_IsCourseReady(*Course); }),
+        WaitSeconds, TEXT("Two-borrower floor is live")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Walker, Origin](UWorld* InWorld)
+        { *Walker = DoAdd_Walker(this, InWorld, Origin + FVector{0.0, 0.0, BodyHeight}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Walker]
+        { return Get_HasSolved(*Walker)
+            && UCk_Utils_ProceduralGait_UE::Get_PlantedCount(Walker->Gait) == 4; }),
+        WaitSeconds, TEXT("Four actual contacts can support two independent borrowers")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Walker, Origin, FirstToken, SecondToken, WithdrawalSequence](UWorld*)
+        {
+            const auto Policy = FCk_ProceduralLimbControl_Support{
+                ECk_ProceduralLimbControl_SupportMode::CountOnly, 2};
+            auto Snapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+            auto Observation = FCk_ProceduralGaitParticipation_Observation{};
+            TestEqual(TEXT("First borrow reads fresh support"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(Walker->Gait, Snapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestEqual(TEXT("First of two independent borrowers is admitted"),
+                FCk_ProceduralGaitParticipation_Control::TryWithdraw(Walker->Gait,
+                    FirstToken, TArray<FName>{FName{TEXT("Leg0")}}, Policy, Snapshot, Observation),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestEqual(TEXT("Second borrow reads committed support"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(Walker->Gait, Snapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestEqual(TEXT("Second disjoint borrower is admitted with two contacts remaining"),
+                FCk_ProceduralGaitParticipation_Control::TryWithdraw(Walker->Gait,
+                    SecondToken, TArray<FName>{FName{TEXT("Leg1")}}, Policy, Snapshot, Observation),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestTrue(TEXT("Both leases protect independently"),
+                FCk_ProceduralGaitParticipation_Control::GetObservation(Walker->Gait,
+                    FirstToken).Get_ProtectionActive()
+                && FCk_ProceduralGaitParticipation_Control::GetObservation(Walker->Gait,
+                    SecondToken).Get_ProtectionActive());
+            const auto Remaining2 = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                Walker->Gait, FName{TEXT("Leg2")});
+            const auto Remaining3 = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                Walker->Gait, FName{TEXT("Leg3")});
+            TestTrue(TEXT("The prospective support union retains both nonborrowed contacts"),
+                Remaining2.Get_Participating() && Remaining2.Get_TrustedSupport()
+                    && Remaining3.Get_Participating() && Remaining3.Get_TrustedSupport());
+            *WithdrawalSequence = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(
+                Walker->Root).Get_Sample().Get_Sequence();
+            UCk_Utils_Transform_UE::Request_SetLocation(Walker->Body,
+                FCk_Request_Transform_SetLocation{Origin + FVector{40.0, 0.0, BodyHeight}}, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Walker, Origin, WithdrawalSequence]
+        {
+            return UCk_Utils_Transform_UE::Get_EntityCurrentLocation(Walker->Body).X
+                    > Origin.X + 39.0
+                && UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(
+                    Walker->Root).Get_Sample().Get_Sequence() > *WithdrawalSequence + 10;
+        }), WaitSeconds, TEXT("Protected gait solves after substantial root motion")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Walker, Course, FirstToken, SecondToken](UWorld*)
+        {
+            const auto Snapshot = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(Walker->Root);
+            TestTrue(TEXT("Both remaining legs stay planted when normal gait would move its root"),
+                Snapshot.Get_Legs().Num() == 4
+                    && Snapshot.Get_Legs()[2].Get_Foot().Get_Planted()
+                    && Snapshot.Get_Legs()[3].Get_Foot().Get_Planted());
+            TestTrue(TEXT("Both independent protection leases survive continued gait solves"),
+                FCk_ProceduralGaitParticipation_Control::GetObservation(Walker->Gait,
+                    FirstToken).Get_ProtectionActive()
+                && FCk_ProceduralGaitParticipation_Control::GetObservation(Walker->Gait,
+                    SecondToken).Get_ProtectionActive());
+            FCk_ProceduralGaitParticipation_Control::FailRecovery(Walker->Gait,
+                FirstToken, FName{TEXT("FixtureCleanup")});
+            FCk_ProceduralGaitParticipation_Control::FailRecovery(Walker->Gait,
+                SecondToken, FName{TEXT("FixtureCleanup")});
+            DoDestroy(*Walker, *Course);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralGaitBorrowedDetachInterruptsTest,
+    "Ck.ProceduralAnimation.Action.Gait.BorrowedDetachInterrupts",
+    ck_test_procedural_gait_snapshot_pie::TestFlags)
+
+auto
+    FCkProceduralGaitBorrowedDetachInterruptsTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_gait_snapshot_pie;
+
+    struct FState
+    {
+        FWalker Walker;
+        FCourse Course;
+        FCk_Handle_ProceduralLeg BorrowedLeg;
+    };
+    const auto State = MakeShared<FState>();
+    const auto Origin = FVector{0.0, 45000.0, 5000.0};
+    const auto Token = FCk_ArticulationControlToken{9004, 1};
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [State, Origin](UWorld* InWorld)
+        { DoAdd_Box(InWorld, State->Course, Origin + FVector{0.0, 0.0, -25.0}, FVector{800.0, 800.0, 25.0}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State] { return Get_IsCourseReady(State->Course); }),
+        WaitSeconds, TEXT("Detach course floor is live")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Origin](UWorld* InWorld)
+        { State->Walker = DoAdd_Walker(this, InWorld, Origin + FVector{0.0, 0.0, BodyHeight}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        {
+            return Get_HasSolved(State->Walker)
+                && UCk_Utils_ProceduralGait_UE::Get_PlantedCount(State->Walker.Gait) == 4;
+        }), WaitSeconds, TEXT("Detach walker has four trusted contacts")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Token](UWorld*)
+        {
+            auto Snapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+            TestEqual(TEXT("Detach test obtains a fresh support snapshot"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(State->Walker.Gait, Snapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            auto Observation = FCk_ProceduralGaitParticipation_Observation{};
+            const auto Policy = FCk_ProceduralLimbControl_Support{
+                ECk_ProceduralLimbControl_SupportMode::CountOnly, 3};
+            TestEqual(TEXT("A planted leg can be borrowed before detachment"),
+                FCk_ProceduralGaitParticipation_Control::TryWithdraw(State->Walker.Gait, Token,
+                    TArray<FName>{FName{TEXT("Leg0")}}, Policy, Snapshot, Observation),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            const auto Legs = UCk_Utils_ProceduralGait_UE::Get_Legs(State->Walker.Gait);
+            if (NOT TestTrue(TEXT("The borrowed leg exists"), Legs.IsValidIndex(0) && ck::IsValid(Legs[0])))
+            { return; }
+            State->BorrowedLeg = Legs[0];
+            UCk_Utils_ProceduralLeg_UE::Request_Detach(State->BorrowedLeg,
+                FCk_Request_ProceduralLeg_Detach{}, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        { return ck::IsValid(State->BorrowedLeg)
+            && NOT UCk_Utils_ProceduralLeg_UE::Get_IsAttached(State->BorrowedLeg); }),
+        WaitSeconds, TEXT("Borrowed leg detachment becomes structural loss")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Token](UWorld*)
+        {
+            const auto Observation = FCk_ProceduralGaitParticipation_Control::GetObservation(State->Walker.Gait, Token);
+            TestTrue(TEXT("Structural loss interrupts the active protection lease"), Observation.Get_Interrupted());
+            TestEqual(TEXT("Structural interruption identifies the lost leg"),
+                Observation.Get_Reason(), FName{TEXT("LimbUnavailable")});
+            TestFalse(TEXT("Detached borrowed leg cannot become trusted support"),
+                FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                    State->Walker.Gait, FName{TEXT("Leg0")}).Get_TrustedSupport());
+            FCk_ProceduralGaitParticipation_Control::FailRecovery(
+                State->Walker.Gait, Token, FName{TEXT("FixtureCleanup")});
+            DoDestroy(State->Walker, State->Course);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralGaitBorrowedDisableInterruptsTest,
+    "Ck.ProceduralAnimation.Action.Gait.BorrowedDisableInterrupts",
+    ck_test_procedural_gait_snapshot_pie::TestFlags)
+
+auto
+    FCkProceduralGaitBorrowedDisableInterruptsTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_gait_snapshot_pie;
+    const auto Walker = MakeShared<FWalker>();
+    const auto Course = MakeShared<FCourse>();
+    const auto Origin = FVector{0.0, 53000.0, 5000.0};
+    const auto BorrowedLeg = MakeShared<FCk_Handle_ProceduralLeg>();
+    const auto Token = FCk_ArticulationControlToken{9104, 1};
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [Course, Origin](UWorld* InWorld)
+        { DoAdd_Box(InWorld, *Course, Origin + FVector{0.0, 0.0, -25.0}, FVector{800.0, 800.0, 25.0}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Course] { return Get_IsCourseReady(*Course); }),
+        WaitSeconds, TEXT("Disable course floor is live")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Walker, Origin](UWorld* InWorld)
+        { *Walker = DoAdd_Walker(this, InWorld, Origin + FVector{0.0, 0.0, BodyHeight}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Walker]
+        { return Get_HasSolved(*Walker)
+            && UCk_Utils_ProceduralGait_UE::Get_PlantedCount(Walker->Gait) == 4; }),
+        WaitSeconds, TEXT("Disable walker has four trusted contacts")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Walker, BorrowedLeg, Token](UWorld*)
+        {
+            auto Snapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+            auto Observation = FCk_ProceduralGaitParticipation_Observation{};
+            TestEqual(TEXT("Disable test obtains fresh support"),
+                FCk_ProceduralGaitParticipation_Control::GetSnapshot(Walker->Gait, Snapshot),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            TestEqual(TEXT("Planted leg borrows before disable"),
+                FCk_ProceduralGaitParticipation_Control::TryWithdraw(Walker->Gait,
+                    Token, TArray<FName>{FName{TEXT("Leg0")}},
+                    FCk_ProceduralLimbControl_Support{
+                        ECk_ProceduralLimbControl_SupportMode::CountOnly, 3}, Snapshot, Observation),
+                ECk_ProceduralGaitParticipation_Result::Accepted);
+            const auto Legs = UCk_Utils_ProceduralGait_UE::Get_Legs(Walker->Gait);
+            if (NOT TestTrue(TEXT("The borrowed leg remains live"),
+                Legs.IsValidIndex(0) && ck::IsValid(Legs[0])))
+            { return; }
+            *BorrowedLeg = Legs[0];
+            UCk_Utils_ProceduralLeg_UE::Request_EnableDisable(*BorrowedLeg,
+                FCk_Request_ProceduralLeg_EnableDisable{ECk_EnableDisable::Disable}, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([Walker, Token]
+        { return FCk_ProceduralGaitParticipation_Control::GetObservation(
+            Walker->Gait, Token).Get_Interrupted(); }),
+        WaitSeconds, TEXT("Borrowed leg disable interrupts support protection")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Walker, Course, Token](UWorld*)
+        {
+            const auto Observation = FCk_ProceduralGaitParticipation_Control::GetObservation(
+                Walker->Gait, Token);
+            TestEqual(TEXT("Disabled borrowed leg reports structural loss"),
+                Observation.Get_Reason(), FName{TEXT("LimbUnavailable")});
+            const auto Limb = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                Walker->Gait, FName{TEXT("Leg0")});
+            TestFalse(TEXT("Disabled borrowed leg is not trusted support"),
+                Limb.Get_StructurallyEnabled() || Limb.Get_TrustedSupport());
+            FCk_ProceduralGaitParticipation_Control::FailRecovery(
+                Walker->Gait, Token, FName{TEXT("FixtureCleanup")});
+            DoDestroy(*Walker, *Course);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralGaitBorrowDuringSwingTest,
+    "Ck.ProceduralAnimation.Action.Gait.BorrowDuringSwing",
+    ck_test_procedural_gait_snapshot_pie::TestFlags)
+
+auto
+    FCkProceduralGaitBorrowDuringSwingTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_gait_snapshot_pie;
+
+    struct FState
+    {
+        FWalker Walker;
+        FCourse Course;
+        FDelegateHandle Drive;
+        double DrivenX = 0.0;
+        uint64 LastAttemptedSequence = 0;
+        FName BorrowedId;
+        bool AdmittedWhileSwinging = false;
+    };
+    const auto State = MakeShared<FState>();
+    const auto Origin = FVector{0.0, 49000.0, 5000.0};
+    const auto Token = FCk_ArticulationControlToken{9005, 1};
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, PieReadySeconds));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [State, Origin](UWorld* InWorld)
+        { DoAdd_Box(InWorld, State->Course, Origin + FVector{0.0, 0.0, -25.0}, FVector{2500.0, 800.0, 25.0}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State] { return Get_IsCourseReady(State->Course); }),
+        WaitSeconds, TEXT("Mid-swing course floor is live")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Origin](UWorld* InWorld)
+        { State->Walker = DoAdd_Walker(this, InWorld, Origin + FVector{0.0, 0.0, BodyHeight}); })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]
+        {
+            return Get_HasSolved(State->Walker)
+                && UCk_Utils_ProceduralGait_UE::Get_PlantedCount(State->Walker.Gait) == 4;
+        }), WaitSeconds, TEXT("Mid-swing walker begins with four trusted contacts")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [State, Origin, Token](UWorld* InWorld)
+        {
+            const auto WeakState = TWeakPtr<FState>{State};
+            State->Drive = DoStart_Drive(InWorld, [WeakState, Origin, Token](UWorld*, float InDeltaSeconds)
+            {
+                const auto Pinned = WeakState.Pin();
+                if (NOT Pinned.IsValid() || Pinned->AdmittedWhileSwinging)
+                { return; }
+
+                const auto Debug = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(Pinned->Walker.Root);
+                const auto Sequence = Debug.Get_Sample().Get_Sequence();
+                if (Debug.Get_Status().Get_HasAcceptedSample() && Sequence > Pinned->LastAttemptedSequence)
+                {
+                    Pinned->LastAttemptedSequence = Sequence;
+                    for (auto Index = 0; Index < Debug.Get_Legs().Num(); ++Index)
+                    {
+                        if (Debug.Get_Legs()[Index].Get_Foot().Get_Planted())
+                        { continue; }
+                        const auto Id = FName{*FString::Printf(TEXT("Leg%d"), Index)};
+                        auto Snapshot = FCk_ProceduralGaitParticipation_Snapshot{};
+                        if (FCk_ProceduralGaitParticipation_Control::GetSnapshot(
+                                Pinned->Walker.Gait, Snapshot) != ECk_ProceduralGaitParticipation_Result::Accepted)
+                        { break; }
+                        auto Observation = FCk_ProceduralGaitParticipation_Observation{};
+                        const auto Policy = FCk_ProceduralLimbControl_Support{
+                            ECk_ProceduralLimbControl_SupportMode::CountOnly, 1};
+                        if (FCk_ProceduralGaitParticipation_Control::TryWithdraw(
+                                Pinned->Walker.Gait, Token, TArray<FName>{Id}, Policy, Snapshot, Observation)
+                            == ECk_ProceduralGaitParticipation_Result::Accepted)
+                        {
+                            Pinned->BorrowedId = Id;
+                            Pinned->AdmittedWhileSwinging = true;
+                            return;
+                        }
+                    }
+                }
+                Pinned->DrivenX += FMath::Max(InDeltaSeconds, 0.0f) * WalkSpeed;
+                UCk_Utils_Transform_UE::Request_SetLocation(Pinned->Walker.Body,
+                    FCk_Request_Transform_SetLocation{Origin + FVector{Pinned->DrivenX, 0.0, BodyHeight}}, {});
+            });
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State] { return State->AdmittedWhileSwinging; }),
+        WaitSeconds, TEXT("An airborne gait limb is borrowed under live support")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, State, Token](UWorld*)
+        {
+            DoStop_Drive(State->Drive);
+            TestTrue(TEXT("A swing was the admission state"), State->AdmittedWhileSwinging);
+            const auto Limb = FCk_ProceduralGaitParticipation_Control::GetLimbObservation(
+                State->Walker.Gait, State->BorrowedId);
+            TestFalse(TEXT("Borrowed mid-swing limb no longer participates in gait"), Limb.Get_Participating());
+            TestFalse(TEXT("Borrowed swing cannot be counted as trusted planted support"), Limb.Get_TrustedSupport());
+            if (State->AdmittedWhileSwinging)
+            { FCk_ProceduralGaitParticipation_Control::FailRecovery(State->Walker.Gait, Token, TEXT("FixtureStop")); }
+            DoDestroy(State->Walker, State->Course);
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
     FCkProceduralSurfaceMotionSnapshotShowsPendingContactTest,
     "Ck.ProceduralAnimation.SurfaceMotion.SnapshotShowsThePendingContact",
     ck_test_procedural_gait_snapshot_pie::TestFlags)
@@ -747,7 +1520,7 @@ auto
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State, Spec, Clearance](UWorld* InWorld)
         {
-            State->Walker = DoAdd_Walker(this, InWorld, WallOrigin + FVector{0.0, 0.0, Clearance}, 35.0);
+            State->Walker = DoAdd_Walker(this, InWorld, WallOrigin + FVector{0.0, 0.0, Clearance}, 4, 35.0);
             auto Motion = UCk_Utils_SurfaceMotion_UE::Add(State->Walker.Body, Spec);
             TestTrue(TEXT("The walker admits its surface motion"), ck::IsValid(Motion));
         })));
@@ -783,6 +1556,10 @@ auto
                 "still has floor support (%d touchdowns, %d planted solves)"),
                 State->TrustedFaceTouchdownsWhileFloor, State->FacePlantSamplesWhileFloor),
                 State->TrustedFaceTouchdownsWhileFloor > 0);
+            TestTrue(TEXT("The participation facade reads a fresh accepted wall support frame"),
+                State->ParticipationFrameObserved);
+            TestTrue(TEXT("Participation uses the accepted SurfaceMotion wall normal"),
+                State->ParticipationFrameMatchesSupport);
             TestTrue(FString::Printf(TEXT("Before the wall is adopted, the snapshot shows it pending: its normal, the time it has been seen, "
                 "and the floor still the support (%d solves)"), State->PendingWallSamplesBeforeAdoption),
                 State->PendingWallSamplesBeforeAdoption > 0);
