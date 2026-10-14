@@ -168,6 +168,161 @@ namespace ck_test_runtime_mesh_import
         const auto NoPayload = InTest.TestFalse(TEXT("rejected import publishes no geometry"), InResult.Get_Geometry().IsValid());
         return FailureMatches && NoPayload;
     }
+
+    auto
+    MakeValidationCube(bool InSparseTriangleIDs) -> UE::Geometry::FDynamicMesh3
+    {
+        auto Mesh = UE::Geometry::FDynamicMesh3{};
+        for (const auto& Corner : Corners)
+        { Mesh.AppendVertex(FVector3d{Corner}); }
+        for (int32 FaceIndex = 0; FaceIndex < 12; ++FaceIndex)
+        {
+            const auto& Face = Faces[FaceIndex];
+            const auto TriangleID = InSparseTriangleIDs ? 2 * FaceIndex + 1 : FaceIndex;
+            Mesh.InsertTriangle(TriangleID, UE::Geometry::FIndex3i{Face[0], Face[1], Face[2]});
+        }
+        return Mesh;
+    }
+
+    auto
+    RefineValidationMesh(UE::Geometry::FDynamicMesh3& InMesh, bool InSparseTriangleIDs) -> bool
+    {
+        using namespace UE::Geometry;
+        for (int32 Round = 0; Round < 4; ++Round)
+        {
+            TArray<int32> Triangles;
+            for (const auto TriangleID : InMesh.TriangleIndicesItr())
+            { Triangles.Add(TriangleID); }
+            for (const auto TriangleID : Triangles)
+            {
+                FDynamicMesh3::FPokeTriangleInfo Poke;
+                if (InMesh.PokeTriangle(TriangleID, Poke) != EMeshResult::Ok)
+                { return false; }
+            }
+        }
+        if (InSparseTriangleIDs == false)
+        { return true; }
+
+        auto Sparse = FDynamicMesh3{};
+        TArray<int32> VertexMap;
+        VertexMap.Init(FDynamicMesh3::InvalidID, InMesh.MaxVertexID());
+        for (const auto VertexID : InMesh.VertexIndicesItr())
+        { VertexMap[VertexID] = Sparse.AppendVertex(InMesh.GetVertex(VertexID)); }
+        int32 SparseTriangleID = 1;
+        for (const auto TriangleID : InMesh.TriangleIndicesItr())
+        {
+            const auto Triangle = InMesh.GetTriangle(TriangleID);
+            if (Sparse.InsertTriangle(SparseTriangleID,
+                FIndex3i{VertexMap[Triangle.A], VertexMap[Triangle.B], VertexMap[Triangle.C]}) != EMeshResult::Ok)
+            { return false; }
+            SparseTriangleID += 2;
+        }
+        InMesh = MoveTemp(Sparse);
+        return true;
+    }
+
+    // Frozen all-pairs reference for the admission contract before spatial acceleration.
+    // It deliberately uses neither the production traversal nor its shared-contact helper.
+    auto
+    ReferenceHasSelfIntersection(
+        const UE::Geometry::FDynamicMesh3& InMesh,
+        double InToleranceCm) -> bool
+    {
+        using namespace UE::Geometry;
+        const auto ToleranceSquared = FMath::Square(InToleranceCm);
+        for (const auto FirstID : InMesh.TriangleIndicesItr())
+        {
+            for (const auto SecondID : InMesh.TriangleIndicesItr())
+            {
+                if (SecondID <= FirstID || InMesh.GetTriBounds(FirstID)
+                    .DistanceSquared(InMesh.GetTriBounds(SecondID)) > ToleranceSquared)
+                { continue; }
+
+                FVector3d A0, A1, A2, B0, B1, B2;
+                InMesh.GetTriVertices(FirstID, A0, A1, A2);
+                InMesh.GetTriVertices(SecondID, B0, B1, B2);
+                auto Intersection = FIntrTriangle3Triangle3d{
+                    FTriangle3d{A0, A1, A2}, FTriangle3d{B0, B1, B2}};
+                Intersection.SetReportCoplanarIntersection(true);
+                Intersection.SetTolerance(InToleranceCm);
+                if (Intersection.Find() == false)
+                { continue; }
+                if (Intersection.Quantity <= 0)
+                { return true; }
+
+                TArray<int32, TInlineAllocator<3>> Shared;
+                const auto First = InMesh.GetTriangle(FirstID);
+                const auto Second = InMesh.GetTriangle(SecondID);
+                for (int32 Corner = 0; Corner < 3; ++Corner)
+                {
+                    if (First[Corner] == Second.A || First[Corner] == Second.B || First[Corner] == Second.C)
+                    { Shared.Add(First[Corner]); }
+                }
+                for (int32 PointIndex = 0; PointIndex < Intersection.Quantity; ++PointIndex)
+                {
+                    const auto Point = Intersection.Points[PointIndex];
+                    if (Shared.Num() == 1
+                        && FVector3d::DistSquared(Point, InMesh.GetVertex(Shared[0])) <= ToleranceSquared)
+                    { continue; }
+                    if (Shared.Num() == 2)
+                    {
+                        const auto Start = InMesh.GetVertex(Shared[0]);
+                        const auto Edge = InMesh.GetVertex(Shared[1]) - Start;
+                        const auto LengthSquared = Edge.SquaredLength();
+                        const auto Parameter = LengthSquared > 0.0
+                            ? FMath::Clamp((Point - Start).Dot(Edge) / LengthSquared, 0.0, 1.0) : 0.0;
+                        if (FVector3d::DistSquared(Point, Start + Parameter * Edge) <= ToleranceSquared)
+                        { continue; }
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    auto
+    CheckAdmissionAgainstAllPairs(
+        FAutomationTestBase& InTest,
+        UE::Geometry::FDynamicMesh3&& InMesh,
+        const FString& InCase,
+        const ck::runtimemesh::geometry::FImportOptions& InOptions,
+        int32 InExpectedTriangleCount = 12) -> bool
+    {
+        namespace Geometry = ck::runtimemesh::geometry;
+        if (InTest.TestTrue(*FString::Printf(TEXT("%s: valid admission options"), *InCase),
+            Geometry::ValidateOptions(InOptions)) == false)
+        { return false; }
+        if (InTest.TestEqual(*FString::Printf(TEXT("%s: all fixture triangles inserted"), *InCase),
+            InMesh.TriangleCount(), InExpectedTriangleCount) == false
+            || InTest.TestTrue(*FString::Printf(TEXT("%s: fixture is closed"), *InCase), InMesh.IsClosed()) == false)
+        { return false; }
+        for (const auto VertexID : InMesh.VertexIndicesItr())
+        {
+            if (InTest.TestFalse(*FString::Printf(TEXT("%s: fixture has no bowtie"), *InCase),
+                InMesh.IsBowtieVertex(VertexID)) == false)
+            { return false; }
+        }
+        for (const auto TriangleID : InMesh.TriangleIndicesItr())
+        {
+            if (InTest.TestTrue(*FString::Printf(TEXT("%s: triangle clears minimum area"), *InCase),
+                InMesh.GetTriArea(TriangleID) >= InOptions.Get_MinimumTriangleAreaCm2()) == false
+                || InTest.TestTrue(*FString::Printf(TEXT("%s: triangle has a valid attribute normal"), *InCase),
+                    InMesh.GetTriNormal(TriangleID).SquaredLength() > 0.00000001) == false)
+            { return false; }
+        }
+
+        const auto ExpectedIntersection = ReferenceHasSelfIntersection(InMesh, InOptions.Get_IntersectionToleranceCm());
+        AddRequiredAttributes(InMesh);
+        const auto Result = Geometry::Admit(MoveTemp(InMesh), InOptions);
+        if (ExpectedIntersection)
+        {
+            return IsFailureWithoutPayload(InTest, *InCase, Result, Geometry::EImportFailure::SelfIntersection);
+        }
+        return InTest.TestEqual(*InCase, static_cast<int32>(Result.Get_Failure()),
+            static_cast<int32>(Geometry::EImportFailure::None))
+            && InTest.TestTrue(TEXT("accepted reference solid publishes geometry"), Result.Get_Geometry().IsValid());
+    }
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -655,6 +810,236 @@ bool FCkTest_RuntimeMesh_Validation_NativeAttributeContract::RunTest(const FStri
     TestEqual(TEXT("unused vertex extends beyond valid cube"), OrphanVertex.GetVertex(UnusedID).X, 1000.0);
     IsFailureWithoutPayload(*this, TEXT("unused far vertex cannot enter immutable geometry"),
         Geometry::Admit(MoveTemp(OrphanVertex), {}), Geometry::EImportFailure::InvalidTopology);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_Validation_SpatialAdmissionMatchesAllPairs,
+    "Ck.RuntimeMesh.Validation.SpatialAdmissionMatchesAllPairs",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_Validation_SpatialAdmissionMatchesAllPairs::RunTest(const FString&)
+{
+    using namespace ck_test_runtime_mesh_import;
+    namespace Geometry = ck::runtimemesh::geometry;
+    const FQuat4d Rotations[] = {
+        FQuat4d::Identity,
+        FQuat4d{FVector3d{1, 2, 3}.GetSafeNormal(), 0.37},
+        FQuat4d{FVector3d{-2, 1, 4}.GetSafeNormal(), 1.91}};
+    const FVector3d Offsets[] = {FVector3d::ZeroVector, FVector3d{30, -12, 7}, FVector3d{10000, -20000, 30000}};
+
+    for (const bool Sparse : {false, true})
+    {
+        for (const bool Folded : {false, true})
+        {
+            for (int32 Pose = 0; Pose < 3; ++Pose)
+            {
+                auto Mesh = MakeValidationCube(Sparse);
+                if (Sparse)
+                {
+                    TestEqual(TEXT("sparse fixture retains holes below the final live triangle"), Mesh.MaxTriangleID(), 24);
+                    TestFalse(TEXT("triangle zero is a hole"), Mesh.IsTriangle(0));
+                    TestTrue(TEXT("last live triangle is beyond TriangleCount"), Mesh.IsTriangle(23));
+                }
+                if (Folded)
+                { Mesh.SetVertex(7, FVector3d{7, 2, 10}); }
+                for (const auto VertexID : Mesh.VertexIndicesItr())
+                { Mesh.SetVertex(VertexID, Rotations[Pose].RotateVector(Mesh.GetVertex(VertexID)) + Offsets[Pose]); }
+
+                const auto Label = FString::Printf(TEXT("sparse %d, folded %d, pose %d"), Sparse, Folded, Pose);
+                // The valid cube includes coplanar shared-edge and shared-vertex contacts.
+                // Folding its top must add an intersection beyond that permitted contact.
+                TestEqual(*FString::Printf(TEXT("%s: reference agrees with known geometry"), *Label),
+                    ReferenceHasSelfIntersection(Mesh, 0.0000001), Folded);
+                CheckAdmissionAgainstAllPairs(*this, MoveTemp(Mesh), Label, {});
+            }
+        }
+    }
+
+    auto TinyTolerance = Geometry::FImportOptions{};
+    TinyTolerance.Set_IntersectionToleranceCm(1.0e-12);
+    for (const bool Sparse : {false, true})
+    {
+        for (const bool Folded : {false, true})
+        {
+            for (int32 Pose = 0; Pose < 2; ++Pose)
+            {
+                auto Mesh = MakeValidationCube(Sparse);
+                if (Folded)
+                { Mesh.SetVertex(7, FVector3d{7, 2, 10}); }
+                for (const auto VertexID : Mesh.VertexIndicesItr())
+                {
+                    Mesh.SetVertex(VertexID, Rotations[Pose].RotateVector(Mesh.GetVertex(VertexID))
+                        + FVector3d{900000, -900000, 900000});
+                }
+                const auto Label = FString::Printf(TEXT("large translation, tiny tolerance, sparse %d, folded %d, pose %d"),
+                    Sparse, Folded, Pose);
+                // The exact narrowphase remains the authority at sub-ULP tolerances;
+                // spatial pruning must not alter it when box centres round inward.
+                CheckAdmissionAgainstAllPairs(*this, MoveTemp(Mesh), Label, TinyTolerance);
+            }
+        }
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_Validation_SpatialAdmissionPreservesTolerance,
+    "Ck.RuntimeMesh.Validation.SpatialAdmissionPreservesTolerance",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_Validation_SpatialAdmissionPreservesTolerance::RunTest(const FString&)
+{
+    using namespace ck_test_runtime_mesh_import;
+    namespace Geometry = ck::runtimemesh::geometry;
+    const double Tolerances[] = {0.0000001, 0.00001, 0.0001};
+    const double OffsetsInTolerances[] = {-4.0, -1.25, -1.0, -0.75, -0.25, 0.0, 0.25, 0.75, 1.0, 1.25, 4.0};
+    const auto Rotation = FQuat4d{FVector3d{1, 2, 3}.GetSafeNormal(), 0.37};
+
+    for (const auto Tolerance : Tolerances)
+    {
+        auto Options = Geometry::FImportOptions{};
+        Options.Set_IntersectionToleranceCm(Tolerance);
+        Options.Set_SeamToleranceCm(FMath::Max(Options.Get_SeamToleranceCm(), 20.0 * Tolerance));
+        for (const bool Sparse : {false, true})
+        {
+            for (const bool Rotated : {false, true})
+            {
+                for (const auto Offset : OffsetsInTolerances)
+                {
+                    auto Mesh = MakeValidationCube(Sparse);
+                    Mesh.SetVertex(7, FVector3d{7, 2, 10 + Offset * Tolerance});
+                    if (Rotated)
+                    {
+                        for (const auto VertexID : Mesh.VertexIndicesItr())
+                        { Mesh.SetVertex(VertexID, Rotation.RotateVector(Mesh.GetVertex(VertexID)) + FVector3d{30, -12, 7}); }
+                    }
+                    const auto Label = FString::Printf(TEXT("fold tolerance %.9g, offset %.2g, sparse %d, rotated %d"),
+                        Tolerance, Offset, Sparse, Rotated);
+                    CheckAdmissionAgainstAllPairs(*this, MoveTemp(Mesh), Label, Options);
+                }
+
+                // Parallel top/bottom faces have disjoint, zero-thickness bounds.
+                // Their positive separation straddles the broadphase tolerance; a
+                // strict box-overlap traversal would miss the near-contact cases.
+                // Keep the sides above the attribute normal's normalization floor.
+                if (Tolerance < 0.0001)
+                { continue; }
+                for (const auto Gap : {0.25, 0.75, 1.0, 1.25, 4.0})
+                {
+                    auto Mesh = MakeValidationCube(Sparse);
+                    for (const auto VertexID : Mesh.VertexIndicesItr())
+                    {
+                        auto Point = Mesh.GetVertex(VertexID);
+                        Point.Z *= Gap * Tolerance / 10.0;
+                        if (Rotated)
+                        { Point = Rotation.RotateVector(Point) + FVector3d{30, -12, 7}; }
+                        Mesh.SetVertex(VertexID, Point);
+                    }
+                    const auto Label = FString::Printf(TEXT("separated bounds tolerance %.9g, gap %.2g, sparse %d, rotated %d"),
+                        Tolerance, Gap, Sparse, Rotated);
+                    CheckAdmissionAgainstAllPairs(*this, MoveTemp(Mesh), Label, Options);
+                }
+            }
+        }
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_Validation_TreeAdmissionMatchesAllPairs,
+    "Ck.RuntimeMesh.Validation.TreeAdmissionMatchesAllPairs",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_Validation_TreeAdmissionMatchesAllPairs::RunTest(const FString&)
+{
+    using namespace ck_test_runtime_mesh_import;
+    namespace Geometry = ck::runtimemesh::geometry;
+    constexpr int32 RefinedTriangleCount = 972;
+    const auto Rotation = FQuat4d{FVector3d{1, 2, 3}.GetSafeNormal(), 0.37};
+
+    for (const bool Sparse : {false, true})
+    {
+        for (const bool Folded : {false, true})
+        {
+            for (int32 Pose = 0; Pose < 4; ++Pose)
+            {
+                auto Mesh = MakeValidationCube(false);
+                if (Folded)
+                { Mesh.SetVertex(7, FVector3d{7, 2, 10}); }
+                if (TestTrue(TEXT("four centroid refinement rounds succeed"), RefineValidationMesh(Mesh, Sparse)) == false)
+                { return false; }
+                TestTrue(TEXT("fixture exceeds the 768-triangle all-pairs path"), Mesh.TriangleCount() > 768);
+                if (Sparse)
+                {
+                    TestEqual(TEXT("refined sparse fixture retains every triangle-ID hole"),
+                        Mesh.MaxTriangleID(), 2 * RefinedTriangleCount);
+                    TestFalse(TEXT("refined triangle zero remains a hole"), Mesh.IsTriangle(0));
+                    TestTrue(TEXT("refined last live triangle exceeds TriangleCount"), Mesh.IsTriangle(2 * RefinedTriangleCount - 1));
+                }
+
+                auto Options = Geometry::FImportOptions{};
+                if (Pose == 3)
+                { Options.Set_IntersectionToleranceCm(1.0e-12); }
+                for (const auto VertexID : Mesh.VertexIndicesItr())
+                {
+                    auto Point = Mesh.GetVertex(VertexID);
+                    if (Pose == 1 || Pose == 3)
+                    { Point = Rotation.RotateVector(Point); }
+                    if (Pose == 1)
+                    { Point += FVector3d{30, -12, 7}; }
+                    else if (Pose == 2)
+                    { Point += FVector3d{10000, -20000, 30000}; }
+                    else if (Pose == 3)
+                    { Point += FVector3d{900000, -900000, 900000}; }
+                    Mesh.SetVertex(VertexID, Point);
+                }
+
+                const auto Label = FString::Printf(TEXT("tree solid, sparse %d, folded %d, pose %d"), Sparse, Folded, Pose);
+                if (Pose == 0)
+                {
+                    TestEqual(*FString::Printf(TEXT("%s: refined reference agrees with known geometry"), *Label),
+                        ReferenceHasSelfIntersection(Mesh, Options.Get_IntersectionToleranceCm()), Folded);
+                }
+                CheckAdmissionAgainstAllPairs(*this, MoveTemp(Mesh), Label, Options, RefinedTriangleCount);
+            }
+        }
+    }
+
+    auto ThinOptions = Geometry::FImportOptions{};
+    ThinOptions.Set_IntersectionToleranceCm(0.0001);
+    ThinOptions.Set_SeamToleranceCm(0.002);
+    for (const bool Sparse : {false, true})
+    {
+        for (const bool Rotated : {false, true})
+        {
+            for (const auto Gap : {0.75, 1.0, 1.25})
+            {
+                auto Mesh = MakeValidationCube(false);
+                for (const auto VertexID : Mesh.VertexIndicesItr())
+                {
+                    auto Point = Mesh.GetVertex(VertexID);
+                    // A 10000 cm width keeps even refined side triangles above the
+                    // normal's normalization floor despite the near-tolerance gap.
+                    Point.X *= 1000.0;
+                    Point.Y *= 1000.0;
+                    Point.Z *= Gap * ThinOptions.Get_IntersectionToleranceCm() / 10.0;
+                    Mesh.SetVertex(VertexID, Point);
+                }
+                if (TestTrue(TEXT("thin solid refinement succeeds"), RefineValidationMesh(Mesh, Sparse)) == false)
+                { return false; }
+                TestTrue(TEXT("thin fixture exercises the tree path"), Mesh.TriangleCount() > 768);
+                if (Rotated)
+                {
+                    for (const auto VertexID : Mesh.VertexIndicesItr())
+                    { Mesh.SetVertex(VertexID, Rotation.RotateVector(Mesh.GetVertex(VertexID)) + FVector3d{30, -12, 7}); }
+                }
+                const auto Label = FString::Printf(TEXT("tree separated bounds, gap %.2g, sparse %d, rotated %d"),
+                    Gap, Sparse, Rotated);
+                CheckAdmissionAgainstAllPairs(*this, MoveTemp(Mesh), Label, ThinOptions, RefinedTriangleCount);
+            }
+        }
+    }
     return true;
 }
 
