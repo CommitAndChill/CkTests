@@ -117,13 +117,13 @@ class ACk_PixelSpriteGym_PlayerController : ACk_Gym_Base_PlayerController
         _VisualOwner = utils_entity_lifetime::Request_CreateEntity(ck::ToEntity(this));
         if (!ck::IsValid(_VisualOwner))
         { Fail_Setup("could not create the visual lifetime owner"); return; }
-        auto World = utils_entity_lifetime::Get_WorldForEntity(_VisualOwner);
-        if (ck::Is_NOT_Valid(World))
+        auto VisualWorld = utils_entity_lifetime::Get_WorldForEntity(_VisualOwner);
+        if (ck::Is_NOT_Valid(VisualWorld))
         { Fail_Setup("the visual lifetime owner has no world"); return; }
 
-        if (!Create_Plane(World, Quad, _NearestMID, 0) ||
-            !Create_Plane(World, Quad, _EdgeAAMID, 1) ||
-            !Create_CubeGrid(World, Cube, CubesMaterial, Origin))
+        if (!Create_Plane(VisualWorld, Quad, _NearestMID, 0) ||
+            !Create_Plane(VisualWorld, Quad, _EdgeAAMID, 1) ||
+            !Create_CubeGrid(VisualWorld, Cube, CubesMaterial, Origin))
         { Fail_Setup("could not create all three renderers and pixel proxies"); return; }
 
         _LastFrame = -1;
