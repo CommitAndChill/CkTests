@@ -2,6 +2,8 @@
 
 #include "CkGroundNav/Query/CkGroundNav_Query_DynamicObstacles.h"
 
+#include "CkCore/Macros/CkMacros.h"
+
 #include "../CkUnitTest_Common.h"
 
 #include <HAL/PlatformTime.h>

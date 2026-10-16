@@ -4,6 +4,7 @@
 #include "CkSlateLayout/SCkUiSurface.h"
 
 #include "Framework/Application/SlateApplication.h"
+#include "Framework/Application/SlateUser.h"
 #include "Input/Events.h"
 #include "Input/PopupMethodReply.h"
 #include "InputCoreTypes.h"
