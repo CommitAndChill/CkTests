@@ -762,6 +762,7 @@ namespace assets
     TSoftObjectPtr<ACk_AutoTest_PaViz_Telemetry_Actor> Ck_AutoTest_PaViz_Telemetry_Actor_UAID_60CF84A99C2C360503_1274626617() { return TSoftObjectPtr<ACk_AutoTest_PaViz_Telemetry_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_PaViz_Telemetry_Actor_UAID_60CF84A99C2C360503_1274626617")); }
     TSoftObjectPtr<ACk_AutoTest_PaViz_Visual_Actor> Ck_AutoTest_PaViz_Visual_Actor_UAID_60CF84A99C2C360503_1274627618() { return TSoftObjectPtr<ACk_AutoTest_PaViz_Visual_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_PaViz_Visual_Actor_UAID_60CF84A99C2C360503_1274627618")); }
     TSoftObjectPtr<ACk_AutoTest_PixelArt_SubsystemContract_Actor> Ck_AutoTest_PixelArt_SubsystemContract_Actor_UAID_60CF84A99C2CA9F902_1276735183() { return TSoftObjectPtr<ACk_AutoTest_PixelArt_SubsystemContract_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_PixelArt_SubsystemContract_Actor_UAID_60CF84A99C2CA9F902_1276735183")); }
+    TSoftObjectPtr<ACk_AutoTest_PixelSprite_Player_Actor> Ck_AutoTest_PixelSprite_Player_Actor_UAID_9CEBE87B5CD0140A03_1878077911() { return TSoftObjectPtr<ACk_AutoTest_PixelSprite_Player_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_PixelSprite_Player_Actor_UAID_9CEBE87B5CD0140A03_1878077911")); }
     TSoftObjectPtr<ACk_AutoTest_Player_Create_MakesDistinctChild_Actor> Ck_AutoTest_Player_Create_MakesDistinctChild_Actor_UAID_C87F5401E5355CEC02_1806366913() { return TSoftObjectPtr<ACk_AutoTest_Player_Create_MakesDistinctChild_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_Player_Create_MakesDistinctChild_Actor_UAID_C87F5401E5355CEC02_1806366913")); }
     TSoftObjectPtr<ACk_AutoTest_Pmg_Donut_Create_MakesDistinctChild_Actor> Ck_AutoTest_Pmg_Donut_Create_MakesDistinctChild_Actor_UAID_C87F5401E5355CEC02_1806367914() { return TSoftObjectPtr<ACk_AutoTest_Pmg_Donut_Create_MakesDistinctChild_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_Pmg_Donut_Create_MakesDistinctChild_Actor_UAID_C87F5401E5355CEC02_1806367914")); }
     TSoftObjectPtr<ACk_AutoTest_Pmg_DrawFilledBox_ReturnsValidHandle_Actor> Ck_AutoTest_Pmg_DrawFilledBox_ReturnsValidHandle_Actor_UAID_C87F5401E53527DC02_1742351680() { return TSoftObjectPtr<ACk_AutoTest_Pmg_DrawFilledBox_ReturnsValidHandle_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_Pmg_DrawFilledBox_ReturnsValidHandle_Actor_UAID_C87F5401E53527DC02_1742351680")); }
@@ -1202,6 +1203,8 @@ namespace assets
     TSoftObjectPtr<UMaterial> M_DefaultMaterial() { return TSoftObjectPtr<UMaterial>(FSoftObjectPath("/CkTests/Common/DemoRoom/Materials/M_DefaultMaterial.M_DefaultMaterial")); }
     TSoftObjectPtr<UMaterial> M_Glow() { return TSoftObjectPtr<UMaterial>(FSoftObjectPath("/CkTests/Common/DemoRoom/Materials/M_Glow.M_Glow")); }
     TSoftObjectPtr<UMaterial> M_Mannequin() { return TSoftObjectPtr<UMaterial>(FSoftObjectPath("/CkTests/Characters/Mannequins/Materials/M_Mannequin.M_Mannequin")); }
+    TSoftObjectPtr<UMaterial> M_PixelSprite_Cubes() { return TSoftObjectPtr<UMaterial>(FSoftObjectPath("/CkTests/PixelSprite/M_PixelSprite_Cubes.M_PixelSprite_Cubes")); }
+    TSoftObjectPtr<UMaterial> M_PixelSprite_Shader() { return TSoftObjectPtr<UMaterial>(FSoftObjectPath("/CkTests/PixelSprite/M_PixelSprite_Shader.M_PixelSprite_Shader")); }
     TSoftObjectPtr<UMaterialInstanceConstant> M_PanelCenterDefault() { return TSoftObjectPtr<UMaterialInstanceConstant>(FSoftObjectPath("/CkTests/Common/DemoRoom/Materials/M_PanelCenterDefault.M_PanelCenterDefault")); }
     TSoftObjectPtr<UMaterialInstanceConstant> M_PanelCornerDefault() { return TSoftObjectPtr<UMaterialInstanceConstant>(FSoftObjectPath("/CkTests/Common/DemoRoom/Materials/M_PanelCornerDefault.M_PanelCornerDefault")); }
     TSoftObjectPtr<UMaterialInstanceConstant> MI_Manny_01_New() { return TSoftObjectPtr<UMaterialInstanceConstant>(FSoftObjectPath("/CkTests/Characters/Mannequins/Materials/Manny/MI_Manny_01_New.MI_Manny_01_New")); }
@@ -1225,6 +1228,7 @@ namespace assets
     TSoftObjectPtr<UStaticMesh> SM_Checker_CPU() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/CkRuntimeMesh/Render/SM_Checker_CPU.SM_Checker_CPU")); }
     TSoftObjectPtr<UStaticMesh> SM_Import_CPU() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/CkRuntimeMesh/Cooked/SM_Import_CPU.SM_Import_CPU")); }
     TSoftObjectPtr<UStaticMesh> SM_Import_NoCPU() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/CkRuntimeMesh/Cooked/SM_Import_NoCPU.SM_Import_NoCPU")); }
+    TSoftObjectPtr<UStaticMesh> SM_PixelSprite_Quad() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/PixelSprite/SM_PixelSprite_Quad.SM_PixelSprite_Quad")); }
     TSoftObjectPtr<UStaticMesh> Splitter_Curve() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/Splitter_Curve.Splitter_Curve")); }
     TSoftObjectPtr<UStaticMesh> Splitter_Wall() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/Splitter_Wall.Splitter_Wall")); }
     TSoftObjectPtr<UStaticMesh> TagBar_Middle() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/TagBar_Middle.TagBar_Middle")); }
@@ -8071,6 +8075,15 @@ namespace assets::load
         }
         return System::LoadAsset_Blocking(assets::Ck_AutoTest_PixelArt_SubsystemContract_Actor_UAID_60CF84A99C2CA9F902_1276735183());
     }
+    ACk_AutoTest_PixelSprite_Player_Actor Ck_AutoTest_PixelSprite_Player_Actor_UAID_9CEBE87B5CD0140A03_1878077911()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::Ck_AutoTest_PixelSprite_Player_Actor_UAID_9CEBE87B5CD0140A03_1878077911() called before engine init. Use assets::Ck_AutoTest_PixelSprite_Player_Actor_UAID_9CEBE87B5CD0140A03_1878077911() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::Ck_AutoTest_PixelSprite_Player_Actor_UAID_9CEBE87B5CD0140A03_1878077911());
+    }
     ACk_AutoTest_Player_Create_MakesDistinctChild_Actor Ck_AutoTest_Player_Create_MakesDistinctChild_Actor_UAID_C87F5401E5355CEC02_1806366913()
     {
         if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
@@ -12031,6 +12044,24 @@ namespace assets::load
         }
         return System::LoadAsset_Blocking(assets::M_Mannequin());
     }
+    UMaterial M_PixelSprite_Cubes()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::M_PixelSprite_Cubes() called before engine init. Use assets::M_PixelSprite_Cubes() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::M_PixelSprite_Cubes());
+    }
+    UMaterial M_PixelSprite_Shader()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::M_PixelSprite_Shader() called before engine init. Use assets::M_PixelSprite_Shader() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::M_PixelSprite_Shader());
+    }
     UMaterialInstanceConstant M_PanelCenterDefault()
     {
         if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
@@ -12237,6 +12268,15 @@ namespace assets::load
             return nullptr;
         }
         return System::LoadAsset_Blocking(assets::SM_Import_NoCPU());
+    }
+    UStaticMesh SM_PixelSprite_Quad()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::SM_PixelSprite_Quad() called before engine init. Use assets::SM_PixelSprite_Quad() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::SM_PixelSprite_Quad());
     }
     UStaticMesh Splitter_Curve()
     {
