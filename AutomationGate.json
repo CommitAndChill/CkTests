@@ -166,13 +166,6 @@
       "added": "2026-10-01"
     },
     {
-      "test": "CkTests.UnitTests.CkUsf.GeneratesUsableMasters",
-      "status": "red",
-      "reason": "Look [DebugSceneOpaque]: param [Opacity] collides with the generated Custom-node input/output/local of the same name - rename it",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
-      "added": "2026-10-01"
-    },
-    {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_AvoidanceVolume_InitialPathAvoidsExpandedObb",
       "status": "red",
       "reason": "Avoid If Possible did not fall back through the sealed corridor: ECk_Nav_PathStatus::Partial (4). Red alone twice; passed in G2, so it oscillates under load - listed red so a pass only prints 'Now passing'.",
