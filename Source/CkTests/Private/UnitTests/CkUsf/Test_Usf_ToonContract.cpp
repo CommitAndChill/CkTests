@@ -4,6 +4,7 @@
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
 #include "CkUsfEditor/Generator/CkUsf_Generator.h"
 #include "CkUsfEditor/Generator/CkUsf_LookValidator.h"
+#include "CkUsfEditor/Generator/CkUsf_ShadingModelContract.h"
 #include "CkUsf_TestLookMasters.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionCustom.h"
@@ -103,13 +104,35 @@ auto FCkTest_Usf_ToonRejectsUnsupportedAuthoring::RunTest(const FString& Paramet
     {
         const auto Definition = ck_test_usf_toon_contract::MakeDefinition();
         if (Case == 0)
-        { Definition->_Domain = ECk_Usf_Domain::SurfaceUnlit; }
+        {
+            Definition->_Domain = ECk_Usf_Domain::SurfaceUnlit;
+            // Isolate the domain rejection from SurfaceUnlit's inherited translucent blend.
+            Definition->_BlendMode = ECk_Usf_BlendMode::Opaque;
+        }
         else
         { Definition->_BlendMode = ECk_Usf_BlendMode::Translucent; }
         const auto Marker = Case == 0 ? FString{TEXT("Toon requires the SurfaceLit domain")} :
-            FString{TEXT("Toon currently supports only Opaque blending")};
+            FString{TEXT("Toon and SingleLayerWater require Opaque blend")};
+        auto Contract = ck::usf_editor::FShadingModelContract{};
+        Contract.Model = ECk_Usf_ShadingModel::Unlit;
+        Contract.BlendMode = BLEND_Additive;
+        auto ContractErrors = TArray<FString>{};
+        const auto Resolved = ck::usf_editor::Resolve_ShadingModelContract(*Definition, Contract, ContractErrors);
+        if (Case == 0)
+        {
+            TestTrue(TEXT("Domain fixture resolves its source-declared Toon model"), Resolved);
+            TestTrue(TEXT("Domain fixture isolates an opaque source-declared Toon contract"),
+                Contract.Model == ECk_Usf_ShadingModel::Toon && Contract.SourceOverride && Contract.BlendMode == BLEND_Opaque);
+        }
+        else
+        {
+            TestFalse(TEXT("Translucent Toon is rejected by contract resolution"), Resolved);
+            TestTrue(TEXT("Rejected contract resolution leaves its output unchanged"),
+                Contract.Model == ECk_Usf_ShadingModel::Unlit && Contract.BlendMode == BLEND_Additive && !Contract.SourceOverride);
+        }
         const auto Path = Definition->Get_GeneratedMasterPackagePath();
         const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition.Get());
+        TestFalse(TEXT("Unsupported Toon declaration is invalid"), Validation.Get_IsValid());
         TestTrue(TEXT("Unsupported Toon declaration reports the specific contract violation"),
             Validation.Errors.ContainsByPredicate([&](const FString& InError) { return InError.Contains(Marker); }));
         AddExpectedError(*Marker, EAutomationExpectedErrorFlags::Contains, 1);
@@ -131,13 +154,32 @@ auto FCkTest_Usf_ToonReservedNames::RunTest(const FString& Parameters) -> bool
     for (const auto Name : {FName{TEXT("ToonThreshold")}, FName{TEXT("toonsoftness")}})
     {
         const auto Definition = ck_test_usf_toon_contract::MakeDefinition();
+        // Toon.ush declares Toon in its header, which takes precedence over the asset model.
+        // RimGlow has no model declaration and accepts the same vector/scalar parameter types.
+        Definition->_UshIncludePath = TEXT("/CkUsf/Looks/RimGlow.ush");
+        Definition->_UshFunctionName = TEXT("CkUsf_Look_RimGlow");
+        Definition->_Parameters.SetNum(2);
         Definition->_Parameters[1]._Name = Name;
         Definition->_ShadingModel = ECk_Usf_ShadingModel::DefaultLit;
+        auto Contract = ck::usf_editor::FShadingModelContract{};
+        auto ContractErrors = TArray<FString>{};
+        TestTrue(TEXT("Non-Toon fixture resolves its asset-selected contract"),
+            ck::usf_editor::Resolve_ShadingModelContract(*Definition, Contract, ContractErrors));
+        TestTrue(TEXT("Non-Toon fixture has no source override and resolves DefaultLit"),
+            Contract.Model == ECk_Usf_ShadingModel::DefaultLit && !Contract.SourceOverride);
         const auto Compatible = ck::usf_editor::Validate_LookDefinition(Definition.Get());
+        for (const auto& Error : Compatible.Errors)
+        { AddError(Error); }
         TestTrue(TEXT("Existing non-Toon scalar names remain valid"), Compatible.Get_IsValid());
 
         Definition->_ShadingModel = ECk_Usf_ShadingModel::Toon;
+        ContractErrors.Reset();
+        TestTrue(TEXT("Toon fixture resolves its asset-selected contract"),
+            ck::usf_editor::Resolve_ShadingModelContract(*Definition, Contract, ContractErrors));
+        TestTrue(TEXT("Reserved-name scope is tested against the resolved Toon model"),
+            Contract.Model == ECk_Usf_ShadingModel::Toon && !Contract.SourceOverride);
         const auto Rejected = ck::usf_editor::Validate_LookDefinition(Definition.Get());
+        TestFalse(TEXT("Reserved Toon output name invalidates the declaration"), Rejected.Get_IsValid());
         TestTrue(TEXT("Toon rejects its generated output names case-insensitively"),
             Rejected.Errors.ContainsByPredicate([&](const FString& InError) { return InError.Contains(Marker); }));
         AddExpectedError(*Marker, EAutomationExpectedErrorFlags::Contains, 1);

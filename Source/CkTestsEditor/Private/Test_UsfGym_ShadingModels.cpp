@@ -24,7 +24,30 @@ auto FCkTest_UsfGym_ShadingModelBatch::RunTest(const FString& Parameters) -> boo
 {
     auto Errors = TArray<FString>{};
     auto Batch = ck::usf_gym::FBatch{};
-    if (ck::usf_gym::Build_TransientBatch(ck::usf_gym::Get_Environment(), Batch, Errors) == false)
+    const auto Environment = ck::usf_gym::Get_Environment();
+    if (Environment.IsSubstrate)
+    {
+        // The legacy comparison gym intentionally excludes Substrate, including Blendable GBuffer.
+        // Exercise that production boundary on this host instead of claiming legacy shader coverage.
+        const auto PackagePath = FPackageName::ObjectPathToPackageName(ck::usf_gym::CatalogPath);
+        const auto PreviousPackage = TWeakObjectPtr<UPackage>{FindPackage(nullptr, *PackagePath)};
+        const auto PackageExisted = FPackageName::DoesPackageExist(PackagePath);
+        TestFalse(TEXT("Legacy gym rejects the active Substrate environment before staging"),
+            ck::usf_gym::Build_TransientBatch(Environment, Batch, Errors));
+        TestEqual(TEXT("Active host rejection has only the expected environment violation"), Errors.Num(), 1);
+        TestTrue(TEXT("Legacy gym reports that Substrate must be disabled"), Errors.Contains(
+            TEXT("Shading-model comparison requires desktop deferred rendering with Substrate disabled.")));
+        TestTrue(TEXT("Active environment rejection creates no candidate rows or materials"),
+            Batch.Models.IsEmpty() && Batch.Materials.IsEmpty());
+        TestFalse(TEXT("Active environment rejection allocates no scattering profile"), Batch.Profile.IsValid());
+        TestTrue(TEXT("Active environment rejection preserves the catalog package"),
+            PreviousPackage.Get() == FindPackage(nullptr, *PackagePath));
+        TestEqual(TEXT("Active environment rejection preserves catalog disk occupancy"),
+            FPackageName::DoesPackageExist(PackagePath), PackageExisted);
+        AddInfo(TEXT("Active Substrate host exercised atomic legacy-gym rejection; legacy shader compilation requires a Substrate-disabled host."));
+        return true;
+    }
+    if (ck::usf_gym::Build_TransientBatch(Environment, Batch, Errors) == false)
     {
         for (const auto& Error : Errors)
         { AddError(Error); }
