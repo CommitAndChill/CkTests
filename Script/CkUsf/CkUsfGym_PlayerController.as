@@ -7,6 +7,8 @@
 class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
 {
     private TArray<AActor> _Showcases;
+    private ACk_UsfGym_ToonShowcase _ShadingComparison;
+    private int32 _ShadingModelIndex = -1;
 
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
@@ -38,6 +40,8 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
             "Animated cutout via OpacityMask.", "Masked blend + two-sided; glowing burn edge."));
         Stations.Add(Make_Station(n"Gym.Rendering.UsfLitMetal", "LIT METAL (PBR)",
             "Scene-lit metal/dielectric checker.", "DefaultLit + Metallic/Specular/Roughness."));
+        Stations.Add(Make_Station(n"Gym.Rendering.UsfToon", "TOON (NATIVE LIGHTING)",
+            "Switch native shading models on the same sphere.", "N / B: next / previous. T: Toon. F: frame sphere."));
         Stations.Add(Make_Station(n"Gym.Rendering.UsfDisplace", "DISPLACE (WPO)",
             "Vertex-shader world-position offset.", "Sine wave along normal; coarse on a stock sphere."));
         Stations.Add(Make_Station(n"Gym.Rendering.UsfGlass", "GLASS (REFRACTION)",
@@ -85,6 +89,7 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
             if (ck::IsValid(Existing)) { Existing.DestroyActor(); }
         }
         _Showcases.Empty();
+        _ShadingComparison = nullptr;
 
         Request_SpawnLook(n"Gym.Rendering.UsfHologram", CkUsf::Hologram);
         Request_SpawnLook(n"Gym.Rendering.UsfPlasma",   CkUsf::Plasma);
@@ -99,6 +104,7 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         Request_SpawnLook(n"Gym.Rendering.UsfRimGlow",   CkUsf::RimGlow);
         Request_SpawnLook(n"Gym.Rendering.UsfDissolve",  CkUsf::Dissolve);
         Request_SpawnLook(n"Gym.Rendering.UsfLitMetal",  CkUsf::LitMetal);
+        Request_SpawnLook(n"Gym.Rendering.UsfToon",      CkUsf::Toon);
         Request_SpawnLook(n"Gym.Rendering.UsfDisplace",  CkUsf::Displace);
         Request_SpawnLook(n"Gym.Rendering.UsfGlass",     CkUsf::Glass);
         Request_SpawnLook(n"Gym.Rendering.UsfSkin",      CkUsf::Skin);
@@ -157,12 +163,28 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         // Place the sphere toward the player (world -X) and raised, in front of the station.
         auto Location = StationTransform.Location + FVector(-200.0, 0.0, 150.0);
 
-        auto Showcase = Cast<ACk_UsfGym_Showcase>(SpawnActor(ACk_UsfGym_Showcase, Location, FRotator::ZeroRotator));
+        TSubclassOf<ACk_UsfGym_Showcase> ShowcaseClass = ACk_UsfGym_Showcase;
+        if (InLook._ShadingModel == ECk_Usf_ShadingModel::Toon)
+        { ShowcaseClass = ACk_UsfGym_ToonShowcase; }
+        auto Showcase = Cast<ACk_UsfGym_Showcase>(SpawnActor(ShowcaseClass, Location, FRotator::ZeroRotator));
         if (Showcase != nullptr)
         {
             Showcase.SetActorScale3D(FVector(2.0, 2.0, 2.0));
             Showcase.Request_SetLook(InLook);
             _Showcases.Add(Showcase);
+            auto Comparison = Cast<ACk_UsfGym_ToonShowcase>(Showcase);
+            if (ck::IsValid(Comparison))
+            {
+                _ShadingComparison = Comparison;
+                if (Comparison.Request_InitializeComparison())
+                {
+                    // The catalog lists Toon last; preserve the selected model across respawns.
+                    if (_ShadingModelIndex < 0)
+                    { Comparison.Request_SelectSourceMaterial(); }
+                    else
+                    { Comparison.Request_SelectModel(_ShadingModelIndex); }
+                }
+            }
         }
         else
         {
@@ -173,8 +195,7 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
     //--------------------------------------------------------------------------------------------------------------------------
     // CONTROL PANEL (Script/Common/CkGym_ControlPanel.as)
     //
-    // One row, and it earns its place: respawning is how you re-run every look after regenerating the
-    // masters, and until this panel existed the only way to learn the command existed was to read this file.
+    // The shared panel owns rendering and input; the comparison swaps compiled MIDs only.
     //--------------------------------------------------------------------------------------------------------------------------
 
     FString Get_ControlPanelTitle() override
@@ -186,11 +207,75 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
     {
         auto Rows = TArray<FCkGym_ControlRow>();
         Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Respawn every look"));
+        const bool Ready = ck::IsValid(_ShadingComparison) && _ShadingComparison.Get_ModelCount() > 0;
+        const auto ModelName = Ready ? _ShadingComparison.Get_ModelName() : "Unavailable";
+        Rows.Add(CkGym_Control::Cycle(EKeys::N, "N", "Next shading model", ModelName, false, Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::B, "B", "Previous shading model", Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::T, "T", "Select CkUsf Toon", Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::F, "F", "Frame comparison sphere", ck::IsValid(_ShadingComparison)));
+        Rows.Add(CkGym_Control::Action(EKeys::G, "G", "Reload lighting HLSL (may compile slowly)", Ready));
+        Rows.Add(CkGym_Control::Status("Material setup", ck::IsValid(_ShadingComparison)
+            ? _ShadingComparison.Get_ModelDescription() : "Comparison sphere not spawned", Ready == false));
+        Rows.Add(CkGym_Control::Action(EKeys::U, "U", "Use .ush source material", Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::L, "L", "Reload material (.ush model and inputs)", Ready));
         return Rows;
     }
 
     void Request_ControlActivated(int32 InRowIndex) override
     {
-        if (InRowIndex == 0) { Request_SpawnAllLooks(); }
+        if (InRowIndex == 0)
+        { Request_SpawnAllLooks(); }
+        else if (InRowIndex == 4)
+        { Request_FrameComparison(); }
+        else if (ck::IsValid(_ShadingComparison) && _ShadingComparison.Get_ModelCount() > 0)
+        {
+            const int32 Count = _ShadingComparison.Get_ModelCount();
+            if (InRowIndex == 1)
+            { Request_SelectShadingModel((_ShadingModelIndex + 1) % Count); }
+            else if (InRowIndex == 2)
+            { Request_SelectShadingModel((_ShadingModelIndex + Count - 1) % Count); }
+            else if (InRowIndex == 3)
+            { Request_SelectShadingModel(Count - 1); }
+            else if (InRowIndex == 5)
+            { System::ExecuteConsoleCommand("Ck_Usf_ReloadShadingModels"); }
+            else if (InRowIndex == 7)
+            { Ck_UsfGym_UseSourceMaterial(); }
+            else if (InRowIndex == 8)
+            { System::ExecuteConsoleCommand("Ck_Usf_ReloadShaders"); }
+        }
+    }
+
+    UFUNCTION(Exec)
+    void Ck_UsfGym_SelectShadingModel(int32 InIndex)
+    { Request_SelectShadingModel(InIndex); }
+
+    UFUNCTION(Exec)
+    void Ck_UsfGym_Control(int32 InRowIndex)
+    { Request_ControlActivated(InRowIndex); }
+
+    UFUNCTION(Exec)
+    void Ck_UsfGym_UseSourceMaterial()
+    {
+        if (ck::IsValid(_ShadingComparison) && _ShadingComparison.Request_SelectSourceMaterial())
+        { _ShadingModelIndex = -1; }
+    }
+
+    private void Request_SelectShadingModel(int32 InIndex)
+    {
+        if (ck::EnsureIfNot(ck::IsValid(_ShadingComparison), "Comparison sphere is unavailable"))
+        { return; }
+        if (_ShadingComparison.Request_SelectModel(InIndex))
+        { _ShadingModelIndex = InIndex; }
+    }
+
+    void Request_FrameComparison()
+    {
+        auto Pawn = GetControlledPawn();
+        if (ck::Is_NOT_Valid(Pawn) || ck::Is_NOT_Valid(_ShadingComparison))
+        { return; }
+        auto Target = _ShadingComparison.GetActorLocation();
+        auto Eye = Target + FVector(-280.0, 0.0, 30.0);
+        Pawn.SetActorLocation(Eye);
+        SetControlRotation((Target - Eye).Rotation());
     }
 }
