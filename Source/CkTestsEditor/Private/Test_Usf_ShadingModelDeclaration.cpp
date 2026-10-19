@@ -190,6 +190,12 @@ auto FCkTest_Usf_ShadingModelResolution::RunTest(const FString& Parameters) -> b
         TestTrue(TEXT("File origin is recorded"), Contract.SourceOverride);
         TestTrue(TEXT("Named model resolves to the engine model"), Contract.NativeModel == Row.Native);
         const auto Material = TStrongObjectPtr<UMaterial>{NewObject<UMaterial>()};
+        ON_SCOPE_EXIT
+        {
+            ck_test_usf_declaration::RetireOwnedMaterial(*Material);
+            TestTrue(TEXT("Wiring-only fixture is excluded from later global material recompiles"),
+                Material->HasAnyInternalFlags(EInternalObjectFlags::Garbage));
+        };
         const auto Custom = TStrongObjectPtr<UMaterialExpressionCustom>{NewObject<UMaterialExpressionCustom>(Material.Get())};
         Material->GetExpressionCollection().AddExpression(Custom.Get());
         ck_test_usf_declaration::ConfigureOutputs(*Custom, Contract);
@@ -306,6 +312,12 @@ auto FCkTest_Usf_ShadingModelTransitions::RunTest(const FString& Parameters) -> 
     const auto Profile = TStrongObjectPtr<USubsurfaceProfile>{NewObject<USubsurfaceProfile>()};
     Definition->_SubsurfaceProfile = Profile.Get();
     const auto Material = TStrongObjectPtr<UMaterial>{NewObject<UMaterial>()};
+    ON_SCOPE_EXIT
+    {
+        ck_test_usf_declaration::RetireOwnedMaterial(*Material);
+        TestTrue(TEXT("Transition fixture is excluded from later global material recompiles"),
+            Material->HasAnyInternalFlags(EInternalObjectFlags::Garbage));
+    };
     const auto Custom = TStrongObjectPtr<UMaterialExpressionCustom>{NewObject<UMaterialExpressionCustom>(Material.Get())};
     Material->GetExpressionCollection().AddExpression(Custom.Get());
     for (const auto& Row : ck_test_usf_declaration::GetModels())
