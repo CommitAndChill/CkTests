@@ -1,5 +1,5 @@
 // --------------------------------------------------------------------------------------------------------------------
-// Showcase actor for the CkUsf gym: a sphere whose material is a runtime MID created
+// Showcase actor for the CkUsf gym: a standard specimen whose material is a runtime MID created
 // from a USF-authored look. Proves the full path:
 //   text .ush + AS LookDefinition -> generated master -> MID -> rendered on a mesh.
 //
@@ -9,6 +9,14 @@
 
 class ACk_UsfGym_Showcase : AActor
 {
+    private FString _LookName;
+
+    FString Get_LookName() const
+    { return _LookName; }
+
+    int32 Get_SpecimenSlot() const
+    { return Mesh.GetNumMaterials() > 1 ? Mesh.GetMaterialIndex(n"Specimen") : 0; }
+
     UPROPERTY(DefaultComponent, RootComponent)
     UStaticMeshComponent Mesh;
 
@@ -18,11 +26,11 @@ class ACk_UsfGym_Showcase : AActor
     void ConstructionScript()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        auto SphereMesh = Cast<UStaticMesh>(LoadObject(this, "/Engine/BasicShapes/Sphere.Sphere"));
-        if (SphereMesh != nullptr)
-        {
-            Mesh.SetStaticMesh(SphereMesh);
-        }
+        auto Specimen = Cast<UStaticMesh>(LoadObject(this,
+            "/CkTests/CkUsf/Showcase/SM_UsdShaderBall.SM_UsdShaderBall"));
+        if (ck::EnsureIfNot(ck::IsValid(Specimen), "Prepare the standard USF shader-ball asset before PIE"))
+        { return; }
+        Mesh.SetStaticMesh(Specimen);
     }
 
     // Called by the gym PlayerController right after spawn to pick which look to render.
@@ -31,8 +39,20 @@ class ACk_UsfGym_Showcase : AActor
         auto MID = UCk_Utils_Usf_UE::Create_MID_ForLook(InLook, this);
         if (MID != nullptr)
         {
-            Mesh.SetMaterial(0, MID);
+            if (Mesh.GetNumMaterials() > 1)
+            {
+                const auto CoreSlot = Mesh.GetMaterialIndex(n"CoreBase");
+                if (ck::EnsureIfNot(Get_SpecimenSlot() >= 0 && CoreSlot >= 0,
+                    "The shader ball requires named Specimen and CoreBase slots"))
+                { return; }
+                auto Stand = utils_usf::Create_MID_ForLook(CkUsf::StudioRubber, this);
+                if (ck::EnsureIfNot(ck::IsValid(Stand), "Generate the studio neutral material before PIE"))
+                { return; }
+                Mesh.SetMaterial(CoreSlot, Stand);
+            }
+            Mesh.SetMaterial(Get_SpecimenSlot(), MID);
             auto LookName = InLook.Get_EffectiveLookName();
+            _LookName = f"{LookName}";
             ck::Trace(f"[OK] CkUsf gym: applied look [{LookName}]");
         }
         else
@@ -42,7 +62,7 @@ class ACk_UsfGym_Showcase : AActor
     }
 }
 
-class ACk_UsfGym_ToonShowcase : ACk_UsfGym_Showcase
+class ACk_UsfGym_ToonShowcase : ACk_UsfGym_StudioShowcase
 {
     default Mesh.bDisallowNanite = true;
 
@@ -56,22 +76,16 @@ class ACk_UsfGym_ToonShowcase : ACk_UsfGym_Showcase
     UStaticMeshComponent MaterialFactory;
     default MaterialFactory.SetVisibility(false);
 
-    UPROPERTY(DefaultComponent, Attach = Mesh)
-    UPointLightComponent KeyLight;
-
-    UFUNCTION(BlueprintOverride)
-    void BeginPlay()
+    bool Request_InitializeSourceMaterial()
     {
-        KeyLight.SetMobility(EComponentMobility::Movable);
-        KeyLight.SetRelativeLocation(FVector(-100.0, -100.0, 125.0));
-        KeyLight.SetIntensity(15000.0);
-        KeyLight.SetAttenuationRadius(800.0);
-        KeyLight.SetLightColor(FLinearColor::White);
+        _SourceMID = Cast<UMaterialInstanceDynamic>(Mesh.GetMaterial(Get_SpecimenSlot()));
+        return Request_SelectSourceMaterial();
     }
 
     bool Request_InitializeComparison()
     {
-        _SourceMID = Cast<UMaterialInstanceDynamic>(Mesh.GetMaterial(0));
+        if (ck::Is_NOT_Valid(_SourceMID) && Request_InitializeSourceMaterial() == false)
+        { return false; }
         auto Catalog = Cast<UCk_UsfGym_ShadingModelCatalog>(LoadObject(this,
             "/CkTests/CkUsf/GeneratedShadingModels/DA_UsfGym_ShadingModels_v2.DA_UsfGym_ShadingModels_v2"));
         if (ck::EnsureIfNot(ck::IsValid(Catalog),
@@ -145,7 +159,7 @@ class ACk_UsfGym_ToonShowcase : ACk_UsfGym_Showcase
     {
         if (ck::EnsureIfNot(InIndex >= 0 && InIndex < _ModelMIDs.Num(), "Invalid comparison model index"))
         { return false; }
-        Mesh.SetMaterial(0, _ModelMIDs[InIndex]);
+        Mesh.SetMaterial(Get_SpecimenSlot(), _ModelMIDs[InIndex]);
         _UseSource = false;
         _SelectedModel = InIndex;
         ck::Trace(f"USF_SHADING_MODEL_SELECTED: {Get_ModelName()}");
@@ -156,7 +170,7 @@ class ACk_UsfGym_ToonShowcase : ACk_UsfGym_Showcase
     {
         if (ck::EnsureIfNot(ck::IsValid(_SourceMID), "USF source material is unavailable"))
         { return false; }
-        Mesh.SetMaterial(0, _SourceMID);
+        Mesh.SetMaterial(Get_SpecimenSlot(), _SourceMID);
         _UseSource = true;
         ck::Trace("USF_SHADING_MODEL_SOURCE_SELECTED: Toon.ush");
         return true;

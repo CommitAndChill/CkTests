@@ -13,6 +13,18 @@ class ACk_UsfGym_PostProcessShowcase : AActor
 
     // Unbound = affects the whole view regardless of volume bounds.
     default PostProcess.bUnbound = true;
+    default PostProcess.BlendWeight = 0.0;
+
+    private bool _Enabled = false;
+
+    bool Get_IsEnabled() const
+    { return _Enabled; }
+
+    void Request_Toggle()
+    {
+        _Enabled = _Enabled == false;
+        PostProcess.BlendWeight = _Enabled ? 1.0 : 0.0;
+    }
 
     UPROPERTY()
     UCkUsf_LookDefinition Look = CkUsf::EdgeOutline;
@@ -24,7 +36,7 @@ class ACk_UsfGym_PostProcessShowcase : AActor
         auto MID = UCk_Utils_Usf_UE::Apply_PostProcess_ToComponent(PostProcess, Look);
         if (MID != nullptr)
         {
-            ck::Trace("[OK] CkUsf gym: post-process edge-outline applied to view");
+            ck::Trace("[OK] CkUsf gym: edge-outline ready; press O to enable it");
         }
         else
         {

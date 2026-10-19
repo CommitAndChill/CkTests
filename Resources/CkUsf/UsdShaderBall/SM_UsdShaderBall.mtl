@@ -1,0 +1,4 @@
+newmtl Specimen
+Kd 0.5 0.5 0.5
+newmtl CoreBase
+Kd 0.18 0.18 0.18

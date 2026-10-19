@@ -1,0 +1,19 @@
+{
+  "repository": "KhronosGroup/glTF-Sample-Assets",
+  "commit": "edc7c9e67c639d230715049ee31f9a96a6babbbe",
+  "sha256": "ab123a15d70c4553adcabb16bef45587ad17e3c00da6b54640624a7287a8b52e",
+  "license": "CC-BY-4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "modifications": "Scene transforms baked; complete geometry centered and scaled to 100 cm; materials reduced to specimen and core/base; original UVs/normals retained. Unmapped triangle corners receive non-degenerate planar UV charts; original valid UVs and normals remain unchanged. Conversion 3 explicitly rotates geometry and normals to Z-up, front toward -X, without changing UVs.",
+  "vertices": 38178,
+  "triangles": 32996,
+  "materials": [
+    "core",
+    "material_surface",
+    "sss_bars"
+  ],
+  "repaired_uv_triangles": 6912,
+  "conversion_version": 3,
+  "obj_file": "SM_UsdShaderBall_ZUp3.obj",
+  "coordinate_frame": "Z-up RH OBJ, glTF +Z front mapped to -X; import with KeepXYZAxes"
+}

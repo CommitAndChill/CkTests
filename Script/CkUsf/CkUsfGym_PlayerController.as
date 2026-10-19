@@ -9,10 +9,24 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
     private TArray<AActor> _Showcases;
     private ACk_UsfGym_ToonShowcase _ShadingComparison;
     private int32 _ShadingModelIndex = -1;
+    private ACk_UsfGym_PostProcessShowcase _Outline;
+    private TArray<ACk_UsfGym_Showcase> _StudioShowcases;
+    private int32 _StudioIndex = -1;
 
     TArray<FCkGym_Station_SpawnParams_Payload> Get_RequiredStations() override
     {
         auto Stations = TArray<FCkGym_Station_SpawnParams_Payload>();
+
+        Stations.Add(Make_Station(n"Gym.Rendering.UsfStudioCeramic", "IVORY GLAZE",
+            "Ceramic with a soft, uneven glaze.", "Neutral studio lighting; live StudioCeramic.ush."));
+        Stations.Add(Make_Station(n"Gym.Rendering.UsfStudioCopper", "SATIN COPPER",
+            "Warm metal with fine machining marks.", "Filtered scratches; live StudioCopper.ush."));
+        Stations.Add(Make_Station(n"Gym.Rendering.UsfStudioLacquer", "BURGUNDY LACQUER",
+            "Metallic pigment beneath a clear coat.", "Layered highlights; live StudioLacquer.ush."));
+        Stations.Add(Make_Station(n"Gym.Rendering.UsfStudioRubber", "GRAPHITE RUBBER",
+            "A dark dielectric with a fine grain.", "Soft reflections; live StudioRubber.ush."));
+        Stations.Add(Make_Station(n"Gym.Rendering.UsfStudioWax", "PALE GREEN WAX",
+            "A stylized subsurface material.", "Existing subsurface path; live StudioWax.ush."));
 
         Stations.Add(Make_Station(n"Gym.Rendering.UsfHologram", "HOLOGRAM",
             "Emissive scanlines from sin(UV, Time).", "Lightest look - a few sines."));
@@ -41,7 +55,7 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         Stations.Add(Make_Station(n"Gym.Rendering.UsfLitMetal", "LIT METAL (PBR)",
             "Scene-lit metal/dielectric checker.", "DefaultLit + Metallic/Specular/Roughness."));
         Stations.Add(Make_Station(n"Gym.Rendering.UsfToon", "TOON (NATIVE LIGHTING)",
-            "Switch native shading models on the same sphere.", "N / B: next / previous. T: Toon. F: frame sphere."));
+            "Native Toon on the standard shader ball.", "Change shading_model in Toon.ush to explore other models."));
         Stations.Add(Make_Station(n"Gym.Rendering.UsfDisplace", "DISPLACE (WPO)",
             "Vertex-shader world-position offset.", "Sine wave along normal; coarse on a stock sphere."));
         Stations.Add(Make_Station(n"Gym.Rendering.UsfGlass", "GLASS (REFRACTION)",
@@ -90,6 +104,18 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         }
         _Showcases.Empty();
         _ShadingComparison = nullptr;
+        _Outline = nullptr;
+        _StudioShowcases.Empty();
+
+        auto Environment = SpawnActor(ACk_UsfGym_StudioEnvironment);
+        if (ck::IsValid(Environment))
+        { _Showcases.Add(Environment); }
+
+        Request_SpawnLook(n"Gym.Rendering.UsfStudioCeramic", CkUsf::StudioCeramic);
+        Request_SpawnLook(n"Gym.Rendering.UsfStudioCopper", CkUsf::StudioCopper);
+        Request_SpawnLook(n"Gym.Rendering.UsfStudioLacquer", CkUsf::StudioLacquer);
+        Request_SpawnLook(n"Gym.Rendering.UsfStudioRubber", CkUsf::StudioRubber);
+        Request_SpawnLook(n"Gym.Rendering.UsfStudioWax", CkUsf::StudioWax);
 
         Request_SpawnLook(n"Gym.Rendering.UsfHologram", CkUsf::Hologram);
         Request_SpawnLook(n"Gym.Rendering.UsfPlasma",   CkUsf::Plasma);
@@ -113,6 +139,8 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         Request_SpawnPerInstance(n"Gym.Rendering.UsfPerInstance", CkUsf::PerInstanceHue);
         Request_SpawnMultiPass(n"Gym.Rendering.UsfFeedback");
         Request_SpawnPostProcess(n"Gym.Rendering.UsfPostProcess");
+        if (_StudioIndex < 0 || _StudioIndex >= _StudioShowcases.Num())
+        { _StudioIndex = _StudioShowcases.Num() - 1; }
     }
 
     private void Request_SpawnMultiPass(FName InStationTag)
@@ -152,6 +180,7 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         auto Actor = SpawnActor(ACk_UsfGym_PostProcessShowcase, StationTransform.Location, FRotator::ZeroRotator);
         if (Actor != nullptr)
         {
+            _Outline = Cast<ACk_UsfGym_PostProcessShowcase>(Actor);
             _Showcases.Add(Actor);
             ck::Trace("[OK] Post-process edge-outline showcase spawned");
         }
@@ -164,26 +193,34 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         auto Location = StationTransform.Location + FVector(-200.0, 0.0, 150.0);
 
         TSubclassOf<ACk_UsfGym_Showcase> ShowcaseClass = ACk_UsfGym_Showcase;
-        if (InLook._ShadingModel == ECk_Usf_ShadingModel::Toon)
+        const auto Name = InLook.Get_EffectiveLookName();
+        if (Name == n"StudioCeramic" || Name == n"StudioCopper" || Name == n"StudioRubber"
+            || Name == n"StudioLacquer" || Name == n"StudioWax")
+        { ShowcaseClass = ACk_UsfGym_StudioShowcase; }
+        else if (Name == n"Julia" || Name == n"Seascape" || Name == n"Aiekick"
+            || Name == n"PainterlyRuins" || Name == n"Starfield")
+        { ShowcaseClass = ACk_UsfGym_ImageShowcase; }
+        else if (Name == n"Displace")
+        { ShowcaseClass = ACk_UsfGym_DisplaceShowcase; }
+        else if (InLook._ShadingModel == ECk_Usf_ShadingModel::Toon)
         { ShowcaseClass = ACk_UsfGym_ToonShowcase; }
         auto Showcase = Cast<ACk_UsfGym_Showcase>(SpawnActor(ShowcaseClass, Location, FRotator::ZeroRotator));
         if (Showcase != nullptr)
         {
             Showcase.SetActorScale3D(FVector(2.0, 2.0, 2.0));
+            auto Studio = Cast<ACk_UsfGym_StudioShowcase>(Showcase);
+            if (ck::IsValid(Studio))
+            {
+                Studio.Request_ConfigurePresentation();
+                _StudioShowcases.Add(Showcase);
+            }
             Showcase.Request_SetLook(InLook);
             _Showcases.Add(Showcase);
             auto Comparison = Cast<ACk_UsfGym_ToonShowcase>(Showcase);
             if (ck::IsValid(Comparison))
             {
                 _ShadingComparison = Comparison;
-                if (Comparison.Request_InitializeComparison())
-                {
-                    // The catalog lists Toon last; preserve the selected model across respawns.
-                    if (_ShadingModelIndex < 0)
-                    { Comparison.Request_SelectSourceMaterial(); }
-                    else
-                    { Comparison.Request_SelectModel(_ShadingModelIndex); }
-                }
+                Comparison.Request_InitializeSourceMaterial();
             }
         }
         else
@@ -207,17 +244,19 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
     {
         auto Rows = TArray<FCkGym_ControlRow>();
         Rows.Add(CkGym_Control::Action(EKeys::R, "R", "Respawn every look"));
-        const bool Ready = ck::IsValid(_ShadingComparison) && _ShadingComparison.Get_ModelCount() > 0;
-        const auto ModelName = Ready ? _ShadingComparison.Get_ModelName() : "Unavailable";
-        Rows.Add(CkGym_Control::Cycle(EKeys::N, "N", "Next shading model", ModelName, false, Ready));
-        Rows.Add(CkGym_Control::Action(EKeys::B, "B", "Previous shading model", Ready));
-        Rows.Add(CkGym_Control::Action(EKeys::T, "T", "Select CkUsf Toon", Ready));
-        Rows.Add(CkGym_Control::Action(EKeys::F, "F", "Frame comparison sphere", ck::IsValid(_ShadingComparison)));
+        const bool Ready = ck::IsValid(_ShadingComparison);
+        const bool StudioReady = _StudioIndex >= 0 && _StudioIndex < _StudioShowcases.Num();
+        const auto MaterialName = StudioReady ? _StudioShowcases[_StudioIndex].Get_LookName() : "Unavailable";
+        Rows.Add(CkGym_Control::Cycle(EKeys::N, "N", "Next studio material", MaterialName, false, StudioReady));
+        Rows.Add(CkGym_Control::Action(EKeys::B, "B", "Previous studio material", StudioReady));
+        Rows.Add(CkGym_Control::Action(EKeys::T, "T", "Select Toon source", Ready));
+        Rows.Add(CkGym_Control::Action(EKeys::F, "F", "Frame selected material", StudioReady));
         Rows.Add(CkGym_Control::Action(EKeys::G, "G", "Reload lighting HLSL (may compile slowly)", Ready));
-        Rows.Add(CkGym_Control::Status("Material setup", ck::IsValid(_ShadingComparison)
-            ? _ShadingComparison.Get_ModelDescription() : "Comparison sphere not spawned", Ready == false));
+        Rows.Add(CkGym_Control::Status("Studio", "Six source materials under matching neutral lights", StudioReady == false));
         Rows.Add(CkGym_Control::Action(EKeys::U, "U", "Use .ush source material", Ready));
         Rows.Add(CkGym_Control::Action(EKeys::L, "L", "Reload material (.ush model and inputs)", Ready));
+        Rows.Add(CkGym_Control::Toggle(EKeys::O, "O", "Edge outline",
+            ck::IsValid(_Outline) && _Outline.Get_IsEnabled(), false, ck::IsValid(_Outline)));
         return Rows;
     }
 
@@ -227,27 +266,33 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         { Request_SpawnAllLooks(); }
         else if (InRowIndex == 4)
         { Request_FrameComparison(); }
-        else if (ck::IsValid(_ShadingComparison) && _ShadingComparison.Get_ModelCount() > 0)
+        else if (InRowIndex == 9 && ck::IsValid(_Outline))
+        { _Outline.Request_Toggle(); }
+        else if (InRowIndex == 1 || InRowIndex == 2)
         {
-            const int32 Count = _ShadingComparison.Get_ModelCount();
-            if (InRowIndex == 1)
-            { Request_SelectShadingModel((_ShadingModelIndex + 1) % Count); }
-            else if (InRowIndex == 2)
-            { Request_SelectShadingModel((_ShadingModelIndex + Count - 1) % Count); }
-            else if (InRowIndex == 3)
-            { Request_SelectShadingModel(Count - 1); }
-            else if (InRowIndex == 5)
-            { System::ExecuteConsoleCommand("Ck_Usf_ReloadShadingModels"); }
-            else if (InRowIndex == 7)
-            { Ck_UsfGym_UseSourceMaterial(); }
-            else if (InRowIndex == 8)
-            { System::ExecuteConsoleCommand("Ck_Usf_ReloadShaders"); }
+            if (_StudioShowcases.IsEmpty())
+            { return; }
+            const auto Step = InRowIndex == 1 ? 1 : _StudioShowcases.Num() - 1;
+            _StudioIndex = (_StudioIndex + Step) % _StudioShowcases.Num();
+            Request_FrameComparison();
         }
+        else if (InRowIndex == 3 || InRowIndex == 7)
+        { Ck_UsfGym_UseSourceMaterial(); }
+        else if (InRowIndex == 5)
+        { System::ExecuteConsoleCommand("Ck_Usf_ReloadShadingModels"); }
+        else if (InRowIndex == 8)
+        { System::ExecuteConsoleCommand("Ck_Usf_ReloadShaders"); }
     }
 
     UFUNCTION(Exec)
     void Ck_UsfGym_SelectShadingModel(int32 InIndex)
-    { Request_SelectShadingModel(InIndex); }
+    {
+        if (ck::Is_NOT_Valid(_ShadingComparison))
+        { return; }
+        if (_ShadingComparison.Get_ModelCount() == 0 && _ShadingComparison.Request_InitializeComparison() == false)
+        { return; }
+        Request_SelectShadingModel(InIndex);
+    }
 
     UFUNCTION(Exec)
     void Ck_UsfGym_Control(int32 InRowIndex)
@@ -257,7 +302,15 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
     void Ck_UsfGym_UseSourceMaterial()
     {
         if (ck::IsValid(_ShadingComparison) && _ShadingComparison.Request_SelectSourceMaterial())
-        { _ShadingModelIndex = -1; }
+        {
+            _ShadingModelIndex = -1;
+            for (int32 Index = 0; Index < _StudioShowcases.Num(); ++Index)
+            {
+                if (_StudioShowcases[Index] == _ShadingComparison)
+                { _StudioIndex = Index; break; }
+            }
+            Request_FrameComparison();
+        }
     }
 
     private void Request_SelectShadingModel(int32 InIndex)
@@ -271,10 +324,18 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
     void Request_FrameComparison()
     {
         auto Pawn = GetControlledPawn();
-        if (ck::Is_NOT_Valid(Pawn) || ck::Is_NOT_Valid(_ShadingComparison))
+        if (ck::Is_NOT_Valid(Pawn) || _StudioIndex < 0 || _StudioIndex >= _StudioShowcases.Num())
         { return; }
-        auto Target = _ShadingComparison.GetActorLocation();
-        auto Eye = Target + FVector(-280.0, 0.0, 30.0);
+        auto Specimen = _StudioShowcases[_StudioIndex];
+        if (ck::Is_NOT_Valid(Specimen.Mesh.GetStaticMesh()))
+        { return; }
+        auto Minimum = FVector::ZeroVector;
+        auto Maximum = FVector::ZeroVector;
+        Specimen.Mesh.GetLocalBounds(Minimum, Maximum);
+        auto Target = Specimen.GetActorTransform().TransformPosition((Minimum + Maximum) * 0.5);
+        auto Extent = (Maximum - Minimum) * Specimen.GetActorScale3D() * 0.5;
+        const auto Distance = Math::Max(180.0, Math::Max(Extent.X, Math::Max(Extent.Y, Extent.Z)) * 2.6);
+        auto Eye = Target + FVector(-Distance, 0.0, Extent.Z * 0.3);
         Pawn.SetActorLocation(Eye);
         SetControlRotation((Target - Eye).Rotation());
     }
