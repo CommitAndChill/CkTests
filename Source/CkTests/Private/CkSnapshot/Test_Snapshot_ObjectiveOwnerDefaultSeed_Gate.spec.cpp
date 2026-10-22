@@ -31,7 +31,7 @@
 
 #include "GameplayTagContainer.h"
 
-#include <InstancedStruct.h>
+#include <StructUtils/InstancedStruct.h>
 
 #include "CkEcs/Handle/CkHandle.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
