@@ -1755,6 +1755,19 @@ class ACk_AutoTest_CkJolt_Query_SweepByChannel_MatchesChaosSweep_Actor : ACk_Aut
     }
 }
 
+class ACk_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 25.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
 class ACk_AutoTest_CkJolt_RestingBodySleepsAndWakeRequestReactivates_Actor : ACk_AutoTestRunner
 {
     default _TimeoutSeconds = 25.0f;
@@ -1788,6 +1801,19 @@ class ACk_AutoTest_CkJolt_Rope_BuildsAndHangs_Actor : ACk_AutoTestRunner
     TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
     {
         auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_CkJolt_Rope_BuildsAndHangs");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
+class ACk_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 30.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse");
         TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
         ResolvedClass = Path.TryLoadClass();
         return ResolvedClass;
