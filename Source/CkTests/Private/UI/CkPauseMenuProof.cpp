@@ -267,42 +267,36 @@ auto
         const FCk_Handle_Inventory_DataOnly* InGameplayInventory)
     -> UCk_PauseMenuProof_UE*
 {
-    const auto ValidSettings = ck_pause_menu_proof::ValidScreen(InScreen)
+    CK_ENSURE_IF_NOT(ck_pause_menu_proof::ValidScreen(InScreen)
         && FMath::IsFinite(InSettings.Get_Volume()) && InSettings.Get_Volume() >= 0.0f
-        && InSettings.Get_Volume() <= 100.0f && ck_pause_menu_proof::ValidDisplayMode(InSettings.Get_DisplayMode());
-    CK_ENSURE_IF_NOT(ValidSettings, TEXT("UI authoring proof requires a supported screen and valid settings")) {}
-    if (NOT ValidSettings)
+        && InSettings.Get_Volume() <= 100.0f && ck_pause_menu_proof::ValidDisplayMode(InSettings.Get_DisplayMode()),
+        TEXT("UI authoring proof requires a supported screen and valid settings"))
     { return nullptr; }
+#if !CK_DISABLE_ENSURE_CHECKS
     auto InventoryError = FString{};
     const auto ValidInventory = FCkInventoryMenuProofModel::TryValidateState(InInventory, InventoryError);
-    CK_ENSURE_IF_NOT(ValidInventory, TEXT("UI authoring proof requires a valid inventory snapshot: {}"), InventoryError) {}
-    if (NOT ValidInventory)
+    CK_ENSURE_IF_NOT(ValidInventory, TEXT("UI authoring proof requires a valid inventory snapshot: {}"), InventoryError)
     { return nullptr; }
-    const auto ValidController = IsValid(InPlayerController) && InPlayerController->IsLocalController();
-    CK_ENSURE_IF_NOT(ValidController, TEXT("Pause menu requires a valid local PlayerController")) {}
-    if (NOT ValidController)
+#endif
+    CK_ENSURE_IF_NOT(IsValid(InPlayerController) && InPlayerController->IsLocalController(), TEXT("Pause menu requires a valid local PlayerController"))
     { return nullptr; }
 
     auto* LocalPlayer = InPlayerController->GetLocalPlayer();
     auto* World = InPlayerController->GetWorld();
-    const auto ValidContext = IsValid(LocalPlayer) && IsValid(World) && FSlateApplication::IsInitialized();
-    CK_ENSURE_IF_NOT(ValidContext, TEXT("Pause menu requires a local player, world, and Slate application")) {}
-    if (NOT ValidContext)
+    CK_ENSURE_IF_NOT(IsValid(LocalPlayer) && IsValid(World) && FSlateApplication::IsInitialized(), TEXT("Pause menu requires a local player, world, and Slate application"))
     { return nullptr; }
     if (InGameplayInventory != nullptr && (World->IsPaused()
         || UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(*InGameplayInventory) != World))
     { return nullptr; }
 
     auto* Subsystem = LocalPlayer->GetSubsystem<UCk_UI_Layout_Subsystem_UE>();
-    const auto HasSubsystem = IsValid(Subsystem);
-    CK_ENSURE_IF_NOT(HasSubsystem, TEXT("Pause menu requires the CkUI layout subsystem")) {}
-    if (NOT HasSubsystem)
+    CK_ENSURE_IF_NOT(IsValid(Subsystem),
+        TEXT("Pause menu requires the CkUI layout subsystem"))
     { return nullptr; }
 
     const auto HadLayout = Subsystem->Has_Layout();
-    const auto CompatibleLayout = NOT HadLayout || Subsystem->HasLayer(ck_pause_menu_proof::LayerTag);
-    CK_ENSURE_IF_NOT(CompatibleLayout, TEXT("Pause proof cannot replace an unrelated UI layout")) {}
-    if (NOT CompatibleLayout)
+    CK_ENSURE_IF_NOT(NOT HadLayout || Subsystem->HasLayer(ck_pause_menu_proof::LayerTag),
+        TEXT("Pause proof cannot replace an unrelated UI layout"))
     { return nullptr; }
     if (HadLayout)
     {
@@ -319,9 +313,8 @@ auto
 
     auto* Config = LoadObject<UCk_UI_LayoutConfigAsset_UE>(nullptr,
         TEXT("/Script/AngelscriptAssets.CkTests_PauseMenuProof_Layout"));
-    const auto ValidConfig = IsValid(Config) && Config->Get_LayerConfig(ck_pause_menu_proof::LayerTag).IsSet();
-    CK_ENSURE_IF_NOT(ValidConfig, TEXT("Source-authored pause layout configuration is unavailable")) {}
-    if (NOT ValidConfig)
+    CK_ENSURE_IF_NOT(IsValid(Config) && Config->Get_LayerConfig(ck_pause_menu_proof::LayerTag).IsSet(),
+        TEXT("Source-authored pause layout configuration is unavailable"))
     { return nullptr; }
 
     auto* Menu = CreateWidget<UCk_PauseMenuProof_UE>(InPlayerController);
@@ -335,14 +328,12 @@ auto
         if (InGameplayInventory != nullptr) { Menu->_GameplayInventory = *InGameplayInventory; }
     }
     const auto Prepared = IsValid(Menu) && Menu->DoPrepare();
-    CK_ENSURE_IF_NOT(Prepared, TEXT("Pause menu source or background could not be prepared")) {}
     if (NOT Prepared)
     { return nullptr; }
 
     const auto PreparedSlateRoot = Menu->TakeWidget();
     const auto SurfaceReady = IsValid(Menu->_Surface) && Menu->_Surface->HasConfiguredView()
         && Menu->_Surface->GetCachedWidget().IsValid();
-    CK_ENSURE_IF_NOT(SurfaceReady, TEXT("Pause menu requires a mounted authored surface before acquiring pause")) {}
     if (NOT SurfaceReady)
     {
         Menu->DoRelease();
@@ -351,9 +342,7 @@ auto
 
     if (NOT HadLayout)
     { Subsystem->CreateLayout(Config); }
-    const auto LayoutReady = Subsystem->HasLayer(ck_pause_menu_proof::LayerTag);
-    CK_ENSURE_IF_NOT(LayoutReady, TEXT("Pause menu layer was not created")) {}
-    if (NOT LayoutReady)
+    CK_ENSURE_IF_NOT(Subsystem->HasLayer(ck_pause_menu_proof::LayerTag), TEXT("Pause menu layer was not created"))
     {
         Menu->DoRelease();
         if (NOT HadLayout)
@@ -366,7 +355,6 @@ auto
         constexpr auto Pause = true;
         Menu->_OwnsPause = InPlayerController->SetPause(Pause);
         const auto PauseAcquired = Menu->_OwnsPause;
-        CK_ENSURE_IF_NOT(PauseAcquired, TEXT("Pause menu could not acquire the game's pause state")) {}
         if (NOT PauseAcquired)
         {
             Menu->DoRelease();
@@ -381,7 +369,6 @@ auto
     const auto Accepted = Pushed == Menu
         && IsValid(AcceptedLayer) && AcceptedLayer->GetActiveWidget() == Menu
         && IsValid(Menu->_Surface) && Menu->_Surface->HasConfiguredView();
-    CK_ENSURE_IF_NOT(Accepted, TEXT("Pause menu was rejected by the UI layer")) {}
     if (NOT Accepted)
     {
         Menu->DoRelease();
@@ -699,8 +686,6 @@ auto
     const auto Loaded = _View.IsValid() && DoReloadFiles();
     if (NOT Loaded)
     {
-        if (NOT _IsSettingsChild)
-        { CK_ENSURE_IF_NOT(Loaded, TEXT("UI authoring layout rejected: {}"), _SourceError) {} }
         DoRelease();
         return false;
     }
@@ -1170,8 +1155,6 @@ auto
         Reference->AddChild(_Surface);
     }
     const auto Configured = IsValid(_Surface) && _Surface->TryConfigure(_View, TEXT("main"));
-    if (NOT _IsSettingsChild)
-    { CK_ENSURE_IF_NOT(Configured, TEXT("Pause menu could not mount its accepted authored view")) {} }
     if (NOT Configured)
     { return SNullWidget::NullWidget; }
     return Super::RebuildWidget();

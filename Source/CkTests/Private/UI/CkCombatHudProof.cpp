@@ -64,12 +64,12 @@ UCk_CombatHudProof_UE::UCk_CombatHudProof_UE(const FObjectInitializer& InObjectI
 auto UCk_CombatHudProof_UE::Open(APlayerController* InPlayerController, ECk_CombatHudProof_Theme InTheme)
     -> UCk_CombatHudProof_UE*
 {
-    const auto ValidController = IsValid(InPlayerController) && InPlayerController->IsLocalController();
-    CK_ENSURE_IF_NOT(ValidController, TEXT("Combat HUD requires a valid local player controller")) {}
-    if (NOT ValidController) { return nullptr; }
-    const auto ValidWorld = IsValid(InPlayerController->GetWorld()) && IsValid(InPlayerController->GetLocalPlayer());
-    CK_ENSURE_IF_NOT(ValidWorld, TEXT("Combat HUD requires a world and local player")) {}
-    if (NOT ValidWorld) { return nullptr; }
+    CK_ENSURE_IF_NOT(IsValid(InPlayerController) && InPlayerController->IsLocalController(),
+        TEXT("Combat HUD requires a valid local player controller"))
+    { return nullptr; }
+    CK_ENSURE_IF_NOT(IsValid(InPlayerController->GetWorld()) && IsValid(InPlayerController->GetLocalPlayer()),
+        TEXT("Combat HUD requires a world and local player"))
+    { return nullptr; }
     auto* Host = CreateWidget<UCk_CombatHudProof_UE>(InPlayerController, StaticClass());
     if (NOT IsValid(Host))
     { UE_LOG(CkTests, Warning, TEXT("Combat HUD could not create its UMG host.")); return nullptr; }

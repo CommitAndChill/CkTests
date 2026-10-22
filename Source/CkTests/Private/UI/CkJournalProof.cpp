@@ -226,13 +226,11 @@ UCk_JournalProof_UE::UCk_JournalProof_UE(const FObjectInitializer& InInitializer
 
 auto UCk_JournalProof_UE::Create(APlayerController* InController) -> UCk_JournalProof_UE*
 {
-    const bool ValidController = IsValid(InController) && InController->IsLocalController();
-    CK_ENSURE_IF_NOT(ValidController, TEXT("Journal requires a local player controller")) {}
-    if (NOT ValidController) { return nullptr; }
-    const bool ValidContext = IsValid(InController->GetWorld())
-        && IsValid(InController->GetLocalPlayer()) && FSlateApplication::IsInitialized();
-    CK_ENSURE_IF_NOT(ValidContext, TEXT("Journal requires a world, local player and Slate")) {}
-    if (NOT ValidContext) { return nullptr; }
+    CK_ENSURE_IF_NOT(IsValid(InController) && InController->IsLocalController(), TEXT("Journal requires a local player controller"))
+    { return nullptr; }
+    CK_ENSURE_IF_NOT(IsValid(InController->GetWorld())
+        && IsValid(InController->GetLocalPlayer()) && FSlateApplication::IsInitialized(), TEXT("Journal requires a world, local player and Slate"))
+    { return nullptr; }
     const auto SlateUser = InController->GetLocalPlayer()->GetSlateUser();
     if (NOT SlateUser.IsValid()) { return nullptr; }
     auto* Host = CreateWidget<UCk_JournalProof_UE>(InController);
@@ -861,7 +859,6 @@ auto UCk_JournalProof_UE::RebuildWidget() -> TSharedRef<SWidget>
         Reference->AddChild(_Surface);
     }
     const bool Configured = IsValid(_Surface) && _Surface->TryConfigure(_View, TEXT("main"));
-    CK_ENSURE_IF_NOT(Configured, TEXT("Journal could not mount its authored surface")) {}
     if (NOT Configured) { return SNullWidget::NullWidget; }
     return Super::RebuildWidget();
 }

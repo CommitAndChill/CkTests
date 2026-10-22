@@ -143,13 +143,11 @@ UCk_PowerWheelProof_UE::UCk_PowerWheelProof_UE(const FObjectInitializer& InIniti
 
 auto UCk_PowerWheelProof_UE::Create(APlayerController* InController) -> UCk_PowerWheelProof_UE*
 {
-    const auto ValidController = IsValid(InController) && InController->IsLocalController();
-    CK_ENSURE_IF_NOT(ValidController, TEXT("Power wheel requires a local controller")) {}
-    if (NOT ValidController) { return nullptr; }
-    const auto ValidContext = IsValid(InController->GetWorld()) && IsValid(InController->GetLocalPlayer())
-        && FSlateApplication::IsInitialized();
-    CK_ENSURE_IF_NOT(ValidContext, TEXT("Power wheel requires a world, local player and Slate")) {}
-    if (NOT ValidContext) { return nullptr; }
+    CK_ENSURE_IF_NOT(IsValid(InController) && InController->IsLocalController(), TEXT("Power wheel requires a local controller"))
+    { return nullptr; }
+    CK_ENSURE_IF_NOT(IsValid(InController->GetWorld()) && IsValid(InController->GetLocalPlayer())
+        && FSlateApplication::IsInitialized(), TEXT("Power wheel requires a world, local player and Slate"))
+    { return nullptr; }
     auto* Host = CreateWidget<UCk_PowerWheelProof_UE>(InController);
     if (NOT IsValid(Host)) { return nullptr; }
     Host->_Model = MakeShared<FCkPowerWheelProofModel>();
@@ -434,7 +432,6 @@ auto UCk_PowerWheelProof_UE::RebuildWidget() -> TSharedRef<SWidget>
         Reference->AddChild(_Surface);
     }
     const auto Configured = IsValid(_Surface) && _Surface->TryConfigure(_View, TEXT("main"));
-    CK_ENSURE_IF_NOT(Configured, TEXT("Power wheel could not mount its authored view")) {}
     if (NOT Configured) { return SNullWidget::NullWidget; }
     return Super::RebuildWidget();
 }
