@@ -5,6 +5,7 @@
 #include "CkTestsBridge/Settings/CkTestBridge_UserSettings.h"
 
 #include "CkCore/Format/CkFormat.h"
+#include "CkCore/Ensure/CkEnsure.h"
 #include "CkCore/Macros/CkMacros.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -14,6 +15,7 @@
 #include <Editor.h>
 #include <Engine/World.h>
 #include <HAL/FileManager.h>
+#include <HAL/IConsoleManager.h>
 #include <HAL/PlatformProcess.h>
 #include <HAL/PlatformTime.h>
 #include <Misc/App.h>
@@ -29,6 +31,19 @@
 
 namespace ck_test_bridge_subsystem
 {
+    static FAutoConsoleCommand GRecoverPublication(
+        TEXT("Ck.TestBridge.RecoverPublication"),
+        TEXT("Retry the retained test-bridge terminal response after repairing file access; never re-run its tests."),
+        FConsoleCommandDelegate::CreateLambda([]()
+        {
+            CK_ENSURE_IF_NOT(IsValid(GEditor), TEXT("Test bridge recovery requires a live editor"))
+            { return; }
+            auto* Bridge = GEditor->GetEditorSubsystem<UCkTestBridge_Subsystem>();
+            CK_ENSURE_IF_NOT(IsValid(Bridge), TEXT("Test bridge subsystem is unavailable for recovery"))
+            { return; }
+            Bridge->Request_RecoverPublication();
+        }));
+
     constexpr auto PollSeconds        = float{0.5f};
     constexpr auto IdleTimeoutSeconds = double{15.0 * 60.0};
     constexpr auto MaxRuntimeSeconds  = double{2.0 * 60.0 * 60.0};
@@ -111,6 +126,12 @@ auto
 
     if (_IsServing)
     {
+        if (_Processor.Get_HasTerminalFault())
+        {
+            ck::tests_bridge::Error(TEXT("[Bridge] editor shutdown discards the in-memory retained outcome: {}. "
+                "The original request remains; recover with Ck.TestBridge.RecoverPublication before closing to deliver it."),
+                _Processor.Get_TerminalFault());
+        }
         _Processor.Shutdown();
         _IsServing = false;
     }
@@ -143,7 +164,7 @@ auto
     // own 600s MaxWaitTime expiring and returning true anyway ("Game did not reach 10.00 FPS ... Giving up.").
     // The engine's equivalent path, FAutomationExecCmd, ticks every frame — which is why it never had this problem.
     _IdleAccumulatorSeconds += InDeltaTime;
-    const auto IsRunActive  = _IsServing && _Processor.Get_IsBusy();
+    const auto IsRunActive  = _IsServing && _Processor.Get_IsBusy() && NOT _Processor.Get_HasTerminalFault();
     const auto DoIdleWork   = _IdleAccumulatorSeconds >= PollSeconds;
     if (NOT IsRunActive && NOT DoIdleWork)
     { return true; }
@@ -156,6 +177,12 @@ auto
     if (_IsServing)
     {
         const auto PollResult = _Processor.ProcessPending(InDeltaTime);
+
+        if (PollResult.TerminalFault)
+        {
+            DoHandlePublicationFault();
+            return true;
+        }
 
         // Track busy transitions so the user's editor reflects reality: suppress the background throttle only WHILE a
         // run is in flight, and show the stronger title suffix for the same window. Both are no-ops in a headless warm
@@ -180,6 +207,56 @@ auto
 
     constexpr auto KeepTicking = true;
     return KeepTicking;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+auto
+    UCkTestBridge_Subsystem::
+    DoHandlePublicationFault()
+    -> void
+{
+    if (_PublicationFaultObserved)
+    { return; }
+
+    _PublicationFaultObserved = true;
+    FCk_TestBridge_EditorPresence::Restore_BackgroundThrottle();
+    FCk_TestBridge_EditorPresence::Set_ServingIndicator(false, false);
+    _WasBusy = false;
+    ck::tests_bridge::Error(TEXT("[Bridge] stopped processing requests while retaining its PID claim and terminal response: {}. "
+        "Repair file access and run Ck.TestBridge.RecoverPublication. Do not close this editor before recovery; "
+        "the retained response is in memory only."), _Processor.Get_TerminalFault());
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+auto
+    UCkTestBridge_Subsystem::
+    Request_RecoverPublication()
+    -> bool
+{
+    if (NOT _Processor.Get_HasTerminalFault())
+    {
+        ck::tests_bridge::Display(TEXT("[Bridge] no retained publication fault to recover"));
+        return false;
+    }
+
+    const auto Outcome = _Processor.Request_RecoverPublication();
+    if (Outcome.TerminalFault)
+    {
+        DoHandlePublicationFault();
+        ck::tests_bridge::Error(TEXT("[Bridge] explicit publication recovery failed: {}"), _Processor.Get_TerminalFault());
+        return false;
+    }
+
+    _PublicationFaultObserved = false;
+    _WasBusy = false;
+    _LastActivitySeconds = FPlatformTime::Seconds();
+    if (Outcome.QuitRequested)
+    { DoReleaseServing(); }
+    else
+    { FCk_TestBridge_EditorPresence::Set_ServingIndicator(_IsServing, false); }
+    return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -237,6 +314,9 @@ auto
     -> void
 {
     using namespace ck_test_bridge_subsystem;
+
+    if (_Processor.Get_HasTerminalFault())
+    { return; }
 
     if (NOT Do_ShouldServe())
     { return; }

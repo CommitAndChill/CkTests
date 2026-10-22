@@ -35,31 +35,35 @@ namespace ck_test_bridge_requestprocessor
     Write_Json(
         const TSharedPtr<FJsonObject>& InObject,
         const FString& InPath)
-        -> void
+        -> bool
     {
         auto JsonString = FString{};
         const auto Writer = TJsonWriterFactory<>::Create(&JsonString);
-        FJsonSerializer::Serialize(InObject.ToSharedRef(), Writer);
-        FFileHelper::SaveStringToFile(JsonString, *InPath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+        if (NOT FJsonSerializer::Serialize(InObject.ToSharedRef(), Writer))
+        { return false; }
+        return FFileHelper::SaveStringToFile(JsonString, *InPath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
     }
 
     static auto
-    Read_StringArray(
+    TryRead_StringArray(
         const TSharedPtr<FJsonObject>& InObject,
         const FString& InField,
         TArray<FString>& OutArray)
-        -> void
+        -> bool
     {
         const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
         if (NOT InObject->TryGetArrayField(InField, Values) || Values == nullptr)
-        { return; }
+        { return true; }
 
+        auto Parsed = TArray<FString>{};
         for (const auto& Value : *Values)
         {
-            auto Str = FString{};
-            if (Value.IsValid() && Value->TryGetString(Str))
-            { OutArray.Add(Str); }
+            if (NOT Value.IsValid() || Value->Type != EJson::String)
+            { return false; }
+            Parsed.Add(Value->AsString());
         }
+        OutArray.Append(MoveTemp(Parsed));
+        return true;
     }
 
     static auto
@@ -82,11 +86,10 @@ namespace ck_test_bridge_requestprocessor
     }
 
     static auto
-    Write_RefusedResult(
-        const FString& InResultPath,
+    Make_RefusedResult(
         const FString& InReason,
         const FCk_TestBridge_Env& InEnv)
-        -> void
+        -> TSharedPtr<FJsonObject>
     {
         auto Result = MakeShared<FJsonObject>();
         Result->SetBoolField(TEXT("ok"), false);
@@ -95,20 +98,19 @@ namespace ck_test_bridge_requestprocessor
         Result->SetObjectField(TEXT("env"), Build_EnvJson(InEnv));
         Result->SetArrayField(TEXT("perTest"), TArray<TSharedPtr<FJsonValue>>{});
         Result->SetArrayField(TEXT("notFound"), TArray<TSharedPtr<FJsonValue>>{});
-        Write_Json(Result, InResultPath);
+        return Result;
     }
 
     static auto
-    Write_ErrorResult(
-        const FString& InResultPath,
+    Make_ErrorResult(
         const FString& InMessage)
-        -> void
+        -> TSharedPtr<FJsonObject>
     {
         auto Result = MakeShared<FJsonObject>();
         Result->SetBoolField(TEXT("ok"), false);
         Result->SetBoolField(TEXT("refused"), false);
         Result->SetStringField(TEXT("error"), InMessage);
-        Write_Json(Result, InResultPath);
+        return Result;
     }
 
     static auto
@@ -135,13 +137,27 @@ namespace ck_test_bridge_requestprocessor
 
 FCk_TestBridge_RequestProcessor::
     FCk_TestBridge_RequestProcessor()
+    : FCk_TestBridge_RequestProcessor{
+        FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("CkTestBridge")), {}, {}}
+{
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+FCk_TestBridge_RequestProcessor::
+    FCk_TestBridge_RequestProcessor(
+        const FString& InProtocolRoot,
+        FCk_TestBridge_RunController::ControllerResolverType InResolveController,
+        PreconditionEvaluatorType InEvaluatePreconditions)
     // Absolute on purpose: these paths are handed to the external driver via server.json — a relative form only
     // resolves from the editor's cwd, not the submitter's.
-    : _Root{FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("CkTestBridge")))}
+    : _EvaluatePreconditions{MoveTemp(InEvaluatePreconditions)}
+    , _Root{FPaths::ConvertRelativePathToFull(InProtocolRoot)}
     , _RequestsDir{FPaths::Combine(_Root, TEXT("Requests"))}
     , _ResultsDir{FPaths::Combine(_Root, TEXT("Results"))}
     , _ProgressDir{FPaths::Combine(_Root, TEXT("Progress"))}
     , _ServerStatusPath{FPaths::Combine(_Root, TEXT("server.json"))}
+    , _Runner{MoveTemp(InResolveController)}
 {
 }
 
@@ -157,18 +173,22 @@ auto
 
     auto& FileManager = IFileManager::Get();
 
+    CK_ENSURE_IF_NOT(NOT _Busy && NOT _CapturedResponse.IsValid(),
+        TEXT("[Server] cannot restart while an active request or retained terminal response is owned"))
+    { return false; }
+
     constexpr auto MakeTree = true;
     FileManager.MakeDirectory(*_RequestsDir, MakeTree);
     FileManager.MakeDirectory(*_ResultsDir, MakeTree);
     FileManager.MakeDirectory(*_ProgressDir, MakeTree);
 
-    const auto DirsExist =
-        FileManager.DirectoryExists(*_RequestsDir) &&
-        FileManager.DirectoryExists(*_ResultsDir) &&
-        FileManager.DirectoryExists(*_ProgressDir);
-
-    CK_ENSURE_IF_NOT(DirsExist, TEXT("[Server] could not create protocol dirs under [{}]"), _Root)
-    { return false; }
+    if (NOT FileManager.DirectoryExists(*_RequestsDir) ||
+        NOT FileManager.DirectoryExists(*_ResultsDir) ||
+        NOT FileManager.DirectoryExists(*_ProgressDir))
+    {
+        ck::tests_bridge::Error(TEXT("[Server] could not create protocol dirs under [{}]"), _Root);
+        return false;
+    }
 
     if (InStaleRequestPolicy == ECk_TestBridge_StaleRequestPolicy::WipeStale)
     { Delete_FilesIn(_RequestsDir, TEXT("*.json")); }
@@ -179,9 +199,7 @@ auto
     }
 
     _StartedAtIso = FDateTime::UtcNow().ToIso8601();
-    Do_WriteStatusFile(false, {});
-
-    return true;
+    return Do_WriteStatusFile(false, {});
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -191,7 +209,7 @@ auto
     Do_WriteStatusFile(
         bool InBusy,
         const FString& InCurrentRequestId)
-    -> void
+    -> bool
 {
     using namespace ck_test_bridge_requestprocessor;
 
@@ -203,20 +221,24 @@ auto
     Status->SetStringField(TEXT("requestsDir"), _RequestsDir);
     Status->SetStringField(TEXT("resultsDir"), _ResultsDir);
     Status->SetStringField(TEXT("progressDir"), _ProgressDir);
-    // serverKind lets the driver tell a headless WARM SERVER (launched with -CkTestBridgeServe, no window, no
-    // frame-rate throttle) apart from a LIVE EDITOR (the user's own interactive session serving under
-    // AutoTestsMapOnly). They behave very differently: an unfocused interactive editor throttles below the
-    // automation controller's interactive-frame-rate gate and aborts the run, so a driver should only auto-route to
-    // a warm server and require an explicit opt-in for an editor. Derived from the command line — a process-wide fact.
+    // Distinguish an intentionally launched warm server from an opted-in interactive editor.
     Status->SetStringField(TEXT("serverKind"),
         FParse::Param(FCommandLine::Get(), TEXT("CkTestBridgeServe")) ? TEXT("warmServer") : TEXT("liveEditor"));
     Status->SetBoolField(TEXT("busy"), InBusy);
+    Status->SetBoolField(TEXT("faulted"), Get_HasTerminalFault());
+    if (Get_HasTerminalFault())
+    { Status->SetStringField(TEXT("faultReason"), _TerminalFault); }
     if (NOT InCurrentRequestId.IsEmpty())
     { Status->SetStringField(TEXT("currentRequestId"), InCurrentRequestId); }
-    // lastActivityAt is refreshed on EVERY write (including the per-tick busy heartbeat) so a foreign session can
-    // tell an actively-working server from a hung one.
+    // This is request-processing activity, not proof of editor liveness: PIE can starve our ticker.
     Status->SetStringField(TEXT("lastActivityAt"), FDateTime::UtcNow().ToIso8601());
-    Write_Json(Status, _ServerStatusPath);
+    const auto Written = Write_Json(Status, _ServerStatusPath);
+    if (NOT Written)
+    {
+        ck::tests_bridge::Error(TEXT("[Server] could not write ownership heartbeat [{}]"), _ServerStatusPath);
+        return false;
+    }
+    return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -231,11 +253,25 @@ auto
 
     auto Outcome = FCk_TestBridge_ProcessResult{};
 
+    if (Get_HasTerminalFault())
+    {
+        // Retain ownership, but never retry publication or admission from an ordinary poll.
+        Do_WriteStatusFile(true, _CurrentRequestId);
+        Outcome.TerminalFault = true;
+        return Outcome;
+    }
+
     // A run in flight — pump it, don't claim anything new. One request at a time.
     if (_Busy)
     {
         Do_PumpActiveRun(InDeltaTime);
-        Outcome.AnyProcessed = NOT _Busy; // flipped false when the run finalized this tick
+        if (Get_HasTerminalFault())
+        {
+            Outcome.TerminalFault = true;
+            return Outcome;
+        }
+        if (_CapturedResponse.IsValid())
+        { return Do_PublishCapturedResponse(); }
         return Outcome;
     }
 
@@ -256,10 +292,15 @@ auto
         if (FileAge < FTimespan::FromSeconds(1.0))
         { continue; }
 
-        const auto ShouldQuit = Do_ClaimRequest(RequestPath);
+        Do_ClaimRequest(RequestPath);
         Outcome.AnyProcessed = true;
-        if (ShouldQuit)
-        { Outcome.QuitRequested = true; }
+        if (Get_HasTerminalFault())
+        {
+            Outcome.TerminalFault = true;
+            return Outcome;
+        }
+        if (_CapturedResponse.IsValid())
+        { return Do_PublishCapturedResponse(); }
 
         // Claim at most ONE request per pass: either a run is now in flight (busy) or it was refused/handled.
         break;
@@ -274,7 +315,7 @@ auto
     FCk_TestBridge_RequestProcessor::
     Do_ClaimRequest(
         const FString& InRequestPath)
-    -> bool
+    -> void
 {
     using namespace ck_test_bridge_requestprocessor;
 
@@ -282,27 +323,23 @@ auto
     const auto RequestId  = FPaths::GetBaseFilename(InRequestPath);
     const auto ResultPath = FPaths::Combine(_ResultsDir, RequestId + TEXT(".json"));
 
-    const auto DeleteRequest = [&]() -> void
-    {
-        constexpr auto RequireExists = false;
-        FileManager.Delete(*InRequestPath, RequireExists);
-    };
+    _CurrentRequestId = RequestId;
+    _CurrentRequestPath = InRequestPath;
+    _CurrentResultPath = ResultPath;
 
     auto JsonString = FString{};
     if (NOT FFileHelper::LoadFileToString(JsonString, *InRequestPath))
     {
-        Write_ErrorResult(ResultPath, TEXT("Could not read request file"));
-        DeleteRequest();
-        return false;
+        Do_CaptureResponse(Make_ErrorResult(TEXT("Could not read request file")));
+        return;
     }
 
     auto Request = TSharedPtr<FJsonObject>{};
     const auto Reader = TJsonReaderFactory<>::Create(JsonString);
     if (NOT FJsonSerializer::Deserialize(Reader, Request) || NOT Request.IsValid())
     {
-        Write_ErrorResult(ResultPath, TEXT("Malformed request json"));
-        DeleteRequest();
-        return false;
+        Do_CaptureResponse(Make_ErrorResult(TEXT("Malformed request json")));
+        return;
     }
 
     auto Op = FString{};
@@ -312,17 +349,15 @@ auto
     {
         auto Result = MakeShared<FJsonObject>();
         Result->SetBoolField(TEXT("ok"), true);
-        Write_Json(Result, ResultPath);
-        DeleteRequest();
+        Do_CaptureResponse(Result, true);
         ck::tests_bridge::Display(TEXT("[Server] quit requested"));
-        return true;
+        return;
     }
 
     if (NOT Op.Equals(TEXT("runTests"), ESearchCase::IgnoreCase))
     {
-        Write_ErrorResult(ResultPath, ck::Format_UE(TEXT("Unknown op [{}] (expected runTests | quit)"), Op));
-        DeleteRequest();
-        return false;
+        Do_CaptureResponse(Make_ErrorResult(ck::Format_UE(TEXT("Unknown op [{}] (expected runTests | quit)"), Op)));
+        return;
     }
 
     // ---- request-level refusals (do not need the editor env) ----
@@ -364,20 +399,25 @@ auto
     // ---- precondition env (always fills OutEnv; returns the precondition-level refusal if any) ----
     auto Env = FCk_TestBridge_Env{};
     constexpr auto NotBusyForThisRequest = false;
-    const auto PreconditionRefusal = FCk_TestBridge_Preconditions::Evaluate(AllowDirtyWorld, NotBusyForThisRequest, Env);
+    const auto PreconditionRefusal = _EvaluatePreconditions
+        ? _EvaluatePreconditions(AllowDirtyWorld, NotBusyForThisRequest, Env)
+        : FCk_TestBridge_Preconditions::Evaluate(AllowDirtyWorld, NotBusyForThisRequest, Env);
 
     const auto Refusal = RequestLevelRefusal.IsSet() ? RequestLevelRefusal : PreconditionRefusal;
     if (Refusal.IsSet())
     {
-        Write_RefusedResult(ResultPath, Refusal.GetValue(), Env);
-        DeleteRequest();
+        Do_CaptureResponse(Make_RefusedResult(Refusal.GetValue(), Env));
         ck::tests_bridge::Display(TEXT("[Server] refused request [{}] — {}"), RequestId, Refusal.GetValue());
-        return false;
+        return;
     }
 
     // ---- accept: mark busy and start the run (non-blocking) ----
     auto RunRequest = FCk_TestBridge_RunRequest{};
-    Read_StringArray(Request, TEXT("tests"), RunRequest.Tests);
+    if (NOT TryRead_StringArray(Request, TEXT("tests"), RunRequest.Tests))
+    {
+        Do_CaptureResponse(Make_ErrorResult(TEXT("Malformed tests array: every element must be a string")));
+        return;
+    }
     RunRequest.PerTestStallSeconds = static_cast<float>(PerTestStallSeconds);
     RunRequest.WallClockCapSeconds = static_cast<float>(WallClockCapSeconds);
 
@@ -417,7 +457,6 @@ auto
     _Runner.Begin(RunRequest, Callbacks);
 
     ck::tests_bridge::Display(TEXT("[Server] accepted request [{}] — {} test(s)"), RequestId, RunRequest.Tests.Num());
-    return false;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -432,7 +471,7 @@ auto
 
     _Runner.Tick(InDeltaTime);
 
-    // Heartbeat every poll so a foreign session can distinguish a working server from a hung one.
+    // Record request-processing activity; a PIE test can starve this ticker until it returns.
     Do_WriteStatusFile(true, _CurrentRequestId);
 
     if (NOT _Runner.Is_Complete())
@@ -447,7 +486,7 @@ auto
     const auto& RunResult = _Runner.Get_Result();
 
     // ok = every requested test that ran passed (Success/Skipped) AND nothing was NotFound.
-    auto Ok = RunResult.NotFound.Num() == 0;
+    auto Ok = RunResult.Error.IsEmpty() && RunResult.NotFound.Num() == 0;
     for (const auto& PerTest : RunResult.PerTest)
     {
         if (PerTest.Result != ECk_TestBridge_TestResult::Success && PerTest.Result != ECk_TestBridge_TestResult::Skipped)
@@ -456,6 +495,8 @@ auto
 
     auto Result = MakeShared<FJsonObject>();
     Result->SetBoolField(TEXT("ok"), Ok);
+    if (NOT RunResult.Error.IsEmpty())
+    { Result->SetStringField(TEXT("error"), RunResult.Error); }
     Result->SetBoolField(TEXT("refused"), false);
     Result->SetField(TEXT("refusalReason"), MakeShared<FJsonValueNull>());
     Result->SetObjectField(TEXT("env"), Build_EnvJson(_CurrentEnv));
@@ -487,19 +528,137 @@ auto
     { NotFoundArray.Add(MakeShared<FJsonValueString>(NotFound)); }
     Result->SetArrayField(TEXT("notFound"), NotFoundArray);
 
-    // Result BEFORE request delete so an external watcher never sees a consumed request with no result.
-    Write_Json(Result, _CurrentResultPath);
+    Do_CaptureResponse(Result);
+}
 
+// --------------------------------------------------------------------------------------------------------------------
+
+auto
+    FCk_TestBridge_RequestProcessor::
+    Do_CaptureResponse(
+        const TSharedPtr<FJsonObject>& InResponse,
+        bool InQuitRequested)
+    -> void
+{
+    CK_ENSURE_IF_NOT(NOT _CapturedResponse.IsValid(), TEXT("[Server] attempted to replace a captured terminal response"))
     {
-        auto& FileManager = IFileManager::Get();
-        constexpr auto RequireExists = false;
-        FileManager.Delete(*_CurrentRequestPath, RequireExists);
+        Do_FaultPublication(TEXT("Attempted to replace a captured terminal response"));
+        return;
     }
 
-    ck::tests_bridge::Display(
-        TEXT("[Server] request [{}] complete — ok={}, {} test(s), {} not found"),
-        _CurrentRequestId, Ok, RunResult.PerTest.Num(), RunResult.NotFound.Num());
+    _CapturedResponse = InResponse;
+    _CapturedQuitRequested = InQuitRequested;
+    _Busy = true;
+}
 
+// --------------------------------------------------------------------------------------------------------------------
+
+auto
+    FCk_TestBridge_RequestProcessor::
+    Do_FaultPublication(
+        const FString& InReason)
+    -> void
+{
+    _TerminalFault = InReason;
+    // Keep the live PID claim. Releasing it would invite another server to re-execute this request.
+    Do_WriteStatusFile(true, _CurrentRequestId);
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+auto
+    FCk_TestBridge_RequestProcessor::
+    Do_PublishCapturedResponse()
+    -> FCk_TestBridge_ProcessResult
+{
+    auto Outcome = FCk_TestBridge_ProcessResult{};
+    Outcome.TerminalFault = true;
+
+    CK_ENSURE_IF_NOT(_CapturedResponse.IsValid(), TEXT("[Server] no captured terminal response to publish"))
+    {
+        Do_FaultPublication(TEXT("No captured terminal response to publish"));
+        return Outcome;
+    }
+
+    auto& FileManager = IFileManager::Get();
+    // Revalidate the installed bytes on explicit recovery too: the result could have disappeared
+    // since a deletion fault. Never consume the request based only on an in-memory installed flag.
+    auto Json = FString{};
+    const auto Writer = TJsonWriterFactory<>::Create(&Json);
+    const auto Serialized = FJsonSerializer::Serialize(_CapturedResponse.ToSharedRef(), Writer);
+    CK_ENSURE_IF_NOT(Serialized,
+        TEXT("[Server] terminal response serialization failed for [{}]; retained for Ck.TestBridge.RecoverPublication"),
+        _CurrentRequestId)
+    {
+        Do_FaultPublication(TEXT("Terminal response serialization failed"));
+        return Outcome;
+    }
+
+    if (FileManager.FileExists(*_CurrentResultPath))
+    {
+        // Never overwrite another outcome. A byte-identical result is already installed and
+        // only the outstanding request deletion remains (for example after explicit recovery).
+        auto Existing = FString{};
+        const auto ReadExisting = FFileHelper::LoadFileToString(Existing, *_CurrentResultPath);
+        if (NOT ReadExisting || Existing != Json)
+        {
+            ck::tests_bridge::Error(TEXT("[Server] terminal result path [{}] contains a conflicting response; retained for Ck.TestBridge.RecoverPublication"),
+                _CurrentResultPath);
+            Do_FaultPublication(TEXT("Terminal result path contains a conflicting response"));
+            return Outcome;
+        }
+    }
+    else
+    {
+        const auto TempPath = _CurrentResultPath + TEXT(".tmp");
+        const auto Saved = FFileHelper::SaveStringToFile(Json, *TempPath,
+            FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+        if (NOT Saved)
+        {
+            ck::tests_bridge::Error(TEXT("[Server] could not write terminal response [{}]; retained for Ck.TestBridge.RecoverPublication"), TempPath);
+            Do_FaultPublication(TEXT("Could not write terminal response temp file"));
+            return Outcome;
+        }
+
+        // The selected engine's generic Move deletes the destination for Replace=true and
+        // sleeps/retries unless DoNotRetryOrError=true. Use one non-replacing install attempt.
+        // Adjacent temp publication avoids exposing a partial JSON document; it is not a
+        // crash-durability guarantee and never removes an already-published result.
+        constexpr auto ReplaceExisting = false;
+        constexpr auto EvenIfReadOnly = false;
+        constexpr auto PreserveAttributes = false;
+        constexpr auto DoNotRetryOrError = true;
+        const auto Installed = FileManager.Move(*_CurrentResultPath, *TempPath, ReplaceExisting,
+            EvenIfReadOnly, PreserveAttributes, DoNotRetryOrError);
+        if (NOT Installed)
+        {
+            ck::tests_bridge::Error(TEXT("[Server] could not install terminal response [{}]; retained for Ck.TestBridge.RecoverPublication"),
+                _CurrentResultPath);
+            Do_FaultPublication(TEXT("Could not install terminal response"));
+            return Outcome;
+        }
+    }
+
+    constexpr auto RequireRequestExists = false;
+    constexpr auto DeleteReadOnlyRequest = false;
+    constexpr auto QuietDelete = true;
+    const auto Deleted = FileManager.Delete(*_CurrentRequestPath, RequireRequestExists,
+        DeleteReadOnlyRequest, QuietDelete);
+    if (NOT Deleted)
+    {
+        ck::tests_bridge::Error(TEXT("[Server] could not delete published request [{}]; retained for Ck.TestBridge.RecoverPublication"), _CurrentRequestPath);
+        Do_FaultPublication(TEXT("Could not delete published request"));
+        return Outcome;
+    }
+
+    Outcome.TerminalFault = false;
+    Outcome.AnyProcessed = true;
+    Outcome.QuitRequested = _CapturedQuitRequested;
+    ck::tests_bridge::Display(TEXT("[Server] request [{}] response published and request removed"), _CurrentRequestId);
+
+    _CapturedResponse.Reset();
+    _CapturedQuitRequested = false;
+    _TerminalFault.Empty();
     _Runner.Reset();
     _Busy = false;
     _CurrentRequestId.Empty();
@@ -507,8 +666,22 @@ auto
     _CurrentResultPath.Empty();
     _CurrentProgressPath.Empty();
     _CurrentEnv = FCk_TestBridge_Env{};
-
     Do_WriteStatusFile(false, {});
+    return Outcome;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+auto
+    FCk_TestBridge_RequestProcessor::
+    Request_RecoverPublication()
+    -> FCk_TestBridge_ProcessResult
+{
+    if (NOT Get_HasTerminalFault())
+    { return {}; }
+
+    _TerminalFault.Empty();
+    return Do_PublishCapturedResponse();
 }
 
 // --------------------------------------------------------------------------------------------------------------------
