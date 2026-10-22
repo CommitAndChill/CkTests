@@ -897,7 +897,9 @@ bool FCk_PauseMenuProof_PIE::RunTest(const FString&)
                 Viewport.ToSharedRef(), TEXT("1920x1080-hover"), FIntPoint{1920, 1080}));
             TestTrue(TEXT("Settings routes Slate pointer down/up"), Click(Slate, Settings.ToSharedRef(),
                 User, Window, Viewport.ToSharedRef(), TEXT("1920x1080-pressed")));
-            TestEqual(TEXT("Settings action fires exactly once"), Menu->Get_ActionCount(SettingsAction), 1);
+            if (NOT TestEqual(FString::Printf(TEXT("Settings action fires exactly once (source error: %s)"),
+                *Menu->Get_SourceError()), Menu->Get_ActionCount(SettingsAction), 1))
+            { return; }
             TestEqual(TEXT("unrelated Return action does not fire"), Menu->Get_ActionCount(ReturnAction), 0);
             TStrongObjectPtr<UCk_PauseMenuProof_UE> FirstSettingsChild{Menu->Get_SettingsChild()};
             const auto* ParentSession = Menu->Get_Session();
