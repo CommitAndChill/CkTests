@@ -44,7 +44,9 @@ class UCk_AutoTest_GameSettings_DeferredCVarTimesOutLoudly : UCk_AutoTest_Base
             "the value survives the deferred-apply timeout");
 
         auto Provider = utils_game_settings::Get_StorageProvider();
-        auto StoredValues = Provider.Get_StoredValues(ECk_GameSettings_Scope::Machine, 0);
+        auto StoredValues = TArray<FCk_GameSettings_StoredValue>();
+        Assert_True(Provider.Get_StoredValues(ECk_GameSettings_Scope::Machine, 0, StoredValues)
+            == ECk_GameSettings_StorageReadResult::Succeeded, "provider reads the retained machine values");
         auto FoundInStore = false;
         for (int32 Index = 0; Index < StoredValues.Num(); ++Index)
         {

@@ -15,7 +15,7 @@ class UCk_AutoTest_GameSettings_PersistRoundTrip : UCk_AutoTest_Base
             FCk_Request_GameSettings_SetValue_String(n"astest.persist.key", "persisted-value")),
             "set holds");
 
-        utils_game_settings::Request_FlushStorage();
+        Assert_True(utils_game_settings::Request_FlushStorage(), "settings flush succeeds");
 
         auto LiveProvider = Cast<UCk_GameSettings_IniStorageProvider_UE>(utils_game_settings::Get_StorageProvider());
         if (LiveProvider == nullptr)
@@ -28,7 +28,9 @@ class UCk_AutoTest_GameSettings_PersistRoundTrip : UCk_AutoTest_Base
             NewObject(this, UCk_GameSettings_IniStorageProvider_UE));
         FreshProvider.Set_FilePathOverride(LiveProvider.Get_StorageFilePath());
 
-        auto StoredValues = FreshProvider.Get_StoredValues(ECk_GameSettings_Scope::Machine, 0);
+        auto StoredValues = TArray<FCk_GameSettings_StoredValue>();
+        Assert_True(FreshProvider.Get_StoredValues(ECk_GameSettings_Scope::Machine, 0, StoredValues)
+            == ECk_GameSettings_StorageReadResult::Succeeded, "fresh provider reads the persisted machine scope");
 
         auto FoundValue = FString();
         auto Found = false;

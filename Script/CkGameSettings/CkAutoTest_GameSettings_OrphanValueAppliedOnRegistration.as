@@ -9,9 +9,10 @@ class UCk_AutoTest_GameSettings_OrphanValueAppliedOnRegistration : UCk_AutoTest_
     void DoBeginPlay(FCk_Handle InHandle)
     {
         auto Provider = utils_game_settings::Get_StorageProvider();
-        Provider.Request_StoreValue(ECk_GameSettings_Scope::Machine, 0, n"astest.orphan.key", "orphan-value");
+        Assert_True(Provider.Request_StoreValue(ECk_GameSettings_Scope::Machine, 0, n"astest.orphan.key", "orphan-value"),
+            "provider accepts the orphan value");
 
-        utils_game_settings::Request_ReloadFromStorage();
+        Assert_True(utils_game_settings::Request_ReloadFromStorage() >= 0, "storage reload succeeds");
         Assert_False(utils_game_settings::Get_IsSettingRegistered(n"astest.orphan.key"),
             "key stays unregistered after reload");
 
