@@ -9,6 +9,8 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("Json");
         // Bend-side admission tests inspect the actual two-bone and FABRIK solver joint results.
         PrivateDependencyModuleNames.Add("AnimationCore");
+        // GOAP admission tests directly access A* fragments through EnTT storage.
+        PrivateDependencyModuleNames.Add("CkAStar");
 
         PrivateDependencyModuleNames.AddRange(new string[]
         {
