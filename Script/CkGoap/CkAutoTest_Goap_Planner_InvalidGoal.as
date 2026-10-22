@@ -1,109 +1,124 @@
 // Language=angelscript
 
-//============================================================================
-// CK GOAP - AUTOMATION TEST: PLANNER INVALID GOAL DIAGNOSTIC
-//============================================================================
-//
-// Validates: when Request_SetGoal is called with a goal condition that
-// references a tag NOT registered in the Action's resolved WS registry,
-// that condition lands in Get_InvalidGoal(Action).
-//
-// How _InvalidGoal is populated:
-//   FProcessor_Goap_Action_HandleRequests processes FCk_Request_Goap_Planner_SetGoal.
-//   For each authored condition in the request, it calls Registry.Find(tag). If
-//   the tag is not registered (it was never added via any action's preconditions
-//   or effects), the condition is added to _Current._InvalidGoal.
-//
-// Setup:
-//   - WS: Ready=false (only Ready is registered by Root's CDO effects).
-//   - No goal set on PlannerParams - root gets empty goal -> PlanFound immediately.
-//   - utils_goap_planner::Request_SetGoal([{UnknownKey=true}]) is queued in DoBeginPlay.
-//     UnknownKey is NOT referenced by any action's CDO, so Setup will never
-//     register it in the WS key registry. HandleRequests processes SetGoal,
-//     fails to find UnknownKey, adds it to _InvalidGoal.
-//   - Bind OnPlanComplete - fires after HandleRequests processes the Plan request
-//     (empty goal -> PlanFound).
-//
-// Expected: Get_InvalidGoal(Root).Num() == 1 in OnPlanComplete.
-//============================================================================
-
+// Reject the entire mixed goal request, retain the accepted Ready=true goal,
+// and require its precise missing-key diagnostic. Then accept an intentionally empty goal.
 class UCk_AutoTest_Goap_Planner_InvalidGoal : UCk_AutoTest_Base
 {
     private FCk_Handle_Goap_Planner _Planner;
     private FCk_Handle_Goap_Action _RootAction;
-    private bool _PlanReceived = false;
+    private int32 _PlanCompleteCount = 0;
+    private int32 _RejectedCompletionCount = 0;
+    private int32 _AttemptsBeforeReject = 0;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
     {
-        auto _CkPerfScope = ck::ScopedStat();
         auto Local = InHandle;
         utils_transform::Add(Local, FTransform::Identity, ECk_Replication::DoesNotReplicate);
-
+        auto Ready = utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.Goap.ActionSet.WS.Ready");
+        auto WSParams = FCk_Goap_WorldState_Spec();
+        auto Keys = TArray<FGameplayTag>();
+        Keys.Add(Ready);
+        WSParams.Set_PreRegisteredKeys(Keys);
         auto WS = utils_goap_world_state::Create(Local,
-            utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.Goap.ActionSet.WS"),
-            FCk_Goap_WorldState_Spec());
-        utils_goap_world_state::Set_Value(WS,
-            utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.Goap.ActionSet.WS.Ready"),
-            false);
+            utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.Goap.ActionSet.WS"), WSParams);
+        utils_goap_world_state::Set_Value(WS, Ready, false);
 
-        auto ActionSetParams = FCk_Goap_Planner_Spec(
+        auto InitialGoal = TArray<FCk_GoapWS_Condition_Authored>();
+        InitialGoal.Add(FCk_GoapWS_Condition_Authored(Ready, true));
+        auto Params = FCk_Goap_Planner_Spec(
             utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.Goap.ActionSet.Set"));
-        ActionSetParams.Set_WorldStateSource(WS);
-        // Test intentionally exercises an unregistered-goal scenario where
-        // PlanFailed is reachable. Opt out of the always-valid-plan tenet ensure
-        // (see the CkGoap docs Sec. "Design tenets") - game-content Planners must
-        // never set this true.
-        ActionSetParams.Set_AllowPlanFailed(true);
-        _Planner = utils_goap_planner::Add(Local, ActionSetParams);
-        Assert_True(ck::IsValid(_Planner), "Add Planner should return a valid handle");
-
-        // Root with no goal on PlannerParams - empty goal, PlanFound immediately.
-        auto RootParams = FCk_Goap_Action_Spec(
-            UCk_AutoTestAction_Goap_ActionSet_Root_InvalidGoal);
-        _RootAction = utils_goap_planner::AddAction(_Planner, RootParams);
-        Assert_True(ck::IsValid(_RootAction), "AddAction (implicit-root) should return a valid handle");
-
-        // Request_SetGoal with a tag that is NOT registered in the WS key registry.
-        // Only Ready is registered (via Root's CDO effect). UnknownKey never appears
-        // in any action CDO, so Setup will never register it. HandleRequests processes
-        // SetGoal, cannot find UnknownKey -> _InvalidGoal populated. Auto-replan fires.
-        auto GoalConditions = TArray<FCk_GoapWS_Condition_Authored>();
-        GoalConditions.Add(FCk_GoapWS_Condition_Authored(
-            utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.Goap.ActionSet.WS.UnknownKey"),
-            true));
-        utils_goap_planner::Request_SetGoal(_Planner, GoalConditions);
-
+        Params.Set_WorldStateSource(WS);
+        Params.Set_Goal(InitialGoal);
+        Params.Set_ReplanPolicy(ECk_Goap_ReplanPolicy::Explicit);
+        _Planner = utils_goap_planner::Add(Local, Params);
+        Assert_Valid(_Planner, "Planner is composed");
+        _RootAction = utils_goap_planner::AddAction(_Planner,
+            FCk_Goap_Action_Spec(UCk_AutoTestAction_Goap_ActionSet_Root_InvalidGoal));
+        Assert_Valid(_RootAction, "Ready action is composed");
         utils_goap_planner::BindTo_OnPlanComplete(_Planner,
             FCk_Delegate_Goap_OnPlanComplete(this, n"OnPlan"));
     }
 
     UFUNCTION()
-    private void OnPlan(FCk_Handle_Goap_Planner InPlanner, FCk_Goap_Payload_OnPlanComplete InPayload)
+    private void OnPlan(
+        FCk_Handle_Goap_Planner InPlanner,
+        FCk_Goap_Payload_OnPlanComplete InPayload)
     {
         if (IsFinished()) { return; }
-        if (_PlanReceived) { return; }
-        _PlanReceived = true;
-
-        // Request_SetGoal was enqueued in DoBeginPlay. The handler set
-        // _InvalidGoal = [{UnknownKey, true}] and _Goal = []. Plan ran
-        // on the empty goal -> PlanFound with empty plan. _InvalidGoal persists.
+        _PlanCompleteCount += 1;
         Assert_True(utils_goap_planner::Get_PlanStatus(_Planner) == ECk_GoapPlanStatus::PlanFound,
-            "Root PlanStatus should be PlanFound (empty goal satisfied immediately)");
+            "An accepted goal reaches PlanFound");
+        auto Plan = utils_goap_planner::Get_Plan(_Planner);
 
-        auto InvalidGoal = utils_goap_planner::Get_InvalidGoal(_Planner);
-        Assert_True(InvalidGoal.Num() == 1,
-            f"Get_InvalidGoal should contain 1 entry for the unregistered UnknownKey (got {InvalidGoal.Num()})");
+        if (_PlanCompleteCount <= 2)
+        {
+            Assert_Equals_Int(Plan.Num(), 1, "The accepted Ready=true goal still requires its action");
+            if (Plan.Num() != 1) { FinishFailure("Ready goal must retain its complete one-action plan"); return; }
+            Assert_True(Plan[0] == _RootAction, "The retained goal still selects the Ready action");
+        }
 
+        if (_PlanCompleteCount == 1)
+        {
+            _AttemptsBeforeReject = utils_goap_planner::Get_PlanAttemptCount(_Planner);
+            auto RejectedGoal = TArray<FCk_GoapWS_Condition_Authored>();
+            RejectedGoal.Add(FCk_GoapWS_Condition_Authored(
+                utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.Goap.ActionSet.WS.Ready"), false));
+            RejectedGoal.Add(FCk_GoapWS_Condition_Authored(
+                utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.Goap.ActionSet.WS.UnknownKey"), true));
+            utils_goap_planner::Request_SetGoal(_Planner, RejectedGoal,
+                FCk_Delegate_Request_OnCompleted(this, n"OnRejectedGoalCompleted"));
+            return;
+        }
+
+        if (_PlanCompleteCount == 2)
+        {
+            auto EmptyGoal = TArray<FCk_GoapWS_Condition_Authored>();
+            utils_goap_planner::Request_SetGoal(_Planner, EmptyGoal,
+                FCk_Delegate_Request_OnCompleted(this, n"OnEmptyGoalCompleted"));
+            return;
+        }
+
+        Assert_Equals_Int(_PlanCompleteCount, 3, "Only the initial, explicit retained-goal and empty-goal plans complete");
+        Assert_Equals_Int(Plan.Num(), 0, "An intentionally empty goal succeeds with an empty plan");
+        Assert_Equals_Int(_RejectedCompletionCount, 1, "Rejected request completes exactly once");
         FinishSuccess();
     }
-}
 
-//============================================================================
-// HAND-AUTHORED WRAPPER ACTOR (skipped by auto-generator when present)
-//============================================================================
+    UFUNCTION()
+    private void OnRejectedGoalCompleted(
+        FCk_Handle InRequestOwner,
+        ECk_Request_OperationResult InResult)
+    {
+        if (IsFinished()) { return; }
+        _RejectedCompletionCount += 1;
+        Assert_True(InRequestOwner == _Planner, "Rejection reports the request owner");
+        Assert_True(InResult == ECk_Request_OperationResult::Failed, "An unregistered required key rejects the whole request");
+        Assert_Equals_Int(utils_goap_planner::Get_PlanAttemptCount(_Planner), _AttemptsBeforeReject,
+            "Rejection does not schedule a search for its valid prefix");
+        Assert_Equals_Int(_PlanCompleteCount, 1, "Rejected goal emits no PlanComplete callback");
+        utils_goap_planner::Request_Plan(_Planner);
+    }
+
+    UFUNCTION()
+    private void OnEmptyGoalCompleted(
+        FCk_Handle InRequestOwner,
+        ECk_Request_OperationResult InResult)
+    {
+        Assert_True(InResult == ECk_Request_OperationResult::Succeeded,
+            "An intentionally empty goal is admitted independently of rejected unknown keys");
+    }
+}
 
 class ACk_AutoTest_Goap_Planner_InvalidGoal_Actor : ACk_AutoTestRunner
 {
     default _TestEntityScriptClass = UCk_AutoTest_Goap_Planner_InvalidGoal;
+
+    UFUNCTION(BlueprintOverride)
+    TArray<FString> Get_RequiredLogErrors() const
+    {
+        TArray<FString> Out;
+        Out.Add("[Server] Registry.Find(Cond.Get_Key()) != goap::InvalidGoapKey\nCannot set a GOAP goal with an unresolved required key [AutoTest.Goap.ActionSet.WS.UnknownKey] on [");
+        return Out;
+    }
 }
