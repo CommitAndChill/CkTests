@@ -262,6 +262,76 @@
       "reason": "The arbiter setup regression must start with an unbaked AnimCollection (expected 0, got 4). Oscillates alone (green once, red on the G2 re-run); listed red on purpose so a pass only prints 'Now passing'.",
       "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gates G1+G2 on one build 2026-10-02 (3972 run; 30 / 29 red): gates FF, solo GREEN then RED",
       "added": "2026-10-02"
+    },
+    {
+      "test": "Ck.ProceduralAnimation.Action.Editor.MountedToolkit.TwoTabsModesAndCapture",
+      "status": "red",
+      "reason": "UE 5.8: renderer-only. Expected 'rendered endpoint X axis has real hit-proxy pixels' to be true (Test_ProceduralAction_MountedToolkit.cpp:838). Passed on 5.7 (CkPlugins gates 2026-10-01/02). Cause not traced; the 5.8 vertex-factory hit-proxy change (CkIskm_BatchedVertexFactory.ush guard) is the suspect.",
+      "evidence": "UE 5.8 port: CkPlugins_58 feature/ue58-upgrade 6763e22 (CkFoundation 380c95b52, CkTests f2126686, CkGameplayDebugger 8d10469c), UE 5.8.4 ue58_engine 2b39d4c518d3, UnrealToolbox v1.68; two full gates on one build 2026-10-22/23 (Gate58-Fixed1 4328 run/33 red, Gate58-Fixed2 4328/39, renderer pass ran in both): red in both; solo fresh-boot run Solo58-MountedToolkit.TwoTabsModesAndCapture.log 2026-10-23: red.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Ck.ProceduralAnimation.Action.Editor.Undo.SubjectChangeRefreshesAppearance",
+      "status": "red",
+      "reason": "UE 5.8: renderer-only. Expected 'clearing the subject changes the preview' to be true (Test_ProceduralAction_EditorConsolidation.cpp:339). Passed on 5.7. Cause not traced.",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22 (CkFoundation 380c95b52, CkTests f2126686, CkGameplayDebugger 8d10469c), UE 5.8.4, UnrealToolbox v1.68; two full gates on one build 2026-10-22/23 (Gate58-Fixed1, Gate58-Fixed2): red in both; solo run Solo58-Undo.SubjectChangeRefreshesAppearance.log: red.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Ck.ProceduralAnimation.SurfaceMotion.SnapshotShowsThePendingContact",
+      "status": "red",
+      "reason": "UE 5.8: Expected 'Participation uses the accepted SurfaceMotion wall normal' and 'The participation facade reads a fresh accepted wall support frame' to be true (Test_ProceduralGait_SnapshotPie.cpp:1547). Passed on 5.7 (gates 2026-10-01/02). Not the tick rate (60 Hz confirmed in effect); cause not traced.",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22 (CkFoundation 380c95b52, CkTests f2126686, CkGameplayDebugger 8d10469c), UE 5.8.4, UnrealToolbox v1.68; two full gates on one build 2026-10-22/23 (Gate58-Fixed1, Gate58-Fixed2): red in both; solo run Solo58-SurfaceMotion.SnapshotShowsThePendingContact.log: red.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Ck.UiAuthoring.Button.VisualStyle",
+      "status": "flaky",
+      "reason": "FLAKY: green alone (renderer pass). Expected 'Normal state exposes the authored rounded brush' to be true (Test_UiButtonVisualStyle.cpp:120); red in Gate58-Final, Gate58-Fixed1 and Gate58-Fixed2, green in Gate58-Final2. SButton::UpdateBorderImage is identical in 5.7 and 5.8; suspect: the pointer resting over the (0,0) AutoCenter=None window shows the Hovered brush (unconfirmed).",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; gates Gate58-Final (2026-10-22, red), Gate58-Final2 (green), Gate58-Fixed1 (red), Gate58-Fixed2 (red); solo run Solo58-Button.VisualStyle.log 2026-10-23: 1/1 green.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_EpisodeEnd_ReleasesSidewalkRoute_NoProgressExhausted",
+      "status": "flaky",
+      "reason": "FLAKY: green alone (3/3 with its siblings). In-suite the window ends with LogCkAutoTest_EntityLeaks 'finished with 3 entities alive outside its own lifetime subtree' - the 5.8 gates run 6 lanes at 60 Hz and the Crowd family flaps under that load (inferred, Ck-side timing).",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 2026-10-22 red, Gate58-Fixed2 green; solo run Solo58-Crowd_EpisodeEnd_ReleasesSidewalkRoute.log 2026-10-23: 3/3 green.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Chain_RequestCompletion_CancelledOnTeardown",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. In-suite its window carries LogAssetRegistry 'OpenFile failed' warnings for Plugins/CkFoundation/Content/CkUsf/GeneratedLooksTest/P<pid>/*.uasset written and removed by another lane's generated-look test (functional tests elevate warnings to errors). Cross-lane artifact, not this test.",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 green, Gate58-Fixed2 2026-10-23 red; solo run Solo58-Chain_RequestCompletion_CancelledOnTeardown.log: 1/1 green.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_Avoidance_WallSegmentsKeepAgentOnMesh",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. In-suite its window carries LogAssetRegistry 'OpenFile failed' warnings for CkUsf/GeneratedLooksTest/P<pid> assets removed by another lane's test (warnings elevate to errors). Was listed red in BusterBlock's own file (removed there when this entry landed, since a test in two files exits 80).",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 green, Gate58-Fixed2 2026-10-23 red; solo run Solo58-Crowd_Avoidance_WallSegmentsKeepAgentOnMesh.log: 1/1 green.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_Disable_MidWalkStopsAndRejoinsInPlace",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. In-suite: LogCkAutoTest_EntityLeaks 'finished with 2 entities alive outside its own lifetime subtree'; the Crowd family flaps under 6-lane 60 Hz load (inferred, Ck-side timing).",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 green, Gate58-Fixed2 2026-10-23 red; solo run Solo58-Crowd_Disable_MidWalkStopsAndRejoinsInPlace.log: 1/1 green.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_Separation_CoincidentPairOrbitSearch",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. In-suite: LogAssetRegistry 'OpenFile failed' warnings for CkUsf/GeneratedLooksTest/P<pid> assets from another lane plus LogCkAutoTest_EntityLeaks 'finished with 8 entities alive outside its own lifetime subtree'. Crowd family flaps under 6-lane 60 Hz load (inferred).",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 green, Gate58-Fixed2 2026-10-23 red; solo run Solo58-Crowd_Separation_CoincidentPairOrbitSearch.log: 1/1 green.",
+      "added": "2026-10-23"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_CirclesCylinderUpAndDown",
+      "status": "flaky",
+      "reason": "FLAKY: green alone. In-suite: step 3/5 'verify sustained trusted wall contact and plants': No guessed planted foot is held over 5 cm away from its real cylinder and floor during the middle helix. Red in Gate58-Final and Gate58-Fixed2, green in Gate58-Final2 and Gate58-Fixed1. Timing-sensitive under lane load (inferred); the 30 Hz tick that failed it in the pre-rebase isolation runs is fixed by [SystemSettingsEditor] t.MaxFPS=60.",
+      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; gates 2026-10-22/23: Gate58-Final red, Gate58-Final2 green, Gate58-Fixed1 green, Gate58-Fixed2 red; solo run Solo58-CirclesCylinderUpAndDown.log: 1/1 green.",
+      "added": "2026-10-23"
     }
   ]
 }
