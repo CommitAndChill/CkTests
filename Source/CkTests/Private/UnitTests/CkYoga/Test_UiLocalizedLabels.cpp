@@ -74,6 +74,13 @@ namespace ck_tests_ui_localized_labels
         return {};
     }
 
+    // UE 5.8 caches FSlateEditableTextLayout::HintText as a TSlateNestedAttribute; prepass refreshes the bound value before reading it.
+    auto Get_HintText(const TSharedPtr<SSearchBox>& InSearch) -> FText
+    {
+        InSearch->SlatePrepass(1.0f);
+        return InSearch->GetHintText();
+    }
+
     auto Get_HeaderText(const TSharedPtr<SListView<SCkUiTable::FRecord>>& InList) -> FText
     {
         const TSharedPtr<SHeaderRow> Header = InList.IsValid() ? InList->GetHeaderRow() : nullptr;
@@ -134,12 +141,12 @@ auto FCkUi_LocalizedLabels::RunTest(const FString&) -> bool
         return false;
     }
     TestTrue(TEXT("Native header column retains the localized FText attribute"), Get_HeaderText(List).IdenticalTo(HeaderText));
-    TestTrue(TEXT("Native search retains the localized FText hint attribute"), Search->GetHintText().IdenticalTo(PlaceholderText));
+    TestTrue(TEXT("Native search retains the localized FText hint attribute"), Get_HintText(Search).IdenticalTo(PlaceholderText));
 
     HeaderText = NSLOCTEXT("Ck.UiAuthoring.Test", "LocalizedHeaderUpdated", "Localized header updated");
     PlaceholderText = NSLOCTEXT("Ck.UiAuthoring.Test", "LocalizedPlaceholderUpdated", "Localized placeholder updated");
     TestTrue(TEXT("Native header observes live localized label changes"), Get_HeaderText(List).IdenticalTo(HeaderText));
-    TestTrue(TEXT("Native search observes live localized placeholder changes"), Search->GetHintText().IdenticalTo(PlaceholderText));
+    TestTrue(TEXT("Native search observes live localized placeholder changes"), Get_HintText(Search).IdenticalTo(PlaceholderText));
 
     const int64 InitialRevision = View->GetRevision();
     if (NOT TestTrue(TEXT("Compatible localized reload succeeds"), View->TryReload(Markup(TEXT("label-bind=\"header\""), TEXT("placeholder-bind=\"placeholder\""), 25), TEXT(""), TEXT("UiLocalizedLabelsCompatible")).Succeeded))
@@ -149,7 +156,7 @@ auto FCkUi_LocalizedLabels::RunTest(const FString&) -> bool
     TestEqual(TEXT("Compatible localized reload advances revision"), View->GetRevision(), InitialRevision + 1);
     TestTrue(TEXT("Compatible localized reload retains table list and search identity"), View->GetTable(TEXT("records")) == Table && Table->GetList() == List && Find_Search(Region) == Search);
     TestTrue(TEXT("Compatible localized reload retains the live header FText"), Get_HeaderText(List).IdenticalTo(HeaderText));
-    TestTrue(TEXT("Compatible localized reload retains the live search hint FText"), Search->GetHintText().IdenticalTo(PlaceholderText));
+    TestTrue(TEXT("Compatible localized reload retains the live search hint FText"), Get_HintText(Search).IdenticalTo(PlaceholderText));
 
     const auto Expect_Rejected = [this, &View, &Table, &List, &Search, &Region, &HeaderText, &PlaceholderText, &Probe](
                                      const FString& InName,
@@ -162,7 +169,7 @@ auto FCkUi_LocalizedLabels::RunTest(const FString&) -> bool
         TestEqual(*(InName + TEXT(" retains revision")), View->GetRevision(), Revision);
         TestTrue(*(InName + TEXT(" retains table list and search")), View->GetTable(TEXT("records")) == Table && Table->GetList() == List && Find_Search(Region) == Search);
         TestTrue(*(InName + TEXT(" retains header FText")), Get_HeaderText(List).IdenticalTo(HeaderText));
-        TestTrue(*(InName + TEXT(" retains search hint FText")), Search->GetHintText().IdenticalTo(PlaceholderText));
+        TestTrue(*(InName + TEXT(" retains search hint FText")), Get_HintText(Search).IdenticalTo(PlaceholderText));
         TestEqual(*(InName + TEXT(" invokes no preceding custom factory")), Probe->FactoryCalls, FactoryCalls);
     };
     Expect_Rejected(TEXT("Conflicting table-column label forms"), Markup(TEXT("label=\"Literal\" label-bind=\"header\"")));
@@ -185,7 +192,7 @@ auto FCkUi_LocalizedLabels::RunTest(const FString&) -> bool
         return false;
     }
     TestTrue(TEXT("Template forwards localized header FText identity"), Get_HeaderText(TemplateList).IdenticalTo(HeaderText));
-    TestTrue(TEXT("Template forwards localized search hint FText identity"), TemplateSearch->GetHintText().IdenticalTo(PlaceholderText));
+    TestTrue(TEXT("Template forwards localized search hint FText identity"), Get_HintText(TemplateSearch).IdenticalTo(PlaceholderText));
 
     const int32 HeaderRequestsBeforeRelease = HeaderRequests;
     const int32 PlaceholderRequestsBeforeRelease = PlaceholderRequests;
@@ -194,7 +201,7 @@ auto FCkUi_LocalizedLabels::RunTest(const FString&) -> bool
     TestFalse(TEXT("Retained native widgets do not retain the released view"), WeakView.IsValid());
     TestTrue(TEXT("Released view leaves retained native table list and search valid"), TemplateList.IsValid() && TemplateSearch.IsValid());
     TestTrue(TEXT("Released view clears retained native header text"), Get_HeaderText(TemplateList).IsEmpty());
-    TestTrue(TEXT("Released view clears retained native search hint"), TemplateSearch->GetHintText().IsEmpty());
+    TestTrue(TEXT("Released view clears retained native search hint"), Get_HintText(TemplateSearch).IsEmpty());
     TestEqual(TEXT("Released view does not invoke retained header binding"), HeaderRequests, HeaderRequestsBeforeRelease);
     TestEqual(TEXT("Released view does not invoke retained placeholder binding"), PlaceholderRequests, PlaceholderRequestsBeforeRelease);
     return true;
