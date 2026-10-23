@@ -264,20 +264,6 @@
       "added": "2026-10-02"
     },
     {
-      "test": "Ck.ProceduralAnimation.Action.Editor.MountedToolkit.TwoTabsModesAndCapture",
-      "status": "red",
-      "reason": "UE 5.8: renderer-only. Expected 'rendered endpoint X axis has real hit-proxy pixels' to be true (Test_ProceduralAction_MountedToolkit.cpp:838). Passed on 5.7 (CkPlugins gates 2026-10-01/02). Cause not traced; the 5.8 vertex-factory hit-proxy change (CkIskm_BatchedVertexFactory.ush guard) is the suspect.",
-      "evidence": "UE 5.8 port: CkPlugins_58 feature/ue58-upgrade 6763e22 (CkFoundation 380c95b52, CkTests f2126686, CkGameplayDebugger 8d10469c), UE 5.8.4 ue58_engine 2b39d4c518d3, UnrealToolbox v1.68; two full gates on one build 2026-10-22/23 (Gate58-Fixed1 4328 run/33 red, Gate58-Fixed2 4328/39, renderer pass ran in both): red in both; solo fresh-boot run Solo58-MountedToolkit.TwoTabsModesAndCapture.log 2026-10-23: red.",
-      "added": "2026-10-23"
-    },
-    {
-      "test": "Ck.ProceduralAnimation.Action.Editor.Undo.SubjectChangeRefreshesAppearance",
-      "status": "red",
-      "reason": "UE 5.8: renderer-only. Expected 'clearing the subject changes the preview' to be true (Test_ProceduralAction_EditorConsolidation.cpp:339). Passed on 5.7. Cause not traced.",
-      "evidence": "UE 5.8 port: CkPlugins_58 6763e22 (CkFoundation 380c95b52, CkTests f2126686, CkGameplayDebugger 8d10469c), UE 5.8.4, UnrealToolbox v1.68; two full gates on one build 2026-10-22/23 (Gate58-Fixed1, Gate58-Fixed2): red in both; solo run Solo58-Undo.SubjectChangeRefreshesAppearance.log: red.",
-      "added": "2026-10-23"
-    },
-    {
       "test": "Ck.ProceduralAnimation.SurfaceMotion.SnapshotShowsThePendingContact",
       "status": "red",
       "reason": "UE 5.8: Expected 'Participation uses the accepted SurfaceMotion wall normal' and 'The participation facade reads a fresh accepted wall support frame' to be true (Test_ProceduralGait_SnapshotPie.cpp:1547). Passed on 5.7 (gates 2026-10-01/02). Not the tick rate (60 Hz confirmed in effect); cause not traced.",
