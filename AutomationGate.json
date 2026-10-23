@@ -307,8 +307,8 @@
     },
     {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_Avoidance_WallSegmentsKeepAgentOnMesh",
-      "status": "flaky",
-      "reason": "FLAKY: green alone. In-suite its window carries LogAssetRegistry 'OpenFile failed' warnings for CkUsf/GeneratedLooksTest/P<pid> assets removed by another lane's test (warnings elevate to errors). Was listed red in BusterBlock's own file (removed there when this entry landed, since a test in two files exits 80).",
+      "status": "red",
+      "reason": "OSCILLATES, listed red on purpose (BusterBlock listed it the same way on 5.7): green alone in the 5.8 solo run and in Gate58-Fixed1, red in Gate58-Fixed2 and in earlier BusterBlock gates. In-suite its window carries LogAssetRegistry 'OpenFile failed' warnings for CkUsf/GeneratedLooksTest/P<pid> assets removed by another lane's test (warnings elevate to errors). Moved here from BusterBlock's own file (a test in two files exits 80). As flaky its failing re-run would fail the gate; as red a pass only prints 'Now passing'.",
       "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 green, Gate58-Fixed2 2026-10-23 red; solo run Solo58-Crowd_Avoidance_WallSegmentsKeepAgentOnMesh.log: 1/1 green.",
       "added": "2026-10-23"
     },
