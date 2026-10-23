@@ -155,12 +155,13 @@ namespace ck_test_profile_cpu_work
                         ck::cpu_work::Get_Enabled(), ExpectedEnabled))
                     { return true; }
 
-                    _TracePath = FPaths::Combine(
+                    // Absolute: FTraceAuxiliary re-roots relative paths under ProfilingDir (BaseDir differs in the Shared environment).
+                    _TracePath = FPaths::ConvertRelativePathToFull(FPaths::Combine(
                         FPaths::ProjectSavedDir(),
                         TEXT("Profiling"),
                         TEXT("CpuWork"),
                         FString::Printf(TEXT("validation-%s-%d.utrace"),
-                            *FGuid::NewGuid().ToString(EGuidFormats::Digits), _CaptureIndex + 1));
+                            *FGuid::NewGuid().ToString(EGuidFormats::Digits), _CaptureIndex + 1)));
                     IFileManager::Get().MakeDirectory(*FPaths::GetPath(_TracePath), true);
                     auto Options = FTraceAuxiliary::FOptions{};
                     Options.bExcludeTail = true;
