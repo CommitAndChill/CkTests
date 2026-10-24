@@ -854,7 +854,7 @@ auto FCkTacticalInventory_AtlasCrop::RunTest(const FString&) -> bool
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTacticalInventory_Pie,
     "Ck.UiAuthoring.TacticalInventory.PIE",
-    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI)
 
 auto FCkTacticalInventory_Pie::RunTest(const FString&) -> bool
 {

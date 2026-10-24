@@ -75,7 +75,7 @@ namespace ck_world_map_native_test
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkUiWorldMap_Native,
     "Ck.UiAuthoring.WorldMap.NativeControl",
-    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI)
 
 auto FCkUiWorldMap_Native::RunTest(const FString&) -> bool
 {

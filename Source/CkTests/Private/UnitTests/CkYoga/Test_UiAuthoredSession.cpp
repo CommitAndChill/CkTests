@@ -812,7 +812,7 @@ auto FCkUiAuthoredSession_Lifetime::RunTest(const FString&) -> bool
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkUiAuthoredSession_StyleTokens,
     "Ck.UiAuthoring.UMG.Session.StyleTokens",
-    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI)
 
 auto FCkUiAuthoredSession_StyleTokens::RunTest(const FString&) -> bool
 {

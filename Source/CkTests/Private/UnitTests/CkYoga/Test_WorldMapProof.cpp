@@ -218,7 +218,7 @@ namespace ck_world_map_proof
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkWorldMap_PIE,
     "Ck.UiAuthoring.WorldMap.PIE",
-    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI)
 
 auto FCkWorldMap_PIE::RunTest(const FString&) -> bool
 {

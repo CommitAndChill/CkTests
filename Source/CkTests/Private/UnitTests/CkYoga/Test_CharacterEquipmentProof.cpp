@@ -665,7 +665,7 @@ auto FCkCharacterEquipment_Atlas::RunTest(const FString&) -> bool
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkCharacterEquipment_Pie,
     "Ck.UiAuthoring.CharacterEquipment.PIE",
-    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI)
 
 auto FCkCharacterEquipment_Pie::RunTest(const FString&) -> bool
 {

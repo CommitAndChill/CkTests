@@ -98,7 +98,7 @@ namespace ck_tests_ui_item_slot
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkUiItemSlotInteraction,
     "Ck.UiAuthoring.ItemSlot.DragEligibilityAndLifecycle",
-    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI)
 
 auto FCkUiItemSlotInteraction::RunTest(const FString&) -> bool
 {
