@@ -118,7 +118,7 @@ class ACk_AutoTest_Goap_Planner_InvalidGoal_Actor : ACk_AutoTestRunner
     TArray<FString> Get_RequiredLogErrors() const
     {
         TArray<FString> Out;
-        Out.Add("[Server] Registry.Find(Cond.Get_Key()) != goap::InvalidGoapKey\nCannot set a GOAP goal with an unresolved required key [AutoTest.Goap.ActionSet.WS.UnknownKey] on [");
+        Out.Add("Cannot set a GOAP goal with an unresolved required key [AutoTest.Goap.ActionSet.WS.UnknownKey] on [");
         return Out;
     }
 }
