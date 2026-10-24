@@ -97,7 +97,7 @@ namespace ck_test_walltime_fence
             {TEXT("CkCue/Public/CkCue/CkCueDiscovery_Subsystem.cpp"), 6},
             {TEXT("CkCue/Public/CkCue/CkCueExecutor_Subsystem.cpp"), 1},
             {TEXT("CkCue/Public/CkCue/CkCueSubsystem_Base.h"), 1},
-            {TEXT("CkGameSettings/Public/CkGameSettings/Subsystem/CkGameSettings_Subsystem.cpp"), 4},
+            {TEXT("CkGameSettings/Public/CkGameSettings/Subsystem/CkGameSettings_Subsystem.cpp"), 5},
             // The editor auto-cook's per-frame slice budgets (one SliceStart + elapsed pair per drain:
             // the editor-subsystem drain, and the world cooker's cell/mesh/rehydrate sweeps). Editor
             // save-hook work sliced behind a progress notification — it runs regardless of any game
@@ -159,7 +159,10 @@ namespace ck_test_walltime_fence
     //
     // 105 + 4 + 4 + 1 - 1 = 113, which is exactly what the scan finds. No slack: the ceiling is the
     // total, so the next read anywhere in CkFoundation moves it and has to be argued for here.
-    constexpr auto WallTimeCeiling = 113;
+    //
+    // 113 -> 114 (2026-10-23): failed physical-storage flushes retain pending settings and restart the
+    // existing two-second retry debounce. Its new GameSettings stamp measures process I/O delay, not game time.
+    constexpr auto WallTimeCeiling = 114;
 
     // (ii) The four watchdogs the C6 design MOVED onto the wall clock, with the minimum each must keep. This is
     // the half a ratchet cannot express: silently reverting one of these LOWERS a count.
