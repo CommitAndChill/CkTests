@@ -41,9 +41,9 @@
     },
     {
       "test": "Ck.GoapDebugger.AgentColumn.Authored.PIE",
-      "status": "flaky",
-      "reason": "FLAKY: green alone. Expected 'Physical mounted Replan action produces a real planner attempt: targeted=0 down=0 up=0' to be true.",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo GREEN",
+      "status": "red",
+      "reason": "RED on UE 5.8 (listed flaky on 5.7, where it was green alone). Expected 'Physical mounted Enabled switch reaches the live planner: targeted=0 down=0 up=0' to be true (Test_GoapDebugger_AgentColumnAuthoredPie.spec.cpp:469): a routed physical click into the mounted PIE agent column does not reach the live planner on 5.8. Cause not traced. 5.7 history: flaky on a different step of the same test ('Physical mounted Replan action produces a real planner attempt').",
+      "evidence": "UE 5.8 port: red in-suite in every CkPlugins_58 5.8 gate - Gate58-Fixed1 and Gate58-Fixed2 (tree 6763e22, 2026-10-22/23), Gate58-Verify (c5e2e54, 2026-10-23), Gate58-Verify2 (e7cd2d2, 2026-10-24) - and red again on the toolbox's re-run alone after Gate58-Verify2 (2026-10-25 01:04:51 UTC, Gate58-Verify2-keep.log); also red in BusterBlock_58 Gate58-Verify2 and Gate58-Verify3 renderer passes. UE 5.8.4, UnrealToolbox v1.68. 5.7 evidence kept: 2026-10-01 gates FF, solo GREEN (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4, toolbox v1.51).",
       "added": "2026-10-01"
     },
     {
