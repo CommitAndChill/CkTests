@@ -125,6 +125,10 @@ namespace ck_test_procedural_body_pose_tilt_steps
         double EffectiveMaxFPS = 0.0;
         uint32 EffectiveMaxFPSPriority = 0;
         bool TrialTimedOut = false;
+        int32 SustainedSteadySamples = 0;
+        int32 SustainedSteadySamplesNear60Hz = 0;
+        double ShortestSustainedSampleSeconds = TNumericLimits<double>::Max();
+        double LongestSustainedSampleSeconds = 0.0;
     };
 
     class FScopedMaxFPS
@@ -495,6 +499,13 @@ namespace ck_test_procedural_body_pose_tilt_steps
         InState->Driving = true;
         InState->WasDriving = true;
         InState->LastSampleTime = InWorld->GetTimeSeconds();
+        InState->MaxFPSFoundAtTrial = UCk_Utils_AutoTest_UE::Get_CVarExists(FName{TEXT("t.MaxFPS")});
+        if (InState->MaxFPSFoundAtTrial)
+        {
+            const auto& MaxFPS = *IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+            InState->EffectiveMaxFPS = MaxFPS.GetFloat();
+            InState->EffectiveMaxFPSPriority = static_cast<uint32>(MaxFPS.GetFlags() & ECVF_SetByMask);
+        }
 
         const auto WeakState = TWeakPtr<FState>{InState};
         InState->DriveHandle = FWorldDelegates::OnWorldPreActorTick.AddLambda(
@@ -531,6 +542,14 @@ namespace ck_test_procedural_body_pose_tilt_steps
         const auto Steady = InState->WasDriving && InState->Driving;
         InState->WasDriving = InState->Driving;
         const auto Sample = ++InState->Frame;
+        if (Steady)
+        {
+            ++InState->SustainedSteadySamples;
+            InState->ShortestSustainedSampleSeconds = FMath::Min(InState->ShortestSustainedSampleSeconds, Elapsed);
+            InState->LongestSustainedSampleSeconds = FMath::Max(InState->LongestSustainedSampleSeconds, Elapsed);
+            if (Elapsed >= 1.0 / 72.0 && Elapsed <= 1.0 / 50.0)
+            { ++InState->SustainedSteadySamplesNear60Hz; }
+        }
 
         for (auto& Walker : InState->Walkers)
         {
@@ -747,6 +766,20 @@ auto
 {
     using namespace ck_test_procedural_body_pose_tilt_steps;
 
+    const auto MaxFPSName = FName{TEXT("t.MaxFPS")};
+    if (NOT TestTrue(TEXT("The sustained trial can lease t.MaxFPS"), UCk_Utils_AutoTest_UE::Get_CVarExists(MaxFPSName)))
+    { return false; }
+
+    const auto& MaxFPS = *IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+    const auto SavedMaxFPSValue = MaxFPS.GetString();
+    const auto SavedMaxFPSPriority = static_cast<uint32>(MaxFPS.GetFlags() & ECVF_SetByMask);
+    TSharedPtr<FScopedMaxFPS> MaxFPSLease = MakeShared<FScopedMaxFPS>(MaxFPSName);
+    if (NOT TestTrue(FString::Printf(TEXT("The sustained trial leases t.MaxFPS at 60 (effective %.3f, priority 0x%x)"),
+            MaxFPS.GetFloat(), static_cast<uint32>(MaxFPS.GetFlags() & ECVF_SetByMask)),
+            FMath::IsNearlyEqual(MaxFPS.GetFloat(), 60.0f, 0.01f)
+            && (MaxFPS.GetFlags() & ECVF_SetByMask) == ECVF_SetByConsole))
+    { return false; }
+
     const auto State = MakeSteppedWalkers();
     DoEnqueue_Walkers(this, State);
     DoEnqueue_SustainedRotation(State);
@@ -754,6 +787,17 @@ auto
         [this, State](UWorld*)
         {
             const auto MaxTrail = Get_DefaultMaxAttitudeLag() + TrailSlackDegrees;
+            UE_LOG(LogTemp, Display, TEXT("[SUSTAINED-60-CADENCE] cap %.3f/0x%x found %d steady %d near60 %d min %.5f max %.5f world seconds"),
+                State->EffectiveMaxFPS, State->EffectiveMaxFPSPriority, State->MaxFPSFoundAtTrial,
+                State->SustainedSteadySamples, State->SustainedSteadySamplesNear60Hz,
+                State->ShortestSustainedSampleSeconds, State->LongestSustainedSampleSeconds);
+            TestTrue(TEXT("The sustained cap remains effective in PIE"),
+                State->MaxFPSFoundAtTrial && FMath::IsNearlyEqual(State->EffectiveMaxFPS, 60.0, 0.01)
+                && State->EffectiveMaxFPSPriority == static_cast<uint32>(ECVF_SetByConsole));
+            TestTrue(FString::Printf(TEXT("The sustained trial observes its authored 60-Hz cadence (steady %d, near60 %d, min %.5f s, max %.5f s)"),
+                    State->SustainedSteadySamples, State->SustainedSteadySamplesNear60Hz,
+                    State->ShortestSustainedSampleSeconds, State->LongestSustainedSampleSeconds),
+                State->SustainedSteadySamples > 0 && State->SustainedSteadySamplesNear60Hz == State->SustainedSteadySamples);
             const auto MaxTargetRate = Get_DefaultMaxConformTiltRate() * TargetRateSlack;
             TestEqual(TEXT("The bodies turned the whole sustained rotation"), State->DrivenPitch, SustainedTotalDegrees, BodyStepToleranceDegrees);
             for (const auto& Walker : State->Walkers)
@@ -799,6 +843,7 @@ auto
             }
         })));
     DoEnqueue_DestroyAndEndPie(State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseMaxFPS(*this, MaxFPSLease, SavedMaxFPSValue, SavedMaxFPSPriority));
     return true;
 }
 
