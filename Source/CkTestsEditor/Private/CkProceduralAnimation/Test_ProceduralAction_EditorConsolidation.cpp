@@ -12,6 +12,7 @@
 #include "CkProceduralAnimationEditor/CkProceduralActionEditorModes.h"
 #include "CkProceduralAnimationEditor/CkProceduralActionSelectionProxy.h"
 #include "CkProceduralAnimationEditor/CkProceduralAction_CurveAdapter.h"
+#include "CkProceduralAnimationEditor/CkProceduralActionPreview_Config.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "EditorViewportClient.h"
@@ -131,21 +132,37 @@ namespace ck_test_procedural_action_editor_consolidation
             { return ck::procedural_action_editor::IsSamePoseTime(InKey.Get_Time().Get_Value(), InTime); });
     }
 
-    // The static meshes the preview viewport shows: what a refreshed appearance changes.
     auto
-        ShownMeshes(
-            FCk_ProceduralAction_EditorToolkit& InToolkit)
-        -> TSet<const UStaticMesh*>
+        SubjectComponents(
+            FCk_ProceduralAction_EditorToolkit& InToolkit,
+            const TSet<FSoftObjectPath>& InExpectedMeshes)
+        -> TArray<TWeakObjectPtr<UStaticMeshComponent>>
     {
-        auto Meshes = TSet<const UStaticMesh*>{};
+        auto Components = TArray<TWeakObjectPtr<UStaticMeshComponent>>{};
         const auto Client = FindViewportClient(InToolkit);
         const auto* World = Client.IsValid() ? Client->GetWorld() : nullptr;
         if (World == nullptr)
-        { return Meshes; }
-        for (const auto* Component : TObjectRange<UStaticMeshComponent>{})
+        { return Components; }
+        for (auto* Component : TObjectRange<UStaticMeshComponent>{})
         {
-            if (Component->GetWorld() == World && Component->IsRegistered() && Component->GetStaticMesh() != nullptr)
-            { Meshes.Add(Component->GetStaticMesh()); }
+            if (Component->GetWorld() == World && Component->IsRegistered() && Component->IsVisible()
+                && Component->GetStaticMesh() != nullptr
+                && InExpectedMeshes.Contains(FSoftObjectPath{Component->GetStaticMesh()}))
+            { Components.Add(Component); }
+        }
+        return Components;
+    }
+
+    auto
+        SubjectMeshes(
+            const TArray<TWeakObjectPtr<UStaticMeshComponent>>& InComponents)
+        -> TSet<FSoftObjectPath>
+    {
+        auto Meshes = TSet<FSoftObjectPath>{};
+        for (const auto& Component : InComponents)
+        {
+            if (Component.IsValid() && Component->GetStaticMesh() != nullptr)
+            { Meshes.Add(FSoftObjectPath{Component->GetStaticMesh()}); }
         }
         return Meshes;
     }
@@ -304,7 +321,9 @@ namespace ck_test_procedural_action_editor_consolidation
 
     struct FAppearanceState : FDisposableClipToolkit
     {
-        TSet<const UStaticMesh*> Before;
+        TSet<FSoftObjectPath> ExpectedMeshes;
+        TArray<TWeakObjectPtr<UStaticMeshComponent>> Before;
+        int32 ExpectedComponents = 0;
     };
 
     class FRunSubjectUndoRefreshesAppearance final : public IAutomationLatentCommand
@@ -322,18 +341,43 @@ namespace ck_test_procedural_action_editor_consolidation
             { return State.Fail(TEXT("the clip editor closed")); }
             if (State.Stage == 0)
             {
-                State.Before = ShownMeshes(*Editor);
-                if (NOT State.Settle(NOT State.Before.IsEmpty(), TEXT("the preview shows no mesh"), 300))
+                if (State.ExpectedMeshes.IsEmpty())
+                {
+                    const auto* Config = Editor->Get_Session()->Get_PreviewConfig();
+                    if (Config == nullptr)
+                    { return State.Fail(TEXT("the subject has no preview config")); }
+                    if (NOT Config->Get_BodyPreviewMesh().IsNull())
+                    {
+                        State.ExpectedMeshes.Add(Config->Get_BodyPreviewMesh().ToSoftObjectPath());
+                        ++State.ExpectedComponents;
+                    }
+                    for (const auto& Binding : Config->Get_LimbBindings())
+                    {
+                        if (NOT Binding.Get_PreviewMesh().IsNull())
+                        {
+                            State.ExpectedMeshes.Add(Binding.Get_PreviewMesh().ToSoftObjectPath());
+                            ++State.ExpectedComponents;
+                        }
+                    }
+                    if (State.ExpectedMeshes.IsEmpty())
+                    { return State.Fail(TEXT("the subject authors no appearance meshes")); }
+                }
+                State.Before = SubjectComponents(*Editor, State.ExpectedMeshes);
+                const auto Ready = State.Before.Num() == State.ExpectedComponents
+                    && SubjectMeshes(State.Before).Includes(State.ExpectedMeshes);
+                if (NOT State.Settle(Ready, TEXT("the authored subject appearance has not loaded"), 300))
                 { return false; }
-                if (State.Before.IsEmpty())
-                { return State.Fail(TEXT("the preview never showed its subject")); }
+                if (NOT Ready)
+                { return State.Fail(TEXT("the preview never showed its authored subject meshes")); }
                 Editor->SetScenario(nullptr);
                 State.Stage = 1;
                 return false;
             }
             if (State.Stage == 1)
             {
-                const auto Changed = NOT ShownMeshes(*Editor).Includes(State.Before) || ShownMeshes(*Editor).Num() != State.Before.Num();
+                const auto Removed = NOT State.Before.ContainsByPredicate([](const auto& InComponent)
+                { return InComponent.IsValid() && InComponent->IsRegistered(); });
+                const auto Changed = Removed && SubjectComponents(*Editor, State.ExpectedMeshes).IsEmpty();
                 if (NOT State.Settle(Changed, TEXT("clearing the subject did not change the preview")))
                 { return false; }
                 if (NOT State.Test->TestTrue(TEXT("clearing the subject changes the preview"), Changed))
@@ -343,8 +387,9 @@ namespace ck_test_procedural_action_editor_consolidation
                 State.Stage = 2;
                 return false;
             }
-            const auto Restored = ShownMeshes(*Editor);
-            const auto Same = Restored.Num() == State.Before.Num() && Restored.Includes(State.Before);
+            const auto Restored = SubjectComponents(*Editor, State.ExpectedMeshes);
+            const auto Same = Restored.Num() == State.Before.Num()
+                && SubjectMeshes(Restored).Includes(State.ExpectedMeshes);
             if (NOT State.Settle(Same, TEXT("undo did not restore the preview"), 60))
             { return false; }
             State.Test->TestTrue(TEXT("undoing a subject change refreshes the preview's meshes"), Same);
