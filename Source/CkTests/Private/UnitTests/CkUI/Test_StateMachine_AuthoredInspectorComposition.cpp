@@ -880,10 +880,7 @@ bool FCkTest_StateMachine_AuthoredInspectorComposition::RunTest(const FString& P
                 if (Index > 0)
                 {
                     const auto& Previous = History[Index - 1];
-                    // Capture stores GFrameNumber (scene rendering), not GFrameCounter (engine ticks).
-                    // Completed production transitions may share a render frame; their array order is authoritative.
-                    TestTrue(*FString::Printf(TEXT("history [%d] render frame is nondecreasing: previous=%llu current=%llu"),
-                        Index, Previous.FrameNumber, Entry.FrameNumber), Entry.FrameNumber >= Previous.FrameNumber);
+                    // UMG viewport draws can decrement raw GFrameNumber; committed array order and real time carry chronology.
                     // This fixture issues separate requests and its tooltip probe requires distinct sampled times.
                     TestTrue(*FString::Printf(TEXT("history [%d] sampled time increases: previous=%.9f current=%.9f"),
                         Index, Previous.RealTimeSeconds, Entry.RealTimeSeconds), Entry.RealTimeSeconds > Previous.RealTimeSeconds);
@@ -943,6 +940,11 @@ bool FCkTest_StateMachine_AuthoredInspectorComposition::RunTest(const FString& P
                     const auto Tooltips = CaptureTimelineTooltips(Timeline.ToSharedRef(), History);
                     TestEqual(TEXT("all nine timeline tooltip payloads equal exact native timeline capture"),
                         TEXT("Transitions ") + FString::Join(Tooltips, TEXT(" ")), Rows.FindRef(TEXT("Timeline:")));
+                    for (auto Index = int32{0}; Index < Tooltips.Num() && Index < History.Num(); ++Index)
+                    {
+                        TestTrue(*FString::Printf(TEXT("timeline [%d] retains its raw render frame without chronological remapping"), Index),
+                            Tooltips[Index].Contains(FString::Printf(TEXT("(frame %llu,"), History[Index].FrameNumber)));
+                    }
 
                     const auto Plugin = IPluginManager::Get().FindPlugin(TEXT("CkDebugger"));
                     FString Markup;
