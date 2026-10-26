@@ -167,6 +167,15 @@ namespace ck_test_procedural_gait_recovery_pie
         double RecoveryGenerationOrigin = 0.0;
         double RecoveryGenerationMaxElapsed = 0.0;
         bool RecoveryGenerationTerminalLogged = false;
+        bool FixedFutureSampleCaptured = false;
+        uint64 FixedFutureGeneration = 0;
+        FTransform FixedFutureRoot = FTransform::Identity;
+        TArray<FCk_ArticulationLimbTarget> FixedFutureTargets;
+        float FixedFutureCadence = 0.0f;
+        int32 FixedFutureComparisons = 0;
+        int32 FixedFutureCadenceChanges = 0;
+        bool FixedFutureTargetsStable = true;
+        double FixedFutureMaxEndpointDriftCm = 0.0;
         TArray<FString> RecoveryLandingDiagnostics;
         bool ReattachmentHeldEndpointCaptured = false;
         bool ObservedSettledReattachment = false;
@@ -765,6 +774,60 @@ auto
                         : FCk_ProceduralGaitParticipation_Control::EvaluateRecovery(
                             Pinned->Gait, Controllers[0].Get_Token(), Lease.Get_AcceptedElapsed(),
                             Lease.Get_AcceptedElapsed(), Candidate);
+                    constexpr auto FixedFutureSeconds = 0.20;
+                    if (NOT Controllers.IsEmpty()
+                        && ReturnState == ECk_ProceduralLimbControl_ReturnState::Returning
+                        && Lease.Get_RecoveryGeneration() > 0
+                        && Lease.Get_AcceptedElapsed() <= FCk_Time{FixedFutureSeconds})
+                    {
+                        auto Future = FCk_ProceduralGaitParticipation_RecoveryCandidate{};
+                        const auto FutureResult = FCk_ProceduralGaitParticipation_Control::EvaluateRecovery(
+                            Pinned->Gait, Controllers[0].Get_Token(), Lease.Get_AcceptedElapsed(),
+                            FCk_Time{FixedFutureSeconds}, Future);
+                        if (FutureResult == ECk_ProceduralGaitParticipation_Result::Accepted
+                            && NOT Future.Get_Targets().IsEmpty())
+                        {
+                            const auto Root = Pinned->Subject.Get<ck::FFragment_Transform>().Get_Transform();
+                            const auto Debug = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(Pinned->Root);
+                            const auto Cadence = Debug.Get_Gait().Get_CadenceScale();
+                            if (Pinned->FixedFutureSampleCaptured
+                                && Pinned->FixedFutureGeneration == Lease.Get_RecoveryGeneration()
+                                && Pinned->FixedFutureRoot.Equals(Root, 1.0e-6))
+                            {
+                                ++Pinned->FixedFutureComparisons;
+                                if (NOT FMath::IsNearlyEqual(Cadence, Pinned->FixedFutureCadence, 1.0e-5f))
+                                { ++Pinned->FixedFutureCadenceChanges; }
+                                Pinned->FixedFutureTargetsStable &= Future.Get_Targets().Num()
+                                    == Pinned->FixedFutureTargets.Num();
+                                for (const auto& FutureTarget : Future.Get_Targets())
+                                {
+                                    const auto* Previous = Pinned->FixedFutureTargets.FindByPredicate(
+                                        [&](const auto& InTarget)
+                                        { return InTarget.Get_Id() == FutureTarget.Get_Id(); });
+                                    if (Previous == nullptr)
+                                    {
+                                        Pinned->FixedFutureTargetsStable = false;
+                                        continue;
+                                    }
+                                    const auto& Endpoint = FutureTarget.Get_RequestedEndpointWorld();
+                                    const auto& PreviousEndpoint = Previous->Get_RequestedEndpointWorld();
+                                    Pinned->FixedFutureTargetsStable &= Endpoint.Equals(PreviousEndpoint, 1.0e-4);
+                                    Pinned->FixedFutureMaxEndpointDriftCm = FMath::Max(
+                                        Pinned->FixedFutureMaxEndpointDriftCm,
+                                        FVector::Distance(Endpoint.GetLocation(), PreviousEndpoint.GetLocation()));
+                                }
+                            }
+                            Pinned->FixedFutureSampleCaptured = true;
+                            Pinned->FixedFutureGeneration = Lease.Get_RecoveryGeneration();
+                            Pinned->FixedFutureRoot = Root;
+                            Pinned->FixedFutureTargets = Future.Get_Targets();
+                            Pinned->FixedFutureCadence = Cadence;
+                        }
+                        else
+                        { Pinned->FixedFutureSampleCaptured = false; }
+                    }
+                    else
+                    { Pinned->FixedFutureSampleCaptured = false; }
                     const auto Target = Candidate.Get_Targets().IsEmpty()
                         ? FVector::ZeroVector : Candidate.Get_Targets()[0].Get_RequestedEndpointWorld().GetLocation();
                     if (NOT Controllers.IsEmpty() && Lease.Get_RecoveryGeneration() > 0)
@@ -1074,6 +1137,18 @@ auto
                 *FString::Join(State->RecoveryLandingDiagnostics, TEXT(" | ")));
             AddInfo(LandingDiagnosis);
             ck::tests::Log(TEXT("{}"), LandingDiagnosis);
+            const auto FixedFutureDiagnosis = FString::Printf(
+                TEXT("[MovedRootReturn fixed future] elapsed=0.200 comparisons=%d cadenceChanges=%d maxDrift=%.6f stable=%d"),
+                State->FixedFutureComparisons, State->FixedFutureCadenceChanges,
+                State->FixedFutureMaxEndpointDriftCm, State->FixedFutureTargetsStable);
+            AddInfo(FixedFutureDiagnosis);
+            ck::tests::Log(TEXT("{}"), FixedFutureDiagnosis);
+            TestTrue(TEXT("The fixed future recovery pose is compared across ordinary advancing solves"),
+                State->FixedFutureComparisons > 0);
+            TestTrue(TEXT("The fixed future comparison observes an actual live cadence change"),
+                State->FixedFutureCadenceChanges > 0);
+            TestTrue(TEXT("A prepared recovery target at fixed elapsed stays stable across live cadence changes"),
+                State->FixedFutureTargetsStable);
             TestFalse(TEXT("Any late no-candidate publication preserves the last accepted claimed chain"),
                 State->HoldInvariantFailed);
             TestTrue(TEXT("Moved root publishes one verified reattachment before return clock advances"),
