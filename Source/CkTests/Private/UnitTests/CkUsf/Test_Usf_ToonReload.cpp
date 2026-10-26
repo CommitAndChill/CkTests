@@ -1,11 +1,14 @@
 #if WITH_EDITOR
 
 #include "Misc/AutomationTest.h"
+#include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
+#include "CkUsfEditor/Generator/CkUsf_Generator.h"
 #include "AssetCompilingManager.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/SubsurfaceProfile.h"
 #include "Engine/Engine.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/World.h"
@@ -16,6 +19,7 @@
 #include "HAL/PlatformTime.h"
 #include "ImageUtils.h"
 #include "Materials/Material.h"
+#include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionConstant.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
 #include "Materials/MaterialExpressionConstant3Vector.h"
@@ -26,6 +30,7 @@
 #include "Misc/OutputDevice.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "Misc/Paths.h"
+#include "Misc/PackageName.h"
 #include "RenderingThread.h"
 #include "ShaderCore.h"
 #include "ShaderCompiler.h"
@@ -43,12 +48,23 @@ namespace ck_test_usf_toon_reload
         TStrongObjectPtr<UWorld> World;
         TStrongObjectPtr<UMaterial> Material;
         TStrongObjectPtr<UMaterialInstanceDynamic> Mid;
+        TStrongObjectPtr<UCkUsf_LookDefinition> Definition;
+        FString LookFile;
+        FString PackageRoot;
+        FString PackageDirectory;
+        TArray<uint8> LookBytes;
+        bool LookModified = false;
+        bool RejectionFixture = false;
+        int32 PreviousAutoReload = 0;
+        EConsoleVariableFlags AutoPriority = ECVF_SetByConstructor;
+        bool RestoreAutoReload = false;
         TStrongObjectPtr<UTextureRenderTarget2D> Target;
         TObjectPtr<USceneCaptureComponent2D> Capture;
         TObjectPtr<UDirectionalLightComponent> Light;
         FString ShaderFile;
         TArray<uint8> OriginalBytes;
         TAtomic<bool> Completed{false};
+        TAtomic<bool> ReloadRejected{false};
         bool Observing = false;
         bool Modified = false;
         bool RecoveryNeeded = false;
@@ -62,6 +78,8 @@ namespace ck_test_usf_toon_reload
         auto Serialize(const TCHAR* InMessage, ELogVerbosity::Type InVerbosity, const FName& InCategory)
             -> void override
         {
+            if (FString{InMessage}.Contains(TEXT("CkUsf reload rejected before material changes: Unsupported shading model for this engine")))
+            { ReloadRejected.Store(true); }
             if (FString{InMessage}.Contains(TEXT("CkUsf shading-model reload complete")))
             { Completed.Store(true); }
         }
@@ -87,10 +105,64 @@ namespace ck_test_usf_toon_reload
             return true;
         }
 
+        auto RestoreLook() -> bool
+        {
+            if (NOT LookModified)
+            { return true; }
+            if (NOT FFileHelper::SaveArrayToFile(LookBytes, *LookFile))
+            { return false; }
+            auto Actual = TArray<uint8>{};
+            if (NOT FFileHelper::LoadFileToArray(Actual, *LookFile) || Actual != LookBytes)
+            { return false; }
+            LookModified = false;
+            return true;
+        }
+
         ~FFixture()
         {
             if (Observing)
             { GLog->RemoveOutputDevice(this); }
+            if (NOT RestoreLook())
+            { UE_LOG(LogTemp, Error, TEXT("Toon rejection fixture could not restore owned source")); }
+            if (RejectionFixture)
+            {
+                if (Definition.IsValid())
+                { Definition->_ShadingModel = ECk_Usf_ShadingModel::DefaultLit; }
+                FAssetCompilingManager::Get().FinishAllCompilation();
+                if (GShaderCompilingManager != nullptr)
+                { GShaderCompilingManager->FinishAllCompilation(); }
+                FlushRenderingCommands();
+                if (Material.IsValid())
+                {
+                    for (const auto& Expression : Material->GetExpressions())
+                    {
+                        if (auto* Custom = Cast<UMaterialExpressionCustom>(Expression))
+                        { Custom->IncludeFilePaths.Reset(); }
+                    }
+                    Material->UpdateCachedExpressionData();
+                    Material->ClearFlags(RF_Public | RF_Standalone);
+                    Material->MarkAsGarbage();
+                }
+                if (Definition.IsValid())
+                {
+                    const auto File = FPackageName::LongPackageNameToFilename(
+                        Definition->Get_GeneratedMasterPackagePath(), FPackageName::GetAssetPackageExtension());
+                    if (IFileManager::Get().FileExists(*File) && NOT IFileManager::Get().Delete(*File))
+                    { UE_LOG(LogTemp, Error, TEXT("Toon rejection fixture could not remove owned master: %s"), *File); }
+                }
+                if (NOT PackageRoot.IsEmpty())
+                { FPackageName::UnRegisterMountPoint(PackageRoot, PackageDirectory); }
+            }
+            if (RestoreAutoReload)
+            {
+                auto& Auto = *IConsoleManager::Get().FindConsoleVariable(TEXT("Ck.Usf.AutoReload"));
+                if ((Auto.GetFlags() & ECVF_SetByMask) == ECVF_SetByConsole && AutoPriority != ECVF_SetByConsole)
+                { Auto.Unset(ECVF_SetByConsole); }
+                else
+                { Auto.Set(PreviousAutoReload, AutoPriority); }
+                if (Auto.GetInt() != PreviousAutoReload || (Auto.GetFlags() & ECVF_SetByMask) != AutoPriority)
+                { UE_LOG(LogTemp, Error, TEXT("Toon rejection fixture failed to restore auto reload value/priority")); }
+            }
             // Failure cleanup is synchronous so it finishes before retry-mode restoration.
             // The normal pixel sequence exclusively exercises the public production command.
             if (Modified)
@@ -193,6 +265,205 @@ namespace ck_test_usf_toon_reload
             InTest.AddInfo(FString::Printf(TEXT("Toon inspection PNG: %s"), *Path));
             return Mean;
         }
+    };
+
+
+    auto PrepareUnsupportedReload(FAutomationTestBase& InTest, const TSharedRef<FFixture>& InFixture,
+        bool InSourceSelected) -> bool
+    {
+        auto* Auto = IConsoleManager::Get().FindConsoleVariable(TEXT("Ck.Usf.AutoReload"));
+        auto* Development = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ShaderDevelopmentMode"));
+        if (NOT InTest.TestNotNull(TEXT("Production auto-reload CVar exists"), Auto)
+            || NOT InTest.TestNotNull(TEXT("Shader development-mode CVar exists"), Development))
+        { return false; }
+        InFixture->PreviousAutoReload = Auto->GetInt();
+        InFixture->AutoPriority = static_cast<EConsoleVariableFlags>(Auto->GetFlags() & ECVF_SetByMask);
+        InFixture->RestoreAutoReload = true;
+        Auto->Set(0, ECVF_SetByConsole);
+        if (NOT InTest.TestEqual(TEXT("Owned source edits cannot trigger an automatic reload"), Auto->GetInt(), 0))
+        { return false; }
+        InFixture->PreviousDevelopmentMode = Development->GetInt();
+        InFixture->DevelopmentPriority = static_cast<EConsoleVariableFlags>(Development->GetFlags() & ECVF_SetByMask);
+        InFixture->RestoreDevelopmentMode = true;
+        InFixture->RejectionFixture = true;
+        const auto Id = FGuid::NewGuid().ToString(EGuidFormats::Digits);
+        const auto Directory = FPaths::ConvertRelativePathToFull(
+            FPaths::ProjectSavedDir() / TEXT("Automation/ToonRejectedReload") / Id);
+        const auto VirtualRoot = TEXT("/CkUsf/RejectedReload_") + Id;
+        InFixture->LookFile = Directory / TEXT("Look.ush");
+        InFixture->PackageRoot = TEXT("/CkUsfRejectedReload_") + Id + TEXT("/");
+        InFixture->PackageDirectory = Directory / TEXT("Packages/");
+        if (NOT InTest.TestTrue(TEXT("Create owned reload fixture directory"),
+            IFileManager::Get().MakeDirectory(*InFixture->PackageDirectory, true)))
+        { return false; }
+        AddShaderSourceDirectoryMapping(VirtualRoot, Directory);
+        FPackageName::RegisterMountPoint(InFixture->PackageRoot, InFixture->PackageDirectory);
+        const auto Source = FString{TEXT("#pragma once\n#include \"/CkUsf/Common.ush\"\n")
+            TEXT("FCkUsf_SurfaceOutput CkUsf_Look_RejectedReload(FCkUsf_SurfaceInput In, float Tint) { ")
+            TEXT("FCkUsf_SurfaceOutput O = CkUsf_DefaultSurface(); O.BaseColor = Tint; return O; }\n")};
+        if (NOT InTest.TestTrue(TEXT("Write owned compatible source"),
+                FFileHelper::SaveStringToFile(Source, *InFixture->LookFile, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
+            || NOT InTest.TestTrue(TEXT("Capture exact original owned source"),
+                FFileHelper::LoadFileToArray(InFixture->LookBytes, *InFixture->LookFile)))
+        { return false; }
+        InFixture->Definition.Reset(NewObject<UCkUsf_LookDefinition>());
+        InFixture->Definition->_LookName = FName{*(TEXT("RejectedReload_") + Id)};
+        InFixture->Definition->_GeneratedPackageRoot = InFixture->PackageRoot.LeftChop(1);
+        InFixture->Definition->_UshIncludePath = VirtualRoot / TEXT("Look.ush");
+        InFixture->Definition->_UshFunctionName = TEXT("CkUsf_Look_RejectedReload");
+        InFixture->Definition->_ShadingModel = ECk_Usf_ShadingModel::DefaultLit;
+        auto Tint = FCk_Usf_ParamDesc{};
+        Tint._Name = TEXT("Tint");
+        Tint._DefaultScalar = 0.4f;
+        InFixture->Definition->_Parameters.Add(Tint);
+        InFixture->Material.Reset(ck::usf_editor::Generate_LookMaterial(InFixture->Definition.Get()));
+        if (NOT InTest.TestNotNull(TEXT("Production generator seeds compatible reload master"), InFixture->Material.Get()))
+        { return false; }
+        FAssetCompilingManager::Get().FinishAllCompilation();
+        if (GShaderCompilingManager != nullptr)
+        { GShaderCompilingManager->FinishAllCompilation(); }
+        FlushRenderingCommands();
+        InFixture->Mid.Reset(UMaterialInstanceDynamic::Create(InFixture->Material.Get(), GetTransientPackage()));
+        if (NOT InTest.TestNotNull(TEXT("Existing MID exists before requesting unsupported Toon"), InFixture->Mid.Get()))
+        { return false; }
+        InFixture->Mid->SetScalarParameterValue(TEXT("Tint"), 0.75f);
+        if (InSourceSelected)
+        {
+            InFixture->LookModified = true;
+            if (NOT InTest.TestTrue(TEXT("Request Toon by changing only the owned source declaration"),
+                FFileHelper::SaveStringToFile(TEXT("// @ckusf shading_model Toon\n") + Source,
+                    *InFixture->LookFile, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM)))
+            { return false; }
+        }
+        else
+        { InFixture->Definition->_ShadingModel = ECk_Usf_ShadingModel::Toon; }
+        return true;
+    }
+
+    class FRejectedReloadSequence final : public IAutomationLatentCommand
+    {
+    public:
+        FRejectedReloadSequence(FAutomationTestBase& InTest, TSharedRef<FFixture> InFixture)
+            : Test(InTest), Fixture(MoveTemp(InFixture)),
+              MaterialIdentity(Fixture->Material->GetUniqueID()), MidIdentity(Fixture->Mid->GetUniqueID()),
+              StateId(Fixture->Material->StateId), Blend(Fixture->Material->BlendMode),
+              Lighting(Fixture->Material->TranslucencyLightingMode), TwoSided(Fixture->Material->TwoSided),
+              TangentSpace(Fixture->Material->bTangentSpaceNormal), Profile(Fixture->Material->SubsurfaceProfile)
+        {
+            Expressions = Fixture->Material->GetExpressionCollection().Expressions;
+            for (const auto& Expression : Expressions)
+            {
+                if (auto* Custom = Cast<UMaterialExpressionCustom>(Expression))
+                { Customs.Add(Custom); Codes.Add(Custom->Code); Outputs.Add(Custom->AdditionalOutputs); }
+            }
+            for (const auto Property : Properties)
+            { Inputs.Add(*Fixture->Material->GetExpressionInputForProperty(Property)); }
+            PackageFile = FPackageName::LongPackageNameToFilename(
+                Fixture->Definition->Get_GeneratedMasterPackagePath(), FPackageName::GetAssetPackageExtension());
+            Test.TestTrue(TEXT("Capture owned master bytes before rejection"), FFileHelper::LoadFileToArray(PackageBytes, *PackageFile));
+        }
+
+        auto Update() -> bool override
+        {
+            if (NOT Dispatched)
+            {
+                auto Prepared = ck::usf_editor::FPreparedLookShadingModelReload{};
+                auto Errors = TArray<FString>{};
+                Test.TestFalse(TEXT("Actual reload preflight rejects the owned unsupported Toon transition"),
+                    ck::usf_editor::Prepare_LookShadingModelReload(*Fixture->Material, Prepared, Errors));
+                Test.TestTrue(TEXT("Owned reload preflight explicitly reports missing native engine support"),
+                    Errors.Contains(TEXT("Unsupported shading model for this engine")));
+                Test.TestTrue(TEXT("Rejected preparation cannot apply a Custom node or new HLSL"),
+                    NOT Prepared.Custom.IsValid() && Prepared.Code.IsEmpty());
+                CheckUnchanged();
+                Test.AddExpectedError(TEXT("CkUsf reload rejected before material changes: Unsupported shading model for this engine"),
+                    EAutomationExpectedErrorFlags::Contains, 1);
+                GLog->AddOutputDevice(&Fixture.Get());
+                Fixture->Observing = true;
+                Dispatched = true;
+                if (NOT Test.TestTrue(TEXT("Dispatch actual production reload command"), Fixture->DispatchReload()))
+                { return true; }
+                return false;
+            }
+            if (NOT Fixture->ReloadRejected.Load())
+            {
+                if (FPlatformTime::Seconds() - Fixture->ReloadStarted < 120.0)
+                { return false; }
+                Test.AddError(TEXT("Production reload did not report explicit unsupported Toon rejection"));
+                return true;
+            }
+            Test.TestTrue(TEXT("Production shading-model command completes its global reload before material rejection"),
+                Fixture->Completed.Load());
+            CheckUnchanged();
+            Test.TestTrue(TEXT("Exact owned source restored after rejected reload"), Fixture->RestoreLook());
+            Fixture->Definition->_ShadingModel = ECk_Usf_ShadingModel::DefaultLit;
+            return true;
+        }
+
+    private:
+        auto CheckUnchanged() -> void
+        {
+            auto& Material = *Fixture->Material;
+            Test.TestTrue(TEXT("Rejected reload preserves existing material and MID identities"),
+                Material.GetUniqueID() == MaterialIdentity && Fixture->Mid->GetUniqueID() == MidIdentity);
+            Test.TestTrue(TEXT("Rejected reload preserves material state and shading settings"),
+                Material.StateId == StateId && Material.GetShadingModels().HasOnlyShadingModel(MSM_DefaultLit)
+                    && Material.BlendMode == Blend && Material.TranslucencyLightingMode == Lighting
+                    && Material.TwoSided == TwoSided && Material.bTangentSpaceNormal == TangentSpace
+                    && Material.SubsurfaceProfile == Profile.Get());
+            Test.TestTrue(TEXT("Rejected reload preserves the existing MID parent and scalar override"),
+                Fixture->Mid->Parent == Fixture->Material.Get()
+                    && FMath::IsNearlyEqual(Fixture->Mid->K2_GetScalarParameterValue(TEXT("Tint")), 0.75f));
+            Test.TestTrue(TEXT("Rejected reload preserves expression identities"),
+                Material.GetExpressionCollection().Expressions == Expressions);
+            for (auto Index = 0; Index < Customs.Num(); ++Index)
+            {
+                Test.TestEqual(TEXT("Rejected reload preserves Custom HLSL"), Customs[Index]->Code, Codes[Index]);
+                const auto& Before = Outputs[Index];
+                const auto& After = Customs[Index]->AdditionalOutputs;
+                Test.TestEqual(TEXT("Rejected reload preserves Custom output count"), After.Num(), Before.Num());
+                for (auto OutputIndex = 0; OutputIndex < FMath::Min(Before.Num(), After.Num()); ++OutputIndex)
+                {
+                    Test.TestTrue(TEXT("Rejected reload preserves Custom output names and types"),
+                        Before[OutputIndex].OutputName == After[OutputIndex].OutputName
+                            && Before[OutputIndex].OutputType == After[OutputIndex].OutputType);
+                }
+            }
+            for (auto Index = 0; Index < Properties.Num(); ++Index)
+            {
+                const auto& Before = Inputs[Index];
+                const auto& After = *Fixture->Material->GetExpressionInputForProperty(Properties[Index]);
+                Test.TestTrue(TEXT("Rejected reload preserves every material pin connection"),
+                    Before.Expression == After.Expression && Before.OutputIndex == After.OutputIndex
+                        && Before.Mask == After.Mask && Before.MaskR == After.MaskR && Before.MaskG == After.MaskG
+                        && Before.MaskB == After.MaskB && Before.MaskA == After.MaskA);
+            }
+            auto Actual = TArray<uint8>{};
+            Test.TestTrue(TEXT("Rejected reload writes no changes to the existing master package"),
+                FFileHelper::LoadFileToArray(Actual, *PackageFile) && Actual == PackageBytes);
+        }
+
+        FAutomationTestBase& Test;
+        TSharedRef<FFixture> Fixture;
+        uint32 MaterialIdentity;
+        uint32 MidIdentity;
+        FGuid StateId;
+        TEnumAsByte<EBlendMode> Blend;
+        TEnumAsByte<ETranslucencyLightingMode> Lighting;
+        bool TwoSided;
+        bool TangentSpace;
+        TWeakObjectPtr<USubsurfaceProfile> Profile;
+        TArray<TObjectPtr<UMaterialExpression>> Expressions;
+        TArray<TObjectPtr<UMaterialExpressionCustom>> Customs;
+        TArray<FString> Codes;
+        TArray<TArray<FCustomOutput>> Outputs;
+        const TArray<EMaterialProperty> Properties{MP_BaseColor, MP_Normal, MP_Metallic, MP_Specular, MP_Roughness,
+            MP_AmbientOcclusion, MP_EmissiveColor, MP_Opacity, MP_OpacityMask, MP_Refraction,
+            MP_SubsurfaceColor, MP_CustomData0, MP_CustomData1};
+        TArray<FExpressionInput> Inputs;
+        FString PackageFile;
+        TArray<uint8> PackageBytes;
+        bool Dispatched = false;
     };
 
     class FReloadSequence final : public IAutomationLatentCommand
@@ -386,8 +657,13 @@ auto FCkTest_Usf_ToonReload::RunTest(const FString& Parameters) -> bool
     ADD_LATENT_AUTOMATION_COMMAND(FReloadSequence(*this, Fixture));
     return true;
 #else
-    AddError(TEXT("Toon lighting reload requires engine UE_CK_USF_SHADING_MODEL_VERSION >= 1"));
-    return false;
+    using namespace ck_test_usf_toon_reload;
+    const auto Fixture = MakeShared<FFixture>();
+    constexpr auto SourceSelectedToon = false;
+    if (NOT PrepareUnsupportedReload(*this, Fixture, SourceSelectedToon))
+    { return false; }
+    ADD_LATENT_AUTOMATION_COMMAND(FRejectedReloadSequence(*this, Fixture));
+    return true;
 #endif
 }
 
