@@ -46,7 +46,9 @@ namespace ck_tests_resource_inspector_activity
     auto FindButton(const TSharedRef<SWidget>& InRoot, const FString& InText) -> TSharedPtr<SButton>
     {
         const FString& Type = InRoot->GetTypeAsString();
-        if ((Type == TEXT("SButton") || Type == TEXT("SCkUiStyledButton")) && ContainsText(InRoot, InText)) { return StaticCastSharedRef<SButton>(InRoot); }
+        if ((Type == TEXT("SButton") || Type == TEXT("SCkUiStyledButton")
+            || Type == TEXT("SCkUiTabsHeaderButton")) && ContainsText(InRoot, InText))
+        { return StaticCastSharedRef<SButton>(InRoot); }
         const FChildren* Children = InRoot->GetChildren();
         for (int32 Index = 0; Children != nullptr && Index < Children->Num(); ++Index)
         {
@@ -175,7 +177,7 @@ auto FCkResourceInspector_Activity::RunTest(const FString&) -> bool
     TestEqual(TEXT("Production clear action records activity"), Message(Activity, 0), FString(TEXT("Cleared selection.")));
 
     const TSharedPtr<SButton> ActivityHeader = FindButton(Tabs.ToSharedRef(), TEXT("Activity"));
-    if (!TestTrue(TEXT("Installed Activity header is actionable"), ActivityHeader.IsValid())) { return false; }
+    if (!TestTrue(TEXT("Installed Activity tab header mounts"), ActivityHeader.IsValid())) { return false; }
     if (!TestTrue(TEXT("Installed Activity header handles native pointer activation"), Click(Slate, Scope.Window.ToSharedRef(), ActivityHeader.ToSharedRef()))) { return false; }
     Tick(Slate);
     TestEqual(TEXT("Installed tab action selects Activity"), Model->GetDetailTab(), FString(TEXT("activity")));
