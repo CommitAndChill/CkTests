@@ -9,7 +9,7 @@
 // rest, so the signal is exact and needs no velocity threshold - but that also
 // means the query is only meaningful while the proxy is actually ragdolling.
 //
-// The three assertions, in the order they run:
+// The three settling assertions, alongside the physical-placement prerequisite:
 //   1. A proxy that has never ragdolled is NOT settled. A body that never fell
 //      has not come to rest - reporting settled there would make every consumer
 //      that gates on it fire before the ragdoll even starts.
@@ -63,10 +63,11 @@ class UCk_AutoTest_IskmRenderer_RagdollSettles : UCk_AutoTest_Base
         auto LocalHandle = InHandle;
         // Clear of the floor plate: at Z=0 the standing pose's lower bodies start interpenetrating
         // it and Chaos depenetration launches the ragdoll over a metre up before it can ever rest.
-        auto TransformHandle = utils_transform::Add(LocalHandle, FTransform(FVector(0.0f, 0.0f, 15.0f)));
+        auto SpawnTransform = FTransform(FVector(0.0f, 0.0f, 15.0f));
+        auto TransformHandle = utils_transform::Add(LocalHandle, SpawnTransform);
 
         auto Renderer = utils_iskm_renderer::Add(LocalHandle, RendererData);
-        auto Params = FCk_IskmProxy_Spec(Renderer, FTransform::Identity);
+        auto Params = FCk_IskmProxy_Spec(Renderer, SpawnTransform);
         _Proxy = utils_iskm_proxy::Add(TransformHandle, Params);
 
         Add_Step(          "a proxy that has never ragdolled is not settled", n"Step_AssertNotSettledBeforeRagdoll");
@@ -87,6 +88,13 @@ class UCk_AutoTest_IskmRenderer_RagdollSettles : UCk_AutoTest_Base
     UFUNCTION()
     private void Step_BeginRagdoll(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
+        auto RootComponentLocation = utils_iskm_proxy::Get_SocketTransform(
+            _Proxy, n"root", ECk_IskmProxy_TransformSpace::Component).GetLocation();
+        auto RootWorldLocation = utils_iskm_proxy::Get_SocketTransform(
+            _Proxy, n"root", ECk_IskmProxy_TransformSpace::World).GetLocation();
+        Assert_True(RootWorldLocation.Equals(RootComponentLocation + FVector(0.0f, 0.0f, 15.0f), 0.01f),
+            f"Physical mesh must spawn clear of the floor before ragdoll: component root={RootComponentLocation}, world root={RootWorldLocation}");
+
         FCk_Request_IskmProxy_BeginRagdoll Req;
         // Deliberately gentle: enough that the settle is a real physics outcome rather than a
         // body that never moved, small enough to keep the landing energy low. Assertion 2 does
