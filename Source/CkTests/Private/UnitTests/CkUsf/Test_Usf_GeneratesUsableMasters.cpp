@@ -20,6 +20,7 @@
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
 #include "CkUsf/Apply/CkUsf_Utils.h"
 #include "CkUsfEditor/Generator/CkUsf_Generator.h"
+#include "CkUsfEditor/Generator/CkUsf_LookValidator.h"
 
 #include "CkUsf_TestLookMasters.h"
 
@@ -57,20 +58,38 @@ bool FCkTest_Usf_GeneratesUsableMasters::RunTest(const FString& Parameters)
     //    master's shaders and reports any HLSL compile failures (the silent fallback-to-default
     //    case that a bare object/MID check misses — e.g. a broken PostProcess permutation).
     const auto TestPackageRoot = ck_test_usf::Get_TestPackageRoot();
-
-    const auto Result = ck::usf_editor::Generate_AllLookMaterials(TestPackageRoot);
-    TestTrue(TEXT("at least one look material generated"), Result.NumGenerated > 0);
-    TestEqual(TEXT("no looks skipped"), Result.NumSkipped, 0);
-
-    for (const auto& ShaderError : Result.Errors)
-    { AddError(ShaderError); }
-    TestEqual(TEXT("no shader compile errors across looks"), Result.Errors.Num(), 0);
-
-    // 2. Discover the look definitions.
     const auto& ARM = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
     TArray<FAssetData> Assets;
     ARM.GetAssetsByClass(UCkUsf_LookDefinition::StaticClass()->GetClassPathName(), Assets);
     TestTrue(TEXT("found at least one UCkUsf_LookDefinition"), Assets.Num() > 0);
+    const auto EngineRejection = FString{TEXT("Unsupported shading model for this engine")};
+    auto UnsupportedLookPaths = TSet<FString>{};
+#if !defined(UE_CK_USF_SHADING_MODEL_VERSION) || UE_CK_USF_SHADING_MODEL_VERSION < 1
+    for (const auto& Asset : Assets)
+    {
+        const auto* Definition = Cast<UCkUsf_LookDefinition>(Asset.GetAsset());
+        if (NOT TestNotNull(TEXT("Look definition loads for capability validation"), Definition))
+        { continue; }
+        const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition);
+        if (Validation.Errors.Num() == 1 && Validation.Errors[0] == EngineRejection)
+        { UnsupportedLookPaths.Add(Definition->GetPathName()); }
+    }
+    if (NOT UnsupportedLookPaths.IsEmpty())
+    { AddExpectedError(*EngineRejection, EAutomationExpectedErrorFlags::Contains, UnsupportedLookPaths.Num()); }
+#endif
+
+    const auto Result = ck::usf_editor::Generate_AllLookMaterials(TestPackageRoot);
+    TestTrue(TEXT("at least one look material generated"), Result.NumGenerated > 0);
+    TestEqual(TEXT("Every supported look generates a master"), Result.NumGenerated, Assets.Num() - UnsupportedLookPaths.Num());
+    TestEqual(TEXT("Only explicitly unsupported engine looks are rejected"), Result.NumSkipped, UnsupportedLookPaths.Num());
+
+    for (const auto& ShaderError : Result.Errors)
+    {
+        if (UnsupportedLookPaths.IsEmpty() || ShaderError != EngineRejection)
+        { AddError(ShaderError); }
+    }
+    TestEqual(TEXT("No errors beyond the explicit engine capability rejections"),
+        Result.Errors.Num(), UnsupportedLookPaths.Num());
 
     // 3. Each look: the master this run generated resolves, the shipped one resolves through the runtime
     //    lookup, and a MID can be created from it.
@@ -81,6 +100,17 @@ bool FCkTest_Usf_GeneratesUsableMasters::RunTest(const FString& Parameters)
 
         const auto LookName = Def->Get_EffectiveLookName();
         const auto Name = LookName.ToString();
+        if (UnsupportedLookPaths.Contains(Def->GetPathName()))
+        {
+            const auto Validation = ck::usf_editor::Validate_LookDefinition(Def.Get());
+            TestFalse(TEXT("Unsupported engine continues to reject the authored look explicitly"), Validation.Get_IsValid());
+            TestTrue(TEXT("Engine rejection has exactly the expected capability diagnostic"),
+                Validation.Errors.Num() == 1 && Validation.Errors[0] == EngineRejection);
+            const auto PackagePath = Def->Get_GeneratedMasterPackagePath(TestPackageRoot);
+            TestNull(TEXT("Rejected look creates no generated material package in memory"), FindPackage(nullptr, *PackagePath));
+            TestFalse(TEXT("Rejected look writes no generated material package"), FPackageName::DoesPackageExist(PackagePath));
+            continue;
+        }
 
         const auto GeneratedPath = Def->Get_GeneratedMasterObjectPath(TestPackageRoot);
         const TWeakObjectPtr<UMaterial> GeneratedMaster = LoadObject<UMaterial>(nullptr, *GeneratedPath);

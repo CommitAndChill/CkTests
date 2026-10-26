@@ -27,6 +27,8 @@
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
 #include "CkUsf/Apply/CkUsf_Utils.h"
 #include "CkUsfEditor/Generator/CkUsf_Generator.h"
+#include "CkUsfEditor/Generator/CkUsf_LookValidator.h"
+#include "UObject/Package.h"
 
 #include "CkUsf_TestLookMasters.h"
 
@@ -435,6 +437,23 @@ bool FCkTest_Usf_NiagaraSpriteContract::RunTest(const FString& Parameters)
     }
 
     // ---- 4. Prove the negative: no look that did NOT opt in gained the flags or the pins ----
+    const auto EngineRejection = FString{TEXT("Unsupported shading model for this engine")};
+    const auto RejectionPackageRoot = TestPackageRoot / TEXT("UnsupportedContract_")
+        + FGuid::NewGuid().ToString(EGuidFormats::Digits);
+    auto UnsupportedLookPaths = TSet<FString>{};
+#if !defined(UE_CK_USF_SHADING_MODEL_VERSION) || UE_CK_USF_SHADING_MODEL_VERSION < 1
+    for (const auto* Definition : Definitions)
+    {
+        if (Definition->_UsedWithNiagaraSprites || Definition->_UsedWithNiagaraMeshParticles ||
+            Definition->_UsedWithNiagaraRibbons || Definition->_ParticleColor || Definition->_ParticleDynamicParameter)
+        { continue; }
+        const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition);
+        if (Validation.Errors.Num() == 1 && Validation.Errors[0] == EngineRejection)
+        { UnsupportedLookPaths.Add(Definition->GetPathName()); }
+    }
+    if (NOT UnsupportedLookPaths.IsEmpty())
+    { AddExpectedError(*EngineRejection, EAutomationExpectedErrorFlags::Contains, UnsupportedLookPaths.Num()); }
+#endif
     for (auto* Definition : Definitions)
     {
         if (Definition->_UsedWithNiagaraSprites || Definition->_UsedWithNiagaraMeshParticles ||
@@ -443,6 +462,23 @@ bool FCkTest_Usf_NiagaraSpriteContract::RunTest(const FString& Parameters)
         { continue; }
 
         const auto Name = Definition->Get_EffectiveLookName().ToString();
+
+        if (UnsupportedLookPaths.Contains(Definition->GetPathName()))
+        {
+            const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition);
+            TestFalse(TEXT("Unsupported engine rejects the non-particle look contract"), Validation.Get_IsValid());
+            TestTrue(TEXT("Rejected non-particle look reports exactly the engine capability diagnostic"),
+                Validation.Errors.Num() == 1 && Validation.Errors[0] == EngineRejection);
+            const auto PackagePath = Definition->Get_GeneratedMasterPackagePath(RejectionPackageRoot);
+            const auto ObjectPath = Definition->Get_GeneratedMasterObjectPath(RejectionPackageRoot);
+            TestNull(TEXT("Rejected look starts without an owned output package"), FindPackage(nullptr, *PackagePath));
+            TestNull(TEXT("Production generation rejects the unsupported non-particle look"),
+                ck::usf_editor::Generate_LookMaterial(Definition, RejectionPackageRoot));
+            TestNull(TEXT("Rejected generation publishes no owned material"), FindObject<UMaterial>(nullptr, *ObjectPath));
+            TestNull(TEXT("Rejected generation creates no owned package"), FindPackage(nullptr, *PackagePath));
+            TestFalse(TEXT("Rejected generation writes no owned package"), FPackageName::DoesPackageExist(PackagePath));
+            continue;
+        }
 
         auto* OtherMaster = Get_MasterMaterial(Definition);
         if (OtherMaster == nullptr)
