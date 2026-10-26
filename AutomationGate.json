@@ -40,13 +40,6 @@
       "added": "2026-10-01"
     },
     {
-      "test": "Ck.GoapDebugger.AgentColumn.Authored.PIE",
-      "status": "flaky",
-      "reason": "FLAKY: green alone. Expected 'Physical mounted Replan action produces a real planner attempt: targeted=0 down=0 up=0' to be true.",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo GREEN",
-      "added": "2026-10-01"
-    },
-    {
       "test": "Ck.GoapDebugger.SearchTrace.Authored.PIE",
       "status": "flaky",
       "reason": "FLAKY: green alone. Editor died mid-test in 2 of 3 gates (G1, G3) - in flight when a lane editor died, no error text; suspect the D.6 lane-death class (idle watchdog / GenericWindow fatal), not the test.",
@@ -148,13 +141,6 @@
       "test": "Ck.UIDebugger.History.PIE",
       "status": "red",
       "reason": "Expected 'Authored Expand All and Collapse All route to the retained tree' to be true.",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
-      "added": "2026-10-01"
-    },
-    {
-      "test": "Ck.UiAuthoring.EcsDebugger.StateMachineInspector.AuthoredVariants",
-      "status": "red",
-      "reason": "Expected 'physical pointer hover reveals the OnHover Stop action' to be true.",
       "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
       "added": "2026-10-01"
     },

@@ -67,6 +67,17 @@ namespace ck_tests_state_machine_authored
     auto TickSlate(FSlateApplication& InSlate) -> void
     { InSlate.PumpMessages(); InSlate.Tick(); InSlate.Tick(); }
 
+    auto ActivateMountedWindow(FSlateApplication& InSlate, const TSharedRef<SWindow>& InWindow) -> void
+    {
+        if (InSlate.IsRenderingOffScreen())
+        {
+            // Offscreen windows use FGenericWindow, whose native BringToFront cannot emit activation.
+            InSlate.ProcessWindowActivatedEvent(FWindowActivateEvent(FWindowActivateEvent::EA_Activate, InWindow));
+        }
+        else
+        { InWindow->BringToFront(true); }
+    }
+
     auto FindType(const TSharedRef<SWidget>& InRoot, const FString& InType) -> TSharedPtr<SWidget>
     {
         if (InRoot->GetTypeAsString() == InType) { return InRoot; }
@@ -187,7 +198,7 @@ namespace ck_tests_state_machine_authored
         const auto Window = InSlate.FindWidgetWindow(InButton);
         Result.NativeWindow = Window.IsValid() && Window->GetNativeWindow().IsValid();
         if (NOT Result.NativeWindow) { return Result; }
-        Window->BringToFront(true);
+        ActivateMountedWindow(InSlate, Window.ToSharedRef());
         TickSlate(InSlate);
         // A settling tick can open a deferred tooltip over the synthetic cursor. Close it after the final tick,
         // then redraw without ticking again so the physical move/click sees the production fixture window.
@@ -267,7 +278,7 @@ namespace ck_tests_state_machine_authored
         const auto Window = InSlate.FindWidgetWindow(InWidget);
         Result.NativeWindow = Window.IsValid() && Window->GetNativeWindow().IsValid();
         if (NOT Result.NativeWindow) { return Result; }
-        Window->BringToFront(true);
+        ActivateMountedWindow(InSlate, Window.ToSharedRef());
         TickSlate(InSlate);
         InSlate.CloseToolTip();
         InSlate.ReleaseAllPointerCapture(0);
@@ -309,7 +320,7 @@ namespace ck_tests_state_machine_authored
     {
         const auto Window = InSlate.FindWidgetWindow(InButton);
         if (NOT Window.IsValid() || NOT Window->GetNativeWindow().IsValid()) { return false; }
-        Window->BringToFront(true);
+        ActivateMountedWindow(InSlate, Window.ToSharedRef());
         TickSlate(InSlate);
         InSlate.CloseToolTip();
         InSlate.ReleaseAllPointerCapture(0);
@@ -340,9 +351,9 @@ namespace ck_tests_state_machine_authored
         InSlate.SetCursorPos(Position);
         InSlate.ProcessMouseMoveEvent(MoveEvent, true);
         InSlate.ForceRedrawWindow(Window.ToSharedRef());
-        return ContainsWidget(InSlate.LocateWindowUnderMouse(
-            Position, InSlate.GetInteractiveTopLevelWindows(), false, 0), HoverHost.ToSharedRef())
-            && InButton->GetVisibility() == EVisibility::Visible;
+        const auto GlobalPath = InSlate.LocateWindowUnderMouse(
+            Position, InSlate.GetInteractiveTopLevelWindows(), false, 0);
+        return ContainsWidget(GlobalPath, HoverHost.ToSharedRef()) && InButton->GetVisibility() == EVisibility::Visible;
     }
 
     auto RequestCount(const FCk_Handle& InEntity) -> int32

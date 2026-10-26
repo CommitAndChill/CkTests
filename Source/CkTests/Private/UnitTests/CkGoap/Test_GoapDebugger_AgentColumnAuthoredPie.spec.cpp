@@ -18,6 +18,7 @@
 #include "HAL/FileManager.h"
 #include "ImageUtils.h"
 #include "Input/Events.h"
+#include "Input/HittestGrid.h"
 #include "Layout/WidgetPath.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/Paths.h"
@@ -129,9 +130,10 @@ namespace ck_tests_goap_debugger_agent_column_authored_pie
         bool bTargeted = false;
         bool bDownHandled = false;
         bool bUpHandled = false;
+        FString TargetDiagnostic;
         FString Describe() const
         {
-            return FString::Printf(TEXT("targeted=%d down=%d up=%d"), bTargeted, bDownHandled, bUpHandled);
+            return FString::Printf(TEXT("targeted=%d down=%d up=%d %s"), bTargeted, bDownHandled, bUpHandled, *TargetDiagnostic);
         }
         auto Succeeded() const -> bool { return bTargeted && bDownHandled && bUpHandled; }
         auto DownSucceeded() const -> bool { return bTargeted && bDownHandled; }
@@ -141,11 +143,44 @@ namespace ck_tests_goap_debugger_agent_column_authored_pie
     {
         FMountedClickResult Result;
         const TSharedPtr<SWindow> Window = InSlate.FindWidgetWindow(InWidget);
-        if (!Window.IsValid() || !Window->GetNativeWindow().IsValid()) { return Result; }
-        Window->BringToFront(true);
+        if (!Window.IsValid() || !Window->GetNativeWindow().IsValid())
+        {
+            Result.TargetDiagnostic = TEXT("native-window=0");
+            return Result;
+        }
+        if (InSlate.IsRenderingOffScreen())
+        {
+            // Offscreen windows use FGenericWindow, whose native BringToFront cannot emit activation.
+            InSlate.ProcessWindowActivatedEvent(FWindowActivateEvent(FWindowActivateEvent::EA_Activate, Window.ToSharedRef()));
+        }
+        else
+        { Window->BringToFront(true); }
         Tick(InSlate);
         InSlate.ReleaseAllPointerCapture(0);
         const FGeometry Geometry = InWidget->GetCachedGeometry();
+        FWidgetPath ArrangedPath;
+        FString ArrangedRect = TEXT("<missing>");
+        if (InSlate.GeneratePathToWidgetUnchecked(InWidget, ArrangedPath, EVisibility::All))
+        {
+            for (int32 Index = 0; Index < ArrangedPath.Widgets.Num(); ++Index)
+            {
+                if (ArrangedPath.Widgets[Index].Widget == InWidget)
+                {
+                    const FGeometry& Arranged = ArrangedPath.Widgets[Index].Geometry;
+                    ArrangedRect = FString::Printf(TEXT("%s..%s"),
+                        *Arranged.LocalToAbsolute(FVector2D::ZeroVector).ToString(),
+                        *Arranged.LocalToAbsolute(Arranged.GetLocalSize()).ToString());
+                }
+            }
+        }
+        const FGeometry WindowGeometry = Window->GetCachedGeometry();
+        Result.TargetDiagnostic = FString::Printf(
+            TEXT("native-window=1 visible=%d hit-visible=%d enabled=%d cached=%s..%s arranged=%s window=%s..%s"),
+            InWidget->GetVisibility().IsVisible(), InWidget->GetVisibility().IsHitTestVisible(), InWidget->IsEnabled(),
+            *Geometry.LocalToAbsolute(FVector2D::ZeroVector).ToString(),
+            *Geometry.LocalToAbsolute(Geometry.GetLocalSize()).ToString(), *ArrangedRect,
+            *WindowGeometry.LocalToAbsolute(FVector2D::ZeroVector).ToString(),
+            *WindowGeometry.LocalToAbsolute(WindowGeometry.GetLocalSize()).ToString());
         if (Geometry.GetLocalSize().IsNearlyZero()) { return Result; }
         const FVector2D Position = Geometry.LocalToAbsolute(Geometry.GetLocalSize() * 0.5f);
         const TSet<FKey> None;
@@ -155,7 +190,15 @@ namespace ck_tests_goap_debugger_agent_column_authored_pie
         const FPointerEvent Up(0, FSlateApplication::CursorPointerIndex, Position, Position, None, EKeys::LeftMouseButton, 0.0f, FModifierKeysState{});
         InSlate.SetCursorPos(Position);
         InSlate.ProcessMouseMoveEvent(Move, true);
-        Result.bTargeted = WidgetPathContains(InSlate.LocateWindowUnderMouse(Position, InSlate.GetInteractiveTopLevelWindows(), false, 0), InWidget);
+        const FWidgetPath HitPath = InSlate.LocateWindowUnderMouse(Position, InSlate.GetInteractiveTopLevelWindows(), false, 0);
+        Result.bTargeted = WidgetPathContains(HitPath, InWidget);
+        const FWidgetPath SameWindowPath(Window->GetHittestGrid().GetBubblePath(Position, InSlate.GetCursorRadius(), false, 0));
+        Result.TargetDiagnostic += FString::Printf(TEXT(" position=%s global-count=%d global-root=%s global-leaf=%s same-window-targeted=%d same-window-count=%d same-window-leaf=%s"),
+            *Position.ToString(), HitPath.Widgets.Num(),
+            HitPath.Widgets.Num() == 0 ? TEXT("<none>") : *HitPath.Widgets[0].Widget->GetTypeAsString(),
+            HitPath.Widgets.Num() == 0 ? TEXT("<none>") : *HitPath.Widgets.Last().Widget->GetTypeAsString(),
+            WidgetPathContains(SameWindowPath, InWidget), SameWindowPath.Widgets.Num(),
+            SameWindowPath.Widgets.Num() == 0 ? TEXT("<none>") : *SameWindowPath.Widgets.Last().Widget->GetTypeAsString());
         if (!Result.bTargeted) { return Result; }
         Result.bDownHandled = InSlate.ProcessMouseButtonDownEvent(Window->GetNativeWindow(), Down);
         Result.bUpHandled = InSlate.ProcessMouseButtonUpEvent(Up);
