@@ -4,6 +4,7 @@ class UCk_AutoTest_Gait_Bob_LandingKicksSpring : UCk_AutoTest_Base
     default _TimeoutSeconds = 10.0f;
     private FCk_GaitAutoTestFixture _F;
     private FCk_Handle _Owner;
+    private int32 _LandingsBefore = 0;
     private const FTransform _Rest = FTransform(FVector(0.0, 0.0, 64.0));
 
     UFUNCTION(BlueprintOverride)
@@ -67,13 +68,16 @@ class UCk_AutoTest_Gait_Bob_LandingKicksSpring : UCk_AutoTest_Base
         Assert_Valid(_F.Bob, "bob node created under the root");
     }
 
-    // Vertical 6 cm, lateral 4 cm, no lag, no breath: every observable offset comes from the stride or the spring.
+    // Disable airborne lift to measure the landing kick independently of the spring's airborne target.
     private FCk_Bob_Spec Make_DemoSpec() const
     {
         auto Spec = FCk_Bob_Spec();
         Spec.Set_Stride(FCk_Bob_StrideParams(6.0f, 4.0f));
         Spec.Set_LagRate(0.0f);
         Spec.Set_BreathCm(0.0f);
+        auto Air = Spec.Get_Air();
+        Air.Set_LiftCmPerFallSpeed(0.0f);
+        Spec.Set_Air(Air);
         return Spec;
     }
 
@@ -93,6 +97,7 @@ class UCk_AutoTest_Gait_Bob_LandingKicksSpring : UCk_AutoTest_Base
     UFUNCTION()
     private void Step_Land(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
+        _LandingsBefore = utils_gait::Get_LandingCount(_F.Gait);
         _F.Character.Land();
     }
 
@@ -113,6 +118,11 @@ class UCk_AutoTest_Gait_Bob_LandingKicksSpring : UCk_AutoTest_Base
     UFUNCTION()
     private void Step_Finish(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
+        Assert_Equals_Int(utils_gait::Get_LandingCount(_F.Gait), _LandingsBefore + 1,
+            "the spring kick belongs to exactly one landing");
+        const auto Impact = utils_gait::Get_LastLandImpactSpeed(_F.Gait);
+        Assert_True(Impact >= 540.0f && Impact <= 660.0f,
+            f"landing impact {Impact} cm/s is the 600 cm/s fall speed within 10%");
         FinishSuccess();
     }
 }
