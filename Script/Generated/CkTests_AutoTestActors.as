@@ -1924,6 +1924,19 @@ class ACk_AutoTest_CkJolt_StaticBake_SimpleBox_RaycastMatchesChaos_Actor : ACk_A
     }
 }
 
+class ACk_AutoTest_CkJolt_StaticBake_SourceComponentNamesTheBakedComponent_Actor : ACk_AutoTestRunner
+{
+    default _TimeoutSeconds = 8.0f;
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_CkJolt_StaticBake_SourceComponentNamesTheBakedComponent");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
 class ACk_AutoTest_CkJolt_TeleportMovesBodyAndResetsVelocity_Actor : ACk_AutoTestRunner
 {
     default _TimeoutSeconds = 25.0f;
