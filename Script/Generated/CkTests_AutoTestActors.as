@@ -7326,6 +7326,18 @@ class ACk_AutoTest_ObjectPooling_StateMachineRecyclesAcrossRespawns_Actor : ACk_
     }
 }
 
+class ACk_AutoTest_Pacing_SharedWork_Actor : ACk_AutoTestRunner
+{
+    UFUNCTION(BlueprintOverride)
+    TSubclassOf<UCk_EntityScript_UE> Get_TestEntityScriptClass() const
+    {
+        auto Path = FSoftClassPath("/Script/Angelscript.Ck_AutoTest_Pacing_SharedWork");
+        TSubclassOf<UCk_EntityScript_UE> ResolvedClass;
+        ResolvedClass = Path.TryLoadClass();
+        return ResolvedClass;
+    }
+}
+
 class ACk_AutoTest_Particles_PickupLoopSustainedSim_Actor : ACk_AutoTestRunner
 {
     default _TimeoutSeconds = 240.0f;
