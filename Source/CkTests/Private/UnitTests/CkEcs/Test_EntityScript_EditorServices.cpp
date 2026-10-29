@@ -9,6 +9,8 @@
 #include "CkEcs/EntityScript/CkEntityScript.h"
 #include "CkEcs/Subsystem/CkEntityScript_Subsystem.h"
 
+#include "UnitTests/CkTest_ProcessContentRoot.h"
+
 #include <AssetRegistry/AssetData.h>
 #include <AssetRegistry/IAssetRegistry.h>
 #include <Editor.h>
@@ -64,7 +66,11 @@ bool FCkTest_EntityScript_EditorServices::RunTest(const FString& Parameters)
     ON_SCOPE_EXIT { SourceControl.SetProvider(OriginalProvider); };
 
     const auto Suffix = FGuid::NewGuid().ToString(EGuidFormats::Digits);
-    const auto AssetRoot = FString::Printf(TEXT("/Game/__CkEntityScriptEditorServices_%s"), *Suffix);
+    // Not /Game: every other editor of a parallel gate watches it, loads the new EntityScript blueprint,
+    // saves a SpawnParams struct for it and holds those files while this test deletes them. The
+    // SpawnParams struct follows the blueprint's content root, so both stay in this process's own root.
+    const auto AssetRoot = FString::Printf(TEXT("%s/__CkEntityScriptEditorServices_%s"),
+        *ck_test::Get_ProcessContentRoot(TEXT("CkEntityScriptEditorServicesTest")), *Suffix);
     const auto OldBlueprintName = FName(*FString::Printf(TEXT("CkEntityScriptEditorServices_%s_Old"), *Suffix));
     const auto NewBlueprintName = FName(*FString::Printf(TEXT("CkEntityScriptEditorServices_%s_New"), *Suffix));
     const auto FinalBlueprintName = FName(*FString::Printf(TEXT("CkEntityScriptEditorServices_%s_Final"), *Suffix));

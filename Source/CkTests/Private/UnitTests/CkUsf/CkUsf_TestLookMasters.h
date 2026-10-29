@@ -4,8 +4,9 @@
 //
 // NOT the shipped /CkFoundation/CkUsf/GeneratedLooks/: the toolbox spreads a real-RHI run over concurrent
 // headless editors, and two of them SavePackage-ing the same .uasset takes both processes down with
-// appError(ERROR_ALREADY_EXISTS). The process id makes the root unique per lane, so no two lanes can ever
-// target the same file, and a test run never rewrites shipped content.
+// appError(ERROR_ALREADY_EXISTS). The root is a content root only this process mounts
+// (CkTest_ProcessContentRoot.h), so no two lanes can ever target the same file, no other lane's asset
+// registry sees the masters come and go, and a test run never rewrites shipped content.
 //
 // The rule this encodes: NO test may generate into the shipped root. A new generation test passes
 // Get_TestPackageRoot() to ck::usf_editor::Generate_* and deletes its masters with the helper below.
@@ -15,7 +16,6 @@
 #include "CoreMinimal.h"
 
 #include "HAL/FileManager.h"
-#include "HAL/PlatformProcess.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 
@@ -23,14 +23,15 @@
 
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition_Naming.h"
 
+#include "UnitTests/CkTest_ProcessContentRoot.h"
+
 // --------------------------------------------------------------------------------------------------------------------
 
 namespace ck_test_usf
 {
     inline auto Get_TestPackageRoot() -> FString
     {
-        return FString::Printf(TEXT("/CkFoundation/CkUsf/GeneratedLooksTest/P%u"),
-            FPlatformProcess::GetCurrentProcessId());
+        return ck_test::Get_ProcessContentRoot(TEXT("CkUsfGeneratedLooksTest"));
     }
 
     // Generated masters are real packages on disk. Test subjects are fixtures, not content, so the file is
