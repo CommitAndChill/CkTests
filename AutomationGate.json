@@ -278,13 +278,6 @@
       "added": "2026-10-23"
     },
     {
-      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Chain_RequestCompletion_CancelledOnTeardown",
-      "status": "flaky",
-      "reason": "FLAKY: green alone. In-suite its window carries LogAssetRegistry 'OpenFile failed' warnings for Plugins/CkFoundation/Content/CkUsf/GeneratedLooksTest/P<pid>/*.uasset written and removed by another lane's generated-look test (functional tests elevate warnings to errors). Cross-lane artifact, not this test.",
-      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 green, Gate58-Fixed2 2026-10-23 red; solo run Solo58-Chain_RequestCompletion_CancelledOnTeardown.log: 1/1 green.",
-      "added": "2026-10-23"
-    },
-    {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_Avoidance_WallSegmentsKeepAgentOnMesh",
       "status": "red",
       "reason": "OSCILLATES, listed red on purpose (BusterBlock listed it the same way on 5.7): green alone in the 5.8 solo run and in Gate58-Fixed1, red in Gate58-Fixed2 and in earlier BusterBlock gates. In-suite its window carries LogAssetRegistry 'OpenFile failed' warnings for CkUsf/GeneratedLooksTest/P<pid> assets removed by another lane's test (warnings elevate to errors). Moved here from BusterBlock's own file (a test in two files exits 80). As flaky its failing re-run would fail the gate; as red a pass only prints 'Now passing'.",
@@ -296,13 +289,6 @@
       "status": "flaky",
       "reason": "FLAKY: green alone. In-suite: LogCkAutoTest_EntityLeaks 'finished with 2 entities alive outside its own lifetime subtree'; the Crowd family flaps under 6-lane 60 Hz load (inferred, Ck-side timing).",
       "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 green, Gate58-Fixed2 2026-10-23 red; solo run Solo58-Crowd_Disable_MidWalkStopsAndRejoinsInPlace.log: 1/1 green.",
-      "added": "2026-10-23"
-    },
-    {
-      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_Separation_CoincidentPairOrbitSearch",
-      "status": "flaky",
-      "reason": "FLAKY: green alone. In-suite: LogAssetRegistry 'OpenFile failed' warnings for CkUsf/GeneratedLooksTest/P<pid> assets from another lane plus LogCkAutoTest_EntityLeaks 'finished with 8 entities alive outside its own lifetime subtree'. Crowd family flaps under 6-lane 60 Hz load (inferred).",
-      "evidence": "UE 5.8 port: CkPlugins_58 6763e22, UE 5.8.4, UnrealToolbox v1.68; Gate58-Fixed1 green, Gate58-Fixed2 2026-10-23 red; solo run Solo58-Crowd_Separation_CoincidentPairOrbitSearch.log: 1/1 green.",
       "added": "2026-10-23"
     },
     {
