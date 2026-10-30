@@ -225,6 +225,7 @@ public class CkTests : CkModuleRules
             PrivateDependencyModuleNames.AddRange(new string[]
             {
                 "UnrealEd",
+                "DataValidation",
                 "EditorSubsystem",
                 "SourceControl",
                 "CkUsfEditor",
