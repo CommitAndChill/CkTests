@@ -659,7 +659,9 @@ auto
                 ECk_ProceduralLimbControl_SupportMode::CountOnly, 3});
             auto Return = FCk_ProceduralLimbControl_Return{};
             Return.Set_Duration(FCk_Time{0.25});
-            Return.Set_Timeout(FCk_Time{2.0});
+            // The moved-root route needs roughly 118 cm under a 2 cm publication budget.
+            // Keep the finite watchdog while allowing budgeted return and touchdown to finish.
+            Return.Set_Timeout(FCk_Time{5.0});
             Return.Set_MaxProbeAttempts(3);
             Locomotion.Set_Return(Return);
             auto Spec = FCk_ProceduralActionPlayer_Spec{};

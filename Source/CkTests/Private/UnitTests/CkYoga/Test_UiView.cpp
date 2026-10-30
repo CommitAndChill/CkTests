@@ -418,6 +418,8 @@ auto FCkUiAuthoringView_DataBindings::RunTest(const FString&) -> bool
     TestTrue(TEXT("Bound visibility getter supplies initial visibility"), ScrollMount->GetVisibility() == EVisibility::Visible);
 
     Query = TEXT("external update");
+    // UE 5.8 caches FSlateEditableTextLayout::BoundText as a TSlateNestedAttribute; prepass refreshes the bound value before reading it.
+    Search->SlatePrepass(1.0f);
     TestEqual(TEXT("Bound search getter updates without reload"), Search->GetText().ToString(), Query);
 
     Summary = TEXT("Updated summary");
