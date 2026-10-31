@@ -383,7 +383,14 @@ auto ACk_GroundNav_MatchedBenchmarkActor::Do_AdvanceEndpointProof() -> bool
         const auto Result = UCk_Utils_NavSurface_UE::Try_ProjectPoint(this, Query);
         if (Result.Get_Status() == ECk_NavSurface_QueryStatus::Success && IsClose(Result.Get_Location(), Point, GProjectionXyTolerance) &&
             FMath::Abs(Result.Get_Location().Z - Point.Z) <= GProjectionZTolerance) { return true; }
-        Do_SetFailure(FString::Printf(TEXT("endpoint proof failed for %s at workload point %d"), ProviderName(Provider), Index));
+        const auto Location = Result.Get_Location();
+        const auto Error = (Location - Point).GetAbs();
+        const auto Status = StaticEnum<ECk_NavSurface_QueryStatus>()->GetNameStringByValue(static_cast<int64>(Result.Get_Status()));
+        Do_SetFailure(FString::Printf(
+            TEXT("endpoint proof failed for %s at workload point %d: status=%s(%d) query=%s result=%s absoluteError=%s xyTolerance=%.3f zTolerance=%.3f searchHalfExtents=%s"),
+            ProviderName(Provider), Index, *Status, static_cast<int32>(Result.Get_Status()),
+            *Point.ToString(), *Location.ToString(), *Error.ToString(), GProjectionXyTolerance, GProjectionZTolerance,
+            *Query.Get_SearchHalfExtents().ToString()));
         return false;
     };
     if (_Mode == ECk_GroundNav_BenchmarkMode::QueryBurst128)
