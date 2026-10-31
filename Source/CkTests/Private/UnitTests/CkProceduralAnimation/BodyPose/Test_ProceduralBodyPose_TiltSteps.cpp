@@ -17,6 +17,7 @@
 #include "Engine/World.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformTime.h"
+#include "Misc/App.h"
 #include "Misc/AutomationTest.h"
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -179,6 +180,81 @@ namespace ck_test_procedural_body_pose_tilt_steps
         TSharedPtr<FScopedMaxFPS> _Lease;
         FString _SavedValue;
         uint32 _SavedPriority = 0;
+    };
+
+    // The cap limits wall-clock throughput. These two trials additionally own a fixed simulation clock so their
+    // authored 60 Hz sample bounds remain the same when a rendered frame takes longer than the simulation step.
+    class FScopedFixed60Hz
+    {
+    public:
+        FScopedFixed60Hz()
+            : _SavedUseFixedTimeStep{FApp::UseFixedTimeStep()}, _SavedFixedDeltaTime{FApp::GetFixedDeltaTime()}
+        {}
+
+        ~FScopedFixed60Hz()
+        {
+            if (_Active)
+            {
+                FApp::SetFixedDeltaTime(_SavedFixedDeltaTime);
+                FApp::SetUseFixedTimeStep(_SavedUseFixedTimeStep);
+            }
+        }
+
+        FScopedFixed60Hz(const FScopedFixed60Hz&) = delete;
+        auto operator=(const FScopedFixed60Hz&) -> FScopedFixed60Hz& = delete;
+
+        auto
+        Begin()
+            -> void
+        {
+            FApp::SetFixedDeltaTime(NominalFrameSeconds);
+            FApp::SetUseFixedTimeStep(true);
+            _Active = true;
+        }
+
+        auto
+        Get_SavedUseFixedTimeStep() const
+            -> bool
+        { return _SavedUseFixedTimeStep; }
+
+        auto
+        Get_SavedFixedDeltaTime() const
+            -> double
+        { return _SavedFixedDeltaTime; }
+
+    private:
+        bool _SavedUseFixedTimeStep = false;
+        double _SavedFixedDeltaTime = 0.0;
+        bool _Active = false;
+    };
+
+    class FCk_Latent_ReleaseFixed60Hz : public IAutomationLatentCommand
+    {
+    public:
+        FCk_Latent_ReleaseFixed60Hz(
+            FAutomationTestBase& InTest,
+            const TSharedRef<FScopedFixed60Hz>& InLease)
+            : _Test{InTest}, _Lease{InLease}, _SavedUseFixedTimeStep{InLease->Get_SavedUseFixedTimeStep()},
+              _SavedFixedDeltaTime{InLease->Get_SavedFixedDeltaTime()}
+        {}
+
+        virtual bool Update() override
+        {
+            _Lease.Reset();
+            const auto RestoredFlag = FApp::UseFixedTimeStep();
+            const auto RestoredDelta = FApp::GetFixedDeltaTime();
+            UE_LOG(LogTemp, Display, TEXT("[TILT-60-CLOCK] saved fixed%d/delta%.17g restored fixed%d/delta%.17g"),
+                _SavedUseFixedTimeStep, _SavedFixedDeltaTime, RestoredFlag, RestoredDelta);
+            _Test.TestTrue(TEXT("The authored 60 Hz trial restores its exact prior fixed-clock flag and delta after EndPIE"),
+                RestoredFlag == _SavedUseFixedTimeStep && RestoredDelta == _SavedFixedDeltaTime);
+            return true;
+        }
+
+    private:
+        FAutomationTestBase& _Test;
+        TSharedPtr<FScopedFixed60Hz> _Lease;
+        bool _SavedUseFixedTimeStep = false;
+        double _SavedFixedDeltaTime = 0.0;
     };
 
     auto
@@ -700,8 +776,12 @@ auto
             && (MaxFPS.GetFlags() & ECVF_SetByMask) == ECVF_SetByConsole))
     { return false; }
 
+    const auto FixedClockLease = MakeShared<FScopedFixed60Hz>();
     const auto State = MakeSteppedWalkers();
     DoEnqueue_Walkers(this, State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [FixedClockLease](UWorld*)
+        { FixedClockLease->Begin(); })));
     DoEnqueue_PitchSteps(State, StepFrames);
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
@@ -748,6 +828,7 @@ auto
             }
         })));
     DoEnqueue_DestroyAndEndPie(State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseFixed60Hz(*this, FixedClockLease));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseMaxFPS(*this, MaxFPSLease, SavedMaxFPSValue, SavedMaxFPSPriority));
     return true;
 }
@@ -780,8 +861,12 @@ auto
             && (MaxFPS.GetFlags() & ECVF_SetByMask) == ECVF_SetByConsole))
     { return false; }
 
+    const auto FixedClockLease = MakeShared<FScopedFixed60Hz>();
     const auto State = MakeSteppedWalkers();
     DoEnqueue_Walkers(this, State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [FixedClockLease](UWorld*)
+        { FixedClockLease->Begin(); })));
     DoEnqueue_SustainedRotation(State);
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
@@ -843,6 +928,7 @@ auto
             }
         })));
     DoEnqueue_DestroyAndEndPie(State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseFixed60Hz(*this, FixedClockLease));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseMaxFPS(*this, MaxFPSLease, SavedMaxFPSValue, SavedMaxFPSPriority));
     return true;
 }
