@@ -697,7 +697,7 @@ auto FCkTest_Usf_ToonReload::RunTest(const FString& Parameters) -> bool
     { return false; }
     if (TestTrue(TEXT("Production shading-model reload dispatched"), Fixture->DispatchReload()) == false)
     { return false; }
-    ADD_LATENT_AUTOMATION_COMMAND(FReloadSequence(*this, Fixture));
+    ADD_LATENT_AUTOMATION_COMMAND(ck_test_usf_toon_reload::FReloadSequence(*this, Fixture));
     return true;
 #else
     using namespace ck_test_usf_toon_reload;
