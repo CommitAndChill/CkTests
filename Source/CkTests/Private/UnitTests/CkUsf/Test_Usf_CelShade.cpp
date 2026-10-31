@@ -338,77 +338,81 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FCkTest_Usf_CelShadeGeneration::RunTest(const FString& Parameters)
 {
-    using namespace ck_test_usf_cel_shade;
-
-    if (FApp::CanEverRender() == false)
+    auto GeneratedMasters = ck_test_usf::FGeneratedMasterScope{*this};
+    if (!GeneratedMasters.Initialize()) { return false; }
+    const auto Succeeded = [&]() -> bool
     {
-        // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
-        // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
-        // must never read as a pass (it used to: AddInfo("Skipped") + return true).
-        AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
-                      "toolbox gate or with --no-nullrhi."));
-        return false;
-    }
+        using namespace ck_test_usf_cel_shade;
 
-    const auto Probe = TStrongObjectPtr<UCkUsf_LookDefinition>{Make_ProbeLookDefinition()};
-
-    const auto Validation = ck::usf_editor::Validate_LookDefinition(Probe.Get());
-    for (const auto& Warning : Validation.Warnings)
-    { AddInfo(FString::Printf(TEXT("validator warning: %s"), *Warning)); }
-    for (const auto& Error : Validation.Errors)
-    { AddError(FString::Printf(TEXT("validator error: %s"), *Error)); }
-    if (TestEqual(TEXT("the CelShade look validates with no errors"), Validation.Errors.Num(), 0) == false)
-    { return false; }
-
-    auto* Master = ck::usf_editor::Generate_LookMaterial(Probe.Get(), ck_test_usf::Get_TestPackageRoot());
-    if (TestNotNull(TEXT("the CelShade look generates a master material"), Master) == false)
-    { return false; }
-
-    const auto* Custom = Find_CustomNode(Master);
-    if (TestNotNull(TEXT("the CelShade master has a Custom node"), Custom))
-    {
-        for (const auto& Name : Get_ScalarParamNames())
+        if (FApp::CanEverRender() == false)
         {
-            TestTrue(*FString::Printf(TEXT("scalar param [%s] is connected"), *Name),
-                Get_IsCustomInputConnected(Custom, *Name));
+            // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
+            // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
+            // must never read as a pass (it used to: AddInfo("Skipped") + return true).
+            AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
+                          "toolbox gate or with --no-nullrhi."));
+            return false;
         }
 
-        for (const auto& Name : Get_VectorParamNames())
+        const auto Probe = TStrongObjectPtr<UCkUsf_LookDefinition>{Make_ProbeLookDefinition()};
+
+        const auto Validation = ck::usf_editor::Validate_LookDefinition(Probe.Get());
+        for (const auto& Warning : Validation.Warnings)
+        { AddInfo(FString::Printf(TEXT("validator warning: %s"), *Warning)); }
+        for (const auto& Error : Validation.Errors)
+        { AddError(FString::Printf(TEXT("validator error: %s"), *Error)); }
+        if (TestEqual(TEXT("the CelShade look validates with no errors"), Validation.Errors.Num(), 0) == false)
+        { return false; }
+
+        auto* Master = ck::usf_editor::Generate_LookMaterial(Probe.Get(), GeneratedMasters.Get_PackageRoot());
+        if (TestNotNull(TEXT("the CelShade look generates a master material"), Master) == false)
+        { return false; }
+
+        const auto* Custom = Find_CustomNode(Master);
+        if (TestNotNull(TEXT("the CelShade master has a Custom node"), Custom))
         {
-            TestTrue(*FString::Printf(TEXT("vector param [%s] is connected"), *Name),
-                Get_IsCustomInputConnected(Custom, *Name));
+            for (const auto& Name : Get_ScalarParamNames())
+            {
+                TestTrue(*FString::Printf(TEXT("scalar param [%s] is connected"), *Name),
+                    Get_IsCustomInputConnected(Custom, *Name));
+            }
+
+            for (const auto& Name : Get_VectorParamNames())
+            {
+                TestTrue(*FString::Printf(TEXT("vector param [%s] is connected"), *Name),
+                    Get_IsCustomInputConnected(Custom, *Name));
+            }
+
+            // The GBuffer reads and the stencil are the whole reason this look exists; a missing pin here
+            // reads as black in the shader rather than as an error.
+            for (const auto& Name : Get_SceneTextureInputNames())
+            {
+                TestTrue(*FString::Printf(TEXT("scene texture [%s] is wired"), *Name),
+                    Get_IsCustomInputConnected(Custom, *Name));
+            }
+
+            TestTrue(TEXT("the opt-in PostProcess WorldPosition is wired (world-space pattern space)"),
+                Get_IsCustomInputConnected(Custom, TEXT("WorldPosition")));
         }
 
-        // The GBuffer reads and the stencil are the whole reason this look exists; a missing pin here
-        // reads as black in the shader rather than as an error.
-        for (const auto& Name : Get_SceneTextureInputNames())
         {
-            TestTrue(*FString::Printf(TEXT("scene texture [%s] is wired"), *Name),
-                Get_IsCustomInputConnected(Custom, *Name));
+            // Throwaway master, so it can afford the destructive force — which is the only thing that turns
+            // "generates" into "compiles".
+            constexpr auto ForceSynchronousCompile = true;
+            auto Errors = TArray<FString>{};
+            const auto Compiled = ck::usf_editor::Validate_LookShaderCompile(
+                Master, FName(kProbeLookName), Errors, ForceSynchronousCompile);
+
+            const auto CompileErrors = FString::Join(Errors, TEXT("\n"));
+            if (Compiled == false)
+            { AddError(CompileErrors); }
+            TestEqual(TEXT("CelShade.ush reports no HLSL compile errors"), CompileErrors, FString{});
         }
 
-        TestTrue(TEXT("the opt-in PostProcess WorldPosition is wired (world-space pattern space)"),
-            Get_IsCustomInputConnected(Custom, TEXT("WorldPosition")));
-    }
-
-    {
-        // Throwaway master, so it can afford the destructive force — which is the only thing that turns
-        // "generates" into "compiles".
-        constexpr auto ForceSynchronousCompile = true;
-        auto Errors = TArray<FString>{};
-        const auto Compiled = ck::usf_editor::Validate_LookShaderCompile(
-            Master, FName(kProbeLookName), Errors, ForceSynchronousCompile);
-
-        const auto CompileErrors = FString::Join(Errors, TEXT("\n"));
-        if (Compiled == false)
-        { AddError(CompileErrors); }
-        TestEqual(TEXT("CelShade.ush reports no HLSL compile errors"), CompileErrors, FString{});
-    }
-
-    if (ck_test_usf::Delete_TestGeneratedMaster(FName(kProbeLookName)) == false)
-    { AddInfo(TEXT("Could not delete the probe's generated master file — harmless, but it is a stray asset on disk.")); }
-
-    return true;
+        return true;
+    }();
+    const auto CleanupSucceeded = GeneratedMasters.Close();
+    return Succeeded && CleanupSucceeded;
 }
 
 #endif // WITH_EDITOR

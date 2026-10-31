@@ -181,368 +181,364 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FCkTest_Usf_NiagaraSpriteContract::RunTest(const FString& Parameters)
 {
-    using namespace ck_test_usf_niagara_sprite_contract;
-
-    const auto ExpectedDynamicParameterNames = Get_ExpectedDynamicParameterNames();
-
-    if (FApp::CanEverRender() == false)
+    auto GeneratedMasters = ck_test_usf::FGeneratedMasterScope{*this};
+    if (!GeneratedMasters.Initialize()) { return false; }
+    const auto Succeeded = [&]() -> bool
     {
-        // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
-        // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
-        // must never read as a pass (it used to: AddInfo("Skipped") + return true).
-        AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
-                      "toolbox gate or with --no-nullrhi."));
-        return false;
-    }
+        using namespace ck_test_usf_niagara_sprite_contract;
 
-    // Regeneration goes to a lane-unique root, never the shipped GeneratedLooks — see CkUsf_TestLookMasters.h.
-    // Step 4's negative still reads the SHIPPED masters, which is what it is about.
-    const auto TestPackageRoot = ck_test_usf::Get_TestPackageRoot();
+        const auto ExpectedDynamicParameterNames = Get_ExpectedDynamicParameterNames();
 
-    auto Definitions = Get_AllLookDefinitions();
-    if (TestTrue(TEXT("found at least one UCkUsf_LookDefinition"), Definitions.Num() > 0) == false)
-    { return false; }
-
-    auto* ParticleLook = Find_LookNamed(Definitions, kParticleLookName);
-    if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), kParticleLookName), ParticleLook) == false)
-    { return false; }
-
-    // The look must actually declare the contract — otherwise everything below would pass vacuously.
-    TestTrue(TEXT("RingDissolveAdd opts into _UsedWithNiagaraSprites"),  ParticleLook->_UsedWithNiagaraSprites);
-    TestTrue(TEXT("RingDissolveAdd opts into _ParticleColor"),           ParticleLook->_ParticleColor);
-    TestTrue(TEXT("RingDissolveAdd opts into _ParticleDynamicParameter"),ParticleLook->_ParticleDynamicParameter);
-    TestFalse(TEXT("RingDissolveAdd does NOT opt into _UsedWithNiagaraRibbons"), ParticleLook->_UsedWithNiagaraRibbons);
-
-    // ---- 1. The look generates ----
-    auto* Master = ck::usf_editor::Generate_LookMaterial(ParticleLook, TestPackageRoot);
-    if (TestNotNull(TEXT("RingDissolveAdd generates a master material"), Master) == false)
-    { return false; }
-
-    // ---- 2. The generated master declares the Niagara SPRITE usage ----
-    // Without it a sprite renderer silently falls back to the DEFAULT material in a packaged build.
-    TestTrue(TEXT("generated master declares bUsedWithNiagaraSprites"), Master->bUsedWithNiagaraSprites != 0);
-
-    // Only sprite usage was added — ribbon and mesh-particle were deliberately left out.
-    TestFalse(TEXT("generated master does NOT declare ribbon usage"),        Master->bUsedWithNiagaraRibbons != 0);
-    TestFalse(TEXT("generated master does NOT declare mesh-particle usage"), Master->bUsedWithNiagaraMeshParticles != 0);
-
-    // ---- 3. ParticleColor and all four DynParam pins are CONNECTED, not merely declared ----
-    {
-        const auto* Custom = Find_CustomNode(Master);
-        if (TestNotNull(TEXT("generated master has a Custom node"), Custom))
+        if (FApp::CanEverRender() == false)
         {
-            for (const auto* InputName : { TEXT("ParticleColor"), TEXT("ParticleAlpha") })
+            // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
+            // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
+            // must never read as a pass (it used to: AddInfo("Skipped") + return true).
+            AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
+                          "toolbox gate or with --no-nullrhi."));
+            return false;
+        }
+
+        // Regeneration goes to an invocation-unique Saved root, never the shipped GeneratedLooks — see CkUsf_TestLookMasters.h.
+        // Step 4's negative still reads the SHIPPED masters, which is what it is about.
+        const auto TestPackageRoot = GeneratedMasters.Get_PackageRoot();
+
+        auto Definitions = Get_AllLookDefinitions();
+        if (TestTrue(TEXT("found at least one UCkUsf_LookDefinition"), Definitions.Num() > 0) == false)
+        { return false; }
+
+        auto* ParticleLook = Find_LookNamed(Definitions, kParticleLookName);
+        if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), kParticleLookName), ParticleLook) == false)
+        { return false; }
+
+        // The look must actually declare the contract — otherwise everything below would pass vacuously.
+        TestTrue(TEXT("RingDissolveAdd opts into _UsedWithNiagaraSprites"),  ParticleLook->_UsedWithNiagaraSprites);
+        TestTrue(TEXT("RingDissolveAdd opts into _ParticleColor"),           ParticleLook->_ParticleColor);
+        TestTrue(TEXT("RingDissolveAdd opts into _ParticleDynamicParameter"),ParticleLook->_ParticleDynamicParameter);
+        TestFalse(TEXT("RingDissolveAdd does NOT opt into _UsedWithNiagaraRibbons"), ParticleLook->_UsedWithNiagaraRibbons);
+
+        // ---- 1. The look generates ----
+        auto* Master = ck::usf_editor::Generate_LookMaterial(ParticleLook, TestPackageRoot);
+        if (TestNotNull(TEXT("RingDissolveAdd generates a master material"), Master) == false)
+        { return false; }
+
+        // ---- 2. The generated master declares the Niagara SPRITE usage ----
+        // Without it a sprite renderer silently falls back to the DEFAULT material in a packaged build.
+        TestTrue(TEXT("generated master declares bUsedWithNiagaraSprites"), Master->bUsedWithNiagaraSprites != 0);
+
+        // Only sprite usage was added — ribbon and mesh-particle were deliberately left out.
+        TestFalse(TEXT("generated master does NOT declare ribbon usage"),        Master->bUsedWithNiagaraRibbons != 0);
+        TestFalse(TEXT("generated master does NOT declare mesh-particle usage"), Master->bUsedWithNiagaraMeshParticles != 0);
+
+        // ---- 3. ParticleColor and all four DynParam pins are CONNECTED, not merely declared ----
+        {
+            const auto* Custom = Find_CustomNode(Master);
+            if (TestNotNull(TEXT("generated master has a Custom node"), Custom))
             {
-                TestEqual(*FString::Printf(TEXT("Custom input [%s] is connected"), InputName),
-                    static_cast<int32>(Get_CustomInputState(Custom, InputName)),
-                    static_cast<int32>(ECk_InputState::Connected));
+                for (const auto* InputName : { TEXT("ParticleColor"), TEXT("ParticleAlpha") })
+                {
+                    TestEqual(*FString::Printf(TEXT("Custom input [%s] is connected"), InputName),
+                        static_cast<int32>(Get_CustomInputState(Custom, InputName)),
+                        static_cast<int32>(ECk_InputState::Connected));
+                }
+
+                for (auto Channel = 0; Channel < 4; ++Channel)
+                {
+                    const auto InputName = FString::Printf(TEXT("DynParam%d"), Channel);
+                    TestEqual(*FString::Printf(TEXT("Custom input [%s] is connected"), *InputName),
+                        static_cast<int32>(Get_CustomInputState(Custom, *InputName)),
+                        static_cast<int32>(ECk_InputState::Connected));
+                }
             }
 
-            for (auto Channel = 0; Channel < 4; ++Channel)
+            TestTrue(TEXT("generated master contains a ParticleColor expression"),
+                Has_ExpressionOfType<UMaterialExpressionParticleColor>(Master));
+
+            const auto* DynamicParameter = Find_DynamicParameterNode(Master);
+            if (TestNotNull(TEXT("generated master contains a DynamicParameter expression"), DynamicParameter))
             {
-                const auto InputName = FString::Printf(TEXT("DynParam%d"), Channel);
-                TestEqual(*FString::Printf(TEXT("Custom input [%s] is connected"), *InputName),
-                    static_cast<int32>(Get_CustomInputState(Custom, *InputName)),
-                    static_cast<int32>(ECk_InputState::Connected));
-            }
-        }
-
-        TestTrue(TEXT("generated master contains a ParticleColor expression"),
-            Has_ExpressionOfType<UMaterialExpressionParticleColor>(Master));
-
-        const auto* DynamicParameter = Find_DynamicParameterNode(Master);
-        if (TestNotNull(TEXT("generated master contains a DynamicParameter expression"), DynamicParameter))
-        {
-            // Channel names come from the SOURCE material, so the generated master reads like the asset it
-            // recreates instead of Param1..4.
-            TestEqual(TEXT("DynamicParameter declares four channel names"),
-                DynamicParameter->ParamNames.Num(), ExpectedDynamicParameterNames.Num());
-
-            for (auto Index = 0; Index < FMath::Min(DynamicParameter->ParamNames.Num(), ExpectedDynamicParameterNames.Num()); ++Index)
-            {
-                TestEqual(*FString::Printf(TEXT("DynamicParameter channel %d name"), Index),
-                    DynamicParameter->ParamNames[Index], ExpectedDynamicParameterNames[Index]);
-            }
-        }
-    }
-
-    // ---- 3b. The MESH-particle usage is a separate opt-in, and it is independent of the sprite one ----
-    {
-        auto* MeshLook = Find_LookNamed(Definitions, kMeshParticleLookName);
-        if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), kMeshParticleLookName), MeshLook))
-        {
-            TestTrue(TEXT("SlashDisAdd01 opts into _UsedWithNiagaraMeshParticles"),
-                MeshLook->_UsedWithNiagaraMeshParticles);
-            TestFalse(TEXT("SlashDisAdd01 does NOT opt into _UsedWithNiagaraSprites"),
-                MeshLook->_UsedWithNiagaraSprites);
-
-            if (auto* MeshMaster = ck::usf_editor::Generate_LookMaterial(MeshLook, TestPackageRoot);
-                TestNotNull(TEXT("SlashDisAdd01 generates a master material"), MeshMaster))
-            {
-                TestTrue(TEXT("generated master declares bUsedWithNiagaraMeshParticles"),
-                    MeshMaster->bUsedWithNiagaraMeshParticles != 0);
-                TestFalse(TEXT("a mesh-particle look does not silently gain sprite usage"),
-                    MeshMaster->bUsedWithNiagaraSprites != 0);
-                TestFalse(TEXT("a mesh-particle look does not gain ribbon usage"),
-                    MeshMaster->bUsedWithNiagaraRibbons != 0);
-
-                // It reads the same particle inputs as the sprite look — the usage flag is about which
-                // RENDERER accepts the master, not about what the shader is allowed to read.
-                const auto* MeshCustom = Find_CustomNode(MeshMaster);
-                TestEqual(TEXT("mesh-particle look has ParticleColor connected"),
-                    static_cast<int32>(Get_CustomInputState(MeshCustom, TEXT("ParticleColor"))),
-                    static_cast<int32>(ECk_InputState::Connected));
-                TestEqual(TEXT("mesh-particle look has DynParam0 connected"),
-                    static_cast<int32>(Get_CustomInputState(MeshCustom, TEXT("DynParam0"))),
-                    static_cast<int32>(ECk_InputState::Connected));
-            }
-        }
-    }
-
-    // ---- 3c. ParticleColor without a dynamic parameter: the two inputs are independently opt-in ----
-    {
-        auto* FlatLook = Find_LookNamed(Definitions, kNoDynamicParamLookName);
-        if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), kNoDynamicParamLookName), FlatLook))
-        {
-            TestTrue(TEXT("FlatAdd02 opts into _UsedWithNiagaraSprites"), FlatLook->_UsedWithNiagaraSprites);
-            TestTrue(TEXT("FlatAdd02 opts into _ParticleColor"),          FlatLook->_ParticleColor);
-            TestFalse(TEXT("FlatAdd02 declares NO dynamic parameter"),    FlatLook->_ParticleDynamicParameter);
-
-            if (auto* FlatMaster = ck::usf_editor::Generate_LookMaterial(FlatLook, TestPackageRoot);
-                TestNotNull(TEXT("FlatAdd02 generates a master material"), FlatMaster))
-            {
-                TestTrue(TEXT("generated master declares bUsedWithNiagaraSprites"),
-                    FlatMaster->bUsedWithNiagaraSprites != 0);
-                TestFalse(TEXT("FlatAdd02 does not gain ribbon usage"),
-                    FlatMaster->bUsedWithNiagaraRibbons != 0);
-
-                const auto* FlatCustom = Find_CustomNode(FlatMaster);
-                TestEqual(TEXT("FlatAdd02 has ParticleColor connected"),
-                    static_cast<int32>(Get_CustomInputState(FlatCustom, TEXT("ParticleColor"))),
-                    static_cast<int32>(ECk_InputState::Connected));
-
-                // The pin must be ABSENT, not merely unconnected: an unopted input still costs a Custom-node
-                // slot the look's parameter list never accounts for.
-                TestEqual(TEXT("FlatAdd02 has no DynParam0 input at all"),
-                    static_cast<int32>(Get_CustomInputState(FlatCustom, TEXT("DynParam0"))),
-                    static_cast<int32>(ECk_InputState::Absent));
-                TestFalse(TEXT("FlatAdd02 gained no DynamicParameter node"),
-                    Has_ExpressionOfType<UMaterialExpressionDynamicParameter>(FlatMaster));
-            }
-        }
-    }
-
-    // ---- 3d. An OPAQUE mesh-particle look: blend mode does not follow from the particle opt-ins ----
-    {
-        auto* ToonLook = Find_LookNamed(Definitions, kOpaqueParticleLookName);
-        if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), kOpaqueParticleLookName), ToonLook))
-        {
-            TestTrue(TEXT("BombToon opts into _UsedWithNiagaraMeshParticles"),
-                ToonLook->_UsedWithNiagaraMeshParticles);
-            TestFalse(TEXT("BombToon does NOT opt into _UsedWithNiagaraSprites"),
-                ToonLook->_UsedWithNiagaraSprites);
-
-            if (auto* ToonMaster = ck::usf_editor::Generate_LookMaterial(ToonLook, TestPackageRoot);
-                TestNotNull(TEXT("BombToon generates a master material"), ToonMaster))
-            {
-                TestTrue(TEXT("generated master declares bUsedWithNiagaraMeshParticles"),
-                    ToonMaster->bUsedWithNiagaraMeshParticles != 0);
-                TestEqual(TEXT("BombToon's generated master is opaque"),
-                    static_cast<int32>(ToonMaster->BlendMode.GetValue()), static_cast<int32>(BLEND_Opaque));
-
-                TestEqual(TEXT("BombToon has ParticleColor connected"),
-                    static_cast<int32>(Get_CustomInputState(Find_CustomNode(ToonMaster), TEXT("ParticleColor"))),
-                    static_cast<int32>(ECk_InputState::Connected));
-            }
-        }
-    }
-
-    // ---- 3e. RIBBON usage is a third, independent opt-in ----
-    // No look draws on a ribbon renderer yet, so the positive arm ratchets onto the first one that does rather
-    // than naming an asset that does not exist. The NEGATIVE arm is live today and is what actually guards the
-    // plumbing: adding the flag to the generator must not have switched the bit on for any existing look.
-    {
-        auto* RibbonLook = Find_RibbonOptedLook(Definitions);
-        if (RibbonLook == nullptr)
-        {
-            AddInfo(TEXT("No look declares _UsedWithNiagaraRibbons yet — the positive ribbon assertions activate "
-                         "with the first look that does. The roster-wide negative below is live regardless."));
-        }
-        else
-        {
-            const auto RibbonName = RibbonLook->Get_EffectiveLookName().ToString();
-
-            if (auto* RibbonMaster = ck::usf_editor::Generate_LookMaterial(RibbonLook, TestPackageRoot);
-                TestNotNull(*FString::Printf(TEXT("%s generates a master material"), *RibbonName), RibbonMaster))
-            {
-                TestTrue(*FString::Printf(TEXT("[%s] generated master declares bUsedWithNiagaraRibbons"), *RibbonName),
-                    RibbonMaster->bUsedWithNiagaraRibbons != 0);
-
-                // Independence: opting into ribbons must not drag the other two usages along with it.
-                TestEqual(*FString::Printf(TEXT("[%s] sprite usage tracks its own flag"), *RibbonName),
-                    static_cast<int32>(RibbonMaster->bUsedWithNiagaraSprites != 0),
-                    static_cast<int32>(RibbonLook->_UsedWithNiagaraSprites));
-                TestEqual(*FString::Printf(TEXT("[%s] mesh-particle usage tracks its own flag"), *RibbonName),
-                    static_cast<int32>(RibbonMaster->bUsedWithNiagaraMeshParticles != 0),
-                    static_cast<int32>(RibbonLook->_UsedWithNiagaraMeshParticles));
-            }
-        }
-    }
-
-    // ---- 3f. The FresnelBomb family: a whole family of TRANSLUCENT mesh-particle looks ----
-    // Every look is checked, not one representative, because the family exists to be three parameterizations of
-    // one shader — a generator that dropped a flag on the second and third would be invisible to a spot check.
-    for (const auto* FresnelName : kFresnelFamilyLookNames)
-    {
-        auto* FresnelLook = Find_LookNamed(Definitions, FresnelName);
-        if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), FresnelName), FresnelLook) == false)
-        { continue; }
-
-        TestTrue(*FString::Printf(TEXT("%s opts into _UsedWithNiagaraMeshParticles"), FresnelName),
-            FresnelLook->_UsedWithNiagaraMeshParticles);
-        TestFalse(*FString::Printf(TEXT("%s does NOT opt into _UsedWithNiagaraSprites"), FresnelName),
-            FresnelLook->_UsedWithNiagaraSprites);
-        TestTrue(*FString::Printf(TEXT("%s opts into _ParticleColor"), FresnelName), FresnelLook->_ParticleColor);
-        TestTrue(*FString::Printf(TEXT("%s opts into _ParticleDynamicParameter"), FresnelName),
-            FresnelLook->_ParticleDynamicParameter);
-
-        auto* FresnelMaster = ck::usf_editor::Generate_LookMaterial(FresnelLook, TestPackageRoot);
-        if (TestNotNull(*FString::Printf(TEXT("%s generates a master material"), FresnelName), FresnelMaster) == false)
-        { continue; }
-
-        TestTrue(*FString::Printf(TEXT("%s's master declares bUsedWithNiagaraMeshParticles"), FresnelName),
-            FresnelMaster->bUsedWithNiagaraMeshParticles != 0);
-        TestFalse(*FString::Printf(TEXT("%s's master does not gain sprite usage"), FresnelName),
-            FresnelMaster->bUsedWithNiagaraSprites != 0);
-        TestFalse(*FString::Printf(TEXT("%s's master does not gain ribbon usage"), FresnelName),
-            FresnelMaster->bUsedWithNiagaraRibbons != 0);
-
-        // A shell that renders opaque is not a shell — the layer under it disappears.
-        TestEqual(*FString::Printf(TEXT("%s's master is translucent"), FresnelName),
-            static_cast<int32>(FresnelMaster->BlendMode.GetValue()), static_cast<int32>(BLEND_Translucent));
-
-        const auto* FresnelCustom = Find_CustomNode(FresnelMaster);
-        TestEqual(*FString::Printf(TEXT("%s has ParticleColor connected"), FresnelName),
-            static_cast<int32>(Get_CustomInputState(FresnelCustom, TEXT("ParticleColor"))),
-            static_cast<int32>(ECk_InputState::Connected));
-        TestEqual(*FString::Printf(TEXT("%s has ParticleAlpha connected"), FresnelName),
-            static_cast<int32>(Get_CustomInputState(FresnelCustom, TEXT("ParticleAlpha"))),
-            static_cast<int32>(ECk_InputState::Connected));
-
-        // The dissolve rides channel 0 and the whole family animates through it, so a dead DynParam0 would
-        // freeze every bubble fully intact for its entire life.
-        TestEqual(*FString::Printf(TEXT("%s has DynParam0 connected"), FresnelName),
-            static_cast<int32>(Get_CustomInputState(FresnelCustom, TEXT("DynParam0"))),
-            static_cast<int32>(ECk_InputState::Connected));
-    }
-
-    // ---- 4. Prove the negative: no look that did NOT opt in gained the flags or the pins ----
-    const auto EngineRejection = FString{TEXT("Unsupported shading model for this engine")};
-    const auto RejectionPackageRoot = TestPackageRoot / TEXT("UnsupportedContract_")
-        + FGuid::NewGuid().ToString(EGuidFormats::Digits);
-    auto UnsupportedLookPaths = TSet<FString>{};
-#if !defined(UE_CK_USF_SHADING_MODEL_VERSION) || UE_CK_USF_SHADING_MODEL_VERSION < 1
-    for (const auto* Definition : Definitions)
-    {
-        if (Definition->_UsedWithNiagaraSprites || Definition->_UsedWithNiagaraMeshParticles ||
-            Definition->_UsedWithNiagaraRibbons || Definition->_ParticleColor || Definition->_ParticleDynamicParameter)
-        { continue; }
-        const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition);
-        if (Validation.Errors.Num() == 1 && Validation.Errors[0] == EngineRejection)
-        { UnsupportedLookPaths.Add(Definition->GetPathName()); }
-    }
-    if (NOT UnsupportedLookPaths.IsEmpty())
-    { AddExpectedError(*EngineRejection, EAutomationExpectedErrorFlags::Contains, UnsupportedLookPaths.Num()); }
-#endif
-    for (auto* Definition : Definitions)
-    {
-        if (Definition->_UsedWithNiagaraSprites || Definition->_UsedWithNiagaraMeshParticles ||
-            Definition->_UsedWithNiagaraRibbons ||
-            Definition->_ParticleColor || Definition->_ParticleDynamicParameter)
-        { continue; }
-
-        const auto Name = Definition->Get_EffectiveLookName().ToString();
-
-        if (UnsupportedLookPaths.Contains(Definition->GetPathName()))
-        {
-            const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition);
-            TestFalse(TEXT("Unsupported engine rejects the non-particle look contract"), Validation.Get_IsValid());
-            TestTrue(TEXT("Rejected non-particle look reports exactly the engine capability diagnostic"),
-                Validation.Errors.Num() == 1 && Validation.Errors[0] == EngineRejection);
-            const auto PackagePath = Definition->Get_GeneratedMasterPackagePath(RejectionPackageRoot);
-            const auto ObjectPath = Definition->Get_GeneratedMasterObjectPath(RejectionPackageRoot);
-            TestNull(TEXT("Rejected look starts without an owned output package"), FindPackage(nullptr, *PackagePath));
-            TestNull(TEXT("Production generation rejects the unsupported non-particle look"),
-                ck::usf_editor::Generate_LookMaterial(Definition, RejectionPackageRoot));
-            TestNull(TEXT("Rejected generation publishes no owned material"), FindObject<UMaterial>(nullptr, *ObjectPath));
-            TestNull(TEXT("Rejected generation creates no owned package"), FindPackage(nullptr, *PackagePath));
-            TestFalse(TEXT("Rejected generation writes no owned package"), FPackageName::DoesPackageExist(PackagePath));
-            continue;
-        }
-
-        auto* OtherMaster = Get_MasterMaterial(Definition);
-        if (OtherMaster == nullptr)
-        { continue; } // not generated on this machine — GeneratesUsableMasters owns that gate
-
-        TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain sprite usage"), *Name),
-            OtherMaster->bUsedWithNiagaraSprites != 0);
-        TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain mesh-particle usage"), *Name),
-            OtherMaster->bUsedWithNiagaraMeshParticles != 0);
-        TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain ribbon usage"), *Name),
-            OtherMaster->bUsedWithNiagaraRibbons != 0);
-        TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain a ParticleColor node"), *Name),
-            Has_ExpressionOfType<UMaterialExpressionParticleColor>(OtherMaster));
-        TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain a DynamicParameter node"), *Name),
-            Has_ExpressionOfType<UMaterialExpressionDynamicParameter>(OtherMaster));
-    }
-
-    // ---- 5. Double generation is idempotent: same flags, same wiring, no new errors ----
-    {
-        auto* Regenerated = ck::usf_editor::Generate_LookMaterial(ParticleLook, TestPackageRoot);
-        if (TestNotNull(TEXT("RingDissolveAdd regenerates"), Regenerated))
-        {
-            TestTrue(TEXT("sprite usage is stable across regeneration"), Regenerated->bUsedWithNiagaraSprites != 0);
-
-            const auto* Custom = Find_CustomNode(Regenerated);
-            TestEqual(TEXT("ParticleColor stays connected across regeneration"),
-                static_cast<int32>(Get_CustomInputState(Custom, TEXT("ParticleColor"))),
-                static_cast<int32>(ECk_InputState::Connected));
-            TestEqual(TEXT("DynParam0 stays connected across regeneration"),
-                static_cast<int32>(Get_CustomInputState(Custom, TEXT("DynParam0"))),
-                static_cast<int32>(ECk_InputState::Connected));
-
-            const auto* DynamicParameter = Find_DynamicParameterNode(Regenerated);
-            if (DynamicParameter != nullptr)
-            {
-                TestEqual(TEXT("channel names are stable across regeneration"),
+                // Channel names come from the SOURCE material, so the generated master reads like the asset it
+                // recreates instead of Param1..4.
+                TestEqual(TEXT("DynamicParameter declares four channel names"),
                     DynamicParameter->ParamNames.Num(), ExpectedDynamicParameterNames.Num());
-            }
 
-            // Exactly one of each — regeneration must REPLACE the nodes, not accumulate a second pair.
-            auto NumParticleColor = 0;
-            auto NumDynamicParameter = 0;
-            for (const auto& Expression : Regenerated->GetExpressions())
-            {
-                if (Cast<UMaterialExpressionParticleColor>(Expression) != nullptr)    { ++NumParticleColor; }
-                if (Cast<UMaterialExpressionDynamicParameter>(Expression) != nullptr) { ++NumDynamicParameter; }
+                for (auto Index = 0; Index < FMath::Min(DynamicParameter->ParamNames.Num(), ExpectedDynamicParameterNames.Num()); ++Index)
+                {
+                    TestEqual(*FString::Printf(TEXT("DynamicParameter channel %d name"), Index),
+                        DynamicParameter->ParamNames[Index], ExpectedDynamicParameterNames[Index]);
+                }
             }
-            TestEqual(TEXT("regeneration leaves exactly one ParticleColor node"),    NumParticleColor, 1);
-            TestEqual(TEXT("regeneration leaves exactly one DynamicParameter node"), NumDynamicParameter, 1);
         }
-    }
 
-    for (const auto* Definition : Definitions)
-    {
-        const auto LookName = Definition->Get_EffectiveLookName();
-        if (ck_test_usf::Delete_TestGeneratedMaster(LookName) == false)
+        // ---- 3b. The MESH-particle usage is a separate opt-in, and it is independent of the sprite one ----
         {
-            AddInfo(FString::Printf(
-                TEXT("Could not delete the regenerated master for look [%s] — harmless, but it is a stray asset on disk."),
-                *LookName.ToString()));
-        }
-    }
+            auto* MeshLook = Find_LookNamed(Definitions, kMeshParticleLookName);
+            if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), kMeshParticleLookName), MeshLook))
+            {
+                TestTrue(TEXT("SlashDisAdd01 opts into _UsedWithNiagaraMeshParticles"),
+                    MeshLook->_UsedWithNiagaraMeshParticles);
+                TestFalse(TEXT("SlashDisAdd01 does NOT opt into _UsedWithNiagaraSprites"),
+                    MeshLook->_UsedWithNiagaraSprites);
 
-    return true;
+                if (auto* MeshMaster = ck::usf_editor::Generate_LookMaterial(MeshLook, TestPackageRoot);
+                    TestNotNull(TEXT("SlashDisAdd01 generates a master material"), MeshMaster))
+                {
+                    TestTrue(TEXT("generated master declares bUsedWithNiagaraMeshParticles"),
+                        MeshMaster->bUsedWithNiagaraMeshParticles != 0);
+                    TestFalse(TEXT("a mesh-particle look does not silently gain sprite usage"),
+                        MeshMaster->bUsedWithNiagaraSprites != 0);
+                    TestFalse(TEXT("a mesh-particle look does not gain ribbon usage"),
+                        MeshMaster->bUsedWithNiagaraRibbons != 0);
+
+                    // It reads the same particle inputs as the sprite look — the usage flag is about which
+                    // RENDERER accepts the master, not about what the shader is allowed to read.
+                    const auto* MeshCustom = Find_CustomNode(MeshMaster);
+                    TestEqual(TEXT("mesh-particle look has ParticleColor connected"),
+                        static_cast<int32>(Get_CustomInputState(MeshCustom, TEXT("ParticleColor"))),
+                        static_cast<int32>(ECk_InputState::Connected));
+                    TestEqual(TEXT("mesh-particle look has DynParam0 connected"),
+                        static_cast<int32>(Get_CustomInputState(MeshCustom, TEXT("DynParam0"))),
+                        static_cast<int32>(ECk_InputState::Connected));
+                }
+            }
+        }
+
+        // ---- 3c. ParticleColor without a dynamic parameter: the two inputs are independently opt-in ----
+        {
+            auto* FlatLook = Find_LookNamed(Definitions, kNoDynamicParamLookName);
+            if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), kNoDynamicParamLookName), FlatLook))
+            {
+                TestTrue(TEXT("FlatAdd02 opts into _UsedWithNiagaraSprites"), FlatLook->_UsedWithNiagaraSprites);
+                TestTrue(TEXT("FlatAdd02 opts into _ParticleColor"),          FlatLook->_ParticleColor);
+                TestFalse(TEXT("FlatAdd02 declares NO dynamic parameter"),    FlatLook->_ParticleDynamicParameter);
+
+                if (auto* FlatMaster = ck::usf_editor::Generate_LookMaterial(FlatLook, TestPackageRoot);
+                    TestNotNull(TEXT("FlatAdd02 generates a master material"), FlatMaster))
+                {
+                    TestTrue(TEXT("generated master declares bUsedWithNiagaraSprites"),
+                        FlatMaster->bUsedWithNiagaraSprites != 0);
+                    TestFalse(TEXT("FlatAdd02 does not gain ribbon usage"),
+                        FlatMaster->bUsedWithNiagaraRibbons != 0);
+
+                    const auto* FlatCustom = Find_CustomNode(FlatMaster);
+                    TestEqual(TEXT("FlatAdd02 has ParticleColor connected"),
+                        static_cast<int32>(Get_CustomInputState(FlatCustom, TEXT("ParticleColor"))),
+                        static_cast<int32>(ECk_InputState::Connected));
+
+                    // The pin must be ABSENT, not merely unconnected: an unopted input still costs a Custom-node
+                    // slot the look's parameter list never accounts for.
+                    TestEqual(TEXT("FlatAdd02 has no DynParam0 input at all"),
+                        static_cast<int32>(Get_CustomInputState(FlatCustom, TEXT("DynParam0"))),
+                        static_cast<int32>(ECk_InputState::Absent));
+                    TestFalse(TEXT("FlatAdd02 gained no DynamicParameter node"),
+                        Has_ExpressionOfType<UMaterialExpressionDynamicParameter>(FlatMaster));
+                }
+            }
+        }
+
+        // ---- 3d. An OPAQUE mesh-particle look: blend mode does not follow from the particle opt-ins ----
+        {
+            auto* ToonLook = Find_LookNamed(Definitions, kOpaqueParticleLookName);
+            if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), kOpaqueParticleLookName), ToonLook))
+            {
+                TestTrue(TEXT("BombToon opts into _UsedWithNiagaraMeshParticles"),
+                    ToonLook->_UsedWithNiagaraMeshParticles);
+                TestFalse(TEXT("BombToon does NOT opt into _UsedWithNiagaraSprites"),
+                    ToonLook->_UsedWithNiagaraSprites);
+
+                if (auto* ToonMaster = ck::usf_editor::Generate_LookMaterial(ToonLook, TestPackageRoot);
+                    TestNotNull(TEXT("BombToon generates a master material"), ToonMaster))
+                {
+                    TestTrue(TEXT("generated master declares bUsedWithNiagaraMeshParticles"),
+                        ToonMaster->bUsedWithNiagaraMeshParticles != 0);
+                    TestEqual(TEXT("BombToon's generated master is opaque"),
+                        static_cast<int32>(ToonMaster->BlendMode.GetValue()), static_cast<int32>(BLEND_Opaque));
+
+                    TestEqual(TEXT("BombToon has ParticleColor connected"),
+                        static_cast<int32>(Get_CustomInputState(Find_CustomNode(ToonMaster), TEXT("ParticleColor"))),
+                        static_cast<int32>(ECk_InputState::Connected));
+                }
+            }
+        }
+
+        // ---- 3e. RIBBON usage is a third, independent opt-in ----
+        // No look draws on a ribbon renderer yet, so the positive arm ratchets onto the first one that does rather
+        // than naming an asset that does not exist. The NEGATIVE arm is live today and is what actually guards the
+        // plumbing: adding the flag to the generator must not have switched the bit on for any existing look.
+        {
+            auto* RibbonLook = Find_RibbonOptedLook(Definitions);
+            if (RibbonLook == nullptr)
+            {
+                AddInfo(TEXT("No look declares _UsedWithNiagaraRibbons yet — the positive ribbon assertions activate "
+                             "with the first look that does. The roster-wide negative below is live regardless."));
+            }
+            else
+            {
+                const auto RibbonName = RibbonLook->Get_EffectiveLookName().ToString();
+
+                if (auto* RibbonMaster = ck::usf_editor::Generate_LookMaterial(RibbonLook, TestPackageRoot);
+                    TestNotNull(*FString::Printf(TEXT("%s generates a master material"), *RibbonName), RibbonMaster))
+                {
+                    TestTrue(*FString::Printf(TEXT("[%s] generated master declares bUsedWithNiagaraRibbons"), *RibbonName),
+                        RibbonMaster->bUsedWithNiagaraRibbons != 0);
+
+                    // Independence: opting into ribbons must not drag the other two usages along with it.
+                    TestEqual(*FString::Printf(TEXT("[%s] sprite usage tracks its own flag"), *RibbonName),
+                        static_cast<int32>(RibbonMaster->bUsedWithNiagaraSprites != 0),
+                        static_cast<int32>(RibbonLook->_UsedWithNiagaraSprites));
+                    TestEqual(*FString::Printf(TEXT("[%s] mesh-particle usage tracks its own flag"), *RibbonName),
+                        static_cast<int32>(RibbonMaster->bUsedWithNiagaraMeshParticles != 0),
+                        static_cast<int32>(RibbonLook->_UsedWithNiagaraMeshParticles));
+                }
+            }
+        }
+
+        // ---- 3f. The FresnelBomb family: a whole family of TRANSLUCENT mesh-particle looks ----
+        // Every look is checked, not one representative, because the family exists to be three parameterizations of
+        // one shader — a generator that dropped a flag on the second and third would be invisible to a spot check.
+        for (const auto* FresnelName : kFresnelFamilyLookNames)
+        {
+            auto* FresnelLook = Find_LookNamed(Definitions, FresnelName);
+            if (TestNotNull(*FString::Printf(TEXT("the %s look definition exists"), FresnelName), FresnelLook) == false)
+            { continue; }
+
+            TestTrue(*FString::Printf(TEXT("%s opts into _UsedWithNiagaraMeshParticles"), FresnelName),
+                FresnelLook->_UsedWithNiagaraMeshParticles);
+            TestFalse(*FString::Printf(TEXT("%s does NOT opt into _UsedWithNiagaraSprites"), FresnelName),
+                FresnelLook->_UsedWithNiagaraSprites);
+            TestTrue(*FString::Printf(TEXT("%s opts into _ParticleColor"), FresnelName), FresnelLook->_ParticleColor);
+            TestTrue(*FString::Printf(TEXT("%s opts into _ParticleDynamicParameter"), FresnelName),
+                FresnelLook->_ParticleDynamicParameter);
+
+            auto* FresnelMaster = ck::usf_editor::Generate_LookMaterial(FresnelLook, TestPackageRoot);
+            if (TestNotNull(*FString::Printf(TEXT("%s generates a master material"), FresnelName), FresnelMaster) == false)
+            { continue; }
+
+            TestTrue(*FString::Printf(TEXT("%s's master declares bUsedWithNiagaraMeshParticles"), FresnelName),
+                FresnelMaster->bUsedWithNiagaraMeshParticles != 0);
+            TestFalse(*FString::Printf(TEXT("%s's master does not gain sprite usage"), FresnelName),
+                FresnelMaster->bUsedWithNiagaraSprites != 0);
+            TestFalse(*FString::Printf(TEXT("%s's master does not gain ribbon usage"), FresnelName),
+                FresnelMaster->bUsedWithNiagaraRibbons != 0);
+
+            // A shell that renders opaque is not a shell — the layer under it disappears.
+            TestEqual(*FString::Printf(TEXT("%s's master is translucent"), FresnelName),
+                static_cast<int32>(FresnelMaster->BlendMode.GetValue()), static_cast<int32>(BLEND_Translucent));
+
+            const auto* FresnelCustom = Find_CustomNode(FresnelMaster);
+            TestEqual(*FString::Printf(TEXT("%s has ParticleColor connected"), FresnelName),
+                static_cast<int32>(Get_CustomInputState(FresnelCustom, TEXT("ParticleColor"))),
+                static_cast<int32>(ECk_InputState::Connected));
+            TestEqual(*FString::Printf(TEXT("%s has ParticleAlpha connected"), FresnelName),
+                static_cast<int32>(Get_CustomInputState(FresnelCustom, TEXT("ParticleAlpha"))),
+                static_cast<int32>(ECk_InputState::Connected));
+
+            // The dissolve rides channel 0 and the whole family animates through it, so a dead DynParam0 would
+            // freeze every bubble fully intact for its entire life.
+            TestEqual(*FString::Printf(TEXT("%s has DynParam0 connected"), FresnelName),
+                static_cast<int32>(Get_CustomInputState(FresnelCustom, TEXT("DynParam0"))),
+                static_cast<int32>(ECk_InputState::Connected));
+        }
+
+        // ---- 4. Prove the negative: no look that did NOT opt in gained the flags or the pins ----
+        const auto EngineRejection = FString{TEXT("Unsupported shading model for this engine")};
+        const auto RejectionPackageRoot = TestPackageRoot / TEXT("UnsupportedContract_")
+            + FGuid::NewGuid().ToString(EGuidFormats::Digits);
+        auto UnsupportedLookPaths = TSet<FString>{};
+    #if !defined(UE_CK_USF_SHADING_MODEL_VERSION) || UE_CK_USF_SHADING_MODEL_VERSION < 1
+        for (const auto* Definition : Definitions)
+        {
+            if (Definition->_UsedWithNiagaraSprites || Definition->_UsedWithNiagaraMeshParticles ||
+                Definition->_UsedWithNiagaraRibbons || Definition->_ParticleColor || Definition->_ParticleDynamicParameter)
+            { continue; }
+            const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition);
+            if (Validation.Errors.Num() == 1 && Validation.Errors[0] == EngineRejection)
+            { UnsupportedLookPaths.Add(Definition->GetPathName()); }
+        }
+        if (NOT UnsupportedLookPaths.IsEmpty())
+        { AddExpectedError(*EngineRejection, EAutomationExpectedErrorFlags::Contains, UnsupportedLookPaths.Num()); }
+    #endif
+        for (auto* Definition : Definitions)
+        {
+            if (Definition->_UsedWithNiagaraSprites || Definition->_UsedWithNiagaraMeshParticles ||
+                Definition->_UsedWithNiagaraRibbons ||
+                Definition->_ParticleColor || Definition->_ParticleDynamicParameter)
+            { continue; }
+
+            const auto Name = Definition->Get_EffectiveLookName().ToString();
+
+            if (UnsupportedLookPaths.Contains(Definition->GetPathName()))
+            {
+                const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition);
+                TestFalse(TEXT("Unsupported engine rejects the non-particle look contract"), Validation.Get_IsValid());
+                TestTrue(TEXT("Rejected non-particle look reports exactly the engine capability diagnostic"),
+                    Validation.Errors.Num() == 1 && Validation.Errors[0] == EngineRejection);
+                const auto PackagePath = Definition->Get_GeneratedMasterPackagePath(RejectionPackageRoot);
+                const auto ObjectPath = Definition->Get_GeneratedMasterObjectPath(RejectionPackageRoot);
+                TestNull(TEXT("Rejected look starts without an owned output package"), FindPackage(nullptr, *PackagePath));
+                TestNull(TEXT("Production generation rejects the unsupported non-particle look"),
+                    ck::usf_editor::Generate_LookMaterial(Definition, RejectionPackageRoot));
+                TestNull(TEXT("Rejected generation publishes no owned material"), FindObject<UMaterial>(nullptr, *ObjectPath));
+                TestNull(TEXT("Rejected generation creates no owned package"), FindPackage(nullptr, *PackagePath));
+                TestFalse(TEXT("Rejected generation writes no owned package"), FPackageName::DoesPackageExist(PackagePath));
+                continue;
+            }
+
+            auto* OtherMaster = Get_MasterMaterial(Definition);
+            if (OtherMaster == nullptr)
+            { continue; } // not generated on this machine — GeneratesUsableMasters owns that gate
+
+            TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain sprite usage"), *Name),
+                OtherMaster->bUsedWithNiagaraSprites != 0);
+            TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain mesh-particle usage"), *Name),
+                OtherMaster->bUsedWithNiagaraMeshParticles != 0);
+            TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain ribbon usage"), *Name),
+                OtherMaster->bUsedWithNiagaraRibbons != 0);
+            TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain a ParticleColor node"), *Name),
+                Has_ExpressionOfType<UMaterialExpressionParticleColor>(OtherMaster));
+            TestFalse(*FString::Printf(TEXT("non-particle look [%s] did not gain a DynamicParameter node"), *Name),
+                Has_ExpressionOfType<UMaterialExpressionDynamicParameter>(OtherMaster));
+        }
+
+        // ---- 5. Double generation is idempotent: same flags, same wiring, no new errors ----
+        {
+            auto* Regenerated = ck::usf_editor::Generate_LookMaterial(ParticleLook, TestPackageRoot);
+            if (TestNotNull(TEXT("RingDissolveAdd regenerates"), Regenerated))
+            {
+                TestTrue(TEXT("sprite usage is stable across regeneration"), Regenerated->bUsedWithNiagaraSprites != 0);
+
+                const auto* Custom = Find_CustomNode(Regenerated);
+                TestEqual(TEXT("ParticleColor stays connected across regeneration"),
+                    static_cast<int32>(Get_CustomInputState(Custom, TEXT("ParticleColor"))),
+                    static_cast<int32>(ECk_InputState::Connected));
+                TestEqual(TEXT("DynParam0 stays connected across regeneration"),
+                    static_cast<int32>(Get_CustomInputState(Custom, TEXT("DynParam0"))),
+                    static_cast<int32>(ECk_InputState::Connected));
+
+                const auto* DynamicParameter = Find_DynamicParameterNode(Regenerated);
+                if (DynamicParameter != nullptr)
+                {
+                    TestEqual(TEXT("channel names are stable across regeneration"),
+                        DynamicParameter->ParamNames.Num(), ExpectedDynamicParameterNames.Num());
+                }
+
+                // Exactly one of each — regeneration must REPLACE the nodes, not accumulate a second pair.
+                auto NumParticleColor = 0;
+                auto NumDynamicParameter = 0;
+                for (const auto& Expression : Regenerated->GetExpressions())
+                {
+                    if (Cast<UMaterialExpressionParticleColor>(Expression) != nullptr)    { ++NumParticleColor; }
+                    if (Cast<UMaterialExpressionDynamicParameter>(Expression) != nullptr) { ++NumDynamicParameter; }
+                }
+                TestEqual(TEXT("regeneration leaves exactly one ParticleColor node"),    NumParticleColor, 1);
+                TestEqual(TEXT("regeneration leaves exactly one DynamicParameter node"), NumDynamicParameter, 1);
+            }
+        }
+
+        return true;
+    }();
+    const auto CleanupSucceeded = GeneratedMasters.Close();
+    return Succeeded && CleanupSucceeded;
 }
 
 // --------------------------------------------------------------------------------------------------------------------

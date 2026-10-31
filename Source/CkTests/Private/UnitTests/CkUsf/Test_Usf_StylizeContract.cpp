@@ -268,92 +268,96 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FCkTest_Usf_StylizeParamCount::RunTest(const FString& Parameters)
 {
-    using namespace ck_test_usf_stylize_contract;
-
-    if (FApp::CanEverRender() == false)
+    auto GeneratedMasters = ck_test_usf::FGeneratedMasterScope{*this};
+    if (!GeneratedMasters.Initialize()) { return false; }
+    const auto Succeeded = [&]() -> bool
     {
-        // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
-        // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
-        // must never read as a pass (it used to: AddInfo("Skipped") + return true).
-        AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
-                      "toolbox gate or with --no-nullrhi."));
-        return false;
-    }
+        using namespace ck_test_usf_stylize_contract;
 
-    const auto Probe = TStrongObjectPtr<UCkUsf_LookDefinition>{Make_ProbeLookDefinition()};
-
-    // ---- 1. The asset↔HLSL contract holds at 50 parameters ----
-    const auto Validation = ck::usf_editor::Validate_LookDefinition(Probe.Get());
-    for (const auto& Warning : Validation.Warnings)
-    { AddInfo(FString::Printf(TEXT("validator warning: %s"), *Warning)); }
-    for (const auto& Error : Validation.Errors)
-    { AddError(FString::Printf(TEXT("validator error: %s"), *Error)); }
-    if (TestEqual(TEXT("the 50-param probe validates with no errors"), Validation.Errors.Num(), 0) == false)
-    { return false; }
-
-    // ---- 2. It generates ----
-    auto* Master = ck::usf_editor::Generate_LookMaterial(Probe.Get(), ck_test_usf::Get_TestPackageRoot());
-    if (TestNotNull(TEXT("the 50-param probe generates a master material"), Master) == false)
-    { return false; }
-
-    // ---- 3. Every input is DECLARED and CONNECTED — a wide node can lose pins silently ----
-    const auto* Custom = Find_CustomNode(Master);
-    if (TestNotNull(TEXT("the probe master has a Custom node"), Custom))
-    {
-        TestEqual(TEXT("the Custom node carries all 62 inputs"), Custom->Inputs.Num(), kExpectedProbeInputCount);
-
-        for (const auto* SceneInputName :
-            { TEXT("SceneColor"), TEXT("SceneDepth"), TEXT("SceneNormal"), TEXT("CustomDepth"), TEXT("CustomStencil"),
-              TEXT("SceneBaseColor"), TEXT("SceneMetallic"), TEXT("SceneRoughness"), TEXT("SceneSpecular") })
+        if (FApp::CanEverRender() == false)
         {
-            TestEqual(*FString::Printf(TEXT("scene-texture input [%s] is connected"), SceneInputName),
-                static_cast<int32>(Get_CustomInputState(Custom, SceneInputName)),
-                static_cast<int32>(ECk_InputState::Connected));
+            // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
+            // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
+            // must never read as a pass (it used to: AddInfo("Skipped") + return true).
+            AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
+                          "toolbox gate or with --no-nullrhi."));
+            return false;
         }
 
-        TestEqual(TEXT("the opt-in PostProcess WorldPosition input is connected"),
-            static_cast<int32>(Get_CustomInputState(Custom, TEXT("WorldPosition"))),
-            static_cast<int32>(ECk_InputState::Connected));
+        const auto Probe = TStrongObjectPtr<UCkUsf_LookDefinition>{Make_ProbeLookDefinition()};
 
-        for (auto Index = 0; Index < kNumProbeScalars; ++Index)
+        // ---- 1. The asset↔HLSL contract holds at 50 parameters ----
+        const auto Validation = ck::usf_editor::Validate_LookDefinition(Probe.Get());
+        for (const auto& Warning : Validation.Warnings)
+        { AddInfo(FString::Printf(TEXT("validator warning: %s"), *Warning)); }
+        for (const auto& Error : Validation.Errors)
+        { AddError(FString::Printf(TEXT("validator error: %s"), *Error)); }
+        if (TestEqual(TEXT("the 50-param probe validates with no errors"), Validation.Errors.Num(), 0) == false)
+        { return false; }
+
+        // ---- 2. It generates ----
+        auto* Master = ck::usf_editor::Generate_LookMaterial(Probe.Get(), GeneratedMasters.Get_PackageRoot());
+        if (TestNotNull(TEXT("the 50-param probe generates a master material"), Master) == false)
+        { return false; }
+
+        // ---- 3. Every input is DECLARED and CONNECTED — a wide node can lose pins silently ----
+        const auto* Custom = Find_CustomNode(Master);
+        if (TestNotNull(TEXT("the probe master has a Custom node"), Custom))
         {
-            const auto Name = Get_ProbeScalarName(Index);
-            TestEqual(*FString::Printf(TEXT("scalar param [%s] is connected"), *Name),
-                static_cast<int32>(Get_CustomInputState(Custom, *Name)),
+            TestEqual(TEXT("the Custom node carries all 62 inputs"), Custom->Inputs.Num(), kExpectedProbeInputCount);
+
+            for (const auto* SceneInputName :
+                { TEXT("SceneColor"), TEXT("SceneDepth"), TEXT("SceneNormal"), TEXT("CustomDepth"), TEXT("CustomStencil"),
+                  TEXT("SceneBaseColor"), TEXT("SceneMetallic"), TEXT("SceneRoughness"), TEXT("SceneSpecular") })
+            {
+                TestEqual(*FString::Printf(TEXT("scene-texture input [%s] is connected"), SceneInputName),
+                    static_cast<int32>(Get_CustomInputState(Custom, SceneInputName)),
+                    static_cast<int32>(ECk_InputState::Connected));
+            }
+
+            TestEqual(TEXT("the opt-in PostProcess WorldPosition input is connected"),
+                static_cast<int32>(Get_CustomInputState(Custom, TEXT("WorldPosition"))),
                 static_cast<int32>(ECk_InputState::Connected));
+
+            for (auto Index = 0; Index < kNumProbeScalars; ++Index)
+            {
+                const auto Name = Get_ProbeScalarName(Index);
+                TestEqual(*FString::Printf(TEXT("scalar param [%s] is connected"), *Name),
+                    static_cast<int32>(Get_CustomInputState(Custom, *Name)),
+                    static_cast<int32>(ECk_InputState::Connected));
+            }
+
+            for (auto Index = 0; Index < kNumProbeVectors; ++Index)
+            {
+                const auto Name = Get_ProbeVectorName(Index);
+                TestEqual(*FString::Printf(TEXT("vector param [%s] is connected"), *Name),
+                    static_cast<int32>(Get_CustomInputState(Custom, *Name)),
+                    static_cast<int32>(ECk_InputState::Connected));
+            }
+
+            TestTrue(TEXT("the generated code assigns the GBuffer base colour"),
+                Custom->Code.Contains(TEXT("In.SceneBaseColor = SceneBaseColor;")));
+            TestTrue(TEXT("the generated code assigns the reconstructed world position"),
+                Custom->Code.Contains(TEXT("In.WorldPosition = WorldPosition;")));
         }
 
-        for (auto Index = 0; Index < kNumProbeVectors; ++Index)
+        // ---- 4. It COMPILES at 62 inputs. With the gate force-compiling synchronously and reading the
+        //         resource's HLSL errors, this is the parameter-count proof behind the
+        //         "globals as MID params, not a LUT" decision. ----
         {
-            const auto Name = Get_ProbeVectorName(Index);
-            TestEqual(*FString::Printf(TEXT("vector param [%s] is connected"), *Name),
-                static_cast<int32>(Get_CustomInputState(Custom, *Name)),
-                static_cast<int32>(ECk_InputState::Connected));
+            // The probe is a throwaway master, deleted below, so it can afford the destructive force-compile that
+            // is what actually runs the shader jobs. That is the whole reason this arm can claim "it compiles".
+            constexpr auto ForceSynchronousCompile = true;
+            auto CompileErrors = FString{};
+            if (Get_ShaderCompileSucceeded(Master, FName(kProbeLookName), ForceSynchronousCompile, CompileErrors) == false)
+            { AddError(CompileErrors); }
+            TestEqual(TEXT("the 50-param probe reports no HLSL compile errors"), CompileErrors, FString{});
         }
 
-        TestTrue(TEXT("the generated code assigns the GBuffer base colour"),
-            Custom->Code.Contains(TEXT("In.SceneBaseColor = SceneBaseColor;")));
-        TestTrue(TEXT("the generated code assigns the reconstructed world position"),
-            Custom->Code.Contains(TEXT("In.WorldPosition = WorldPosition;")));
-    }
-
-    // ---- 4. It COMPILES at 62 inputs. With the gate force-compiling synchronously and reading the
-    //         resource's HLSL errors, this is the parameter-count proof behind the
-    //         "globals as MID params, not a LUT" decision. ----
-    {
-        // The probe is a throwaway master, deleted below, so it can afford the destructive force-compile that
-        // is what actually runs the shader jobs. That is the whole reason this arm can claim "it compiles".
-        constexpr auto ForceSynchronousCompile = true;
-        auto CompileErrors = FString{};
-        if (Get_ShaderCompileSucceeded(Master, FName(kProbeLookName), ForceSynchronousCompile, CompileErrors) == false)
-        { AddError(CompileErrors); }
-        TestEqual(TEXT("the 50-param probe reports no HLSL compile errors"), CompileErrors, FString{});
-    }
-
-    if (ck_test_usf::Delete_TestGeneratedMaster(FName(kProbeLookName)) == false)
-    { AddInfo(TEXT("Could not delete the probe's generated master file — harmless, but it is a stray asset on disk.")); }
-
-    return true;
+        return true;
+    }();
+    const auto CleanupSucceeded = GeneratedMasters.Close();
+    return Succeeded && CleanupSucceeded;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -365,123 +369,116 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FCkTest_Usf_StylizeSceneTextureNegative::RunTest(const FString& Parameters)
 {
-    using namespace ck_test_usf_stylize_contract;
-
-    if (FApp::CanEverRender() == false)
+    auto GeneratedMasters = ck_test_usf::FGeneratedMasterScope{*this};
+    if (!GeneratedMasters.Initialize()) { return false; }
+    const auto Succeeded = [&]() -> bool
     {
-        // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
-        // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
-        // must never read as a pass (it used to: AddInfo("Skipped") + return true).
-        AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
-                      "toolbox gate or with --no-nullrhi."));
-        return false;
-    }
+        using namespace ck_test_usf_stylize_contract;
 
-    // ---- 1. The synthetic subject: byte-identical to the pre-extension shape ----
-    {
-        const auto Minimal = TStrongObjectPtr<UCkUsf_LookDefinition>{Make_MinimalLookDefinition()};
-
-        TestTrue(TEXT("the minimal look opts into no scene textures"), Minimal->_SceneTextures.IsEmpty());
-        TestFalse(TEXT("the minimal look leaves _PostProcessWorldPosition at its default"),
-            Minimal->_PostProcessWorldPosition);
-
-        auto* Master = ck::usf_editor::Generate_LookMaterial(Minimal.Get(), ck_test_usf::Get_TestPackageRoot());
-        if (TestNotNull(TEXT("the minimal look generates a master material"), Master) == false)
-        { return false; }
-
-        const auto* Custom = Find_CustomNode(Master);
-        if (TestNotNull(TEXT("the minimal master has a Custom node"), Custom))
+        if (FApp::CanEverRender() == false)
         {
-            // Exact list, exact order: an input appended anywhere shifts nothing functionally but proves
-            // the default path changed, which is what "byte-identical" means for a generated master.
-            TestEqual(TEXT("the minimal Custom node's Inputs are exactly the historical default-trio shape"),
-                FString::Join(Get_CustomInputNames(Custom), TEXT(",")),
-                FString::Join(Get_ExpectedMinimalInputNames(), TEXT(",")));
-
-            TestEqual(TEXT("the minimal Custom node's Code is character-for-character the pre-extension shape"),
-                Custom->Code, Get_ExpectedMinimalCustomCode());
+            // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
+            // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
+            // must never read as a pass (it used to: AddInfo("Skipped") + return true).
+            AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
+                          "toolbox gate or with --no-nullrhi."));
+            return false;
         }
 
-        TestFalse(TEXT("the minimal master gained no WorldPosition expression"),
-            Get_HasWorldPositionExpression(Master));
-
+        // ---- 1. The synthetic subject: byte-identical to the pre-extension shape ----
         {
-            // Also a throwaway master, so it can afford the same force. It does NOT stand in for the wide arm's
-            // compile proof: a broken sibling entry point in the shared StylizeProbe.ush
-            // failed StylizeParamCount while this arm still passed — only the entry point a look actually
-            // calls is proven by that look.
-            constexpr auto ForceSynchronousCompile = true;
-            auto CompileErrors = FString{};
-            if (Get_ShaderCompileSucceeded(Master, FName(kMinimalLookName), ForceSynchronousCompile, CompileErrors) == false)
-            { AddError(CompileErrors); }
-            TestEqual(TEXT("the minimal look reports no HLSL compile errors"), CompileErrors, FString{});
-        }
+            const auto Minimal = TStrongObjectPtr<UCkUsf_LookDefinition>{Make_MinimalLookDefinition()};
 
-        if (ck_test_usf::Delete_TestGeneratedMaster(FName(kMinimalLookName)) == false)
-        { AddInfo(TEXT("Could not delete the minimal look's generated master file — harmless, but it is a stray asset on disk.")); }
-    }
+            TestTrue(TEXT("the minimal look opts into no scene textures"), Minimal->_SceneTextures.IsEmpty());
+            TestFalse(TEXT("the minimal look leaves _PostProcessWorldPosition at its default"),
+                Minimal->_PostProcessWorldPosition);
 
-    // ---- 2. The real roster: every shipped PostProcess look that opted into none of the new inputs
-    //         REGENERATES without them. Regenerated rather than read off disk — a master generated
-    //         before the extensions lacks the inputs whether or not the generator leaks them. ----
-    const auto OptInInputNames = Get_OptInInputNames();
-    auto NumRosterLooksChecked = 0;
-    auto RegeneratedLookNames = TArray<FName>{};
+            auto* Master = ck::usf_editor::Generate_LookMaterial(Minimal.Get(), GeneratedMasters.Get_PackageRoot());
+            if (TestNotNull(TEXT("the minimal look generates a master material"), Master) == false)
+            { return false; }
 
-    for (auto* Definition : Get_AllLookDefinitions())
-    {
-        if (Definition->_Domain != ECk_Usf_Domain::PostProcess || Definition->_PostProcessWorldPosition)
-        { continue; }
-
-        const auto OptedIntoGBuffer = Definition->_SceneTextures.ContainsByPredicate(
-            [](ECk_Usf_SceneTexture InSceneTexture) -> bool
+            const auto* Custom = Find_CustomNode(Master);
+            if (TestNotNull(TEXT("the minimal master has a Custom node"), Custom))
             {
-                return InSceneTexture == ECk_Usf_SceneTexture::BaseColor
-                    || InSceneTexture == ECk_Usf_SceneTexture::Metallic
-                    || InSceneTexture == ECk_Usf_SceneTexture::Roughness
-                    || InSceneTexture == ECk_Usf_SceneTexture::Specular;
-            });
-        if (OptedIntoGBuffer)
-        { continue; }
+                // Exact list, exact order: an input appended anywhere shifts nothing functionally but proves
+                // the default path changed, which is what "byte-identical" means for a generated master.
+                TestEqual(TEXT("the minimal Custom node's Inputs are exactly the historical default-trio shape"),
+                    FString::Join(Get_CustomInputNames(Custom), TEXT(",")),
+                    FString::Join(Get_ExpectedMinimalInputNames(), TEXT(",")));
 
-        const auto Name = Definition->Get_EffectiveLookName().ToString();
+                TestEqual(TEXT("the minimal Custom node's Code is character-for-character the pre-extension shape"),
+                    Custom->Code, Get_ExpectedMinimalCustomCode());
+            }
 
-        auto* Master = ck::usf_editor::Generate_LookMaterial(Definition, ck_test_usf::Get_TestPackageRoot());
-        if (TestNotNull(*FString::Printf(TEXT("PostProcess look [%s] regenerates"), *Name), Master) == false)
-        { continue; }
+            TestFalse(TEXT("the minimal master gained no WorldPosition expression"),
+                Get_HasWorldPositionExpression(Master));
 
-        ++NumRosterLooksChecked;
-        RegeneratedLookNames.Add(Definition->Get_EffectiveLookName());
+            {
+                // Also a throwaway master, so it can afford the same force. It does NOT stand in for the wide arm's
+                // compile proof: a broken sibling entry point in the shared StylizeProbe.ush
+                // failed StylizeParamCount while this arm still passed — only the entry point a look actually
+                // calls is proven by that look.
+                constexpr auto ForceSynchronousCompile = true;
+                auto CompileErrors = FString{};
+                if (Get_ShaderCompileSucceeded(Master, FName(kMinimalLookName), ForceSynchronousCompile, CompileErrors) == false)
+                { AddError(CompileErrors); }
+                TestEqual(TEXT("the minimal look reports no HLSL compile errors"), CompileErrors, FString{});
+            }
 
-        const auto* Custom = Find_CustomNode(Master);
-        if (TestNotNull(*FString::Printf(TEXT("PostProcess look [%s] has a Custom node"), *Name), Custom) == false)
-        { continue; }
-
-        for (const auto& InputName : OptInInputNames)
-        {
-            TestEqual(*FString::Printf(TEXT("look [%s] did not gain the [%s] input"), *Name, *InputName),
-                static_cast<int32>(Get_CustomInputState(Custom, *InputName)),
-                static_cast<int32>(ECk_InputState::Absent));
         }
 
-        TestFalse(*FString::Printf(TEXT("look [%s] did not gain a world-position assignment"), *Name),
-            Custom->Code.Contains(TEXT("In.WorldPosition")));
-    }
+        // ---- 2. The real roster: every shipped PostProcess look that opted into none of the new inputs
+        //         REGENERATES without them. Regenerated rather than read off disk — a master generated
+        //         before the extensions lacks the inputs whether or not the generator leaks them. ----
+        const auto OptInInputNames = Get_OptInInputNames();
+        auto NumRosterLooksChecked = 0;
 
-    for (const auto& RegeneratedLookName : RegeneratedLookNames)
-    {
-        if (ck_test_usf::Delete_TestGeneratedMaster(RegeneratedLookName) == false)
+        for (auto* Definition : Get_AllLookDefinitions())
         {
-            AddInfo(FString::Printf(
-                TEXT("Could not delete the regenerated master for look [%s] — harmless, but it is a stray asset on disk."),
-                *RegeneratedLookName.ToString()));
+            if (Definition->_Domain != ECk_Usf_Domain::PostProcess || Definition->_PostProcessWorldPosition)
+            { continue; }
+
+            const auto OptedIntoGBuffer = Definition->_SceneTextures.ContainsByPredicate(
+                [](ECk_Usf_SceneTexture InSceneTexture) -> bool
+                {
+                    return InSceneTexture == ECk_Usf_SceneTexture::BaseColor
+                        || InSceneTexture == ECk_Usf_SceneTexture::Metallic
+                        || InSceneTexture == ECk_Usf_SceneTexture::Roughness
+                        || InSceneTexture == ECk_Usf_SceneTexture::Specular;
+                });
+            if (OptedIntoGBuffer)
+            { continue; }
+
+            const auto Name = Definition->Get_EffectiveLookName().ToString();
+
+            auto* Master = ck::usf_editor::Generate_LookMaterial(Definition, GeneratedMasters.Get_PackageRoot());
+            if (TestNotNull(*FString::Printf(TEXT("PostProcess look [%s] regenerates"), *Name), Master) == false)
+            { continue; }
+
+            ++NumRosterLooksChecked;
+
+            const auto* Custom = Find_CustomNode(Master);
+            if (TestNotNull(*FString::Printf(TEXT("PostProcess look [%s] has a Custom node"), *Name), Custom) == false)
+            { continue; }
+
+            for (const auto& InputName : OptInInputNames)
+            {
+                TestEqual(*FString::Printf(TEXT("look [%s] did not gain the [%s] input"), *Name, *InputName),
+                    static_cast<int32>(Get_CustomInputState(Custom, *InputName)),
+                    static_cast<int32>(ECk_InputState::Absent));
+            }
+
+            TestFalse(*FString::Printf(TEXT("look [%s] did not gain a world-position assignment"), *Name),
+                Custom->Code.Contains(TEXT("In.WorldPosition")));
         }
-    }
 
-    TestTrue(TEXT("at least one shipped PostProcess look was checked (else this test passes vacuously)"),
-        NumRosterLooksChecked > 0);
+        TestTrue(TEXT("at least one shipped PostProcess look was checked (else this test passes vacuously)"),
+            NumRosterLooksChecked > 0);
 
-    return true;
+        return true;
+    }();
+    const auto CleanupSucceeded = GeneratedMasters.Close();
+    return Succeeded && CleanupSucceeded;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
