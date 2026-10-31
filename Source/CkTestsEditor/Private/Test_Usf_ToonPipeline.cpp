@@ -4,6 +4,7 @@
 #include "CkCore/Macros/CkMacros.h"
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
 #include "CkUsfEditor/Generator/CkUsf_Generator.h"
+#include "CkUsfEditor/Reload/CkUsf_ShaderReload.h"
 #include "CkUsfEditor/Generator/CkUsf_ShadingModelContract.h"
 #include "EditorValidatorSubsystem.h"
 #include "Materials/MaterialExpressionCustom.h"
@@ -89,7 +90,10 @@ namespace ck_test_usf_toon_pipeline
         auto Serialize(const TCHAR* InMessage, ELogVerbosity::Type InVerbosity, const FName& InCategory)
             -> void override
         {
-            if (FString{InMessage}.Contains(TEXT("CkUsf reload rejected before material changes: Unsupported shading model for this engine")))
+            const auto RejectionPrefix = ck::usf_editor::FShaderReload::Get_IsSupported()
+                ? TEXT("CkUsf reload rejected before material changes: Unsupported shading model for this engine")
+                : TEXT("CkUsf shader reload rejected: this engine lacks ShaderSourceDependencies API v1.");
+            if (FString{InMessage}.Contains(RejectionPrefix))
             { ReloadRejected.Store(true); }
             if (FString{InMessage}.Contains(MaterialReload
                 ? TEXT("CkUsf reload complete:") : TEXT("CkUsf shading-model reload complete")))
@@ -341,9 +345,11 @@ namespace ck_test_usf_toon_pipeline
         { GShaderCompilingManager->FinishAllCompilation(); }
         FlushRenderingCommands();
         InFixture->Mid.Reset(UMaterialInstanceDynamic::Create(InFixture->Material.Get(), GetTransientPackage()));
-        if (NOT InTest.TestNotNull(TEXT("Existing MID exists before requesting unsupported Toon"), InFixture->Mid.Get()))
+        if (NOT InTest.TestNotNull(TEXT("Existing MID exists before requesting an unsupported reload"), InFixture->Mid.Get()))
         { return false; }
         InFixture->Mid->SetScalarParameterValue(TEXT("Tint"), 0.75f);
+        if (NOT ck::usf_editor::FShaderReload::Get_IsSupported())
+        { return true; }
         if (InSourceSelected)
         {
             InFixture->LookModified = true;
@@ -384,16 +390,22 @@ namespace ck_test_usf_toon_pipeline
         {
             if (NOT Dispatched)
             {
-                auto Prepared = ck::usf_editor::FPreparedLookShadingModelReload{};
-                auto Errors = TArray<FString>{};
-                Test.TestFalse(TEXT("Actual reload preflight rejects the owned unsupported Toon transition"),
-                    ck::usf_editor::Prepare_LookShadingModelReload(*Fixture->Material, Prepared, Errors));
-                Test.TestTrue(TEXT("Owned reload preflight explicitly reports missing native engine support"),
-                    Errors.Contains(TEXT("Unsupported shading model for this engine")));
-                Test.TestTrue(TEXT("Rejected preparation cannot apply a Custom node or new HLSL"),
-                    NOT Prepared.Custom.IsValid() && Prepared.Code.IsEmpty());
+                if (ck::usf_editor::FShaderReload::Get_IsSupported())
+                {
+                    auto Prepared = ck::usf_editor::FPreparedLookShadingModelReload{};
+                    auto Errors = TArray<FString>{};
+                    Test.TestFalse(TEXT("Actual reload preflight rejects the owned unsupported Toon transition"),
+                        ck::usf_editor::Prepare_LookShadingModelReload(*Fixture->Material, Prepared, Errors));
+                    Test.TestTrue(TEXT("Owned reload preflight explicitly reports missing native engine support"),
+                        Errors.Contains(TEXT("Unsupported shading model for this engine")));
+                    Test.TestTrue(TEXT("Rejected preparation cannot apply a Custom node or new HLSL"),
+                        NOT Prepared.Custom.IsValid() && Prepared.Code.IsEmpty());
+                }
                 CheckUnchanged();
-                Test.AddExpectedError(TEXT("CkUsf reload rejected before material changes: Unsupported shading model for this engine"),
+                const auto ExpectedRejection = ck::usf_editor::FShaderReload::Get_IsSupported()
+                    ? TEXT("CkUsf reload rejected before material changes: Unsupported shading model for this engine")
+                    : TEXT("CkUsf shader reload rejected: this engine lacks ShaderSourceDependencies API v1.");
+                Test.AddExpectedError(ExpectedRejection,
                     EAutomationExpectedErrorFlags::Contains, 1);
                 GLog->AddOutputDevice(&Fixture.Get());
                 Fixture->Observing = true;
@@ -407,7 +419,7 @@ namespace ck_test_usf_toon_pipeline
             {
                 if (FPlatformTime::Seconds() - Fixture->ReloadStarted < 120.0)
                 { return false; }
-                Test.AddError(TEXT("Production reload did not report explicit unsupported Toon rejection"));
+                Test.AddError(TEXT("Production reload did not report its explicit capability rejection"));
                 return true;
             }
             CheckUnchanged();
@@ -419,6 +431,24 @@ namespace ck_test_usf_toon_pipeline
     private:
         auto CheckUnchanged() -> void
         {
+            if (NOT ck::usf_editor::FShaderReload::Get_IsSupported())
+            {
+                auto* Development = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ShaderDevelopmentMode"));
+                if (Test.TestNotNull(TEXT("Shader development-mode CVar remains registered"), Development))
+                {
+                    Test.TestEqual(TEXT("Missing dependency API leaves shader development mode unchanged"),
+                        Development->GetInt(), Fixture->PreviousDevelopmentMode);
+                    Test.TestEqual(TEXT("Missing dependency API leaves shader development-mode priority unchanged"),
+                        static_cast<EConsoleVariableFlags>(Development->GetFlags() & ECVF_SetByMask), Fixture->DevelopmentPriority);
+                }
+                Test.TestFalse(TEXT("Missing dependency API reports no completed reload"), Fixture->Completed.Load());
+                Test.TestFalse(TEXT("Missing dependency API starts no owned material compilation"), Fixture->Material->IsCompiling());
+                Test.TestEqual(TEXT("Missing dependency API preserves the compatible authored contract"),
+                    Fixture->Definition->_ShadingModel, ECk_Usf_ShadingModel::DefaultLit);
+                auto SourceBytes = TArray<uint8>{};
+                Test.TestTrue(TEXT("Missing dependency API preserves the exact authored shader source"),
+                    FFileHelper::LoadFileToArray(SourceBytes, *Fixture->LookFile) && SourceBytes == Fixture->LookBytes);
+            }
             auto& Material = *Fixture->Material;
             Test.TestTrue(TEXT("Rejected reload preserves existing material and MID identities"),
                 Material.GetUniqueID() == MaterialIdentity && Fixture->Mid->GetUniqueID() == MidIdentity);
@@ -559,6 +589,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_Usf_ToonPipeline,
 
 auto FCkTest_Usf_ToonPipeline::RunTest(const FString& Parameters) -> bool
 {
+    if (NOT ck::usf_editor::FShaderReload::Get_IsSupported())
+    {
+        using namespace ck_test_usf_toon_pipeline;
+        const auto Fixture = MakeShared<FFixture>();
+        constexpr auto SourceSelectedToon = true;
+        if (NOT PrepareUnsupportedReload(*this, Fixture, SourceSelectedToon))
+        { return false; }
+        ADD_LATENT_AUTOMATION_COMMAND(FRejectedReloadSequence(*this, Fixture));
+        return true;
+    }
 #if defined(UE_CK_USF_SHADING_MODEL_VERSION) && UE_CK_USF_SHADING_MODEL_VERSION >= 1
     using namespace ck_test_usf_toon_pipeline;
     if (TestTrue(TEXT("Toon lighting proof requires a real RHI"), FApp::CanEverRender()) == false)

@@ -226,6 +226,8 @@ public class CkTests : CkModuleRules
                 "EditorSubsystem",
                 "SourceControl",
                 "CkUsfEditor",
+                // Shader reload tests attest real file events before their negative observation window.
+                "DirectoryWatcher",
                 // The Jolt incremental-cook planner and index remap are pure functions living in the
                 // editor cooker; their tests link against it directly.
                 "CkJoltEditor",
