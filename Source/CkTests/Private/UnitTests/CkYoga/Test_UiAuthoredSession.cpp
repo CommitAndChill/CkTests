@@ -580,6 +580,21 @@ auto FCkUiAuthoredSession_Native::RunTest(const FString&) -> bool
         && Checkbox.IsValid() && Search.IsValid())) { return false; }
 
     Slate.ClearKeyboardFocus();
+    const int32 TextCallsBeforeModelRefresh = Listener->TextCalls;
+    TestTrue(TEXT("Unfocused accepted text can update without a proposal"),
+        Session->TrySetText(TEXT("label"), FText::FromString(TEXT("Passive model update"))));
+    Tick(Slate);
+    TestEqual(TEXT("Native search displays the passive accepted model"),
+        Search->GetText().ToString(), FString{TEXT("Passive model update")});
+    TestEqual(TEXT("Passive accepted model refresh emits no reflected text proposal"),
+        Listener->TextCalls, TextCallsBeforeModelRefresh);
+    TestTrue(TEXT("Accepted initial text can be restored without a proposal"),
+        Session->TrySetText(TEXT("label"), FText::FromString(TEXT("Initial"))));
+    Tick(Slate);
+    TestEqual(TEXT("Native search displays the restored accepted initial model"),
+        Search->GetText().ToString(), FString{TEXT("Initial")});
+    TestEqual(TEXT("Restored accepted model also emits no reflected text proposal"),
+        Listener->TextCalls, TextCallsBeforeModelRefresh);
     const int32 InitialActionCalls = Listener->ActionCalls;
     const int32 InitialTextCalls = Listener->TextCalls;
     const int32 InitialNumberCalls = Listener->NumberCalls;

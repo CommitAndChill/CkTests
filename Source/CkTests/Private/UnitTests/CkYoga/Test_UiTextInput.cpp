@@ -8,6 +8,8 @@
 #include "Misc/AutomationTest.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SSearchBox.h"
+#include "Widgets/SBoxPanel.h"
 #include "Widgets/SWindow.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -187,6 +189,143 @@ auto FCkUiTextInput_Runtime::RunTest(const FString&) -> bool
     View.Reset();
     Input->SetText(FText::FromString(TEXT("Released")));
     TestEqual(TEXT("Released retained owner leaves no live text callback"), ChangedCalls, ChangedBeforeRelease);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkUiTextInput_NativeBoundNotifications,
+    "Ck.UiAuthoring.TextInput.NativeBoundNotifications",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI)
+
+auto FCkUiTextInput_NativeBoundNotifications::RunTest(const FString&) -> bool
+{
+    using namespace ck_tests_ui_text_input;
+    if (!FSlateApplication::IsInitialized()) { AddError(TEXT("Native text notifications require Slate.")); return false; }
+    FSlateApplication& Slate = FSlateApplication::Get();
+    auto Model = FText::FromString(TEXT("A"));
+    auto ExplicitChanges = TArray<FString>{};
+    auto FocusedChanges = TArray<FString>{};
+    auto Commits = TArray<FString>{};
+    bool Reenter = false;
+    TSharedPtr<SEditableTextBox> ExplicitInput;
+    ExplicitInput = SNew(SEditableTextBox)
+        .Text_Lambda([&Model]() { return Model; })
+        .OnTextChanged_Lambda([&](const FText& InText)
+        {
+            ExplicitChanges.Add(InText.ToString());
+            if (Reenter)
+            {
+                Reenter = false;
+                Model = FText::FromString(TEXT("E"));
+                ExplicitInput->SetText(Model);
+            }
+        });
+    const auto FocusedInput = SNew(SEditableTextBox)
+        .Text_Lambda([&Model]() { return Model; })
+        .ClearKeyboardFocusOnCommit(false)
+        .OnTextChanged_Lambda([&FocusedChanges](const FText& InText) { FocusedChanges.Add(InText.ToString()); })
+        .OnTextCommitted_Lambda([&Commits](const FText& InText, ETextCommit::Type) { Commits.Add(InText.ToString()); });
+    FWindowScope Scope{Slate};
+    Scope.Window = SNew(SWindow).AutoCenter(EAutoCenter::None).ClientSize(FVector2D{320.0f, 120.0f})
+        .CreateTitleBar(false).HasCloseButton(false).FocusWhenFirstShown(false)
+        [SNew(SVerticalBox)
+            + SVerticalBox::Slot()[ExplicitInput.ToSharedRef()]
+            + SVerticalBox::Slot()[FocusedInput]];
+    Slate.AddWindow(Scope.Window.ToSharedRef(), true);
+    Slate.ClearUserFocus(0, EFocusCause::Cleared);
+    Tick(Slate);
+    TestEqual(TEXT("Native construction emits no explicit change"), ExplicitChanges.Num(), 0);
+    TestEqual(TEXT("Native construction emits no focused change"), FocusedChanges.Num(), 0);
+    TestFalse(TEXT("Programmatic setter fixture is unfocused"), ExplicitInput->HasKeyboardFocus());
+
+    Model = FText::FromString(TEXT("C"));
+    ExplicitInput->SlatePrepass(1.0f);
+    TestEqual(TEXT("Passive native model refresh updates cached text"), ExplicitInput->GetText().ToString(), FString{TEXT("C")});
+    TestEqual(TEXT("Passive native model refresh is silent"), ExplicitChanges.Num(), 0);
+    Model = FText::FromString(TEXT("A"));
+    ExplicitInput->SlatePrepass(1.0f);
+    TestEqual(TEXT("Passive accepted-value restoration is silent"), ExplicitChanges.Num(), 0);
+
+    ExplicitInput->SetText(FText::FromString(TEXT("B")));
+    TestTrue(TEXT("Unfocused explicit setter proposes rejected B once"), ExplicitChanges == TArray<FString>{TEXT("B")});
+    TestEqual(TEXT("Rejected explicit proposal preserves accepted A"), Model.ToString(), FString{TEXT("A")});
+    ExplicitInput->SetText(Model);
+    TestTrue(TEXT("Explicit return to accepted A is still a distinct proposal"),
+        ExplicitChanges == TArray<FString>{TEXT("B"), TEXT("A")});
+    TestEqual(TEXT("Explicit accepted-value restoration updates native text"),
+        ExplicitInput->GetText().ToString(), FString{TEXT("A")});
+
+    Reenter = true;
+    ExplicitInput->SetText(FText::FromString(TEXT("D")));
+    TestTrue(TEXT("Reentrant explicit acceptance reports outer D then accepted E once"),
+        ExplicitChanges == TArray<FString>{TEXT("B"), TEXT("A"), TEXT("D"), TEXT("E")});
+    ExplicitInput->SetText(FText::FromString(TEXT("D")));
+    TestTrue(TEXT("Outer notification does not overwrite reentrant accepted-text history"),
+        ExplicitChanges == TArray<FString>{TEXT("B"), TEXT("A"), TEXT("D"), TEXT("E"), TEXT("D")});
+
+    Model = FText::FromString(TEXT("A"));
+    FocusedInput->SlatePrepass(1.0f);
+    TestEqual(TEXT("Unfocused second editor observes models without user proposals"), FocusedChanges.Num(), 0);
+    if (!TestTrue(TEXT("Real native input enters rejected B"), ReplaceText(Slate, FocusedInput, TEXT("B")))) { return false; }
+    TestTrue(TEXT("Physical replacement proposes B once"), FocusedChanges == TArray<FString>{TEXT("B")});
+    if (!TestTrue(TEXT("Native Enter reaches the focused commit path"), Slate.ProcessKeyDownEvent(Key(EKeys::Enter)))) { return false; }
+    TestTrue(TEXT("Native commit contains the rejected draft"), Commits == TArray<FString>{TEXT("B")});
+    // Enter's existing contract notifies restoration from LoadText and again from its enclosing edit transaction.
+    TestTrue(TEXT("LoadText and Enter's edit transaction each report restored accepted A"),
+        FocusedChanges == TArray<FString>{TEXT("B"), TEXT("A"), TEXT("A")});
+    TestTrue(TEXT("LoadText preserves focus and authoritative display"),
+        FocusedInput->HasKeyboardFocus() && FocusedInput->GetText().ToString() == TEXT("A"));
+    FocusedInput->SlatePrepass(1.0f);
+    TestTrue(TEXT("Following passive prepass emits no duplicate restoration"),
+        FocusedChanges == TArray<FString>{TEXT("B"), TEXT("A"), TEXT("A")});
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkUiTextInput_NativeSearchDebouncedCommit,
+    "Ck.UiAuthoring.TextInput.NativeSearchDebouncedCommit",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::NonNullRHI)
+
+auto FCkUiTextInput_NativeSearchDebouncedCommit::RunTest(const FString&) -> bool
+{
+    using namespace ck_tests_ui_text_input;
+    if (!FSlateApplication::IsInitialized()) { AddError(TEXT("Native search notifications require Slate.")); return false; }
+    FSlateApplication& Slate = FSlateApplication::Get();
+    auto Model = FText::FromString(TEXT("A"));
+    auto Events = TArray<FString>{};
+    TSharedPtr<SSearchBox> Search;
+    Search = SNew(SSearchBox)
+        .InitialText(Model)
+        .DelayChangeNotificationsWhileTyping(true)
+        .DelayChangeNotificationsWhileTypingSeconds(0.0f)
+        .OnTextChanged_Lambda([&](const FText& InText)
+        {
+            Events.Add(TEXT("changed:") + InText.ToString());
+            Model = InText;
+            Search->SetText(InText);
+        })
+        .OnTextCommitted_Lambda([&Events](const FText& InText, ETextCommit::Type)
+        { Events.Add(TEXT("committed:") + InText.ToString()); });
+    Search->SetText(TAttribute<FText>::CreateLambda([&Model]() { return Model; }));
+    FWindowScope Scope{Slate};
+    Scope.Window = SNew(SWindow).AutoCenter(EAutoCenter::None).ClientSize(FVector2D{320.0f, 120.0f})
+        .CreateTitleBar(false).HasCloseButton(false).FocusWhenFirstShown(false)[Search.ToSharedRef()];
+    Slate.AddWindow(Scope.Window.ToSharedRef(), true);
+    if (!TestTrue(TEXT("Native search accepts real keyboard focus"), Slate.SetKeyboardFocus(Search.ToSharedRef(), EFocusCause::SetDirectly))) { return false; }
+    Tick(Slate);
+    TestEqual(TEXT("Search construction and focus emit no proposal"), Events.Num(), 0);
+    const FModifierKeysState Control{false, false, true, false, false, false, false, false, false};
+    if (!TestTrue(TEXT("Native search selects its accepted text"),
+        Slate.ProcessKeyDownEvent(FKeyEvent{EKeys::A, Control, 0, false, 0, 0}))) { return false; }
+    if (!TestTrue(TEXT("Native search receives a physical replacement character"),
+        Slate.ProcessKeyCharEvent(FCharacterEvent{TEXT('B'), FModifierKeysState{}, 0, false}))) { return false; }
+    // Commit before another Slate tick so Enter exercises the production pending-debounce flush.
+    TestEqual(TEXT("Focused search defers its changed proposal before Enter"), Events.Num(), 0);
+    if (!TestTrue(TEXT("Native search Enter flushes its pending proposal"), Slate.ProcessKeyDownEvent(Key(EKeys::Enter)))) { return false; }
+    TestTrue(TEXT("Debounced change precedes commit exactly once despite reentrant acceptance"),
+        Events == TArray<FString>{TEXT("changed:B"), TEXT("committed:B")});
+    TestEqual(TEXT("Reentrant listener accepts the proposed model"), Model.ToString(), FString{TEXT("B")});
+    Tick(Slate);
+    TestTrue(TEXT("Next due timer tick delivers no stale debounced proposal"),
+        Events == TArray<FString>{TEXT("changed:B"), TEXT("committed:B")});
     return true;
 }
 

@@ -550,6 +550,10 @@ namespace ck_owned_session_proof_test
             && Session->Get_Revision() == Revision && !View->IsOwnerReleased()
             && Session->TryGetText(TEXT("label"), Value) && Value.ToString() == TEXT("Inactive")
             && Listener->ActionCalls == 1 && Listener->TextCalls == 0 && Listener->NumberCalls == 0 && Listener->BoolCalls == 0);
+        Test.TestEqual(TEXT("covered owner action counter"), Listener->ActionCalls, 1);
+        Test.TestEqual(TEXT("covered owner text counter"), Listener->TextCalls, 0);
+        Test.TestEqual(TEXT("covered owner number counter"), Listener->NumberCalls, 0);
+        Test.TestEqual(TEXT("covered owner bool counter"), Listener->BoolCalls, 0);
         Test.TestFalse(TEXT("covered owner has no currently focused ordinary button"),
             Session->Get_IsButtonFocused(TEXT("first")));
         Test.TestFalse(TEXT("covered owner cannot focus or begin input"), Session->TryFocusButton(TEXT("first")) || Session->TryBeginInput());
@@ -561,6 +565,10 @@ namespace ck_owned_session_proof_test
         Propose();
         Test.TestTrue(TEXT("uncovered owner resumes every scalar proposal"), Listener->ActionCalls == 2
             && Listener->TextCalls == 1 && Listener->NumberCalls == 1 && Listener->BoolCalls == 1);
+        Test.TestEqual(TEXT("uncovered owner action counter"), Listener->ActionCalls, 2);
+        Test.TestEqual(TEXT("uncovered owner text counter"), Listener->TextCalls, 1);
+        Test.TestEqual(TEXT("uncovered owner number counter"), Listener->NumberCalls, 1);
+        Test.TestEqual(TEXT("uncovered owner bool counter"), Listener->BoolCalls, 1);
         Test.TestTrue(TEXT("owner focus changes preserve user zero focus"), Slate.GetUserFocusedWidget(0) == PreviousZeroFocus);
 
         Session->TryFocusButton(TEXT("first"));

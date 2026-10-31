@@ -418,7 +418,9 @@ auto FCkUiAuthoringView_DataBindings::RunTest(const FString&) -> bool
     TestTrue(TEXT("Bound visibility getter supplies initial visibility"), ScrollMount->GetVisibility() == EVisibility::Visible);
 
     Query = TEXT("external update");
+    Search->SlatePrepass(1.0f);
     TestEqual(TEXT("Bound search getter updates without reload"), Search->GetText().ToString(), Query);
+    TestEqual(TEXT("Passive search model refresh emits no authored text proposal"), TextChangedCalls, 0);
 
     Summary = TEXT("Updated summary");
     Thumbnail = &SecondBrush;
