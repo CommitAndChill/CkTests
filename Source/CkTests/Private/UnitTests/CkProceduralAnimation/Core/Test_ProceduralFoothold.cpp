@@ -392,6 +392,203 @@ auto
         MakeLevel(FVector{0.0, 5.0, 0.0}, ck::EProceduralFootholdVerdict::UnderBody)};
     TestEqual(TEXT("Only UnderBody candidates choose nothing"), Select(OnlyUnderBody, Swinging), int32{INDEX_NONE});
 
+    {
+        const auto Body = FVector{-292.540385888, 429.817898052, 252.723631190};
+        const auto AxisX = FVector{-0.666425158, -0.745571934, 0.0};
+        const auto Lateral = FVector{0.745571934, -0.666425158, 0.0};
+        const auto Hip = Body + AxisX * 45.0 + Lateral * 28.0;
+        const auto Outboard = (AxisX * 5.0 + Lateral * 27.0).GetSafeNormal();
+        const auto Face = FVector{-289.125, 410.0, 107.8};
+        const auto Radius = 0.3f * 100.0f;
+        const auto BodyBoundary = static_cast<double>(28.0f) - 5.0f + 0.1;
+        const auto OwnSideMinimum = -static_cast<double>(0.1f * 100.0f) + 0.1;
+        const auto QueryPoint = ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, FVector{0.0, -1.0, 0.0},
+            FVector::UpVector, Body, Hip, Lateral, Outboard, BodyBoundary, OwnSideMinimum, Radius);
+        TestTrue(TEXT("The measured failed face permits one jointly bounded query proposal"), QueryPoint.IsSet());
+        if (NOT QueryPoint.IsSet())
+        { return false; }
+        TestTrue(TEXT("Both body and own-side constraints choose the joint solution, not the failing body-only point"),
+            QueryPoint->Equals(FVector{-270.131589252, 414.500000477, 107.8}, 1.0e-6)
+                && QueryPoint->X > -275.249274058 && QueryPoint->Z == Face.Z
+                && FVector::Dist(QueryPoint.GetValue(), Face) <= Radius);
+        TestTrue(TEXT("The low query is not falsely required to fit native landing force reach"),
+            FVector::Dist(QueryPoint.GetValue(), Hip) > 0.92f * 100.0f);
+        TestTrue(TEXT("The proposed query preserves the original body's and leg's admission-side margins"),
+            FVector::DotProduct(QueryPoint.GetValue() - Body, Lateral) >= BodyBoundary - 1.0e-9
+                && FVector::DotProduct(QueryPoint.GetValue() - Hip, Outboard) >= OwnSideMinimum - 1.0e-9);
+        const auto Origin = FVector{120000.0, 392000.0, 600.0};
+        const auto Translated = ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face + Origin, FVector{0.0, -1.0, 0.0},
+            FVector::UpVector, Body + Origin, Hip + Origin, Lateral, Outboard, BodyBoundary, OwnSideMinimum, Radius);
+        TestTrue(TEXT("Joint placement is independent of the fixture's world translation"),
+            Translated.IsSet() && (Translated.GetValue() - Origin).Equals(QueryPoint.GetValue(), 1.0e-7));
+        const auto Rotation = FQuat{FVector::ForwardVector, UE_DOUBLE_HALF_PI};
+        const auto Rotated = ck::Get_ProceduralFootholdFailedFaceQueryPoint(Rotation.RotateVector(Face),
+            Rotation.RotateVector(FVector{0.0, -1.0, 0.0}), Rotation.RotateVector(FVector::UpVector),
+            Rotation.RotateVector(Body), Rotation.RotateVector(Hip), Rotation.RotateVector(Lateral),
+            Rotation.RotateVector(Outboard), BodyBoundary, OwnSideMinimum, Radius);
+        TestTrue(TEXT("The query follows the current support frame rather than an authored world height"),
+            Rotated.IsSet() && Rotated->Equals(Rotation.RotateVector(QueryPoint.GetValue()), 1.0e-6));
+        const auto Parallel = ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector::ZeroVector,
+            FVector{0.0, -1.0, 0.0}, FVector::UpVector, FVector::ZeroVector, FVector::ZeroVector,
+            FVector::RightVector, FVector::RightVector, 1.0, 1.0, 10.0f);
+        TestTrue(TEXT("Satisfied zero-coefficient constraints retain the unique nearest zero tangent offset"),
+            Parallel.IsSet() && Parallel->Equals(FVector{0.0, 1.5, 0.0}, 1.0e-6));
+        TestFalse(TEXT("An unsatisfied zero-coefficient body inequality cannot be repaired along this line"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector::ZeroVector, FVector{0.0, -1.0, 0.0},
+                FVector::UpVector, FVector::ZeroVector, FVector::ZeroVector, FVector::RightVector,
+                FVector::RightVector, 2.0, 1.0, 10.0f).IsSet());
+        TestFalse(TEXT("An unsatisfied zero-coefficient own-side inequality also rejects"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector::ZeroVector, FVector{0.0, -1.0, 0.0},
+                FVector::UpVector, FVector::ZeroVector, FVector::ZeroVector, FVector::RightVector,
+                FVector::RightVector, 1.0, 2.0, 10.0f).IsSet());
+        const auto Negative = ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector::ZeroVector,
+            FVector::RightVector, FVector::UpVector, FVector{-2.0, 0.0, 0.0}, FVector{2.0, 0.0, 0.0},
+            FVector::ForwardVector, FVector::ForwardVector, 1.0, 0.0, 10.0f);
+        TestTrue(TEXT("Negative coefficients clip the upper interval and choose its closest endpoint"),
+            Negative.IsSet() && Negative->Equals(FVector{2.0, -1.5, 0.0}, 1.0e-6));
+        TestFalse(TEXT("No smaller inset or second face is tried when the radius cannot contain the joint constraints"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, FVector{0.0, -1.0, 0.0}, FVector::UpVector,
+                Body, Hip, Lateral, Outboard, BodyBoundary, OwnSideMinimum, 5.0f).IsSet());
+        TestFalse(TEXT("A support-parallel normal supplies no horizontal face direction"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, FVector::UpVector, FVector::UpVector,
+                Body, Hip, Lateral, Outboard, BodyBoundary, OwnSideMinimum, Radius).IsSet());
+        TestFalse(TEXT("A leg without a meaningful own side supplies no proposal"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, FVector{0.0, -1.0, 0.0}, FVector::UpVector,
+                Body, Hip, Lateral, FVector::ZeroVector, BodyBoundary, OwnSideMinimum, Radius).IsSet());
+        TestFalse(TEXT("A malformed unit-normal prerequisite is rejected rather than normalized"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, FVector{0.0, -2.0, 0.0}, FVector::UpVector,
+                Body, Hip, Lateral, Outboard, BodyBoundary, OwnSideMinimum, Radius).IsSet());
+        TestFalse(TEXT("A non-finite linear bound rejects before interval arithmetic"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, FVector{0.0, -1.0, 0.0}, FVector::UpVector,
+                Body, Hip, Lateral, Outboard, std::numeric_limits<double>::quiet_NaN(), OwnSideMinimum, Radius).IsSet());
+        for (const auto InvalidRadius : {0.0f, -1.0f, 0.5f, std::numeric_limits<float>::infinity()})
+        {
+            TestFalse(TEXT("A malformed radius or inset larger than the entire budget rejects"),
+                ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, FVector{0.0, -1.0, 0.0}, FVector::UpVector,
+                    Body, Hip, Lateral, Outboard, BodyBoundary, OwnSideMinimum, InvalidRadius).IsSet());
+        }
+        auto InvalidPoint = FVector::ZeroVector;
+        InvalidPoint.X = std::numeric_limits<double>::quiet_NaN();
+        TestFalse(TEXT("A malformed native face is rejected before query construction"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(InvalidPoint, FVector{0.0, -1.0, 0.0}, FVector::UpVector,
+                Body, Hip, Lateral, Outboard, BodyBoundary, OwnSideMinimum, Radius).IsSet());
+        TestFalse(TEXT("Finite scalar subtraction overflow rejects without vector diagnostics"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector{1.0e308}, FVector{0.0, -1.0, 0.0}, FVector::UpVector,
+                FVector{-1.0e308}, Hip, Lateral, Outboard, BodyBoundary, OwnSideMinimum, Radius).IsSet());
+        TestFalse(TEXT("A finite point outside native float representation never becomes a native query"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector{1.0e308}, FVector{0.0, -1.0, 0.0}, FVector::UpVector,
+                FVector{1.0e308}, FVector{1.0e308}, Lateral, Outboard, -1.0, -1.0, Radius).IsSet());
+    }
+
+    const auto Roots = ck::Get_ProceduralFootholdLineSphereOffsets(
+        FVector{1.0, 0.0, 0.0}, FVector::ForwardVector, FVector::ZeroVector, 3.0);
+    TestTrue(TEXT("A unit line exposes exactly the two scalar sphere-boundary offsets"),
+        Roots.IsSet() && Roots->X == -4.0 && Roots->Y == 2.0);
+    const auto NearUnit = FVector{1.00002, 0.0, 0.0};
+    const auto NearUnitRoots = ck::Get_ProceduralFootholdLineSphereOffsets(
+        FVector{1.0, 0.0, 0.0}, NearUnit, FVector::ZeroVector, 3.0);
+    TestTrue(TEXT("A direction within unit tolerance still receives roots for its actual quadratic"), NearUnitRoots.IsSet());
+    if (NOT NearUnitRoots.IsSet())
+    { return false; }
+    for (const auto Offset : {NearUnitRoots->X, NearUnitRoots->Y})
+    {
+        TestTrue(TEXT("Near-unit offsets lie on the actual sphere without normalizing away input geometry"),
+            FMath::IsNearlyEqual((FVector{1.0, 0.0, 0.0} + NearUnit * Offset).Size(), 3.0, 1.0e-12));
+    }
+    const auto Tangent = ck::Get_ProceduralFootholdLineSphereOffsets(
+        FVector{0.0, 3.0, 0.0}, FVector::ForwardVector, FVector::ZeroVector, 3.0);
+    TestTrue(TEXT("A tangent retains its one repeated root without inventing another direction"),
+        Tangent.IsSet() && Tangent->X == 0.0 && Tangent->Y == 0.0);
+    const auto Lateral = FVector{0.6, 0.8, 0.0};
+    const auto Direction = FVector{-0.8, 0.6, 0.0};
+    const auto Center = Lateral * 2.0 + Direction;
+    const auto Oblique = ck::Get_ProceduralFootholdLineSphereOffsets(
+        FVector::ZeroVector, Direction, Center, 3.1);
+    TestTrue(TEXT("An oblique joint-boundary line has two roots"), Oblique.IsSet());
+    if (NOT Oblique.IsSet())
+    { return false; }
+    for (const auto Offset : {Oblique->X, Oblique->Y})
+    {
+        const auto Point = Direction * Offset;
+        TestTrue(TEXT("Both roots retain the native plane and body boundary while clearing the radius sum plus margin"),
+            Point.Z == 0.0 && FMath::Abs(FVector::DotProduct(Point, Lateral)) < 1.0e-12
+                && FMath::IsNearlyEqual(FVector::Dist(Point, Center), 3.1, 1.0e-12));
+    }
+    TestFalse(TEXT("A line outside the sphere has no joint-boundary proposal"),
+        ck::Get_ProceduralFootholdLineSphereOffsets(FVector{0.0, 4.0, 0.0},
+            FVector::ForwardVector, FVector::ZeroVector, 3.0).IsSet());
+    TestFalse(TEXT("A non-unit direction is not silently normalized into different geometry"),
+        ck::Get_ProceduralFootholdLineSphereOffsets(FVector::ZeroVector,
+            FVector{2.0, 0.0, 0.0}, FVector::ZeroVector, 3.0).IsSet());
+    for (const auto Radius : {0.0, -1.0, std::numeric_limits<double>::infinity(), 1.0e308})
+    {
+        TestFalse(TEXT("Invalid or overflowing radius rejects before constructing scalar roots"),
+            ck::Get_ProceduralFootholdLineSphereOffsets(FVector::ZeroVector,
+                FVector::ForwardVector, FVector::ZeroVector, Radius).IsSet());
+    }
+    auto Invalid = FVector::ZeroVector;
+    Invalid.X = std::numeric_limits<double>::quiet_NaN();
+    TestFalse(TEXT("A non-finite point rejects without vector arithmetic"),
+        ck::Get_ProceduralFootholdLineSphereOffsets(Invalid,
+            FVector::ForwardVector, FVector::ZeroVector, 3.0).IsSet());
+    TestFalse(TEXT("Finite coordinate subtraction overflow rejects before any vector construction"),
+        ck::Get_ProceduralFootholdLineSphereOffsets(FVector{1.0e308, 0.0, 0.0},
+            FVector::ForwardVector, FVector{-1.0e308, 0.0, 0.0}, 3.0).IsSet());
+    TestFalse(TEXT("Finite squared-distance overflow rejects before any vector construction"),
+        ck::Get_ProceduralFootholdLineSphereOffsets(FVector{1.0e200, 0.0, 0.0},
+            FVector::ForwardVector, FVector::ZeroVector, 3.0).IsSet());
+
+    {
+        const auto CapturedBody = FVector{120454.60341785253, 392479.07876568858, 814.88400861650769};
+        const auto CapturedHip = FVector{120466.47413296014, 392530.73228563479, 814.88400861650769};
+        const auto CapturedLateral = FVector{-0.70915926470874258, 0.70504832265438055, 0.0};
+        const auto CapturedOutboard = FVector{-0.56892181619126769, 0.82239161417273066, 0.0};
+        const auto CapturedNormal = FVector::RightVector;
+        const auto CapturedRadius = 30.000001907348633f;
+        const auto Preferred = static_cast<double>(FMath::Max(1.0f, CapturedRadius * 0.15f));
+        for (const auto Face : {FVector{120448.8359375, 392490.0, 658.5802001953125},
+            FVector{120448.875, 392490.0, 658.7239990234375}})
+        {
+            const auto Point = ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, CapturedNormal, FVector::UpVector,
+                CapturedBody, CapturedHip, CapturedLateral, CapturedOutboard, 23.100000000000001, -9.9000000000000004, CapturedRadius);
+            TestTrue(TEXT("The captured 04 finite empty preferred slice has a bounded geometric alternative"), Point.IsSet());
+            if (NOT Point.IsSet())
+            { return false; }
+            const auto Delta = Point.GetValue() - Face;
+            const auto Inset = -FVector::DotProduct(Delta, CapturedNormal);
+            TestTrue(TEXT("The represented alternative strictly retains every original geometric constraint"),
+                NOT Point->ContainsNaN() && Inset >= 1.0 && Inset <= Preferred
+                    && Delta.SizeSquared() <= static_cast<double>(CapturedRadius) * CapturedRadius
+                    && FVector::DotProduct(Point.GetValue() - CapturedBody, CapturedLateral) >= 23.100000000000001
+                    && FVector::DotProduct(Point.GetValue() - CapturedHip, CapturedOutboard) >= -9.9000000000000004
+                    && FVector::DotProduct(Delta, FVector::UpVector) == 0.0
+                    && FMath::Abs(Point->X) <= TNumericLimits<float>::Max()
+                    && FMath::Abs(Point->Y) <= TNumericLimits<float>::Max()
+                    && FMath::Abs(Point->Z) <= TNumericLimits<float>::Max());
+            const auto Repeated = ck::Get_ProceduralFootholdFailedFaceQueryPoint(Face, CapturedNormal, FVector::UpVector,
+                CapturedBody, CapturedHip, CapturedLateral, CapturedOutboard, 23.100000000000001, -9.9000000000000004, CapturedRadius);
+            TestTrue(TEXT("The finite construction returns the same represented point deterministically"),
+                Repeated.IsSet() && Repeated.GetValue() == Point.GetValue());
+        }
+        const auto OldSuccess = ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector::ZeroVector,
+            FVector{0.0, -1.0, 0.0}, FVector::UpVector, FVector::ZeroVector, FVector::ZeroVector,
+            FVector::RightVector, FVector::RightVector, 1.0, 1.0, 10.0f);
+        TestTrue(TEXT("An existing preferred-slice success retains its exact represented output"),
+            OldSuccess.IsSet() && OldSuccess.GetValue() == FVector{0.0, 1.5, 0.0});
+        for (const auto InvalidBound : {std::numeric_limits<double>::quiet_NaN(),
+            std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()})
+        {
+            TestFalse(TEXT("Non-finite input cannot enter geometric fallback"),
+                ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector::ZeroVector, CapturedNormal, FVector::UpVector,
+                    CapturedBody, CapturedHip, CapturedLateral, CapturedOutboard, InvalidBound, -9.9, CapturedRadius).IsSet());
+        }
+        TestFalse(TEXT("Non-finite interval-bound arithmetic rejects rather than entering empty-slice fallback"),
+            ck::Get_ProceduralFootholdFailedFaceQueryPoint(FVector::ZeroVector, CapturedNormal, FVector::UpVector,
+                FVector{0.0, -1.0e308, 0.0}, FVector::ZeroVector, CapturedLateral, CapturedOutboard,
+                1.0e308, -9.9, CapturedRadius).IsSet());
+        // Geometry alone does not establish a native terrain hit, landing admission or traversal progress.
+    }
+
     return true;
 }
 
