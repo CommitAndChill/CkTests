@@ -4,6 +4,9 @@
 
 #include "CkCore/Validation/CkIsValid.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
+#include "CkCore/Ensure/CkEnsure_Utils.h"
+#include "Misc/ScopeExit.h"
 #include "CkEcs/Handle/CkHandle_Utils.h"
 #include "CkEcs/Processor/CkProcessor.h"
 #include "CkEcs/Scheduler/CkProcessorRegistration.h"
@@ -179,6 +182,7 @@ namespace ck_test_procedural_gait_committed_landing_pie
         FVector RemovedTop = FVector::ZeroVector;
         FCk_Handle_ProceduralLeg Disabled;
         FCk_Handle_ProceduralLeg Withdrawn;
+        bool MissingOwnerChecked = false;
         bool SawTurn = false;
         bool SawHeight = false;
         bool SawRecoveryLanding = false;
@@ -535,6 +539,122 @@ namespace ck_test_procedural_gait_committed_landing_pie
     }
 
     auto
+    DoCheckMissingLandingOwner(
+        FState& InState,
+        const FTransform& InBody,
+        const TArray<ck::FProceduralGaitCommittedLanding>& InLandings,
+        FCk_Handle_ProceduralLeg InSubject)
+        -> bool
+    {
+        if (NOT InState.Require(InLandings.ContainsByPredicate([&](const auto& InLanding)
+            {
+                return InLanding.Get_Leg() == InSubject;
+            }) && InSubject.Has<ck::FFragment_LifetimeOwner>(),
+            TEXT("Owner-totality control starts with a positively published actual swinging leg")))
+        {
+            return false;
+        }
+        const auto OwnerBefore = InSubject.Get<ck::FFragment_LifetimeOwner>();
+        if (NOT InState.Require(OwnerBefore.Get_Entity() == InState.Gait.ConvertToHandle(),
+            TEXT("Published landing retains the exact owning gait before the owner control")))
+        {
+            return false;
+        }
+        const auto BodyBefore = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(InState.Body);
+        const auto EnsuresBefore = UCk_Utils_Ensure_UE::Get_EnsureCount();
+        const auto RaysBefore = UCk_Utils_ProceduralAnimation_Debug_UE::Get_RaysLastSolve(InState.Gait);
+        auto FeetBefore = TArray<FCk_ProceduralLeg_Foot>{};
+        for (const auto& RosterLeg : InState.Legs)
+        {
+            FeetBefore.Add(UCk_Utils_ProceduralLeg_UE::Get_Foot(RosterLeg));
+        }
+        const auto SameLanding = [](const ck::FProceduralGaitCommittedLanding& InLeft,
+            const ck::FProceduralGaitCommittedLanding& InRight) -> bool
+        {
+            const auto& LeftConstraint = InLeft.Get_Constraint();
+            const auto& RightConstraint = InRight.Get_Constraint();
+            return InLeft.Get_Leg() == InRight.Get_Leg()
+                && InLeft.Get_NormalWorld() == InRight.Get_NormalWorld()
+                && InLeft.Get_Cast() == InRight.Get_Cast()
+                && LeftConstraint.Get_PointWorld() == RightConstraint.Get_PointWorld()
+                && LeftConstraint.Get_HipLocal() == RightConstraint.Get_HipLocal()
+                && LeftConstraint.Get_Reach() == RightConstraint.Get_Reach()
+                && LeftConstraint.Get_AdmissionReach() == RightConstraint.Get_AdmissionReach();
+        };
+        {
+            InSubject.Remove<ck::FFragment_LifetimeOwner>();
+            ON_SCOPE_EXIT
+            {
+                InSubject.Add<ck::FFragment_LifetimeOwner>(OwnerBefore);
+            };
+            const auto MissingOwnerLandings = ck::Get_ProceduralGaitLandingConstraints(InState.Gait,
+                InBody, ck::EProceduralGaitLandingConsumer::BodyPose);
+            auto OtherIndex = 0;
+            for (const auto& PriorLanding : InLandings)
+            {
+                if (PriorLanding.Get_Leg() == InSubject)
+                {
+                    continue;
+                }
+                if (NOT InState.Require(MissingOwnerLandings.IsValidIndex(OtherIndex)
+                    && SameLanding(PriorLanding, MissingOwnerLandings[OtherIndex]),
+                    TEXT("Missing owner preserves every other published landing in its original order")))
+                {
+                    return false;
+                }
+                ++OtherIndex;
+            }
+            if (NOT InState.Require(MissingOwnerLandings.Num() == OtherIndex
+                && NOT MissingOwnerLandings.ContainsByPredicate([&](const auto& InLanding)
+                {
+                    return InLanding.Get_Leg() == InSubject;
+                }) && UCk_Utils_Ensure_UE::Get_EnsureCount() == EnsuresBefore,
+                TEXT("A real published landing with missing ownership is omitted without an ensure")))
+            {
+                return false;
+            }
+        }
+        const auto RestoredLandings = ck::Get_ProceduralGaitLandingConstraints(InState.Gait,
+            InBody, ck::EProceduralGaitLandingConsumer::BodyPose);
+        if (NOT InState.Require(RestoredLandings.Num() == InLandings.Num()
+            && InSubject.Has<ck::FFragment_LifetimeOwner>()
+            && InSubject.Get<ck::FFragment_LifetimeOwner>().Get_Entity() == OwnerBefore.Get_Entity()
+            && UCk_Utils_Transform_UE::Get_EntityCurrentTransform(InState.Body).Equals(BodyBefore, 0.0)
+            && BodyBefore.Equals(InBody, 0.0)
+            && UCk_Utils_Ensure_UE::Get_EnsureCount() == EnsuresBefore
+            && UCk_Utils_ProceduralAnimation_Debug_UE::Get_RaysLastSolve(InState.Gait) == RaysBefore,
+            TEXT("Synchronous owner restoration preserves body, native ray count and exact publication count")))
+        {
+            return false;
+        }
+        for (auto LandingIndex = 0; LandingIndex < InLandings.Num(); ++LandingIndex)
+        {
+            if (NOT InState.Require(SameLanding(InLandings[LandingIndex], RestoredLandings[LandingIndex]),
+                TEXT("Restoring the owner recovers every exact original positive landing constraint")))
+            {
+                return false;
+            }
+        }
+        for (auto FootIndex = 0; FootIndex < InState.Legs.Num(); ++FootIndex)
+        {
+            const auto Foot = UCk_Utils_ProceduralLeg_UE::Get_Foot(InState.Legs[FootIndex]);
+            const auto& PriorFoot = FeetBefore[FootIndex];
+            if (NOT InState.Require(Foot.Get_Phase() == PriorFoot.Get_Phase()
+                && Foot.Get_Contact() == PriorFoot.Get_Contact()
+                && Foot.Get_Foothold() == PriorFoot.Get_Foothold()
+                && Foot.Get_SwingAlpha() == PriorFoot.Get_SwingAlpha()
+                && Foot.Get_Position() == PriorFoot.Get_Position()
+                && Foot.Get_Normal() == PriorFoot.Get_Normal()
+                && Foot.Get_Rotation() == PriorFoot.Get_Rotation(),
+                TEXT("Missing-owner landing reads leave every actual foot unchanged")))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    auto
     DoObserve(
         FState& S,
         float InDeltaSeconds)
@@ -724,6 +844,14 @@ namespace ck_test_procedural_gait_committed_landing_pie
                     .Equals(Landing.Get_Constraint().Get_HipLocal(), 1.0e-6),
                 TEXT("Copied constraint matches the real ordinary native committed target and leg")))
             { return; }
+            if (NOT S.MissingOwnerChecked)
+            {
+                if (NOT DoCheckMissingLandingOwner(S, Body, Landings, Landing.Get_Leg()))
+                {
+                    return;
+                }
+                S.MissingOwnerChecked = true;
+            }
             if (NOT DoCheckReach(S, Landing, Body, Offset))
             { return; }
             const auto Hit = DoRay(S, Landing.Get_Constraint().Get_PointWorld(), Landing.Get_NormalWorld());

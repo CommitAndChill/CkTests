@@ -18,6 +18,8 @@
 #if WITH_EDITOR
 #include "CkJolt/CollisionLayers/CkJoltCollisionLayer_Utils.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
+#include "CkCore/Ensure/CkEnsure_Utils.h"
 #include "CkEcs/Handle/CkHandle_Utils.h"
 #include "CkEcs/Processor/CkProcessor.h"
 #include "CkEcs/Scheduler/CkProcessorRegistration.h"
@@ -28,9 +30,11 @@
 #include "CkProceduralAnimation/Gait/CkProceduralGait_Fragment.h"
 #include "CkProceduralAnimation/Gait/CkProceduralGait_Utils.h"
 #include "CkProceduralAnimation/Leg/CkProceduralLeg_Utils.h"
+#include "CkProceduralAnimation/Leg/CkProceduralLeg_Fragment.h"
 #include "CkProceduralAnimation/SurfaceMotion/CkSurfaceMotion_Processor.h"
 #include "CkProceduralAnimation/SurfaceMotion/CkSurfaceMotion_Utils.h"
 #include "CkJolt/Query/CkJoltQuery_Utils.h"
+#include "CkJolt/Body/CkJoltBody_Utils.h"
 #include "CkJolt/Subsystem/CkJolt_Subsystem.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 
@@ -1401,6 +1405,7 @@ namespace ck
     {
         CK_GENERATED_BODY(FFragment_TestHeightPlanningObservation);
         TFunction<void(FCk_Handle_ProceduralGait, bool, double)> Observe;
+        TFunction<void(FCk_Handle_ProceduralGait, double)> Bootstrap;
         bool PendingBefore = false;
         uint64 BeforeFrame = 0;
         uint64 BeforeSolve = 0;
@@ -1492,6 +1497,32 @@ namespace ck
         }
     };
 
+    class FProcessor_TestHeightPlanningBootstrap : public ck_exp::TProcessor<
+        FProcessor_TestHeightPlanningBootstrap, FCk_Handle_ProceduralGait,
+        TReadOnly<FFragment_TestHeightPlanningObservation>, TReadOnly<FFragment_ProceduralGait>,
+        TReadOnly<FFragment_Transform>, TExclude<FTag_DestroyEntity_Initiate>, CK_IGNORE_PENDING_KILL>
+    {
+    public:
+        using Group = FGroup_Physics;
+        using RunAfter = TDepList<FProcessor_SurfaceMotion_HandleRequests, FProcessor_TestPostsRecoveryAttach>;
+        using RunBefore = TDepList<FProcessor_TestHeightPlanningBeforeMotion>;
+        using TProcessor::TProcessor;
+
+        static auto
+        ForEachEntity(
+            TimeType InDt,
+            HandleType InGait,
+            const FFragment_TestHeightPlanningObservation& InObservation,
+            const FFragment_ProceduralGait&,
+            const FFragment_Transform&)
+            -> void
+        {
+            if (InObservation.Bootstrap && NOT InGait.Has<FFragment_SurfaceMotion_Params>()
+                && NOT InGait.Has<FFragment_SurfaceMotion>() && NOT InGait.Has<FFragment_SurfaceMotion_Support>())
+            { InObservation.Bootstrap(InGait, InDt.Get_Seconds()); }
+        }
+    };
+
     class FProcessor_TestHeightPlanningAfterMotion : public ck_exp::TProcessor<
         FProcessor_TestHeightPlanningAfterMotion, FCk_Handle_ProceduralGait,
         TReadWrite<FFragment_TestHeightPlanningObservation>,
@@ -1536,6 +1567,7 @@ namespace ck
     };
 }
 
+CK_REGISTER_PROCESSOR(ck::FProcessor_TestHeightPlanningBootstrap);
 CK_REGISTER_PROCESSOR(ck::FProcessor_TestHeightPlanningBeforeMotion);
 CK_REGISTER_PROCESSOR(ck::FProcessor_TestHeightPlanningAfterMotion);
 CK_REGISTER_PROCESSOR(ck::FProcessor_TestPostsRecoveryAttach);
@@ -1676,7 +1708,7 @@ namespace ck_test_height_planning_native
         }
     };
 
-    enum class EScenario : uint8 { Preparatory, BlockedPartial, StaleContact, Ordinary, NondefaultTarget, DiscardedStraight };
+    enum class EScenario : uint8 { Preparatory, BlockedPartial, StaleContact, Ordinary, NondefaultTarget, DiscardedStraight, PlaneClip, PlaneClipUnattributed };
 
     constexpr auto SupportTop = 75.0;
     constexpr auto Clearance = 64.0;
@@ -1711,6 +1743,13 @@ namespace ck_test_height_planning_native
         int32 InteriorFourthSamples = 0;
         bool MotionMature = false;
         bool OrdinaryBlockerRemoved = false;
+        FCk_Handle ClipEntity;
+        FCk_Handle_JoltBody ClipBody;
+        bool ClipTerrainCreated = false;
+        bool ClipProductionObserved = false;
+        bool ClipIndependentHit = false;
+        FTransform ClipExpected = FTransform::Identity;
+        double ClipStepSeconds = 0.0;
         TArray<FCk_ProceduralLeg_Foot> FeetBefore;
         TArray<ck::FProceduralGaitCommittedLanding> LandingsBefore;
         EScenario Scenario = EScenario::Preparatory;
@@ -1890,6 +1929,93 @@ namespace ck_test_height_planning_native
             return Pace != ECk_SurfaceMotion_ReachPaceState::PhysicalOverride
                 && (Support.Get_AdaptiveHeightActive() || Pace == ECk_SurfaceMotion_ReachPaceState::Pacing
                     || Pace == ECk_SurfaceMotion_ReachPaceState::Blocked);
+        }
+
+        auto
+        CheckMissingLifetimeOwner(
+            const FTransform& InCurrent,
+            const FTransform& InLandingGoal,
+            const FTransform& InPreparatoryGoal,
+            const TOptional<FTransform>& InOffset,
+            const ck::FProceduralGaitHeightCandidate& InCandidate)
+            -> bool
+        {
+            auto SubjectLeg = InCandidate.Get_Leg();
+            if (NOT Require(ck::IsValid(SubjectLeg) && Legs.Contains(SubjectLeg)
+                    && SubjectLeg.Has<ck::FFragment_ProceduralLeg>()
+                    && SubjectLeg.Has<ck::FFragment_ProceduralLeg_Params>()
+                    && SubjectLeg.Has<ck::FFragment_LifetimeOwner>(),
+                    TEXT("Owner-totality control starts with the actual admitted live native roster leg")))
+            {
+                return false;
+            }
+            const auto OwnerBefore = SubjectLeg.Get<ck::FFragment_LifetimeOwner>();
+            if (NOT Require(OwnerBefore.Get_Entity() == Gait.ConvertToHandle(),
+                    TEXT("Owner-totality control retains the exact original gait lifetime owner")))
+            {
+                return false;
+            }
+            const auto BodyBeforeOwnerControl = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(Body);
+            auto FeetBeforeOwnerControl = TArray<FCk_ProceduralLeg_Foot>{};
+            for (const auto& RosterLeg : Legs)
+            {
+                FeetBeforeOwnerControl.Add(UCk_Utils_ProceduralLeg_UE::Get_Foot(RosterLeg));
+            }
+            const auto EnsuresBeforeOwnerControl = UCk_Utils_Ensure_UE::Get_EnsureCount();
+            {
+                SubjectLeg.Remove<ck::FFragment_LifetimeOwner>();
+                ON_SCOPE_EXIT
+                {
+                    SubjectLeg.Add<ck::FFragment_LifetimeOwner>(OwnerBefore);
+                };
+                for (const auto Stage : {ck::EProceduralHeightPlanStage::PreparatoryBody,
+                         ck::EProceduralHeightPlanStage::Landing})
+                {
+                    auto MissingOwnerRays = 0;
+                    auto MissingOwnerFailure = ck::EProceduralHeightSeedFailure::TrustedDownFinalForceReject;
+                    auto MissingOwnerVisibility = TOptional<ck::FProceduralGaitHeightRetryWitness>{
+                        ck::FProceduralGaitHeightRetryWitness{}};
+                    const auto& Goal = Stage == ck::EProceduralHeightPlanStage::PreparatoryBody
+                        ? InPreparatoryGoal : InLandingGoal;
+                    const auto Admitted = ck::Get_IsProceduralHeightPlanAdmitted(Gait, Goal, InOffset,
+                        InCandidate, MissingOwnerRays, 2048, Stage, &MissingOwnerVisibility, nullptr,
+                        &MissingOwnerFailure);
+                    if (NOT Require(NOT Admitted && MissingOwnerRays == 0
+                            && MissingOwnerFailure == ck::EProceduralHeightSeedFailure::None
+                            && NOT MissingOwnerVisibility.IsSet()
+                            && UCk_Utils_Ensure_UE::Get_EnsureCount() == EnsuresBeforeOwnerControl,
+                            TEXT("Missing live-leg lifetime ownership rejects before native work without stale outputs or ensures")))
+                    {
+                        return false;
+                    }
+                }
+            }
+            if (NOT Require(SubjectLeg.Has<ck::FFragment_LifetimeOwner>()
+                    && SubjectLeg.Get<ck::FFragment_LifetimeOwner>().Get_Entity() == OwnerBefore.Get_Entity()
+                    && UCk_Utils_Transform_UE::Get_EntityCurrentTransform(Body).Equals(BodyBeforeOwnerControl, 0.0)
+                    && BodyBeforeOwnerControl.Equals(InCurrent, 0.0)
+                    && UCk_Utils_Ensure_UE::Get_EnsureCount() == EnsuresBeforeOwnerControl,
+                    TEXT("Synchronous owner restoration preserves the exact original body and owner before the next tick")))
+            {
+                return false;
+            }
+            for (auto Index = 0; Index < Legs.Num(); ++Index)
+            {
+                const auto Foot = UCk_Utils_ProceduralLeg_UE::Get_Foot(Legs[Index]);
+                const auto& PriorFoot = FeetBeforeOwnerControl[Index];
+                if (NOT Require(Foot.Get_Phase() == PriorFoot.Get_Phase()
+                        && Foot.Get_Contact() == PriorFoot.Get_Contact()
+                        && Foot.Get_Foothold() == PriorFoot.Get_Foothold()
+                        && Foot.Get_SwingAlpha() == PriorFoot.Get_SwingAlpha()
+                        && Foot.Get_Position() == PriorFoot.Get_Position()
+                        && Foot.Get_Normal() == PriorFoot.Get_Normal()
+                        && Foot.Get_Rotation() == PriorFoot.Get_Rotation(),
+                        TEXT("Rejected missing-owner admission leaves every actual native foot unchanged")))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         auto
@@ -2325,6 +2451,240 @@ namespace ck_test_height_planning_native
         }
 
         auto
+        Get_IsPlaneClipScenario() const
+            -> bool
+        {
+            return Scenario == EScenario::PlaneClip || Scenario == EScenario::PlaneClipUnattributed;
+        }
+
+        auto
+        ObservePlaneClip(
+            bool InBefore,
+            double InDt,
+            const FTransform& InCurrent)
+            -> void
+        {
+            if (NOT Require(World.IsValid(), TEXT("Native clip observer retains a live owned world")))
+            { return; }
+            const auto& GaitState = Gait.Get<ck::FFragment_ProceduralGait>();
+            const auto& Planning = GaitState.Get_HeightPlanning();
+            const auto& Support = Gait.Get<ck::FFragment_SurfaceMotion_Support>();
+            const auto Envelope = FCk_SurfaceMotion_AdaptiveHeight{}.Set_Enabled(true)
+                .Set_BodyHalfExtents(FVector{50.0, 28.0, 22.0}).Set_CollisionMargin(1.0f);
+            const auto Filter = FCk_Jolt_QueryFilter{}.Set_BodySelection(ECk_Jolt_QueryBodySelection::StaticNonSensor);
+            if (InBefore)
+            {
+                ++Samples;
+                if (Accepted)
+                {
+                    if (GFrameCounter > AcceptedFrame)
+                    {
+                        Complete = Require(InCurrent.Equals(AcceptedInput, 1.0e-3)
+                            && Planning.Get_Frame() == GFrameCounter - 1
+                            && Planning.Get_BodyAtSolve().Equals(InCurrent, 1.0e-3)
+                            && Planning.Get_Direction().Equals(Gait.Get<ck::FFragment_SurfaceMotion>().Get_Direction(), 1.0e-3)
+                            && FMath::IsNearlyEqual(Planning.Get_Speed(), Gait.Get<ck::FFragment_SurfaceMotion>().Get_Speed()),
+                            TEXT("Clipped publication is the next actual native planning input"));
+                    }
+                    return;
+                }
+                if (NOT MotionMature)
+                {
+                    MotionMature = Get_IsMatureSupport(InCurrent)
+                        && UCk_Utils_ProceduralGait_UE::Get_TrustedContactCount(Gait) == 4
+                        && UCk_Utils_SurfaceMotion_UE::Get_Support(Motion) == ECk_SurfaceMotion_Support::Grounded
+                        && Planning.Get_HasSample() && Planning.Get_Frame() == GFrameCounter - 1
+                        && Planning.Get_SolveSequence() == ExpectedDispatchSolve
+                        && Planning.Get_BodyAtSolve().Equals(InCurrent, 1.0e-3)
+                        && Gait.Get<ck::FFragment_SurfaceMotion>().Get_Speed() == 0.0f;
+                    if (NOT MotionMature)
+                    { return; }
+                }
+                if (NOT Require(FMath::IsFinite(InDt) && InDt > 0.0,
+                        TEXT("Clip native setup has a finite actual physics step")))
+                { return; }
+                if (NOT ClipTerrainCreated)
+                {
+                    auto Geometry = ck::FProceduralBodyEnvelopeEnclosureObservation{};
+                    auto Queries = 0;
+                    const auto Clear = ck::Get_IsProceduralBodyEnvelopePathClear(World.Get(), Envelope, Filter,
+                        InCurrent, InCurrent, Queries, 64, nullptr, nullptr,
+                        ck::EProceduralBodyEnvelopeEndpointValidation::ConservativeEnclosure, &Geometry);
+                    WitnessQueries += Queries;
+                    if (NOT Require(Clear && Geometry.Get_HasObservation()
+                            && UCk_Utils_SurfaceMotion_UE::Get_SupportNormal(Motion) == FVector::UpVector,
+                            TEXT("Fresh stationary native enclosure and exact world-Up support qualify blocker authoring")))
+                    { return; }
+                    const auto Top = InCurrent.GetLocation().Z - Geometry.Get_WorldUpRadius() - 100.0 * InDt;
+                    const auto Center = FVector{InCurrent.GetLocation().X, InCurrent.GetLocation().Y + 20.0, Top - 0.5};
+                    if (Scenario == EScenario::PlaneClip)
+                    {
+                        ClipEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(World.Get());
+                        if (NOT Require(ck::IsValid(ClipEntity), TEXT("Attributed blocker entity is live before composition")))
+                        { return; }
+                        const auto ClipTransform = UCk_Utils_Transform_UE::Add(ClipEntity,
+                            FTransform{Center}, ECk_Replication::DoesNotReplicate);
+                        if (NOT Require(ck::IsValid(ClipTransform), TEXT("Attributed blocker transform composes before native body")))
+                        { return; }
+                        auto Shape = FCk_Jolt_ShapeDimensions{ECk_Jolt_ShapeType::Box};
+                        Shape.Set_HalfExtents(FVector{2.0, 2.0, 0.5});
+                        auto Spec = FCk_JoltBody_Spec{ECk_JoltBody_ShapeSource::ExplicitShape};
+                        Spec.Set_ShapeDimensions(Shape);
+                        Spec.Set_MotionType(ECk_MotionType::Static);
+                        Spec.Set_CollisionProfileName(TEXT("BlockAll"));
+                        ClipBody = UCk_Utils_JoltBody_UE::Add(ClipEntity, Spec);
+                        if (NOT Require(ck::IsValid(ClipBody), TEXT("Clip blocker composes through the attributed public body API")))
+                        { return; }
+                    }
+                    else if (NOT Require(AddBox(Center, FVector{2.0, 2.0, 0.5}),
+                            TEXT("Identity-negative blocker owns the same native geometry without attribution")))
+                    { return; }
+                    ClipTerrainCreated = true;
+                    return;
+                }
+                if (Scenario == EScenario::PlaneClip)
+                {
+                    if (NOT Require(ck::IsValid(ClipBody) && ck::IsValid(ClipEntity),
+                            TEXT("Attributed blocker remains live before readiness is queried")))
+                    { return; }
+                    if (NOT UCk_Utils_JoltBody_UE::Get_IsBodyAdded(ClipBody))
+                    { return; }
+                }
+                if (NOT Driving)
+                {
+                    UCk_Utils_SurfaceMotion_UE::Request_Steering(Motion,
+                        FCk_Request_SurfaceMotion_Steering{FVector::ForwardVector, 180.0f}, {});
+                    Driving = true;
+                    return;
+                }
+                if (Gait.Get<ck::FFragment_SurfaceMotion>().Get_Speed() <= 0.0f)
+                { return; }
+                Before = InCurrent;
+                BeforeFrame = GFrameCounter;
+                ClipStepSeconds = InDt;
+                FeetBefore.Reset();
+                for (const auto& Leg : Legs)
+                { FeetBefore.Add(UCk_Utils_ProceduralLeg_UE::Get_Foot(Leg)); }
+                LandingsBefore = GaitState.Get_LandingPlanning().Get_Landings();
+                ClipIndependentHit = false;
+                if (NOT Require(WitnessQueries <= 19994, TEXT("Independent clip witnesses retain their own finite budget")))
+                { return; }
+                auto Rejected = InCurrent;
+                Rejected.AddToTranslation(-FVector::UpVector * (200.0 * InDt));
+                auto Sweep = TOptional<FCk_Jolt_HitResult>{};
+                auto Geometry = ck::FProceduralBodyEnvelopeEnclosureObservation{};
+                auto Queries = 0;
+                const auto Clear = ck::Get_IsProceduralBodyEnvelopePathClear(World.Get(), Envelope, Filter,
+                    InCurrent, Rejected, Queries, 64, &Sweep, nullptr,
+                    ck::EProceduralBodyEnvelopeEndpointValidation::ConservativeEnclosure, &Geometry);
+                WitnessQueries += Queries;
+                if (NOT Clear && Sweep.IsSet() && Sweep->Get_HasHit() && Sweep->Get_Fraction() > 0.0f
+                    && Sweep->Get_Fraction() < 1.0f && Sweep->Get_Normal() == FVector::UpVector)
+                {
+                    const auto Numeric = ck::TryGet_ProceduralBodyPlaneClip(Geometry, InCurrent, Rejected,
+                        Sweep.GetValue(), FVector::UpVector);
+                    ClipIndependentHit = Numeric.IsSet();
+                    if (Numeric.IsSet())
+                    { ClipExpected = Numeric.GetValue(); }
+                }
+                return;
+            }
+            if (NOT Driving || BeforeFrame != GFrameCounter || Accepted)
+            { return; }
+            if (NOT CheckDispatchReceipt())
+            { return; }
+            const auto& Clip = Gait.Get<ck::FFragment_ProceduralBodyPreparation_Test>();
+            if (NOT Clip.ClipConsumed)
+            { return; }
+            ClipProductionObserved = true;
+            const auto& Dispatch = Gait.Get<ck::FFragment_ProceduralHeightPlanning_Test>();
+            if (NOT Require(Clip.Frame == GFrameCounter && ExpectedDispatchFrame == GFrameCounter
+                    && Dispatch.Solve == ExpectedDispatchSolve && Clip.ClipTrial > 0
+                    && Clip.ClipTrial <= Dispatch.Count && Clip.ClipTrial <= 4 && ClipIndependentHit,
+                    TEXT("Actual clip has a same-frame charged native trial and independently qualified numeric plane")))
+            { return; }
+            const auto& Attempt = Dispatch.Attempts[Clip.ClipTrial - 1];
+            auto ActualFull = Attempt.BodyBefore;
+            ActualFull.AddToTranslation(FVector::UpVector * Attempt.Delta);
+            if (NOT Require(Attempt.Stage == ck::EProceduralHeightPlanStage::Landing && Attempt.Candidate.Get_RequiresRelief()
+                    && Attempt.Delta < 0.0 && Clip.ClipEntryDormant && Clip.ClipStagingDormant
+                    && Clip.ClipBefore.Equals(Attempt.BodyBefore, 1.0e-9)
+                    && Clip.ClipFullGoal.Equals(ActualFull, 1.0e-9)
+                    && Clip.ClipBefore.Equals(Before, 1.0e-3)
+                    && Clip.ClipRejected.GetLocation().Z < Clip.ClipBefore.GetLocation().Z
+                    && FMath::IsNearlyEqual(Clip.ClipBefore.GetLocation().Z - Clip.ClipRejected.GetLocation().Z,
+                        200.0 * ClipStepSeconds, 1.0e-3),
+                    TEXT("Same actual Landing goal passed both native leg proofs and older staging priority before clipping")))
+            { return; }
+            if (NOT Require(Clip.ClipFullHit.Get_HasHit() && Clip.ClipFullHit.Get_Fraction() > 0.0f
+                    && Clip.ClipFullHit.Get_Fraction() <= 1.0f && Clip.ClipPartialHit.Get_HasHit()
+                    && Clip.ClipPartialHit.Get_Fraction() > 0.0f && Clip.ClipPartialHit.Get_Fraction() < 1.0f
+                    && Clip.ClipPartialHit.Get_Normal() == FVector::UpVector
+                    && Clip.ClipEnvelopesBefore <= 46 && Clip.ClipEnvelopesAfter <= 52
+                    && Clip.ClipRaysAfter >= Clip.ClipRaysBefore && Clip.ClipRaysAfter <= 2048
+                    && Support.Get_HeightPlanningTrials() <= 4 && Support.Get_HeightPlanningRays() <= 2048
+                    && Support.Get_HeightEnvelopeQueries() <= 64,
+                    TEXT("Actual full/fixed simulation hits and current reserved planning budgets qualify the same call")))
+            { return; }
+            for (auto Index = 0; Index < Legs.Num(); ++Index)
+            {
+                const auto Foot = UCk_Utils_ProceduralLeg_UE::Get_Foot(Legs[Index]);
+                if (NOT Require(Foot.Get_Phase() == FeetBefore[Index].Get_Phase()
+                        && Foot.Get_Contact() == FeetBefore[Index].Get_Contact()
+                        && Foot.Get_Foothold() == FeetBefore[Index].Get_Foothold()
+                        && Foot.Get_SwingAlpha() == FeetBefore[Index].Get_SwingAlpha()
+                        && Foot.Get_Normal().Equals(FeetBefore[Index].Get_Normal(), 1.0e-9)
+                        && Foot.Get_Position().Equals(FeetBefore[Index].Get_Position(), 1.0e-9),
+                        TEXT("A clip body proposal grants no foot phase, trust, held target or plant")))
+                { return; }
+            }
+            const auto& AfterLandings = GaitState.Get_LandingPlanning().Get_Landings();
+            if (NOT Require(AfterLandings.Num() == LandingsBefore.Num(), TEXT("Clip publication creates no landing authority")))
+            { return; }
+            for (auto Index = 0; Index < AfterLandings.Num(); ++Index)
+            {
+                if (NOT Require(AfterLandings[Index].Get_Leg() == LandingsBefore[Index].Get_Leg()
+                        && AfterLandings[Index].Get_Constraint().Get_PointWorld().Equals(
+                            LandingsBefore[Index].Get_Constraint().Get_PointWorld(), 1.0e-9),
+                        TEXT("Existing committed owners and targets survive unchanged")))
+                { return; }
+            }
+            if (Scenario == EScenario::PlaneClipUnattributed)
+            {
+                Complete = Require(ck::Is_NOT_Valid(Clip.ClipPartialHit.Get_Entity()) && NOT Clip.ClipAccepted
+                    && NOT Attempt.Accepted && Attempt.BodyBefore.Equals(Attempt.BodyAfter, 1.0e-9)
+                    && Clip.ClipRaysAfter == Clip.ClipRaysBefore
+                    && Clip.ClipEnvelopesAfter == Clip.ClipEnvelopesBefore,
+                    TEXT("Real unattributed hit rejects this trial atomically before any extra clip ray or envelope"));
+                return;
+            }
+            if (NOT Require(ck::IsValid(Clip.ClipPartialHit.Get_Entity())
+                    && Clip.ClipPartialHit.Get_Entity() == ClipEntity
+                    && UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(Clip.ClipPartialHit.Get_Entity()) == World.Get()
+                    && Clip.ClipAccepted && Attempt.Accepted && Dispatch.Count == Clip.ClipTrial
+                    && Clip.ClipCandidate.Equals(ClipExpected, 1.0e-3)
+                    && Attempt.BodyAfter.Equals(Clip.ClipCandidate, 1.0e-9)
+                    && Clip.ClipCandidate.GetLocation().Z > Clip.ClipRejected.GetLocation().Z
+                    && Clip.ClipCandidate.GetLocation().Z < Clip.ClipBefore.GetLocation().Z
+                    && Clip.ClipCandidate.GetLocation().X == Clip.ClipBefore.GetLocation().X
+                    && Clip.ClipCandidate.GetLocation().Y == Clip.ClipBefore.GetLocation().Y
+                    && Clip.ClipCandidate.GetRotation() == Clip.ClipBefore.GetRotation()
+                    && Clip.ClipCandidate.GetScale3D() == Clip.ClipBefore.GetScale3D()
+                    && Clip.ClipRaysAfter > Clip.ClipRaysBefore
+                    && Clip.ClipEnvelopesAfter - Clip.ClipEnvelopesBefore == 6,
+                    TEXT("One attributed clipped placement passes actual native/posed proof in the same charged trial")))
+            { return; }
+            if (NOT Require(Support.Get_AdaptiveHeightActive() && Support.Get_AdaptiveHeightPreparing()
+                    && Support.Get_AdaptiveHeightGoal().Equals(Clip.ClipCandidate.GetLocation(), 1.0e-3)
+                    && Support.Get_EvaluatedFrame() == GFrameCounter,
+                    TEXT("Only actual admitted clipped body-height state is published together")))
+            { return; }
+            Accepted = true;
+            AcceptedFrame = GFrameCounter;
+            AcceptedInput = Support.Get_EvaluatedBody();
+        }
+
+        auto
         Observe(
             FCk_Handle_ProceduralGait InGait,
             bool InBefore,
@@ -2360,6 +2720,8 @@ namespace ck_test_height_planning_native
             const auto& Planning = GaitState.Get_HeightPlanning();
             const auto& Support = InGait.Get<ck::FFragment_SurfaceMotion_Support>();
             const auto Current = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(Body);
+            if (Get_IsPlaneClipScenario())
+            { ObservePlaneClip(InBefore, InDt, Current); return; }
             if (NOT MotionMature)
             {
                 if (InBefore && Get_IsMatureSupport(Current) && UCk_Utils_SurfaceMotion_UE::Get_Support(Motion) == ECk_SurfaceMotion_Support::Grounded
@@ -2471,6 +2833,10 @@ namespace ck_test_height_planning_native
                     if (NOT SeedFailureChecked)
                     {
                         SeedFailureChecked = true;
+                        if (NOT CheckMissingLifetimeOwner(Current, Full, Partial, Offset, Candidate))
+                        {
+                            return;
+                        }
                         if (NOT CheckSeedFailure(Current, Full, Offset, Candidate))
                         { return; }
                         if (Scenario == EScenario::DiscardedStraight && NOT CheckDiscardedStraight(Current, Offset, Candidate))
@@ -2785,10 +3151,15 @@ namespace ck_test_height_planning_native
             S.Legs.Add(Leg);
         }
         S.Gait.Add<ck::FFragment_ProceduralHeightPlanning_Test>();
+        if (S.Get_IsPlaneClipScenario())
+        { S.Gait.Add<ck::FFragment_ProceduralBodyPreparation_Test>(); }
         auto* State = &S;
         // Queued latent commands retain the shared state until cleanup clears this non-owning callback.
-        S.Gait.Add<ck::FFragment_TestHeightPlanningObservation>().Observe =
+        auto& Observation = S.Gait.Add<ck::FFragment_TestHeightPlanningObservation>();
+        Observation.Observe =
             [State](FCk_Handle_ProceduralGait InGait, bool InBefore, double InDt) { State->Observe(InGait, InBefore, InDt); };
+        Observation.Bootstrap =
+            [State](FCk_Handle_ProceduralGait InGait, double InDt) { State->Observe(InGait, true, InDt); };
     }
 
     auto
@@ -2821,7 +3192,11 @@ namespace ck_test_height_planning_native
                         static_cast<int32>(State->Scenario), State->Samples, State->Accepted, State->Mutated,
                         State->WitnessRays, State->WitnessQueries));
                     if (ck::IsValid(State->Gait) && State->Gait.Has<ck::FFragment_TestHeightPlanningObservation>())
-                    { State->Gait.Get<ck::FFragment_TestHeightPlanningObservation>().Observe = {}; }
+                    {
+                        auto& Observation = State->Gait.Get<ck::FFragment_TestHeightPlanningObservation>();
+                        Observation.Bootstrap = {};
+                        Observation.Observe = {};
+                    }
                     if (ck::IsValid(State->Body))
                     { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->Body); }
                     auto* Jolt = State->World.IsValid() ? State->World->GetSubsystem<UCk_Jolt_Subsystem>() : nullptr;
@@ -2844,6 +3219,97 @@ namespace ck_test_height_planning_native
                 TEXT("Owned height walker retires before the next scenario")));
         }
     }
+}
+
+namespace ck_test_height_planning_native
+{
+    auto
+        EnqueuePlaneClip(
+            FAutomationTestBase* InTest,
+            EScenario InScenario)
+        -> void
+    {
+        const auto State = MakeShared<FState>();
+        State->Test = InTest;
+        State->Scenario = InScenario;
+        State->Origin = FVector{120000.0, 410000.0 + 1000.0 * static_cast<int32>(InScenario), 5000.0};
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+            [State](UWorld* InWorld) { State->World = InWorld; Compose(*State); })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(InTest,
+            FCk_NetAutoTest_Condition::CreateLambda([State] { return State->Complete || State->Failed; }), 15.0,
+            TEXT("Native plane-clip scene reaches mandatory production outcome")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+            [State](UWorld*)
+            {
+                State->Require(State->Complete && NOT State->Failed && State->ClipProductionObserved,
+                    TEXT("Clip scene must observe its actual charged production branch, never a missing-coverage pass"));
+                State->Test->AddInfo(FString::Printf(TEXT("PlaneClipNative scenario%d samples%d consumed%d accepted%d witnessQueries%d"),
+                    static_cast<int32>(State->Scenario), State->Samples, State->ClipProductionObserved,
+                    State->Accepted, State->WitnessQueries));
+                if (ck::IsValid(State->Gait) && State->Gait.Has<ck::FFragment_TestHeightPlanningObservation>())
+                {
+                    auto& Observation = State->Gait.Get<ck::FFragment_TestHeightPlanningObservation>();
+                    Observation.Bootstrap = {};
+                    Observation.Observe = {};
+                }
+                if (ck::IsValid(State->ClipEntity))
+                { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->ClipEntity); }
+                if (ck::IsValid(State->Body))
+                { UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(State->Body); }
+                auto* Jolt = State->World.IsValid() ? State->World->GetSubsystem<UCk_Jolt_Subsystem>() : nullptr;
+                const auto Physics = ck::IsValid(Jolt) ? Jolt->Get_PhysicsSystem().Pin() : nullptr;
+                if (State->Require(Physics.IsValid(), TEXT("Clip owned terrain cleanup retains its native world")))
+                {
+                    for (const auto Id : State->NativeBodies)
+                    {
+                        Physics->GetBodyInterface().RemoveBody(Id);
+                        Physics->GetBodyInterface().DestroyBody(Id);
+                    }
+                }
+                State->NativeBodies.Reset();
+                FApp::SetUseFixedTimeStep(State->OriginalFixedTime);
+                FApp::SetFixedDeltaTime(State->OriginalFixedDelta);
+                State->FixedTime = false;
+            })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(InTest,
+            FCk_NetAutoTest_Condition::CreateLambda([State]
+                { return ck::Is_NOT_Valid(State->Body) && ck::Is_NOT_Valid(State->ClipEntity); }), 5.0,
+            TEXT("Clip walker and attributed terrain retire before the next scene")));
+    }
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralHeightPlaneClipNativeTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.HeightPlanning.NativePlaneClipPublication",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+auto
+    FCkProceduralHeightPlaneClipNativeTest::
+    RunTest(const FString& InParameters)
+    -> bool
+{
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ck_test_height_planning_native::EnqueuePlaneClip(this, ck_test_height_planning_native::EScenario::PlaneClip);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralHeightPlaneClipIdentityNativeTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.HeightPlanning.NativePlaneClipUnattributedAtomicRejection",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+auto
+    FCkProceduralHeightPlaneClipIdentityNativeTest::
+    RunTest(const FString& InParameters)
+    -> bool
+{
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ck_test_height_planning_native::EnqueuePlaneClip(this, ck_test_height_planning_native::EScenario::PlaneClipUnattributed);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
 }
 
 // CONTACT_CORRECTION_NATIVE_REGRESSION_BEGIN
