@@ -18,7 +18,7 @@ class UCk_AutoTest_ProceduralAnimation_PillarsEngageSteppedTops : UCk_AutoTest_B
     {
         if (_Fixture.Create_WithRoster(InHandle, FVector(120000.0, 392000.0, 600.0),
             ECkProceduralAnimationGym_Course::Pillars,
-            ck_procedural_gym::Get_StressRoster(ECkProceduralAnimationGym_Course::Pillars), false) == false)
+            ck_procedural_gym::Get_StressRoster(ECkProceduralAnimationGym_Course::Pillars), false, InAdaptiveHeight: true) == false)
         {
             FinishFailure("The isolated stepping-pillar fixture could not be created");
             return;
