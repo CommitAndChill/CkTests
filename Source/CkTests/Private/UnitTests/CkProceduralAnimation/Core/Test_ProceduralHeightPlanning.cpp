@@ -306,6 +306,174 @@ auto
 // --------------------------------------------------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralHeightPlanningRecoveryPostsTest,
+    "Ck.ProceduralAnimation.Core.HeightPlanning.RecoveryRetryPinnedPosts03",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+auto
+    FCkProceduralHeightPlanningRecoveryPostsTest::
+    RunTest(const FString& InParameters)
+    -> bool
+{
+    // Pinned Posts03 geometry (D37820D4): observations offer a scalar, never native landing authority.
+    const auto Body = FTransform{FVector{119919.72136446973, 365000.0, 699.2531139708732}};
+    const auto Pose = TOptional<FTransform>{FTransform{FQuat{-0.008119643144865945,
+        0.018167381623409706, -8.130389829736624e-9, 0.9998019892159394},
+        FVector{0.0, 0.0, -1.9670324772122698}}};
+    const auto Anchors = TArray<ck::FProceduralSurfaceReachPaceAnchor>{
+        {FVector{119994.0625, 364973.1875, 675.0}, FVector{45.0, -28.0, 0.0}, 100.0f},
+        {FVector{119994.0625, 365026.8125, 675.0}, FVector{45.0, 28.0, 0.0}, 100.0f},
+        {FVector{119890.5703125, 364940.25, 600.0}, FVector{-45.0, -28.0, 0.0}, 120.0f},
+        {FVector{119885.5390625, 365057.625, 600.0}, FVector{-45.0, 28.0, 0.0}, 120.0f}};
+    const auto Legs = TArray<ck::FProceduralHeightRecoveryLegGeometry>{
+        {FVector{45.0, -28.0, 0.0}, FVector{119994.0625, 364973.1875, 675.0},
+            TOptional<FVector>{FVector{119993.1640625, 364947.5625, 600.0}}, 92.0f},
+        {FVector{45.0, 28.0, 0.0}, FVector{119994.0625, 365026.8125, 675.0},
+            TOptional<FVector>{FVector{119993.1640625, 365052.4375, 600.0}}, 92.0f},
+        {FVector{-45.0, -28.0, 0.0}, FVector{119888.0390625, 364937.8125, 600.0},
+            TOptional<FVector>{FVector{119889.6171875, 364933.75, 600.0}}, 110.4000015258789f},
+        {FVector{-45.0, 28.0, 0.0}, FVector{119888.0390625, 365062.1875, 600.0},
+            TOptional<FVector>{FVector{119889.6171875, 365066.25, 600.0}}, 110.4000015258789f}};
+    const auto Retry = ck::Get_ProceduralHeightRecoveryRetryDelta(Body, Pose, FVector::UpVector,
+        Anchors, Legs, 64.0, 15.259259493781528);
+    TestTrue(TEXT("Pinned Posts03 preserves its first goal and offers the exact strictly smaller union endpoint"),
+        Retry.IsSet() && FMath::IsNearlyEqual(*Retry, 4.7488366704726985, 1.0e-9));
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralHeightPlanningRecoveryUnionsTest,
+    "Ck.ProceduralAnimation.Core.HeightPlanning.RecoveryRetryClosedUnionsAnd65Components",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+auto
+    FCkProceduralHeightPlanningRecoveryUnionsTest::
+    RunTest(const FString& InParameters)
+    -> bool
+{
+    const auto Anchors = TArray<ck::FProceduralSurfaceReachPaceAnchor>{
+        {FVector::ZeroVector, FVector::ZeroVector, 1000.0f}};
+    const auto Offer = [&](const TArray<ck::FProceduralHeightRecoveryLegGeometry>& InLegs, double InFirst)
+    {
+        return ck::Get_ProceduralHeightRecoveryRetryDelta(FTransform::Identity, {}, FVector::UpVector,
+            Anchors, InLegs, 200.0, InFirst);
+    };
+    // First leg has [-2,2] OR [4,8]; the second clips only the second component to [4,6].
+    auto Legs = TArray<ck::FProceduralHeightRecoveryLegGeometry>{
+        {FVector::ZeroVector, FVector::ZeroVector, TOptional<FVector>{FVector{0.0, 0.0, 6.0}}, 2.0f},
+        {FVector::ZeroVector, FVector{0.0, 0.0, 2.0}, {}, 4.0f}};
+    auto Retry = Offer(Legs, 9.0);
+    TestTrue(TEXT("Alternatives are OR within each leg, with AND across supporting legs"),
+        Retry.IsSet() && FMath::IsNearlyEqual(*Retry, 6.0, 1.0e-12));
+    Retry = Offer(Legs, 5.0);
+    TestTrue(TEXT("A component straddling the failed goal contributes no inset; a lower disjoint endpoint survives"),
+        Retry.IsSet() && FMath::IsNearlyEqual(*Retry, 2.0, 1.0e-12));
+    Retry = Offer(Legs, 6.0);
+    TestTrue(TEXT("An endpoint equal to the failed goal is excluded without erasing the lower component"),
+        Retry.IsSet() && FMath::IsNearlyEqual(*Retry, 2.0, 1.0e-12));
+    TestFalse(TEXT("Neither a straddling interval nor endpoint equality fabricates a smaller scalar"),
+        Offer({Legs[1]}, 6.0).IsSet());
+    TestFalse(TEXT("Disjoint leg constraints do not acquire a convex-hull bridge"),
+        Offer({Legs[0], {FVector::ZeroVector, FVector{0.0, 0.0, 3.0}, {}, 0.5f}}, 9.0).IsSet());
+    TestFalse(TEXT("An empty alternative does not make the valid nonpositive alternative an offer"),
+        Offer({{FVector::ZeroVector, FVector{10.0, 0.0, 0.0},
+            TOptional<FVector>{FVector{0.0, 0.0, -2.0}}, 1.0f}}, 9.0).IsSet());
+    Retry = Offer({{FVector::ZeroVector, FVector{10.0, 0.0, 0.0},
+        TOptional<FVector>{FVector{0.0, 0.0, 3.0}}, 1.0f}}, 9.0);
+    TestTrue(TEXT("One geometrically empty alternative preserves its valid sibling"),
+        Retry.IsSet() && FMath::IsNearlyEqual(*Retry, 4.0, 1.0e-12));
+
+    // Same radius, different perpendicular distances realize [-1,2k] OR [2k+1,130].
+    // Each supporting leg cuts one new gap. The 64th intersection needs all 65 components.
+    Legs.Reset();
+    const auto Point = [](double InLower, double InUpper)
+    {
+        const auto Half = (InUpper - InLower) * 0.5;
+        return FVector{FMath::Sqrt(256.0 * 256.0 - Half * Half), 0.0, (InLower + InUpper) * 0.5};
+    };
+    for (auto Index = 0; Index < 64; ++Index)
+    {
+        Legs.Emplace(FVector::ZeroVector, Point(-1.0, 2.0 * Index),
+            TOptional<FVector>{Point(2.0 * Index + 1.0, 130.0)}, 256.0f);
+        if (Index > 0)
+        {
+            Retry = Offer(Legs, 129.0);
+            TestTrue(TEXT("Every prefix preserves all closed components through the fixed 65-component bound"),
+                Retry.IsSet() && FMath::IsNearlyEqual(*Retry, 2.0 * Index, 1.0e-8));
+        }
+    }
+    const auto ExtraLeg = Legs[0];
+    Legs.Add(ExtraLeg);
+    TestFalse(TEXT("A 65th supporting geometry group is rejected before unbounded work"), Offer(Legs, 129.0).IsSet());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkProceduralHeightPlanningRecoveryMalformedTest,
+    "Ck.ProceduralAnimation.Core.HeightPlanning.RecoveryRetryRejectsMalformedAndBoundaryInput",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+auto
+    FCkProceduralHeightPlanningRecoveryMalformedTest::
+    RunTest(const FString& InParameters)
+    -> bool
+{
+    const auto NaN = std::numeric_limits<double>::quiet_NaN();
+    const auto Inf = std::numeric_limits<double>::infinity();
+    const auto Anchors = TArray<ck::FProceduralSurfaceReachPaceAnchor>{
+        {FVector::ZeroVector, FVector::ZeroVector, 100.0f}};
+    const auto Good = ck::FProceduralHeightRecoveryLegGeometry{FVector::ZeroVector, FVector{0.0, 0.0, 2.0}, {}, 1.0f};
+    const auto Offer = [&](const FTransform& InBody, const TOptional<FTransform>& InPose, const FVector& InUp,
+        const TArray<ck::FProceduralHeightRecoveryLegGeometry>& InLegs, double InMax, double InFirst)
+    {
+        return ck::Get_ProceduralHeightRecoveryRetryDelta(InBody, InPose, InUp, Anchors, InLegs, InMax, InFirst);
+    };
+    const auto Exact = Offer(FTransform::Identity, {}, FVector::UpVector, {Good}, 64.0, 4.0);
+    TestTrue(TEXT("A single observation has its exact positive endpoint"),
+        Exact.IsSet() && *Exact == 3.0);
+    const auto Posed = Offer(FTransform::Identity, TOptional<FTransform>{FTransform{FVector{0.0, 0.0, 0.5}}},
+        FVector::UpVector, {Good}, 64.0, 4.0);
+    TestTrue(TEXT("Presentation and simulation force intervals intersect without a force tolerance expansion"),
+        Posed.IsSet() && *Posed == 2.5);
+    for (const auto First : {NaN, Inf, -1.0, 0.0, 0.001})
+    { TestFalse(TEXT("Malformed or nonpositive first goals cannot authorize a retry"),
+        Offer(FTransform::Identity, {}, FVector::UpVector, {Good}, 64.0, First).IsSet()); }
+    for (const auto Max : {NaN, Inf, -1.0, 0.0})
+    { TestFalse(TEXT("Invalid authored translation bounds decline the entire offer"),
+        Offer(FTransform::Identity, {}, FVector::UpVector, {Good}, Max, 4.0).IsSet()); }
+    for (const auto Up : {FVector::ZeroVector, FVector{0.0, 0.0, 2.0}, FVector{NaN, 0.0, 1.0}})
+    { TestFalse(TEXT("The helper requires finite normalized Up"),
+        Offer(FTransform::Identity, {}, Up, {Good}, 64.0, 4.0).IsSet()); }
+    for (const auto Bad : {
+        ck::FProceduralHeightRecoveryLegGeometry{FVector{NaN, 0.0, 0.0}, FVector::ZeroVector, {}, 1.0f},
+        ck::FProceduralHeightRecoveryLegGeometry{FVector::ZeroVector, FVector{Inf, 0.0, 0.0}, {}, 1.0f},
+        ck::FProceduralHeightRecoveryLegGeometry{FVector::ZeroVector, FVector{std::numeric_limits<double>::max(), 0.0, 0.0}, {}, 1.0f},
+        ck::FProceduralHeightRecoveryLegGeometry{FVector::ZeroVector, FVector::ZeroVector, TOptional<FVector>{FVector{NaN}}, 1.0f},
+        ck::FProceduralHeightRecoveryLegGeometry{FVector::ZeroVector, FVector::ZeroVector, {}, 0.0f},
+        ck::FProceduralHeightRecoveryLegGeometry{FVector::ZeroVector, FVector::ZeroVector, {}, -1.0f},
+        ck::FProceduralHeightRecoveryLegGeometry{FVector::ZeroVector, FVector::ZeroVector, {}, std::numeric_limits<float>::infinity()}})
+    { TestFalse(TEXT("A malformed alternative or group rejects the whole input rather than publishing a subset"),
+        Offer(FTransform::Identity, {}, FVector::UpVector, {Good, Bad}, 64.0, 4.0).IsSet()); }
+    TestFalse(TEXT("Missing supporting geometry cannot produce an offer"),
+        Offer(FTransform::Identity, {}, FVector::UpVector, {}, 64.0, 4.0).IsSet());
+    TestFalse(TEXT("Nonrigid body transforms are rejected"),
+        Offer(FTransform{FQuat::Identity, FVector::ZeroVector, FVector{2.0}}, {}, FVector::UpVector, {Good}, 64.0, 4.0).IsSet());
+    TestFalse(TEXT("A malformed presentation transform is rejected"),
+        Offer(FTransform::Identity, TOptional<FTransform>{FTransform{FVector{NaN, 0.0, 0.0}}},
+            FVector::UpVector, {Good}, 64.0, 4.0).IsSet());
+    TestFalse(TEXT("Without a physical stance interval no recovery offer is invented"),
+        ck::Get_ProceduralHeightRecoveryRetryDelta(FTransform::Identity, {}, FVector::UpVector,
+            TArray<ck::FProceduralSurfaceReachPaceAnchor>{}, TArray<ck::FProceduralHeightRecoveryLegGeometry>{Good}, 64.0, 4.0).IsSet());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
     FCkProceduralHeightPlanningConflictingPlantTest,
     "Ck.ProceduralAnimation.Core.HeightPlanning.RejectsFloorGoalConflictingWithElevatedPlant",
     ck::tests::kCkUnitTestFlags)
@@ -1079,20 +1247,224 @@ auto
 
 namespace ck
 {
+    namespace test_posts_recovery
+    {
+        constexpr auto TestPath = TEXT("Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PostsBeastPosedReach");
+
+        auto CurrentTest() -> FAutomationTestBase*
+        {
+            auto* Test = FAutomationTestFramework::Get().GetCurrentTest();
+            return Test != nullptr && Test->GetTestFullName() == TestPath ? Test : nullptr;
+        }
+
+        struct FProof
+        {
+            FCk_Handle_ProceduralGait Root;
+            TWeakObjectPtr<UWorld> World;
+            uint64 Frame = 0;
+            uint64 Solve = 0;
+            bool RetryObserved = false;
+            bool MovingRetryObserved = false;
+            bool FirstSuccessObserved = false;
+            bool Finalized = false;
+            bool AwaitingAfter = false;
+            FDelegateHandle EndHandle;
+
+            ~FProof()
+            {
+                Finalize(CurrentTest());
+                FAutomationTestFramework::Get().OnTestEndEvent.Remove(EndHandle);
+            }
+
+            auto Finalize(FAutomationTestBase* Test) -> void
+            {
+                if (NOT Finalized && Test != nullptr && Test == CurrentTest())
+                {
+                    Finalized = true;
+                    Test->TestFalse(TEXT("Posts recovery proof closes without an outstanding before callback"), AwaitingAfter);
+                    Test->AddInfo(FString::Printf(TEXT("PostsRecoveryProof summary retry%d moving%d firstSuccess%d"),
+                        RetryObserved, MovingRetryObserved, FirstSuccessObserved));
+                    Test->TestTrue(TEXT("The original Posts route actually exercised its mandatory second Recovery"), RetryObserved);
+                    Test->TestTrue(TEXT("The original Posts route actually accepted a moving second Recovery"), MovingRetryObserved);
+                }
+            }
+
+            auto Observe(FCk_Handle_ProceduralGait InGait, bool InBefore) -> void
+            {
+                auto* Test = CurrentTest();
+                if (Finalized || Test == nullptr || InGait != Root || NOT World.IsValid()
+                    || UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(InGait) != World.Get()
+                    || NOT InGait.Has<FFragment_ProceduralGait>()
+                    || NOT InGait.Has<FFragment_ProceduralHeightPlanning_Test>())
+                { return; }
+                if (InBefore)
+                {
+                    AwaitingAfter = true;
+                    Frame = GFrameCounter;
+                    Solve = InGait.Get<FFragment_ProceduralGait>().Get_SolveSequence();
+                    return;
+                }
+                AwaitingAfter = false;
+                const auto& Receipt = InGait.Get<FFragment_ProceduralHeightPlanning_Test>();
+                if (NOT Test->TestTrue(TEXT("Posts dispatch receipts retain their original four slots"),
+                    NOT Receipt.Overflow && Receipt.Count >= 0 && Receipt.Count <= 4))
+                { return; }
+                if (Receipt.Count == 0)
+                { return; }
+                if (NOT Test->TestTrue(TEXT("Posts dispatch proof joins the same before/after Surface call"),
+                    Frame == GFrameCounter && Receipt.Frame == Frame && Receipt.Solve == Solve))
+                { return; }
+                auto PreviousRays = 0;
+                auto PreviousEnvelopes = 0;
+                auto PreviousTrials = 0;
+                auto RecoveryCount = 0;
+                for (auto Index = 0; Index < Receipt.Count; ++Index)
+                {
+                    const auto& Attempt = Receipt.Attempts[Index];
+                    Test->TestTrue(TEXT("Posts attempts retain monotonic unchanged planning budgets"),
+                        Attempt.Trials > PreviousTrials && Attempt.Trials <= 4
+                            && Attempt.Rays >= PreviousRays && Attempt.Rays <= 2048
+                            && Attempt.Envelopes >= PreviousEnvelopes && Attempt.Envelopes <= 64);
+                    Test->TestTrue(TEXT("Posts accepted attempt is last; rejected dispatch never mutates its body"),
+                        Attempt.Completed && (Attempt.Accepted ? Index == Receipt.Count - 1
+                            : Attempt.BodyBefore.Equals(Attempt.BodyAfter, 1.0e-9)));
+                    PreviousRays = Attempt.Rays;
+                    PreviousEnvelopes = Attempt.Envelopes;
+                    PreviousTrials = Attempt.Trials;
+                    RecoveryCount += Attempt.Stage == EProceduralHeightPlanStage::Recovery ? 1 : 0;
+                }
+                Test->TestTrue(TEXT("Posts cannot dispatch a third Recovery"), RecoveryCount <= 2);
+                if (RecoveryCount == 0)
+                { return; }
+                const auto& First = Receipt.Attempts[0];
+                Test->TestTrue(TEXT("Recovery preserves the original first ordinary goal"),
+                    First.Stage == EProceduralHeightPlanStage::Recovery && First.Route == 0);
+                if (First.Accepted)
+                {
+                    Test->TestEqual(TEXT("First Recovery success dispatches exactly once"), Receipt.Count, 1);
+                    if (NOT FirstSuccessObserved)
+                    {
+                        FirstSuccessObserved = true;
+                        Test->AddInfo(FString::Printf(TEXT("PostsRecoveryProof firstSuccess frame%llu solve%llu count%d"),
+                            Frame, Solve, Receipt.Count));
+                    }
+                    return;
+                }
+                if (RecoveryCount != 2)
+                { return; }
+                if (NOT Test->TestEqual(TEXT("A Recovery retry ends this whole-body proposal path"), Receipt.Count, 2))
+                { return; }
+                const auto& Second = Receipt.Attempts[1];
+                const auto& A = First.Candidate;
+                const auto& B = Second.Candidate;
+                const auto Qualified = First.Completed && NOT First.Accepted
+                    && First.SeedFailure == EProceduralHeightSeedFailure::TrustedDownFinalForceReject
+                    && First.Delta > 0.001 && FMath::IsFinite(First.Delta)
+                    && Second.Stage == EProceduralHeightPlanStage::Recovery && Second.Route == 0
+                    && Second.Delta > 0.001 && Second.Delta < First.Delta && FMath::IsFinite(Second.Delta)
+                    && A.Get_Leg() == B.Get_Leg() && A.Get_HipLocal() == B.Get_HipLocal()
+                    && A.Get_FootWorld() == B.Get_FootWorld() && A.Get_PointWorld() == B.Get_PointWorld()
+                    && A.Get_NormalWorld() == B.Get_NormalWorld() && A.Get_Reach() == B.Get_Reach()
+                    && A.Get_AdmissionReach() == B.Get_AdmissionReach() && A.Get_RequiresRelief() == B.Get_RequiresRelief()
+                    && First.BodyBefore.Equals(First.BodyAfter, 1.0e-9)
+                    && First.BodyAfter.Equals(Second.BodyBefore, 1.0e-9)
+                    && NOT Receipt.CooperativeThirdOffered && NOT Receipt.InteriorOffered;
+                if (NOT Test->TestTrue(TEXT("Only a completed classified first force rejection admits one strictly smaller same-candidate retry"), Qualified))
+                { return; }
+                const auto Moving = Second.Accepted && NOT Second.BodyAfter.Equals(Second.BodyBefore, 1.0e-9);
+                const auto EmitProof = [&](const TCHAR* InKind)
+                {
+                    const auto Registry = Root.Get_RegistryView().Get_RegistryHandle();
+                    Test->AddInfo(FString::Printf(TEXT("PostsRecoveryProof %s test[%s] root[ProceduralAnimation.Posts.Beast4] world%p registry%u:%u entity%u frame%llu solve%llu first%.17g second%.17g count%d rays%d envelopes%d trials%d"),
+                        InKind, TestPath, World.Get(), static_cast<uint32>(Registry.SlotIndex),
+                        static_cast<uint32>(Registry.Generation), static_cast<uint32>(Root.Get_Entity().Get_ID()),
+                        Frame, Solve, First.Delta, Second.Delta, Receipt.Count, Second.Rays, Second.Envelopes, Second.Trials));
+                };
+                if (NOT RetryObserved)
+                { EmitProof(TEXT("firstRetry")); }
+                if (Moving && NOT MovingRetryObserved)
+                { EmitProof(TEXT("movingRetry")); }
+                RetryObserved = true;
+                MovingRetryObserved |= Moving;
+            }
+        };
+    }
+
+    struct FFragment_TestPostsRecoveryProof
+    {
+        CK_GENERATED_BODY(FFragment_TestPostsRecoveryProof);
+        TSharedPtr<test_posts_recovery::FProof> State;
+    };
+
     // Only test observations and owned native terrain change here; no gait/foot/solver state is injected.
     struct FFragment_TestHeightPlanningObservation
     {
         CK_GENERATED_BODY(FFragment_TestHeightPlanningObservation);
         TFunction<void(FCk_Handle_ProceduralGait, bool, double)> Observe;
+        bool PendingBefore = false;
+        uint64 BeforeFrame = 0;
+        uint64 BeforeSolve = 0;
     };
 
-    class FProcessor_TestHeightPlanningBeforeMotion : public ck_exp::TProcessor<
-        FProcessor_TestHeightPlanningBeforeMotion, FCk_Handle_ProceduralGait,
-        TReadWrite<FFragment_TestHeightPlanningObservation>>
+    class FProcessor_TestPostsRecoveryAttach : public ck_exp::TProcessor<
+        FProcessor_TestPostsRecoveryAttach, FCk_Handle_ProceduralGait, TReadOnly<FFragment_ProceduralGait>>
     {
     public:
         using Group = FGroup_Physics;
         using RunAfter = TDepList<FProcessor_SurfaceMotion_HandleRequests>;
+        using TProcessor::TProcessor;
+
+        static auto ForEachEntity(TimeType, HandleType InGait, const FFragment_ProceduralGait&) -> void
+        {
+            if (test_posts_recovery::CurrentTest() == nullptr
+                || UCk_Utils_Handle_UE::Get_DebugName(InGait) != FName{TEXT("ProceduralAnimation.Posts.Beast4")}
+                || InGait.Has<FFragment_TestPostsRecoveryProof>())
+            { return; }
+            auto* World = UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(InGait);
+            if (ck::Is_NOT_Valid(World))
+            { return; }
+            if (InGait.Has<FFragment_TestHeightPlanningObservation>()
+                && InGait.Get<FFragment_TestHeightPlanningObservation>().Observe)
+            {
+                test_posts_recovery::CurrentTest()->AddError(TEXT("Posts recovery attachment refuses to overwrite an existing observer"));
+                return;
+            }
+            const auto Proof = MakeShared<test_posts_recovery::FProof>();
+            Proof->Root = InGait;
+            Proof->World = World;
+            const auto WeakProof = TWeakPtr<test_posts_recovery::FProof>{Proof};
+            Proof->EndHandle = FAutomationTestFramework::Get().OnTestEndEvent.AddLambda(
+                [WeakProof](FAutomationTestBase* InTest)
+                {
+                    if (const auto State = WeakProof.Pin())
+                    { State->Finalize(InTest); }
+                });
+            InGait.Add<FFragment_TestPostsRecoveryProof>().State = Proof;
+            if (NOT InGait.Has<FFragment_ProceduralHeightPlanning_Test>())
+            { InGait.Add<FFragment_ProceduralHeightPlanning_Test>(); }
+            if (NOT InGait.Has<FFragment_TestHeightPlanningObservation>())
+            { InGait.Add<FFragment_TestHeightPlanningObservation>(); }
+            InGait.Get<FFragment_TestHeightPlanningObservation>().Observe =
+                [Proof](FCk_Handle_ProceduralGait InRoot, bool InBefore, double) { Proof->Observe(InRoot, InBefore); };
+        }
+    };
+
+    class FProcessor_TestHeightPlanningBeforeMotion : public ck_exp::TProcessor<
+        FProcessor_TestHeightPlanningBeforeMotion, FCk_Handle_ProceduralGait,
+        TReadWrite<FFragment_TestHeightPlanningObservation>,
+        TReadOnly<FFragment_ProceduralGait>,
+        TReadOnly<FFragment_SurfaceMotion_Params>,
+        TReadOnly<FFragment_SurfaceMotion>,
+        TReadOnly<FFragment_SurfaceMotion_Support>,
+        TReadOnly<FFragment_Transform>,
+        TExclude<FTag_SurfaceMotion_NeedsSetup>,
+        TExclude<FFragment_SurfaceMotion_Failure>,
+        TExclude<FTag_DestroyEntity_Initiate>,
+        CK_IGNORE_PENDING_KILL>
+    {
+    public:
+        using Group = FGroup_Physics;
+        using RunAfter = TDepList<FProcessor_SurfaceMotion_HandleRequests, FProcessor_TestPostsRecoveryAttach>;
         using RunBefore = TDepList<FProcessor_SurfaceMotion_Update>;
         using TProcessor::TProcessor;
 
@@ -1100,17 +1472,34 @@ namespace ck
         ForEachEntity(
             TimeType InDt,
             HandleType InGait,
-            FFragment_TestHeightPlanningObservation& InObservation)
+            FFragment_TestHeightPlanningObservation& InObservation,
+            const FFragment_ProceduralGait&,
+            const FFragment_SurfaceMotion_Params&,
+            const FFragment_SurfaceMotion&,
+            const FFragment_SurfaceMotion_Support&,
+            const FFragment_Transform&)
             -> void
         {
             if (InObservation.Observe)
-            { InObservation.Observe(InGait, true, InDt.Get_Seconds()); }
+            {
+                if (auto* Test = FAutomationTestFramework::Get().GetCurrentTest())
+                { Test->TestFalse(TEXT("Height observer never overwrites an unconsumed before token"), InObservation.PendingBefore); }
+                InObservation.PendingBefore = true;
+                InObservation.BeforeFrame = GFrameCounter;
+                InObservation.BeforeSolve = InGait.Get<FFragment_ProceduralGait>().Get_SolveSequence();
+                InObservation.Observe(InGait, true, InDt.Get_Seconds());
+            }
         }
     };
 
     class FProcessor_TestHeightPlanningAfterMotion : public ck_exp::TProcessor<
         FProcessor_TestHeightPlanningAfterMotion, FCk_Handle_ProceduralGait,
-        TReadWrite<FFragment_TestHeightPlanningObservation>>
+        TReadWrite<FFragment_TestHeightPlanningObservation>,
+        TReadOnly<FFragment_ProceduralGait>,
+        TReadOnly<FFragment_SurfaceMotion_Params>,
+        TReadOnly<FFragment_SurfaceMotion>,
+        TReadOnly<FFragment_SurfaceMotion_Support>,
+        TReadOnly<FFragment_Transform>>
     {
     public:
         using Group = FGroup_Physics;
@@ -1121,17 +1510,35 @@ namespace ck
         ForEachEntity(
             TimeType InDt,
             HandleType InGait,
-            FFragment_TestHeightPlanningObservation& InObservation)
+            FFragment_TestHeightPlanningObservation& InObservation,
+            const FFragment_ProceduralGait&,
+            const FFragment_SurfaceMotion_Params&,
+            const FFragment_SurfaceMotion&,
+            const FFragment_SurfaceMotion_Support&,
+            const FFragment_Transform&)
             -> void
         {
-            if (InObservation.Observe)
-            { InObservation.Observe(InGait, false, InDt.Get_Seconds()); }
+            if (InObservation.Observe && InObservation.PendingBefore)
+            {
+                const auto Frame = InObservation.BeforeFrame;
+                const auto Solve = InObservation.BeforeSolve;
+                InObservation.PendingBefore = false;
+                const auto HasReceipt = InGait.Has<FFragment_ProceduralHeightPlanning_Test>();
+                const auto Joined = HasReceipt && Frame == GFrameCounter
+                    && InGait.Get<FFragment_ProceduralHeightPlanning_Test>().Frame == Frame
+                    && InGait.Get<FFragment_ProceduralHeightPlanning_Test>().Solve == Solve;
+                if (auto* Test = FAutomationTestFramework::Get().GetCurrentTest())
+                { Test->TestTrue(TEXT("Height observer consumes the actual same-frame input-solve producer receipt"), Joined); }
+                if (Joined)
+                { InObservation.Observe(InGait, false, InDt.Get_Seconds()); }
+            }
         }
     };
 }
 
 CK_REGISTER_PROCESSOR(ck::FProcessor_TestHeightPlanningBeforeMotion);
 CK_REGISTER_PROCESSOR(ck::FProcessor_TestHeightPlanningAfterMotion);
+CK_REGISTER_PROCESSOR(ck::FProcessor_TestPostsRecoveryAttach);
 
 namespace ck_test_height_planning_native
 {
@@ -1691,23 +2098,26 @@ namespace ck_test_height_planning_native
                 return {};
             };
             auto Failure = EFailure::TrustedDownFinalForceReject;
+            auto LastComparedRays = 0;
             const auto Compare = [&](const FTransform& InGoal, EStage InStage, EFailure InExpectedFailure,
-                TOptional<bool> InExpectedResult = {}) -> bool
+                TOptional<bool> InExpectedResult = {}, const ck::FProceduralGaitHeightCandidate* InObserved = nullptr) -> bool
             {
+                const auto& Candidate = InObserved != nullptr ? *InObserved : InCandidate;
                 auto ControlRays = 0;
-                const auto Control = ck::Get_IsProceduralHeightPlanAdmitted(Gait, InGoal, InOffset, InCandidate,
+                const auto Control = ck::Get_IsProceduralHeightPlanAdmitted(Gait, InGoal, InOffset, Candidate,
                     ControlRays, 2048, InStage);
                 WitnessRays += ControlRays;
                 auto CauseRays = 0;
                 Failure = EFailure::TrustedDownFinalForceReject;
-                const auto WithCause = ck::Get_IsProceduralHeightPlanAdmitted(Gait, InGoal, InOffset, InCandidate,
+                const auto WithCause = ck::Get_IsProceduralHeightPlanAdmitted(Gait, InGoal, InOffset, Candidate,
                     CauseRays, 2048, InStage, nullptr, nullptr, &Failure);
                 WitnessRays += CauseRays;
+                LastComparedRays = CauseRays;
                 return Require(Control == WithCause && ControlRays == CauseRays && CauseRays > 0,
                         TEXT("Optional seed cause preserves this exact native result and ray count"))
                     && Require(NOT InExpectedResult.IsSet() || WithCause == InExpectedResult.GetValue(),
                         TEXT("Qualified native seed scenario returns its required result"))
-                    && Require(Failure == InExpectedFailure, TEXT("Only the selected outer Landing seed publishes its exact cause"));
+                    && Require(Failure == InExpectedFailure, TEXT("Landing and Recovery publish only their exact stage-specific native cause"));
             };
             if (NOT Compare(InAdmitted, EStage::Landing, EFailure::None, TOptional<bool>{true}))
             { return false; }
@@ -1766,8 +2176,63 @@ namespace ck_test_height_planning_native
                     && FVector::Dist(Raised.TransformPosition(InCandidate.Get_HipLocal()), RaisedHit->Get_Position()) > ForceReach,
                     TEXT("Clamped reprobe actually hits native level geometry beyond the unchanged force limit")))
             { return false; }
-            return Compare(Raised, EStage::Landing, EFailure::TrustedDownFinalForceReject, TOptional<bool>{false})
-                && Compare(InAdmitted, EStage::Landing, EFailure::None, TOptional<bool>{true});
+            if (NOT Compare(Raised, EStage::Landing, EFailure::TrustedDownFinalForceReject, TOptional<bool>{false})
+                || NOT Compare(Raised, EStage::Recovery, EFailure::TrustedDownFinalForceReject, TOptional<bool>{false}))
+            { return false; }
+            auto BudgetControlRays = 2048;
+            const auto BudgetControl = ck::Get_IsProceduralHeightPlanAdmitted(Gait, Raised, InOffset, InCandidate,
+                BudgetControlRays, 2048, EStage::Recovery);
+            auto BudgetCauseRays = 2048;
+            Failure = EFailure::TrustedDownFinalForceReject;
+            const auto BudgetWithCause = ck::Get_IsProceduralHeightPlanAdmitted(Gait, Raised, InOffset, InCandidate,
+                BudgetCauseRays, 2048, EStage::Recovery, nullptr, nullptr, &Failure);
+            if (NOT Require(NOT BudgetControl && NOT BudgetWithCause && BudgetControlRays == 2048
+                    && BudgetCauseRays == 2048 && Failure == EFailure::None,
+                    TEXT("Actual Recovery remaining-budget preflight rejects without a native ray or retained cause")))
+            { return false; }
+
+            // Remove only an owned support body synchronously, leaving the live published sample unchanged.
+            // Qualify both seed branches independently through production admission before asserting the aggregate.
+            const auto Roster = UCk_Utils_ProceduralGait_UE::Get_Legs(Gait);
+            const auto& Observations = Gait.Get<ck::FFragment_ProceduralGait>().Get_HeightPlanning().Get_Candidates();
+            const ck::FProceduralGaitHeightCandidate* TopSeed = nullptr;
+            const ck::FProceduralGaitHeightCandidate* FloorSeed = nullptr;
+            auto FirstLegSeeds = 0;
+            for (const auto& Observed : Observations)
+            {
+                if (Roster.IsEmpty() || Observed.Get_Leg() != Roster[0])
+                { continue; }
+                ++FirstLegSeeds;
+                if (FMath::IsNearlyEqual(Observed.Get_PointWorld().Z, Origin.Z + SupportTop, 1.0e-3))
+                { TopSeed = &Observed; }
+                else if (FMath::IsNearlyEqual(Observed.Get_PointWorld().Z, Origin.Z, 1.0e-3))
+                { FloorSeed = &Observed; }
+            }
+            if (NOT Require(FirstLegSeeds == 2 && TopSeed != nullptr && FloorSeed != nullptr
+                    && Legs.Num() == 4 && Roster[0] == Legs[0] && PlatformIds.Num() == 4,
+                    TEXT("Mixed Recovery coverage requires the real first leg's published owned-top and floor alternatives")))
+            { return false; }
+            const auto Physics = World->GetSubsystem<UCk_Jolt_Subsystem>()->Get_PhysicsSystem().Pin();
+            if (NOT Require(Physics.IsValid(), TEXT("Owned terrain is available for a synchronous freshness withdrawal")))
+            { return false; }
+            auto& Bodies = Physics->GetBodyInterface();
+            Bodies.RemoveBody(PlatformIds[0]);
+            auto Restored = false;
+            ON_SCOPE_EXIT
+            {
+                if (NOT Restored)
+                { Bodies.AddBody(PlatformIds[0], JPH::EActivation::DontActivate); }
+            };
+            if (NOT Compare(Raised, EStage::Landing, EFailure::None, TOptional<bool>{false}, TopSeed)
+                || NOT Require(LastComparedRays == 1, TEXT("Withdrawn published top fails the actual one-ray freshness branch"))
+                || NOT Compare(Raised, EStage::Landing, EFailure::TrustedDownFinalForceReject, TOptional<bool>{false}, FloorSeed)
+                || NOT Compare(Raised, EStage::Recovery, EFailure::None, TOptional<bool>{false}))
+            { return false; }
+            Bodies.AddBody(PlatformIds[0], JPH::EActivation::DontActivate);
+            Restored = true;
+            Test->AddInfo(FString::Printf(TEXT("HeightRecoveryNative scenario%d allForce1 clampMissNone1 mixedFreshnessForceNone1 budgetNoRays1"),
+                static_cast<int32>(Scenario)));
+            return Compare(InAdmitted, EStage::Landing, EFailure::None, TOptional<bool>{true});
         }
 
         auto
