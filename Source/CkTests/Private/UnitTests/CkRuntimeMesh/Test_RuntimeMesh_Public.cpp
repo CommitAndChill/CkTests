@@ -136,7 +136,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FCkTest_RuntimeMesh_PublicCut::RunTest(const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked CPU fixture becomes Ready"), Fixture.Initialize()))
     { return false; }
     const auto SourceVolume = UCk_Utils_RuntimeMesh_UE::Get_Metrics(
@@ -186,7 +186,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FCkTest_RuntimeMesh_PublicReentrantAndCleanup::RunTest(const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked CPU fixture becomes Ready"), Fixture.Initialize()))
     { return false; }
     auto Listener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -226,7 +226,7 @@ bool FCkTest_RuntimeMesh_PublicDistinctReceiversAndBudget::RunTest(
         == ECk_ProcessorPumpPolicy::SkipPump);
     constexpr auto MaximumSlicesPerDrain = 2;
     const auto DrainLimits = FScopedDrainLimits{FCk_Time{10.0}, MaximumSlicesPerDrain};
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
     auto First = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -277,7 +277,7 @@ bool FCkTest_RuntimeMesh_PublicDrainTimeBudget::RunTest(
     const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
     auto Listener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -337,7 +337,7 @@ bool FCkTest_RuntimeMesh_PublicRejectionAndCancellation::RunTest(
     const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
     auto Listener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -401,7 +401,7 @@ bool FCkTest_RuntimeMesh_PublicDeadTypedReceiver::RunTest(
     const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
     auto Generic = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -432,7 +432,7 @@ bool FCkTest_RuntimeMesh_PublicSynchronousRejections::RunTest(
     const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
     auto Listener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -502,7 +502,7 @@ bool FCkTest_RuntimeMesh_PublicSourceEndPlayCancellation::RunTest(
     const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
     auto Listener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -535,7 +535,7 @@ bool FCkTest_RuntimeMesh_PublicCallbackTeardownLatch::RunTest(
     using namespace ck_test_runtime_mesh_public;
     for (auto Mode = 0; Mode < 2; ++Mode)
     {
-        auto Fixture = FFixture{};
+        auto Fixture = ck_test_runtime_mesh_public::FFixture{};
         if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
         { return false; }
         auto Listener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -569,7 +569,7 @@ bool FCkTest_RuntimeMesh_PublicGenericReceiverDiesInTypedCallback::RunTest(
     const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
     auto Typed = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
@@ -596,7 +596,7 @@ bool FCkTest_RuntimeMesh_PublicQueuedGCAndIndependentRecut::RunTest(
     const FString& Parameters)
 {
     using namespace ck_test_runtime_mesh_public;
-    auto Fixture = FFixture{};
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
     if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
     { return false; }
     TestFalse(TEXT("Ready source releases setup batch"),
