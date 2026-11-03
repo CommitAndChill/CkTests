@@ -3,6 +3,7 @@
 #include "CkProceduralAnimation/Core/CkProceduralHeightPlanning.h"
 #include "CkProceduralAnimation/Core/CkProceduralFeetPlane.h"
 #include "CkProceduralAnimation/Core/CkProceduralFoothold.h"
+#include "CkProceduralAnimation/Core/CkProceduralFootProbe.h"
 #include "CkProceduralAnimation/Core/CkProceduralGaitSolver.h"
 #include "CkProceduralAnimation/Core/CkProceduralSurfaceMotion.h"
 #include "CkProceduralAnimation/Gait/CkProceduralGait_HeightPlanning.h"
@@ -17,6 +18,7 @@
 #if WITH_EDITOR
 #include "CkJolt/CollisionLayers/CkJoltCollisionLayer_Utils.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/Handle/CkHandle_Utils.h"
 #include "CkEcs/Processor/CkProcessor.h"
 #include "CkEcs/Scheduler/CkProcessorRegistration.h"
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
@@ -35,6 +37,9 @@
 #include <Engine/World.h>
 #include <Misc/ScopeExit.h>
 #include <Misc/App.h>
+#include <Misc/OutputDevice.h>
+#include <Misc/OutputDeviceRedirector.h>
+#include <Misc/ScopeLock.h>
 #include <UObject/StrongObjectPtr.h>
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/PhysicsSystem.h>
@@ -594,6 +599,20 @@ auto
     TestTrue(TEXT("Native retry output resets before the earliest invalid-gait return and leaves rays unchanged"),
         NOT Witness.IsSet() && Rays == 7);
 
+    auto SeedFailure = ck::EProceduralHeightSeedFailure::TrustedDownFinalForceReject;
+    auto InvalidRays = 0;
+    TestFalse(TEXT("Invalid native gait rejects with a reused seed-failure output"),
+        ck::Get_IsProceduralHeightPlanAdmitted({}, FTransform::Identity, {}, ck::FProceduralGaitHeightCandidate{},
+            InvalidRays, 2048, ck::EProceduralHeightPlanStage::Landing, nullptr, nullptr, &SeedFailure));
+    TestTrue(TEXT("Invalid gait clears seed failure before any native ray"),
+        SeedFailure == ck::EProceduralHeightSeedFailure::None && InvalidRays == 0);
+    SeedFailure = ck::EProceduralHeightSeedFailure::TrustedInitialDownClampReprobeMiss;
+    TestFalse(TEXT("Invalid Recovery cannot retain another call's seed cause"),
+        ck::Get_IsProceduralHeightPlanAdmitted({}, FTransform::Identity, {}, ck::FProceduralGaitHeightCandidate{},
+            InvalidRays, 2048, ck::EProceduralHeightPlanStage::Recovery, nullptr, nullptr, &SeedFailure));
+    TestTrue(TEXT("Invalid Recovery resets the reused output without a ray"),
+        SeedFailure == ck::EProceduralHeightSeedFailure::None && InvalidRays == 0);
+
     return true;
 }
 
@@ -1116,7 +1135,141 @@ CK_REGISTER_PROCESSOR(ck::FProcessor_TestHeightPlanningAfterMotion);
 
 namespace ck_test_height_planning_native
 {
-    enum class EScenario : uint8 { Preparatory, BlockedPartial, StaleContact, Ordinary };
+    struct FHeightSeedRecord
+    {
+        uint64 W[40]{};
+        auto
+        Known(
+            int32 Slot) const
+            -> bool
+        {
+            return (W[0] & (uint64{1} << (Slot - 1))) != 0;
+        }
+        auto
+        Point(
+            int32 Slot,
+            FVector& Out) const
+            -> bool
+        {
+            double V[3]{};
+            for (auto A = 0; A < 3; ++A)
+            {
+                if (NOT Known(Slot + A))
+                {
+                    return false;
+                }
+                FMemory::Memcpy(&V[A], &W[Slot + A], sizeof(double));
+                if (NOT FMath::IsFinite(V[A]))
+                {
+                    return false;
+                }
+            }
+            Out = FVector{V[0], V[1], V[2]};
+            return true;
+        }
+    };
+
+    struct FHeightSeedSink final : FOutputDevice
+    {
+        FCriticalSection Mutex;
+        const FName DirectCategory{TEXT("LogTemp")};
+        FHeightSeedRecord Rows[64]{};
+        uint64 Key[6]{};
+        uint64 Frame = 0;
+        uint64 Solve = 0;
+        int32 Count = 0;
+        bool Invalid = false;
+        bool Overflow = false;
+        // Synchronous delivery; Serialize reads only fixed scalars while holding its mutex.
+        auto
+        CanBeUsedOnMultipleThreads() const
+            -> bool override
+        {
+            return true;
+        }
+        auto
+        Serialize(
+            const TCHAR* Message,
+            ELogVerbosity::Type,
+            const FName& Category)
+            -> void override
+        {
+            if (Category != DirectCategory || FCString::Strncmp(Message, TEXT("HST1 "), 5) != 0)
+            {
+                return;
+            }
+            const auto Lock = FScopeLock{&Mutex};
+            if (FCString::Strlen(Message) != 684)
+            {
+                Invalid = true;
+                return;
+            }
+            auto R = FHeightSeedRecord{};
+            for (auto W = 0; W < 40; ++W)
+            {
+                for (auto D = 0; D < 16; ++D)
+                {
+                    const auto C = Message[5 + W * 17 + D];
+                    const auto N = C >= '0' && C <= '9' ? C - '0' : C >= 'a' && C <= 'f' ? C - 'a' + 10 : -1;
+                    if (N < 0)
+                    {
+                        Invalid = true;
+                        return;
+                    }
+                    R.W[W] = (R.W[W] << 4) | static_cast<uint64>(N);
+                }
+                if (W != 39 && Message[5 + W * 17 + 16] != ' ')
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            for (auto S = 1; S <= 8; ++S)
+            {
+                if (NOT R.Known(S))
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            // One fixed world/registry/root/leg identity for this entire sink lifetime.
+            for (auto S = 1; S <= 6; ++S)
+            {
+                if (R.W[S] != Key[S - 1])
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            if (R.W[7] != Frame || R.W[8] != Solve || (R.W[0] >> 38) != 0 || NOT R.Known(36) || NOT R.Known(37) ||
+                NOT R.Known(38) || R.W[37] != 1)
+            {
+                Invalid = true;
+                return;
+            }
+            if (R.W[38] == 1)
+            {
+                Overflow = true;
+                return;
+            }
+            if (R.W[38] != 0 || Count == 64 || R.W[36] != static_cast<uint64>(Count + 1))
+            {
+                Invalid = true;
+                return;
+            }
+            for (auto S = 1; S < 40; ++S)
+            {
+                if (NOT R.Known(S) && R.W[S] != 0)
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            Rows[Count++] = R;
+        }
+    };
+
+    enum class EScenario : uint8 { Preparatory, BlockedPartial, StaleContact, Ordinary, NondefaultTarget, DiscardedStraight };
 
     constexpr auto SupportTop = 75.0;
     constexpr auto Clearance = 64.0;
@@ -1142,6 +1295,13 @@ namespace ck_test_height_planning_native
         TArray<JPH::BodyID> PlatformIds;
         TArray<FVector> PlatformTops;
         JPH::BodyID EnvelopeBlocker;
+        float DefaultTargetFraction = 0.0f;
+        float ConstructedTargetFraction = 0.0f;
+        uint64 ExpectedDispatchFrame = 0;
+        uint64 ExpectedDispatchSolve = 0;
+        int32 DispatchReceiptSamples = 0;
+        int32 CooperativeThirdSamples = 0;
+        int32 InteriorFourthSamples = 0;
         bool MotionMature = false;
         bool OrdinaryBlockerRemoved = false;
         TArray<FCk_ProceduralLeg_Foot> FeetBefore;
@@ -1160,6 +1320,7 @@ namespace ck_test_height_planning_native
         int32 Samples = 0;
         bool Driving = false;
         bool Witness = false;
+        bool SeedFailureChecked = false;
         bool Mutated = false;
         bool Accepted = false;
         bool Complete = false;
@@ -1325,6 +1486,380 @@ namespace ck_test_height_planning_native
         }
 
         auto
+        CheckDiscardedStraight(
+            const FTransform& InCurrent,
+            const TOptional<FTransform>& InOffset,
+            const ck::FProceduralGaitHeightCandidate& InCandidate)
+            -> bool
+        {
+            const auto& Tunables = Gait.Get<ck::FFragment_ProceduralGait_Tunables>();
+            const auto& Probe = Tunables.Get_Probe();
+            const auto Up = InCurrent.GetRotation().GetAxisZ();
+            const auto Point = InCandidate.Get_PointWorld();
+            const auto Force = Tunables.Get_Step().Get_ForceStepReachFraction() * InCandidate.Get_Reach();
+            const auto Target = Tunables.Get_Step().Get_TargetReachFraction() * InCandidate.Get_Reach();
+            const auto Radial = FVector::VectorPlaneProject(Point - InCurrent.GetLocation(), Up).GetSafeNormal();
+            const auto Axis = ck::FProceduralGaitSolver::ComputeTraceAxis(Up, Radial, Probe.Get_OutwardLean());
+            const auto Crossing = Point + Axis * (0.8 * Probe.Get_Up());
+            auto Half = FVector{4.0, 4.0, Probe.Get_Up() * 0.25};
+            const auto ThinAxis = FMath::Abs(Axis.X) > FMath::Abs(Axis.Y) ? 0 : 1;
+            Half[ThinAxis] = 1.0;
+            if (NOT Require(Up.Equals(FVector::UpVector, 1.0e-9) && InCandidate.Get_NormalWorld().Equals(Up, 1.0e-3) &&
+                                Probe.Get_OutwardLean() > 0.0 && Probe.Get_Up() > 0.0 &&
+                                FMath::Abs(Crossing[ThinAxis] - Point[ThinAxis]) > Half[ThinAxis] + 2.0 &&
+                                Tunables.Get_Foothold().Get_MaxAngle() == 60.0f,
+                            TEXT("Single authored fallback wall stays off the unchanged real sample column")))
+            {
+                return false;
+            }
+            const auto Physics = World->GetSubsystem<UCk_Jolt_Subsystem>()->Get_PhysicsSystem().Pin();
+            if (NOT Require(Physics.IsValid() && GLog != nullptr,
+                            TEXT("Fallback native world and direct receipt sink exist")))
+            {
+                return false;
+            }
+            if (NOT Require(AddBox(Crossing, Half), TEXT("Single native wall is added after the real level sample")))
+            {
+                return false;
+            }
+            const auto Wall = NativeBodies.Last();
+            ON_SCOPE_EXIT
+            {
+                Physics->GetBodyInterface().RemoveBody(Wall);
+                Physics->GetBodyInterface().DestroyBody(Wall);
+                NativeBodies.RemoveSingle(Wall);
+            };
+            auto Goal = InCurrent;
+            const auto HipBefore = Goal.TransformPosition(InCandidate.Get_HipLocal());
+            Goal.AddToTranslation(Up * (Point.Z + Force * 1.10 - HipBefore.Z));
+            const auto Hip = Goal.TransformPosition(InCandidate.Get_HipLocal());
+            const auto PublicLegs = UCk_Utils_ProceduralGait_UE::Get_Legs(Gait);
+            const auto LegIndex = PublicLegs.IndexOfByKey(InCandidate.Get_Leg());
+            if (NOT Require(LegIndex != INDEX_NONE && LegIndex < 4,
+                            TEXT("Real candidate retains its composed public leg identity")))
+            {
+                return false;
+            }
+            auto Root = Gait.ConvertToHandle();
+            const auto OldName = UCk_Utils_Handle_UE::Get_DebugName(Root);
+            auto Sink = FHeightSeedSink{};
+            const auto Registry = Root.Get_RegistryView().Get_RegistryHandle();
+            Sink.Key[0] = reinterpret_cast<UPTRINT>(World.Get());
+            Sink.Key[1] = static_cast<uint32>(Registry.SlotIndex);
+            Sink.Key[2] = static_cast<uint32>(Registry.Generation);
+            Sink.Key[3] = static_cast<uint32>(Root.Get_Entity().Get_ID());
+            Sink.Key[4] = static_cast<uint32>(InCandidate.Get_Leg().Get_Entity().Get_ID());
+            Sink.Key[5] = static_cast<uint64>(LegIndex);
+            Sink.Frame = GFrameCounter;
+            Sink.Solve = Gait.Get<ck::FFragment_ProceduralGait>().Get_SolveSequence();
+            GLog->AddOutputDevice(&Sink);
+            UCk_Utils_Handle_UE::Set_DebugName(Root, TEXT("CkAutomationHeightSeed"));
+            auto Registered = true;
+            ON_SCOPE_EXIT
+            {
+                UCk_Utils_Handle_UE::Set_DebugName(Root, OldName);
+                if (Registered)
+                {
+                    GLog->RemoveOutputDevice(&Sink);
+                }
+            };
+            auto ControlRays = 0;
+            const auto Control = ck::Get_IsProceduralHeightPlanAdmitted(Gait, Goal, InOffset, InCandidate, ControlRays,
+                                                                        2048, ck::EProceduralHeightPlanStage::Landing);
+            auto Cause = ck::EProceduralHeightSeedFailure::TrustedDownFinalForceReject;
+            auto CauseRays = 0;
+            const auto WithCause = ck::Get_IsProceduralHeightPlanAdmitted(Gait, Goal, InOffset, InCandidate, CauseRays,
+                                                                          2048, ck::EProceduralHeightPlanStage::Landing,
+                                                                          nullptr, nullptr, &Cause);
+            WitnessRays += ControlRays + CauseRays;
+            UCk_Utils_Handle_UE::Set_DebugName(Root, OldName);
+            GLog->RemoveOutputDevice(&Sink);
+            Registered = false;
+            const auto Lock = FScopeLock{&Sink.Mutex};
+            if (NOT Require(
+                    NOT Sink.Invalid && NOT Sink.Overflow && Sink.Count == 2,
+                    TEXT("Two exact synchronous HST1 rows qualify the scene; missing or malformed receipts fail")) ||
+                NOT Require(
+                    NOT Control && Control == WithCause && ControlRays > 0 && ControlRays == CauseRays &&
+                        Cause == ck::EProceduralHeightSeedFailure::None,
+                    TEXT("Discarded straight fallback has no force cause and optional output preserves native work")))
+            {
+                return false;
+            }
+            for (auto Index = 0; Index < 2; ++Index)
+            {
+                const auto& Row = Sink.Rows[Index];
+                for (const auto Slot : {9, 10, 11, 12, 13, 14, 15, 16, 26, 27, 28, 29, 30, 35})
+                {
+                    if (NOT Require(Row.Known(Slot),
+                                    TEXT("Actual fallback decision fields are known, never invented defaults")))
+                    {
+                        return false;
+                    }
+                }
+                auto Initial = FVector{};
+                auto Straight = FVector{};
+                auto Selected = FVector{};
+                auto Final = FVector{};
+                if (NOT Require(Row.Point(17, Initial) && Row.Point(20, Straight) && Row.Point(23, Selected) &&
+                                    Row.Point(32, Final),
+                                TEXT("Actual trusted, straight, selected and final native points are finite")))
+                {
+                    return false;
+                }
+                if (NOT Require(
+                        Row.W[9] == static_cast<uint64>(ck::EProceduralHeightPlanStage::Landing) && Row.W[10] == 0 &&
+                            Row.W[11] == static_cast<uint64>(ControlRays) && Row.W[12] == 1 && Row.W[13] == 1 &&
+                            Row.W[14] == 1 && Row.W[15] == 0 && Row.W[16] == 0 && Initial.Equals(Selected, 1.0e-6) &&
+                            Final.Equals(Selected, 1.0e-6) && FVector::Dist(Hip, Initial) <= Target &&
+                            FVector::Dist(Hip, Straight) > Force && FMath::Abs(Initial.Z - Point.Z) > 2.0 &&
+                            FMath::Abs(Straight.Z - Point.Z) < 1.0e-3 && Row.W[26] == 1 &&
+                            Row.W[27] == static_cast<uint64>(ck::EProceduralFootholdVerdict::TooSteep) &&
+                            Row.W[28] == static_cast<uint64>(ck::EProceduralHeightSeedFailure::None) &&
+                            Row.W[29] == 0 && Row.W[30] == static_cast<uint64>(Index) && Row.W[35] == 0 &&
+                            Row.Known(31) == (Index == 1) &&
+                            (Index == 0 || Row.W[31] == static_cast<uint64>(ck::EProceduralHeightSeedFailure::None)),
+                        TEXT("Actual face branch discards out-of-force floor and retains TooSteep face without seed "
+                             "cause")))
+                {
+                    return false;
+                }
+            }
+            for (auto Slot = 1; Slot < 40; ++Slot)
+            {
+                if (Slot == 30 || Slot == 31 || Slot == 36)
+                {
+                    continue;
+                }
+                if (NOT Require(Sink.Rows[0].Known(Slot) == Sink.Rows[1].Known(Slot) &&
+                                    Sink.Rows[0].W[Slot] == Sink.Rows[1].W[Slot],
+                                TEXT("Null and nonnull cause calls have identical actual native branch receipts")))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        auto
+        CheckSeedFailure(
+            const FTransform& InCurrent,
+            const FTransform& InAdmitted,
+            const TOptional<FTransform>& InOffset,
+            const ck::FProceduralGaitHeightCandidate& InCandidate)
+            -> bool
+        {
+            using EFailure = ck::EProceduralHeightSeedFailure;
+            using EStage = ck::EProceduralHeightPlanStage;
+            const auto& Tunables = Gait.Get<ck::FFragment_ProceduralGait_Tunables>();
+            const auto& Probe = Tunables.Get_Probe();
+            const auto Up = InCurrent.GetRotation().GetAxisZ();
+            const auto ActualTargetFraction = Tunables.Get_Step().Get_TargetReachFraction();
+            if (NOT Require(ActualTargetFraction == ConstructedTargetFraction
+                    && (Scenario != EScenario::NondefaultTarget || ActualTargetFraction != DefaultTargetFraction),
+                    TEXT("Native seed causes use the actual fresh-preset target fraction, including the nondefault control")))
+            { return false; }
+            Test->AddInfo(FString::Printf(TEXT("HeightSeedNative scenario%d target%.9g default%.9g force%.9g reach%.9g probeUp%.9g probeDown%.9g"),
+                static_cast<int32>(Scenario), ActualTargetFraction, DefaultTargetFraction,
+                Tunables.Get_Step().Get_ForceStepReachFraction(), InCandidate.Get_Reach(),
+                Probe.Get_Up(), Probe.Get_Down()));
+            const auto TargetReach = ActualTargetFraction * InCandidate.Get_Reach();
+            const auto ForceReach = Tunables.Get_Step().Get_ForceStepReachFraction() * InCandidate.Get_Reach();
+            if (NOT Require(Up.Equals(FVector::UpVector, 1.0e-9) && FMath::IsFinite(TargetReach)
+                    && TargetReach > 0.0f && ForceReach > TargetReach && FMath::IsFinite(Probe.Get_Down())
+                    && Probe.Get_Down() > 0.0f, TEXT("Native seed-cause fixture has actual finite probe/reach settings")))
+            { return false; }
+            // Independent witnesses reproduce the public probe geometry, not its admission or cause classifier.
+            // These rays are test work and never contribute to the production caller's ray counter.
+            const auto ProbeNative = [&](const FTransform& InGoal, const FVector& InPoint, float InLean)
+                -> TOptional<FCk_Jolt_HitResult>
+            {
+                const auto Radial = FVector::VectorPlaneProject(InPoint - InGoal.GetLocation(), Up).GetSafeNormal();
+                for (auto Attempt = 0; Attempt < ck::ProceduralGroundProbeAttempts; ++Attempt)
+                {
+                    const auto Span = ck::MakeProceduralGroundProbeSpan(Attempt, Probe.Get_Up(), Probe.Get_Down(), InLean);
+                    const auto Axis = ck::FProceduralGaitSolver::ComputeTraceAxis(Up, Radial, Span.Get_OutwardLean());
+                    const auto Hit = UCk_Utils_JoltQuery_UE::Get_RayCast(World.Get(),
+                        InPoint + Axis * Span.Get_UpDistance(), InPoint - Axis * Span.Get_DownDistance(),
+                        Probe.Get_QueryFilter());
+                    ++WitnessRays;
+                    if (Hit.Get_HasHit() && Hit.Get_Fraction() > 0.0f && Hit.Get_Fraction() <= 1.0f
+                        && NOT Hit.Get_Position().ContainsNaN() && NOT Hit.Get_Normal().ContainsNaN()
+                        && FVector::DotProduct(Hit.Get_Normal(), -Axis) < 0.0)
+                    { return Hit; }
+                }
+                return {};
+            };
+            auto Failure = EFailure::TrustedDownFinalForceReject;
+            const auto Compare = [&](const FTransform& InGoal, EStage InStage, EFailure InExpectedFailure,
+                TOptional<bool> InExpectedResult = {}) -> bool
+            {
+                auto ControlRays = 0;
+                const auto Control = ck::Get_IsProceduralHeightPlanAdmitted(Gait, InGoal, InOffset, InCandidate,
+                    ControlRays, 2048, InStage);
+                WitnessRays += ControlRays;
+                auto CauseRays = 0;
+                Failure = EFailure::TrustedDownFinalForceReject;
+                const auto WithCause = ck::Get_IsProceduralHeightPlanAdmitted(Gait, InGoal, InOffset, InCandidate,
+                    CauseRays, 2048, InStage, nullptr, nullptr, &Failure);
+                WitnessRays += CauseRays;
+                return Require(Control == WithCause && ControlRays == CauseRays && CauseRays > 0,
+                        TEXT("Optional seed cause preserves this exact native result and ray count"))
+                    && Require(NOT InExpectedResult.IsSet() || WithCause == InExpectedResult.GetValue(),
+                        TEXT("Qualified native seed scenario returns its required result"))
+                    && Require(Failure == InExpectedFailure, TEXT("Only the selected outer Landing seed publishes its exact cause"));
+            };
+            if (NOT Compare(InAdmitted, EStage::Landing, EFailure::None, TOptional<bool>{true}))
+            { return false; }
+            if (NOT Require(InOffset.IsSet(), TEXT("Outer posed-reach control uses the real composed pose offset")))
+            { return false; }
+            auto FarOffset = InOffset;
+            FarOffset->AddToTranslation(Up * 10000.0);
+            auto OuterControlRays = 0;
+            const auto OuterControl = ck::Get_IsProceduralHeightPlanAdmitted(Gait, InAdmitted, FarOffset, InCandidate,
+                OuterControlRays, 2048);
+            WitnessRays += OuterControlRays;
+            auto OuterCauseRays = 0;
+            Failure = EFailure::TrustedInitialDownClampReprobeMiss;
+            const auto OuterWithCause = ck::Get_IsProceduralHeightPlanAdmitted(Gait, InAdmitted, FarOffset, InCandidate,
+                OuterCauseRays, 2048, EStage::Landing, nullptr, nullptr, &Failure);
+            WitnessRays += OuterCauseRays;
+            if (NOT Require(NOT OuterControl && NOT OuterWithCause && OuterControlRays == OuterCauseRays
+                    && OuterCauseRays > 0 && Failure == EFailure::None,
+                    TEXT("The same admitted native seed rejected only by outer posed reach publishes no seed cause")))
+            { return false; }
+            auto High = InCurrent;
+            High.AddToTranslation(Up * 10000.0);
+            const auto Initial = ProbeNative(High, InCandidate.Get_PointWorld(), Probe.Get_OutwardLean());
+            if (NOT Require(Initial.IsSet() && Initial->Get_Normal().Z > 0.99,
+                    TEXT("High-goal initial down probe has an actual trusted level native hit")))
+            { return false; }
+            const auto ClampPoint = [&](const FTransform& InGoal, const FVector& InHit) -> FVector
+            {
+                const auto Basis = InGoal.GetRotation();
+                return Basis.RotateVector(ck::FProceduralGaitSolver::ClampToReach(
+                    Basis.Inverse().RotateVector(InGoal.TransformPosition(InCandidate.Get_HipLocal())),
+                    Basis.Inverse().RotateVector(InHit), TargetReach));
+            };
+            const auto HighClamp = ClampPoint(High, Initial->Get_Position());
+            if (NOT Require(FVector::Dist(High.TransformPosition(InCandidate.Get_HipLocal()), Initial->Get_Position()) > TargetReach
+                    && NOT ProbeNative(High, HighClamp, 0.0f).IsSet(),
+                    TEXT("Actual trusted initial hit clamps to a real straight-reprobe miss at the high hip")))
+            { return false; }
+            if (NOT Compare(High, EStage::Landing, EFailure::TrustedInitialDownClampReprobeMiss, TOptional<bool>{false})
+                || NOT Compare(High, EStage::Recovery, EFailure::None, TOptional<bool>{false})
+                || NOT Compare(InAdmitted, EStage::Recovery, EFailure::None)
+                || NOT Compare(InAdmitted, EStage::Transit, EFailure::None))
+            { return false; }
+            auto Raised = InCurrent;
+            const auto Hip = InCurrent.TransformPosition(InCandidate.Get_HipLocal());
+            // The retained tops and ordinary floor already belong to this fixture. Use actual tunables to place
+            // the virtual hip beyond force reach while the clamped straight probe can still reach that geometry.
+            Raised.AddToTranslation(Up * (Origin.Z + SupportTop + ForceReach + Probe.Get_Down() * 0.5 - Hip.Z));
+            const auto RaisedInitial = ProbeNative(Raised, InCandidate.Get_PointWorld(), Probe.Get_OutwardLean());
+            if (NOT Require(RaisedInitial.IsSet() && RaisedInitial->Get_Normal().Z > 0.99,
+                    TEXT("Force-reject setup retains an actual trusted initial down hit")))
+            { return false; }
+            const auto RaisedHit = ProbeNative(Raised, ClampPoint(Raised, RaisedInitial->Get_Position()), 0.0f);
+            if (NOT Require(FVector::Dist(Raised.TransformPosition(InCandidate.Get_HipLocal()), RaisedInitial->Get_Position()) > TargetReach
+                    && RaisedHit.IsSet() && RaisedHit->Get_Normal().Z > 0.99
+                    && FVector::Dist(Raised.TransformPosition(InCandidate.Get_HipLocal()), RaisedHit->Get_Position()) > ForceReach,
+                    TEXT("Clamped reprobe actually hits native level geometry beyond the unchanged force limit")))
+            { return false; }
+            return Compare(Raised, EStage::Landing, EFailure::TrustedDownFinalForceReject, TOptional<bool>{false})
+                && Compare(InAdmitted, EStage::Landing, EFailure::None, TOptional<bool>{true});
+        }
+
+        auto
+        CheckDispatchReceipt()
+            -> bool
+        {
+            if (NOT Require(Gait.Has<ck::FFragment_ProceduralHeightPlanning_Test>(),
+                    TEXT("Composed native scene retains its test-attached actual dispatch receipt")))
+            { return false; }
+            const auto& Receipt = Gait.Get<ck::FFragment_ProceduralHeightPlanning_Test>();
+            if (NOT Require(NOT Receipt.Overflow && Receipt.Count >= 0 && Receipt.Count <= 4,
+                    TEXT("Actual Surface dispatch never publishes overflow or a fifth recorded attempt")))
+            { return false; }
+            if (Receipt.Count == 0)
+            { return true; }
+            if (NOT Require(Receipt.Frame == GFrameCounter && ExpectedDispatchFrame == GFrameCounter
+                    && Receipt.Solve == ExpectedDispatchSolve,
+                    TEXT("Actual dispatch receipt belongs to this Surface frame and composed planning solve")))
+            { return false; }
+            ++DispatchReceiptSamples;
+            auto PreviousRays = 0;
+            auto PreviousEnvelopes = 0;
+            auto PreviousTrials = 0;
+            for (auto Index = 0; Index < Receipt.Count; ++Index)
+            {
+                const auto& Attempt = Receipt.Attempts[Index];
+                if (NOT Require(Attempt.Completed && Attempt.Route <= 3
+                        && Attempt.Trials > PreviousTrials && Attempt.Trials <= 4
+                        && Attempt.Rays >= PreviousRays && Attempt.Rays <= 2048
+                        && Attempt.Envelopes >= PreviousEnvelopes && Attempt.Envelopes <= 64,
+                        TEXT("Actual completed calls retain monotonic charged budgets within four/2048/64")))
+                { return false; }
+                if (NOT Require(Attempt.Accepted || Attempt.BodyBefore.Equals(Attempt.BodyAfter, 1.0e-9),
+                        TEXT("Rejected actual height admission publishes no partial body transform"))
+                    || NOT Require(NOT Attempt.Accepted || Index == Receipt.Count - 1,
+                        TEXT("Actual success terminates the charged attempt sequence")))
+                { return false; }
+                if (Attempt.Accepted && Attempt.Trials <= 2)
+                {
+                    if (NOT Require(NOT Receipt.CooperativeThirdOffered,
+                            TEXT("An actual first/second success preserves priority over cooperative replacement")))
+                    { return false; }
+                }
+                PreviousRays = Attempt.Rays;
+                PreviousEnvelopes = Attempt.Envelopes;
+                PreviousTrials = Attempt.Trials;
+            }
+            if (NOT Receipt.CooperativeThirdOffered)
+            { return true; }
+            ++CooperativeThirdSamples;
+            if (NOT Require(Receipt.Count >= 3 && Receipt.PlanningConsumed,
+                    TEXT("Actual cooperative third consumes the outer dispatcher")))
+            { return false; }
+            for (auto Index = 0; Index < 2; ++Index)
+            {
+                const auto& Attempt = Receipt.Attempts[Index];
+                if (NOT Require(NOT Attempt.Accepted && Attempt.Trials == Index + 1
+                        && Attempt.Stage == ck::EProceduralHeightPlanStage::Landing
+                        && (Attempt.SeedFailure == ck::EProceduralHeightSeedFailure::TrustedInitialDownClampReprobeMiss
+                            || Attempt.SeedFailure == ck::EProceduralHeightSeedFailure::TrustedDownFinalForceReject),
+                        TEXT("Actual first two Landing calls independently carry qualifying native seed failures")))
+                { return false; }
+            }
+            const auto& Cooperative = Receipt.Attempts[2];
+            if (NOT Require(Cooperative.Route == 3 && Cooperative.Trials == 3
+                    && NOT Cooperative.Candidate.Get_RequiresRelief() && Cooperative.WitnessRequested,
+                    TEXT("Actual third call is nonrelief cooperative with its own requested witness")))
+            { return false; }
+            if (Cooperative.Accepted)
+            {
+                return Require(Receipt.Count == 3 && NOT Receipt.InteriorOffered,
+                    TEXT("Actual cooperative success ends at three without an interior call"));
+            }
+            if (NOT Require(Receipt.Count == 4 && Receipt.Attempts[3].Trials == 4,
+                    TEXT("Rejected cooperative third spends exactly one fourth slot without a fifth")))
+            { return false; }
+            if (NOT Receipt.InteriorOffered)
+            { return true; }
+            ++InteriorFourthSamples;
+            if (NOT Require(Receipt.ValidatedWitnessTrial == 3 && Cooperative.Witness.IsSet()
+                    && Receipt.Attempts[3].Route == 2,
+                    TEXT("Actual interior fourth uses the validated same-call third witness")))
+            { return false; }
+            const auto& WitnessCandidate = Cooperative.Witness->Get_Candidate();
+            return Require(WitnessCandidate.Get_Leg() == Cooperative.Candidate.Get_Leg()
+                    && WitnessCandidate.Get_PointWorld().Equals(Cooperative.Candidate.Get_PointWorld(), 1.0e-9)
+                    && WitnessCandidate.Get_NormalWorld().Equals(Cooperative.Candidate.Get_NormalWorld(), 1.0e-9)
+                    && Receipt.Attempts[3].Candidate.Get_Leg() == Cooperative.Candidate.Get_Leg(),
+                TEXT("Actual validated witness and interior call retain the cooperative native candidate owner"));
+        }
+
+        auto
         Observe(
             FCk_Handle_ProceduralGait InGait,
             bool InBefore,
@@ -1352,6 +1887,11 @@ namespace ck_test_height_planning_native
             if (NOT InGait.Has<ck::FFragment_SurfaceMotion>() || NOT InGait.Has<ck::FFragment_SurfaceMotion_Support>())
             { return; }
             const auto& GaitState = InGait.Get<ck::FFragment_ProceduralGait>();
+            if (InBefore)
+            {
+                ExpectedDispatchFrame = GFrameCounter;
+                ExpectedDispatchSolve = GaitState.Get_SolveSequence();
+            }
             const auto& Planning = GaitState.Get_HeightPlanning();
             const auto& Support = InGait.Get<ck::FFragment_SurfaceMotion_Support>();
             const auto Current = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(Body);
@@ -1463,6 +2003,24 @@ namespace ck_test_height_planning_native
                     WitnessQueries += Queries;
                     if (NOT PartialLegs || NOT PartialClear)
                     { continue; }
+                    if (NOT SeedFailureChecked)
+                    {
+                        SeedFailureChecked = true;
+                        if (NOT CheckSeedFailure(Current, Full, Offset, Candidate))
+                        { return; }
+                        if (Scenario == EScenario::DiscardedStraight && NOT CheckDiscardedStraight(Current, Offset, Candidate))
+                        { return; }
+                        auto PreparatoryFailure = ck::EProceduralHeightSeedFailure::TrustedInitialDownClampReprobeMiss;
+                        auto PreparatoryRays = 0;
+                        const auto PreparatoryAdmitted = ck::Get_IsProceduralHeightPlanAdmitted(Gait, Partial, Offset, Candidate,
+                            PreparatoryRays, 2048, ck::EProceduralHeightPlanStage::PreparatoryBody, nullptr, nullptr,
+                            &PreparatoryFailure);
+                        WitnessRays += PreparatoryRays;
+                        if (NOT Require(PreparatoryAdmitted && PreparatoryRays > 0
+                                && PreparatoryFailure == ck::EProceduralHeightSeedFailure::None,
+                                TEXT("Successful native PreparatoryBody clears the reused seed cause")))
+                        { return; }
+                    }
                     if (Scenario == EScenario::Ordinary && NOT OrdinaryBlockerRemoved)
                     {
                         // This is a separate envelope body; every native retained foot stays on its own platform.
@@ -1554,12 +2112,36 @@ namespace ck_test_height_planning_native
                         Require(NOT ck::Get_IsProceduralHeightPlanAdmitted(Gait, Partial, Offset, Candidate,
                             Rays, 2048, ck::EProceduralHeightPlanStage::PreparatoryBody), TEXT("Actual stale native retained contact rejects"));
                         WitnessRays += Rays;
+                        auto StaleFailure = ck::EProceduralHeightSeedFailure::TrustedDownFinalForceReject;
+                        auto StaleRays = 0;
+                        Require(NOT ck::Get_IsProceduralHeightPlanAdmitted(Gait, Partial, Offset, Candidate,
+                                StaleRays, 2048, ck::EProceduralHeightPlanStage::PreparatoryBody, nullptr, nullptr,
+                                &StaleFailure)
+                            && StaleFailure == ck::EProceduralHeightSeedFailure::None && StaleRays == Rays,
+                            TEXT("Actual retained-contact loss is not a seed failure and the optional output adds no ray"));
+                        WitnessRays += StaleRays;
+                        auto LostLandingRays = 0;
+                        const auto LostLanding = ck::Get_IsProceduralHeightPlanAdmitted(Gait, Full, Offset, Candidate,
+                            LostLandingRays, 2048);
+                        WitnessRays += LostLandingRays;
+                        StaleFailure = ck::EProceduralHeightSeedFailure::TrustedInitialDownClampReprobeMiss;
+                        auto LostLandingCauseRays = 0;
+                        const auto LostLandingWithCause = ck::Get_IsProceduralHeightPlanAdmitted(Gait, Full, Offset, Candidate,
+                            LostLandingCauseRays, 2048, ck::EProceduralHeightPlanStage::Landing, nullptr, nullptr,
+                            &StaleFailure);
+                        WitnessRays += LostLandingCauseRays;
+                        Require(NOT LostLanding && NOT LostLandingWithCause && LostLandingRays > 0
+                                && LostLandingRays == LostLandingCauseRays
+                                && StaleFailure == ck::EProceduralHeightSeedFailure::None,
+                            TEXT("Previously admitted Landing loses native sample/retained contact without publishing a seed cause"));
                         Mutated = true;
                     }
                     break;
                 }
                 return;
             }
+            if (NOT CheckDispatchReceipt())
+            { return; }
             if (BeforeFrame != GFrameCounter)
             { return; }
             Require(Support.Get_HeightPlanningTrials() <= 4 && Support.Get_HeightPlanningRays() <= 2048
@@ -1689,8 +2271,10 @@ namespace ck_test_height_planning_native
                 FTransform{S.Origin}, ECk_Replication::DoesNotReplicate));
             Chains.Emplace(Id, Chain);
         }
-        const auto EnvelopeBlockerHalfHeight = S.Scenario == EScenario::Preparatory ? 50.0 : 37.5;
-        const auto EnvelopeBlockerX = S.Scenario == EScenario::Preparatory ? 780.0 : 801.0;
+        const auto PreparatoryGeometry = S.Scenario == EScenario::Preparatory || S.Scenario == EScenario::NondefaultTarget
+            || S.Scenario == EScenario::DiscardedStraight;
+        const auto EnvelopeBlockerHalfHeight = PreparatoryGeometry ? 50.0 : 37.5;
+        const auto EnvelopeBlockerX = PreparatoryGeometry ? 780.0 : 801.0;
         { S.Require(S.AddBox(S.Origin + FVector{EnvelopeBlockerX, 0.0, EnvelopeBlockerHalfHeight}, FVector{20.0, 20.0, EnvelopeBlockerHalfHeight}), TEXT("Full-path native body obstacle created")); }
         if (NOT S.Failed)
         { S.EnvelopeBlocker = S.NativeBodies.Last(); }
@@ -1699,6 +2283,25 @@ namespace ck_test_height_planning_native
         S.Rig.Reset(NewObject<UCk_ProceduralRig_Data>());
         S.Rig->Set_Legs(Specs);
         S.Preset.Reset(NewObject<UCk_ProceduralGait_Data>());
+        auto Step = S.Preset->Get_Step();
+        S.DefaultTargetFraction = Step.Get_TargetReachFraction();
+        if (S.Scenario == EScenario::NondefaultTarget)
+        {
+            // A separate fresh construction changes the actual target sphere without retuning a live gait.
+            const auto Nondefault = (Step.Get_TargetReachFraction() + Step.Get_ForceStepReachFraction()) * 0.5f;
+            Step.Set_TargetReachFraction(Nondefault);
+            if (NOT S.Require(ck::IsValid(Step) && Nondefault != S.DefaultTargetFraction,
+                    TEXT("Fresh nondefault target fraction passes the existing native step validator")))
+            { return; }
+            S.Preset->Set_Step(Step);
+        }
+        if (S.Scenario == EScenario::DiscardedStraight)
+        {
+            auto Foothold = S.Preset->Get_Foothold();
+            Foothold.Set_MaxAngle(60.0f);
+            S.Preset->Set_Foothold(Foothold);
+        }
+        S.ConstructedTargetFraction = Step.Get_TargetReachFraction();
         S.Gait = UCk_Utils_ProceduralAnimation_UE::Add_Walker(S.Body,
             FCk_ProceduralWalker_Spec{S.Rig.Get(), S.Preset.Get()}.Set_Chains(Chains)).Get_Gait();
         if (NOT S.Require(ck::IsValid(S.Gait), TEXT("Public native gait composes before optional features")))
@@ -1716,6 +2319,7 @@ namespace ck_test_height_planning_native
             { return; }
             S.Legs.Add(Leg);
         }
+        S.Gait.Add<ck::FFragment_ProceduralHeightPlanning_Test>();
         auto* State = &S;
         // Queued latent commands retain the shared state until cleanup clears this non-owning callback.
         S.Gait.Add<ck::FFragment_TestHeightPlanningObservation>().Observe =
@@ -1727,7 +2331,8 @@ namespace ck_test_height_planning_native
         FAutomationTestBase* InTest)
         -> void
     {
-        for (const auto Scenario : {EScenario::Preparatory, EScenario::BlockedPartial, EScenario::StaleContact, EScenario::Ordinary})
+        for (const auto Scenario : {EScenario::Preparatory, EScenario::BlockedPartial, EScenario::StaleContact,
+            EScenario::Ordinary, EScenario::NondefaultTarget, EScenario::DiscardedStraight})
         {
             const auto State = MakeShared<FState>();
             State->Test = InTest;
@@ -1742,6 +2347,11 @@ namespace ck_test_height_planning_native
                 [State](UWorld*)
                 {
                     State->Require(State->Complete && NOT State->Failed, TEXT("Mandatory production scenario completed"));
+                    State->Require(State->SeedFailureChecked, TEXT("Fresh native seed-cause and output-reset checks were reached"));
+                    State->Require(State->DispatchReceiptSamples > 0, TEXT("Actual composed Surface dispatch receipts were observed"));
+                    State->Test->AddInfo(FString::Printf(TEXT("HeightDispatchNative scenario%d actualReceipts%d cooperativeThird%d interiorFourth%d"),
+                        static_cast<int32>(State->Scenario), State->DispatchReceiptSamples, State->CooperativeThirdSamples,
+                        State->InteriorFourthSamples));
                     State->Test->AddInfo(FString::Printf(TEXT("HeightNative scenario%d samples%d accepted%d mutation%d independentWitnessRays%d independentWitnessQueries%d"),
                         static_cast<int32>(State->Scenario), State->Samples, State->Accepted, State->Mutated,
                         State->WitnessRays, State->WitnessQueries));

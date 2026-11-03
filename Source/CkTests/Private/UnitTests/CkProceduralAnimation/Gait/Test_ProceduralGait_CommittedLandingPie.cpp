@@ -4,6 +4,7 @@
 
 #include "CkCore/Validation/CkIsValid.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/Handle/CkHandle_Utils.h"
 #include "CkEcs/Processor/CkProcessor.h"
 #include "CkEcs/Scheduler/CkProcessorRegistration.h"
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
@@ -27,6 +28,9 @@
 #include "Engine/World.h"
 #include "Misc/App.h"
 #include "Misc/AutomationTest.h"
+#include "Misc/OutputDevice.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "Misc/ScopeLock.h"
 #include "UObject/StrongObjectPtr.h"
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -315,12 +319,18 @@ namespace ck_test_procedural_gait_committed_landing_pie
 
     auto
     DoCompose(
-        FState& InState)
+        FState& InState,
+        float InBodyClearance = Clearance,
+        float InRestForwardOffset = 80.0f,
+        float InBodyForwardOffset = 0.0f,
+        const FQuat& InBodyRotation = FQuat::Identity,
+        float InSurfaceTurnRate = 0.0f,
+        float InProbeUp = 100.0f)
         -> void
     {
         InState.Root = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(InState.World.Get());
         InState.Body = UCk_Utils_Transform_UE::Add(InState.Root,
-            FTransform{InState.Origin + FVector{0.0, 0.0, Clearance}}, ECk_Replication::DoesNotReplicate);
+            FTransform{InBodyRotation, InState.Origin + FVector{InBodyForwardOffset, 0.0, InBodyClearance}}, ECk_Replication::DoesNotReplicate);
         auto LegSpecs = TArray<FCk_ProceduralLeg_Spec>{};
         auto Chains = TArray<FCk_ProceduralWalker_LegChain>{};
         const auto Corners = TArray<FVector2D>{{40.0, 30.0}, {40.0, -30.0}, {-40.0, 30.0}, {-40.0, -30.0}};
@@ -328,7 +338,7 @@ namespace ck_test_procedural_gait_committed_landing_pie
         {
             const auto& Corner = Corners[Index];
             auto Placement = FCk_ProceduralLeg_Placement{FVector{Corner.X, Corner.Y, 0.0},
-                FVector{Corner.X + 80.0, Corner.Y * 2.0, -Clearance}};
+                FVector{Corner.X + InRestForwardOffset, Corner.Y * 2.0, -Clearance}};
             Placement.Set_PhaseOffset(Index == 0 || Index == 3 ? 0.0f : 0.5f);
             const auto Id = FName{*FString::Printf(TEXT("Leg%d"), Index)};
             auto LegSpec = FCk_ProceduralLeg_Spec{Id, Placement,
@@ -352,6 +362,9 @@ namespace ck_test_procedural_gait_committed_landing_pie
         InState.Rig.Reset(NewObject<UCk_ProceduralRig_Data>());
         InState.Rig->Set_Legs(LegSpecs);
         InState.Preset.Reset(NewObject<UCk_ProceduralGait_Data>());
+        auto Probe = InState.Preset->Get_Probe();
+        Probe.Set_Up(InProbeUp);
+        InState.Preset->Set_Probe(Probe);
         auto Timing = InState.Preset->Get_Timing();
         // Rest distance sqrt(80^2+30^2+60^2)=104.404 is inside the unchanged0.8*140 target fraction. Longer swings retain
         // ordinary targets for a measured50-degree stationary turn, qualified against actual native and planted points.
@@ -376,7 +389,7 @@ namespace ck_test_procedural_gait_committed_landing_pie
             FCk_ProceduralWalker_Spec{InState.Rig.Get(), InState.Preset.Get()}.Set_Chains(Chains)).Get_Gait();
         auto MotionSpec = FCk_SurfaceMotion_Spec{};
         auto Contact = MotionSpec.Get_Contact();
-        Contact.Set_Clearance(Clearance);
+        Contact.Set_Clearance(InBodyClearance);
         Contact.Set_ProbeReach(200.0f);
         Contact.Set_HeightSource(ECk_SurfaceMotion_HeightSource::Rays);
         Contact.Set_WallPolicy(ECk_SurfaceMotion_WallPolicy::Slide);
@@ -387,10 +400,16 @@ namespace ck_test_procedural_gait_committed_landing_pie
             Movement.Set_SurfaceTurnRate(4500.0f);
             MotionSpec.Set_Movement(Movement);
         }
+        if (InSurfaceTurnRate > 0.0f)
+        {
+            auto Movement = MotionSpec.Get_Movement();
+            Movement.Set_SurfaceTurnRate(InSurfaceTurnRate);
+            MotionSpec.Set_Movement(Movement);
+        }
         InState.Motion = UCk_Utils_SurfaceMotion_UE::Add(InState.Body, MotionSpec);
         auto PresentationEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(InState.Body);
         const auto Presentation = UCk_Utils_Transform_UE::Add(PresentationEntity,
-            FTransform{InState.Origin + FVector{0.0, 0.0, Clearance}}, ECk_Replication::DoesNotReplicate);
+            FTransform{InBodyRotation, InState.Origin + FVector{InBodyForwardOffset, 0.0, InBodyClearance}}, ECk_Replication::DoesNotReplicate);
         auto PoseSpec = FCk_ProceduralBodyPose_Spec{Presentation};
         auto Conform = PoseSpec.Get_Conform();
         Conform.Set_Mode(ECk_ProceduralBodyPose_ConformMode::PlantedFeet);
@@ -1107,6 +1126,1058 @@ auto
 {
     return ck_test_procedural_gait_committed_landing_pie::DoRun(this,
         ck_test_procedural_gait_committed_landing_pie::EScenario::Lifecycle);
+}
+
+
+// --------------------------------------------------------------------------------------------------------------------
+
+namespace ck_test_hip_query_native
+{
+    using FBase = ck_test_procedural_gait_committed_landing_pie::FState;
+    using FSurface = ck_test_procedural_gait_committed_landing_pie::FSurface;
+    constexpr auto Capacity = 512;
+    constexpr auto Deadline = 20.0;
+
+    struct FRecord
+    {
+        uint64 W[40]{};
+        auto
+        Known(
+            int32 S) const
+            -> bool
+        {
+            return S > 0 && S < 40 && (W[0] & (uint64{1} << (S - 1))) != 0;
+        }
+        auto
+        FiniteVector(
+            int32 S) const
+            -> bool
+        {
+            for (auto A = 0; A < 3; ++A)
+            {
+                if (NOT Known(S + A))
+                {
+                    return false;
+                }
+                double V = 0.0;
+                FMemory::Memcpy(&V, &W[S + A], sizeof(double));
+                if (NOT FMath::IsFinite(V))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        auto
+        Vector(
+            int32 S,
+            FVector& Out) const
+            -> bool
+        {
+            double V[3]{};
+            for (auto A = 0; A < 3; ++A)
+            {
+                if (NOT Known(S + A))
+                {
+                    return false;
+                }
+                FMemory::Memcpy(&V[A], &W[S + A], sizeof(double));
+                if (NOT FMath::IsFinite(V[A]))
+                {
+                    return false;
+                }
+            }
+            Out = FVector{V[0], V[1], V[2]};
+            return true;
+        }
+    };
+
+    struct FSink final : FOutputDevice
+    {
+        FCriticalSection Mutex;
+        const FName DirectCategory{TEXT("LogTemp")};
+        FRecord Rows[Capacity]{};
+        uint64 Key[4]{};
+        uint32 LegIds[4]{};
+        int32 Count = 0;
+        bool Invalid = false;
+        bool Overflow = false;
+        bool Tilted = false;
+
+        // Direct delivery keeps the producer frame and accepted-sample join in the same tick.
+        // Serialize owns its mutex and accesses only fixed scalar storage.
+        auto
+        CanBeUsedOnMultipleThreads() const
+            -> bool override
+        {
+            return true;
+        }
+
+        auto
+        Serialize(
+            const TCHAR* Message,
+            ELogVerbosity::Type,
+            const FName& Category)
+            -> void override
+        {
+            if (Message == nullptr || Category != DirectCategory || FCString::Strncmp(Message, Tilted ? TEXT("TQT1 ") : TEXT("HQT1 "), 5) != 0)
+            {
+                return;
+            }
+            const auto Lock = FScopeLock{&Mutex};
+            if (FCString::Strlen(Message) != 684)
+            {
+                Invalid = true;
+                return;
+            }
+            auto R = FRecord{};
+            for (auto Word = 0; Word < 40; ++Word)
+            {
+                for (auto Digit = 0; Digit < 16; ++Digit)
+                {
+                    const auto C = Message[5 + 17 * Word + Digit];
+                    const auto N = C >= '0' && C <= '9' ? C - '0' : C >= 'a' && C <= 'f' ? C - 'a' + 10 : -1;
+                    if (N < 0)
+                    {
+                        Invalid = true;
+                        return;
+                    }
+                    R.W[Word] = (R.W[Word] << 4) | static_cast<uint64>(N);
+                }
+                if (Word != 39 && Message[5 + 17 * Word + 16] != ' ')
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            for (auto S = 1; S <= 8; ++S)
+            {
+                if (NOT R.Known(S))
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            if (R.W[1] != Key[0] || R.W[2] != Key[1] || R.W[3] != Key[2] || R.W[4] != Key[3])
+            {
+                return;
+            }
+            if (R.W[6] >= 4 || R.W[5] != LegIds[R.W[6]] || (R.W[0] >> (Tilted ? 38 : 37)) != 0 || NOT R.Known(35) || NOT R.Known(36) ||
+                NOT R.Known(37) || R.W[36] != 1)
+            {
+                Invalid = true;
+                return;
+            }
+            if (R.W[37] == 1)
+            {
+                Overflow = true;
+                return;
+            }
+            if (R.W[37] != 0 || Count == Capacity || R.W[35] != static_cast<uint64>(Count + 1))
+            {
+                Invalid = true;
+                return;
+            }
+            for (auto S = 1; S < 40; ++S)
+            {
+                if (NOT R.Known(S) && R.W[S] != 0)
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            if (Tilted)
+            {
+                for (const auto S : {9, 10, 11, 12, 13, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 38})
+                {
+                    if (NOT R.Known(S))
+                    {
+                        Invalid = true;
+                        return;
+                    }
+                }
+                if (R.W[9] != 1 || R.W[17] != 0 || R.W[38] != 1 || R.W[18] > 1 || R.W[19] > 1
+                    || R.W[20] > 1 || R.W[10] > static_cast<uint64>(ck::EProceduralFootholdVerdict::Reserved)
+                    || R.W[21] == 0 || R.W[21] > 4 || R.W[22] + 1 != R.W[21]
+                    || R.W[24] <= R.W[23] || R.W[24] - R.W[23] > 3
+                    || NOT R.FiniteVector(11) || NOT R.FiniteVector(25)
+                    || (R.W[18] != 0 && NOT R.FiniteVector(14))
+                    || (R.W[18] == 0 && (R.Known(14) || R.Known(15) || R.Known(16)))
+                    || (R.W[20] != 0 && (R.W[18] == 0 || R.W[19] == 0
+                        || R.W[10] != static_cast<uint64>(ck::EProceduralFootholdVerdict::Usable))))
+                {
+                    Invalid = true;
+                    return;
+                }
+                for (auto Slot = 29; Slot <= 34; ++Slot)
+                {
+                    if (R.Known(Slot))
+                    {
+                        Invalid = true;
+                        return;
+                    }
+                }
+                for (auto I = 0; I < Count; ++I)
+                {
+                    if (Rows[I].W[5] == R.W[5] && Rows[I].W[7] == R.W[7] && Rows[I].W[8] == R.W[8])
+                    {
+                        Invalid = true;
+                        return;
+                    }
+                }
+                Rows[Count++] = R;
+                return;
+            }
+            for (const auto S : {9, 10, 11, 12, 13, 17, 18, 19, 29, 30, 31, 32, 33})
+            {
+                if (NOT R.Known(S))
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            for (const auto S : {9, 17, 18, 19, 29})
+            {
+                if (R.W[S] > 1)
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            if (R.W[10] > static_cast<uint64>(ck::EProceduralFootholdVerdict::Reserved) || R.W[30] > 4 || R.W[31] > 4 ||
+                R.W[33] < R.W[32])
+            {
+                Invalid = true;
+                return;
+            }
+            if (NOT R.FiniteVector(11) || (R.W[9] != 0 && NOT R.FiniteVector(14)))
+            {
+                Invalid = true;
+                return;
+            }
+            if (R.W[9] == 0 && (R.Known(14) || R.Known(15) || R.Known(16)))
+            {
+                Invalid = true;
+                return;
+            }
+            if (R.W[18] != 0)
+            {
+                if (NOT R.Known(34) || R.W[34] > 4)
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            else if (R.Known(34) || R.W[19] != 0 || R.W[29] != 0 || R.W[30] != R.W[31] || R.W[32] != R.W[33])
+            {
+                Invalid = true;
+                return;
+            }
+            if (R.W[19] != 0)
+            {
+                if (NOT R.FiniteVector(20) || NOT R.Known(23) || NOT R.Known(24) || NOT R.Known(28) || R.W[23] > 1 ||
+                    R.W[28] > 1 || R.W[34] == 0 ||
+                    R.W[24] > static_cast<uint64>(ck::EProceduralFootholdVerdict::Reserved) ||
+                    (R.W[23] != 0 && NOT R.FiniteVector(25)))
+                {
+                    Invalid = true;
+                    return;
+                }
+                if (R.W[23] == 0 && (R.Known(25) || R.Known(26) || R.Known(27)))
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            else
+            {
+                for (const auto S : {20, 21, 22, 23, 24, 25, 26, 27, 28})
+                {
+                    if (R.Known(S))
+                    {
+                        Invalid = true;
+                        return;
+                    }
+                }
+                if (R.W[29] != 0 || R.W[30] != R.W[31] || R.W[32] != R.W[33])
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            if (R.W[18] != 0 && (R.W[17] != 0 || R.W[9] == 0 ||
+                                 R.W[10] != static_cast<uint64>(ck::EProceduralFootholdVerdict::Unreachable)))
+            {
+                Invalid = true;
+                return;
+            }
+            if (R.W[19] != 0 && (R.W[30] == 0 || R.W[31] + 1 != R.W[30] || R.W[33] <= R.W[32] || R.W[33] - R.W[32] > 4))
+            {
+                Invalid = true;
+                return;
+            }
+            if (R.W[29] != 0 && (R.W[19] == 0 || R.W[23] == 0 || R.W[28] == 0 ||
+                                 R.W[24] != static_cast<uint64>(ck::EProceduralFootholdVerdict::Usable)))
+            {
+                Invalid = true;
+                return;
+            }
+            for (auto I = 0; I < Count; ++I)
+            {
+                if (Rows[I].W[5] == R.W[5] && Rows[I].W[7] == R.W[7] && Rows[I].W[8] == R.W[8])
+                {
+                    Invalid = true;
+                    return;
+                }
+            }
+            Rows[Count++] = R;
+        }
+        auto
+        Good()
+            -> bool
+        {
+            const auto Lock = FScopeLock{&Mutex};
+            return NOT Invalid && NOT Overflow;
+        }
+        auto
+        Read(
+            int32 I,
+            FRecord& Out)
+            -> bool
+        {
+            const auto Lock = FScopeLock{&Mutex};
+            if (I < 0 || I >= Count)
+            {
+                return false;
+            }
+            Out = Rows[I];
+            return true;
+        }
+    };
+
+    struct FState
+    {
+        FBase Base;
+        FSink Sink;
+        TArray<FSurface> Posts;
+        TArray<FSurface> Roofs;
+        FName OldName;
+        FDelegateHandle WorldTearDown;
+        FRecord JoinedRecord;
+        uint64 PreviousSequence = 0;
+        FVector PreviousFeet[4]{};
+        FVector Target = FVector::ZeroVector;
+        int32 Processed = 0;
+        int32 Leg = INDEX_NONE;
+        int32 FootfallsBefore = 0;
+        bool Positive = true;
+        bool Tilted = false;
+        bool Listening = false;
+        bool Tagged = false;
+        bool Driving = false;
+        bool Joined = false;
+
+        auto
+        Stop()
+            -> void
+        {
+            if (WorldTearDown.IsValid())
+            {
+                FWorldDelegates::OnWorldBeginTearDown.Remove(WorldTearDown);
+                WorldTearDown.Reset();
+            }
+            if (Tagged && ck::IsValid(Base.Root))
+            {
+                UCk_Utils_Handle_UE::Set_DebugName(Base.Root, OldName);
+            }
+            Tagged = false;
+            if (Listening && GLog != nullptr)
+            {
+                GLog->RemoveOutputDevice(&Sink);
+            }
+            Listening = false;
+        }
+        ~FState()
+        {
+            Stop();
+        }
+        auto
+        Start()
+            -> bool
+        {
+            if (NOT Base.Require(GLog != nullptr && GIsAutomationTesting && Base.Legs.Num() == 4 &&
+                                     ck::IsValid(Base.Root),
+                                 TEXT("Hip fixture owns a live automation root and ordered legs")))
+            {
+                return false;
+            }
+            if (NOT Base.Require(NOT Listening && NOT Tagged && Sink.Count == 0,
+                                 TEXT("One fixed root identity owns the entire HQT1 sink lifetime")))
+            {
+                return false;
+            }
+            const auto Registry = Base.Root.Get_RegistryView().Get_RegistryHandle();
+            Sink.Key[0] = static_cast<uint64>(reinterpret_cast<UPTRINT>(Base.World.Get()));
+            Sink.Key[1] = static_cast<uint32>(Registry.SlotIndex);
+            Sink.Key[2] = static_cast<uint32>(Registry.Generation);
+            Sink.Key[3] = static_cast<uint32>(Base.Root.Get_Entity().Get_ID());
+            for (auto I = 0; I < 4; ++I)
+            {
+                Sink.LegIds[I] = static_cast<uint32>(Base.Legs[I].Get_Entity().Get_ID());
+            }
+            OldName = UCk_Utils_Handle_UE::Get_DebugName(Base.Root);
+            Sink.Tilted = Tilted;
+            GLog->AddOutputDevice(&Sink);
+            Listening = true;
+            const auto Name = Tilted ? FName{TEXT("CkAutomationTiltedSeed")} : FName{TEXT("CkAutomationHipQuery")};
+            UCk_Utils_Handle_UE::Set_DebugName(Base.Root, Name);
+            Tagged = true;
+            if (Tilted)
+            {
+                return Base.Require(UCk_Utils_Handle_UE::Get_DebugName(Base.Root) == Name,
+                    TEXT("Existing public debug name enables only the exact owned tilted root"));
+            }
+            return Base.Require(UCk_Utils_Handle_UE::Get_DebugName(Base.Root) == FName{TEXT("CkAutomationHipQuery")},
+                                TEXT("Existing public debug name enables the exact owned hip root"));
+        }
+    };
+
+    auto
+    TickTilted(
+        FState& S,
+        float Dt)
+        -> void
+    {
+        using namespace ck_test_procedural_gait_committed_landing_pie;
+        auto& B = S.Base;
+        if (B.Failed || B.Complete || B.CleanupStarted)
+        {
+            return;
+        }
+        B.Elapsed += FMath::Max(0.0, static_cast<double>(Dt));
+        if (NOT B.Require(B.Elapsed <= Deadline, TEXT("Tilted native acquisition and touchdown deadline"))
+            || NOT B.Require(S.Sink.Good(), TEXT("TQT1 exact bounded same-frame receipt is valid")))
+        {
+            S.Stop();
+            return;
+        }
+        if (UCk_Utils_ProceduralGait_UE::Get_Status(B.Gait) != ECk_ProceduralAnimation_Status::Ready
+            || UCk_Utils_SurfaceMotion_UE::Get_Status(B.Motion) != ECk_ProceduralAnimation_Status::Ready
+            || UCk_Utils_ProceduralBodyPose_UE::Get_Status(B.Pose) != ECk_ProceduralAnimation_Status::Ready)
+        {
+            return;
+        }
+        const auto Snapshot = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(B.Root);
+        if (NOT Snapshot.Get_Status().Get_HasAcceptedSample())
+        {
+            return;
+        }
+        const auto Sequence = Snapshot.Get_Sample().Get_Sequence();
+        const auto Frame = Snapshot.Get_Sample().Get_FrameNumber();
+        if (Sequence == B.Sequence)
+        {
+            return;
+        }
+        if (NOT B.Require(Frame <= GFrameCounter && GFrameCounter - Frame <= 1
+                && Snapshot.Get_Freshness().Get_GaitFresh() && Snapshot.Get_Freshness().Get_MotionMatchesGaitFrame()
+                && Snapshot.Get_Legs().Num() == 4 && (B.Sequence == 0 || Sequence == B.Sequence + 1),
+                TEXT("Tilted acquisition observes consecutive accepted real composed solves")))
+        {
+            S.Stop();
+            return;
+        }
+        B.Sequence = Sequence;
+        ++B.Samples;
+        const auto Body = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(B.Body);
+        const auto Pose = UCk_Utils_ProceduralBodyPose_UE::Get_Offset(B.Pose);
+        if (NOT B.Require(Snapshot.Get_Gait().Get_BodyTransform().Equals(Body, 1.0e-3),
+                TEXT("Tilted accepted gait body joins actual simulation transform")))
+        {
+            S.Stop();
+            return;
+        }
+        if (NOT S.Driving && UCk_Utils_ProceduralGait_UE::Get_TrustedContactCount(B.Gait) == 4
+            && Snapshot.Get_Motion().Get_Grounded())
+        {
+            S.Driving = S.Start();
+            if (S.Driving)
+            {
+                DoSteer(B, FVector::ForwardVector, 180.0f);
+            }
+        }
+        auto R = FRecord{};
+        while (S.Sink.Read(S.Processed, R))
+        {
+            ++S.Processed;
+            auto Query = FVector{};
+            auto Up = FVector{};
+            double PlaneZ = 0.0;
+            FMemory::Memcpy(&PlaneZ, &R.W[28], sizeof(PlaneZ));
+            if (NOT B.Require(R.W[7] == Frame && R.W[8] != MAX_uint64 && R.W[8] + 1 == Sequence
+                    && R.W[9] == 1 && R.W[17] == 0 && R.W[38] == 1
+                    && R.W[21] > 0 && R.W[22] + 1 == R.W[21]
+                    && R.W[24] > R.W[23] && R.W[24] - R.W[23] <= 3
+                    && R.Vector(11, Query) && R.Vector(25, Up) && Up.IsNormalized() && Up != FVector::UpVector
+                    && FMath::IsFinite(PlaneZ) && Query.Z == PlaneZ
+                    && FMath::IsNearlyEqual(PlaneZ, B.Origin.Z + 100.0, 0.05),
+                    TEXT("Actual tilted-only branch joins accepted solve, fresh post plane, one slot and at most3 native rays")))
+            {
+                S.Stop();
+                return;
+            }
+            const auto I = static_cast<int32>(R.W[6]);
+            const auto& Leg = Snapshot.Get_Legs()[I];
+            const auto& Foot = Leg.Get_Foot();
+            if (NOT B.Require(Leg.Get_Id() == UCk_Utils_ProceduralLeg_UE::Get_Id(B.Legs[I]),
+                    TEXT("Tilted native receipt binds exact ordered owned leg")))
+            {
+                S.Stop();
+                return;
+            }
+            if (S.Positive)
+            {
+                if (R.W[18] == 0 || R.W[10] != static_cast<uint64>(ck::EProceduralFootholdVerdict::Usable)
+                    || R.W[19] == 0 || R.W[20] == 0)
+                {
+                    continue;
+                }
+                auto Point = FVector{};
+                if (NOT B.Require(R.Vector(14, Point), TEXT("Actual tilted native returned point is explicitly known")))
+                {
+                    S.Stop();
+                    return;
+                }
+                const auto Hit = DoRay(B, Point);
+                const auto Roof = S.Roofs.ContainsByPredicate([&Hit](const auto& X) { return X.Entity == Hit.Get_Entity(); });
+                const auto Chosen = Leg.Get_ChosenFoothold();
+                if (NOT B.Require(Hit.Get_HasHit() && Roof && Hit.Get_Normal().Z > 0.99
+                        && Hit.Get_Position().Equals(Point, 0.05) && FMath::IsNearlyEqual(Point.Z, PlaneZ, 0.05)
+                        && Leg.Get_Targeting().Get_TargetValid()
+                        && Leg.Get_Targeting().Get_IdealTarget().Equals(Point, 0.05)
+                        && Leg.Get_Footholds().IsValidIndex(Chosen)
+                        && Leg.Get_Footholds()[Chosen].Get_Position().Equals(Point, 0.05)
+                        && Leg.Get_Footholds()[Chosen].Get_Source() == ck::EProceduralFootholdSource::Ring
+                        && Leg.Get_Footholds()[Chosen].Get_Verdict() == ck::EProceduralFootholdVerdict::Usable,
+                        TEXT("Fresh tilted native hit, not projected geometry alone, owns accepted target selection")))
+                {
+                    S.Stop();
+                    return;
+                }
+                if (NOT S.Joined)
+                {
+                    S.Joined = true;
+                    S.JoinedRecord = R;
+                    S.Leg = I;
+                    S.Target = Point;
+                    S.FootfallsBefore = B.Footfalls[I];
+                    S.Stop();
+                }
+                continue;
+            }
+            if (NOT B.Require((R.W[10] != static_cast<uint64>(ck::EProceduralFootholdVerdict::Usable) || R.W[19] == 0)
+                    && R.W[20] == 0 && NOT Leg.Get_Targeting().Get_TargetValid()
+                    && Leg.Get_ChosenFoothold() == INDEX_NONE && NOT Leg.Get_HasCommittedLanding()
+                    && Foot.Get_Planted() && Foot.Get_ContactTrusted() && NOT Foot.Get_SwingActive()
+                    && S.PreviousSequence == R.W[8] && Foot.Get_Position().Equals(S.PreviousFeet[I], 1.0e-3),
+                    TEXT("Failed tilted native/trial admission is atomic and preserves the actual trusted stance")))
+            {
+                S.Stop();
+                return;
+            }
+            const auto Hit = DoRay(B, Foot.Get_Position(), Foot.Get_Normal());
+            const auto Post = S.Posts.ContainsByPredicate([&Hit](const auto& X) { return X.Entity == Hit.Get_Entity(); });
+            const auto Hip = UCk_Utils_ProceduralLeg_UE::Get_Placement(B.Legs[I]).Get_HipLocal();
+            if (NOT B.Require(Hit.Get_HasHit() && Post && Hit.Get_Position().Equals(Foot.Get_Position(), 0.05)
+                    && FVector::Dist(Body.TransformPosition(Hip), Foot.Get_Position()) <= Reach + 1.0e-3
+                    && FVector::Dist((Pose * Body).TransformPosition(Hip), Foot.Get_Position()) <= Reach + 1.0e-3,
+                    TEXT("Rejected tilted query retains independently native simulation/posed physical contact")))
+            {
+                S.Stop();
+                return;
+            }
+            S.Joined = true;
+            S.JoinedRecord = R;
+            S.Leg = I;
+            B.Complete = true;
+            S.Stop();
+            break;
+        }
+        if (S.Positive && S.Joined && NOT B.Complete)
+        {
+            const auto& Foot = Snapshot.Get_Legs()[S.Leg].Get_Foot();
+            if (B.Footfalls[S.Leg] > S.FootfallsBefore && Foot.Get_Planted() && Foot.Get_ContactTrusted()
+                && Foot.Get_Position().Equals(S.Target, 0.05))
+            {
+                const auto Hit = DoRay(B, Foot.Get_Position(), Foot.Get_Normal());
+                const auto Roof = S.Roofs.ContainsByPredicate([&Hit](const auto& X) { return X.Entity == Hit.Get_Entity(); });
+                const auto Hip = UCk_Utils_ProceduralLeg_UE::Get_Placement(B.Legs[S.Leg]).Get_HipLocal();
+                B.Complete = B.Require(Hit.Get_HasHit() && Roof && Hit.Get_Position().Equals(S.Target, 0.05)
+                    && FVector::Dist(Body.TransformPosition(Hip), S.Target) <= Reach + 1.0e-3
+                    && FVector::Dist((Pose * Body).TransformPosition(Hip), S.Target) <= Reach + 1.0e-3,
+                    TEXT("Selected tilted native target later becomes the actual trusted native plant"));
+            }
+        }
+        S.PreviousSequence = Sequence;
+        for (auto I = 0; I < 4; ++I)
+        {
+            S.PreviousFeet[I] = Snapshot.Get_Legs()[I].Get_Foot().Get_Position();
+        }
+    }
+
+    auto
+    Tick(
+        FState& S,
+        float Dt)
+        -> void
+    {
+        using namespace ck_test_procedural_gait_committed_landing_pie;
+        if (S.Tilted)
+        {
+            TickTilted(S, Dt);
+            return;
+        }
+        auto& B = S.Base;
+        if (B.Failed || B.Complete || B.CleanupStarted)
+        {
+            return;
+        }
+        B.Elapsed += FMath::Max(0.0, static_cast<double>(Dt));
+        if (NOT B.Require(B.Elapsed <= Deadline, TEXT("Hip native setup/history/trusted-plant deadline")) ||
+            NOT B.Require(S.Sink.Good(), TEXT("HQT1 capture is well-formed, complete and within512 rows")))
+        {
+            S.Stop();
+            return;
+        }
+        if (UCk_Utils_ProceduralGait_UE::Get_Status(B.Gait) != ECk_ProceduralAnimation_Status::Ready ||
+            UCk_Utils_SurfaceMotion_UE::Get_Status(B.Motion) != ECk_ProceduralAnimation_Status::Ready ||
+            UCk_Utils_ProceduralBodyPose_UE::Get_Status(B.Pose) != ECk_ProceduralAnimation_Status::Ready)
+        {
+            return;
+        }
+        const auto Snapshot = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(B.Root);
+        if (NOT Snapshot.Get_Status().Get_HasAcceptedSample())
+        {
+            return;
+        }
+        const auto Sequence = Snapshot.Get_Sample().Get_Sequence();
+        const auto Frame = Snapshot.Get_Sample().Get_FrameNumber();
+        if (Sequence == B.Sequence)
+        {
+            return;
+        }
+        if (NOT B.Require(Frame <= GFrameCounter && GFrameCounter - Frame <= 1 &&
+                              Snapshot.Get_Freshness().Get_GaitFresh() &&
+                              Snapshot.Get_Freshness().Get_MotionMatchesGaitFrame() && Snapshot.Get_Legs().Num() == 4 &&
+                              (B.Sequence == 0 || Sequence == B.Sequence + 1),
+                          TEXT("Hip capture observes current consecutive accepted solves")))
+        {
+            S.Stop();
+            return;
+        }
+        B.Sequence = Sequence;
+        ++B.Samples;
+        const auto Body = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(B.Body);
+        const auto Pose = UCk_Utils_ProceduralBodyPose_UE::Get_Offset(B.Pose);
+        if (NOT B.Require(Snapshot.Get_Gait().Get_BodyTransform().Equals(Body, 1.0e-3),
+                          TEXT("Accepted hip sample and actual simulation body agree")))
+        {
+            S.Stop();
+            return;
+        }
+        if (NOT S.Driving && UCk_Utils_ProceduralGait_UE::Get_TrustedContactCount(B.Gait) == 4 &&
+            Snapshot.Get_Motion().Get_Grounded())
+        {
+            S.Driving = S.Start();
+            if (S.Driving)
+            {
+                DoSteer(B, FVector::ForwardVector, 180.0f);
+            }
+        }
+        auto R = FRecord{};
+        while (S.Sink.Read(S.Processed, R))
+        {
+            ++S.Processed;
+            if (R.W[29] != 0 &&
+                NOT B.Require(R.W[7] == Frame && R.W[8] != MAX_uint64 && R.W[8] + 1 == Sequence,
+                              TEXT("Provisional held publication joins this accepted frame and input-solve+1")))
+            {
+                S.Stop();
+                return;
+            }
+            if (R.W[17] != 0 || R.W[18] == 0 || R.W[19] == 0 || R.W[9] == 0 ||
+                R.W[10] != static_cast<uint64>(ck::EProceduralFootholdVerdict::Unreachable))
+            {
+                continue;
+            }
+            if (NOT B.Require(
+                    R.W[7] == Frame && R.W[8] != MAX_uint64 && R.W[8] + 1 == Sequence && R.W[30] > 0 &&
+                        R.W[31] + 1 == R.W[30] && R.W[33] > R.W[32] && R.W[33] - R.W[32] <= 4 && R.W[34] > 0 &&
+                        R.W[34] <= 4,
+                    TEXT("Actual ordinary hip call spends one remaining slot with bounded native rays/corners")))
+            {
+                S.Stop();
+                return;
+            }
+            const auto I = static_cast<int32>(R.W[6]);
+            const auto& Leg = Snapshot.Get_Legs()[I];
+            const auto& Foot = Leg.Get_Foot();
+            if (NOT B.Require(Leg.Get_Id() == UCk_Utils_ProceduralLeg_UE::Get_Id(B.Legs[I]),
+                              TEXT("Accepted ordered leg agrees with exact world/registry/root/leg capture identity")))
+            {
+                S.Stop();
+                return;
+            }
+            auto Old = FVector{};
+            if (NOT B.Require(R.Vector(14, Old), TEXT("Old final actual native point is known")))
+            {
+                S.Stop();
+                return;
+            }
+            const auto OldHit = DoRay(B, Old);
+            if (NOT B.Require(OldHit.Get_HasHit() && OldHit.Get_Entity() == B.Floor.Entity &&
+                                  OldHit.Get_Position().Equals(Old, 0.05) &&
+                                  FMath::IsNearlyEqual(Old.Z, B.Origin.Z, 0.05),
+                              TEXT("Old-final Unreachable hit is independently the owned floor")))
+            {
+                S.Stop();
+                return;
+            }
+            if (S.Positive)
+            {
+                if (R.W[23] == 0 || R.W[24] != static_cast<uint64>(ck::EProceduralFootholdVerdict::Usable) ||
+                    R.W[28] == 0 || R.W[29] == 0)
+                {
+                    continue;
+                }
+                auto Point = FVector{};
+                auto Query = FVector{};
+                if (NOT B.Require(R.Vector(25, Point) && R.Vector(20, Query),
+                                  TEXT("New native/query positions are explicitly known")))
+                {
+                    S.Stop();
+                    return;
+                }
+                const auto Hit = DoRay(B, Point);
+                const auto Roof =
+                    S.Roofs.ContainsByPredicate([&Hit](const auto& X) { return X.Entity == Hit.Get_Entity(); });
+                const auto Chosen = Leg.Get_ChosenFoothold();
+                if (NOT B.Require(
+                        Hit.Get_HasHit() && Roof && Hit.Get_Normal().Z > 0.99 &&
+                            Hit.Get_Position().Equals(Point, 0.05) &&
+                            FMath::IsNearlyEqual(Point.Z, B.Origin.Z + 60.0, 0.05) && NOT Point.Equals(Query, 0.05) &&
+                            Leg.Get_Targeting().Get_TargetValid() &&
+                            Leg.Get_Targeting().Get_IdealTarget().Equals(Point, 0.05) &&
+                            Leg.Get_Footholds().IsValidIndex(Chosen) &&
+                            Leg.Get_Footholds()[Chosen].Get_Position().Equals(Point, 0.05) &&
+                            Leg.Get_Footholds()[Chosen].Get_Verdict() == ck::EProceduralFootholdVerdict::Usable &&
+                            Leg.Get_Footholds()[Chosen].Get_Source() == ck::EProceduralFootholdSource::Ring,
+                        TEXT(
+                            "Actual admitted lower-roof hit, never proposal geometry, is selected by the accepted solve")))
+                {
+                    S.Stop();
+                    return;
+                }
+                if (NOT S.Joined)
+                {
+                    S.Joined = true;
+                    S.JoinedRecord = R;
+                    S.Leg = I;
+                    S.Target = Point;
+                    S.FootfallsBefore = B.Footfalls[I];
+                    S.Stop();
+                }
+                continue;
+            }
+            const auto Rejected =
+                R.W[24] == static_cast<uint64>(ck::EProceduralFootholdVerdict::Unreachable) ||
+                (R.W[23] == 0 && R.W[24] == static_cast<uint64>(ck::EProceduralFootholdVerdict::Miss));
+            if (NOT B.Require(
+                    Rejected && R.W[29] == 0 && NOT Leg.Get_Targeting().Get_TargetValid() &&
+                        Leg.Get_ChosenFoothold() == INDEX_NONE && NOT Leg.Get_HasCommittedLanding() &&
+                        Foot.Get_Planted() && Foot.Get_ContactTrusted() && NOT Foot.Get_SwingActive() &&
+                        S.PreviousSequence == R.W[8] && Foot.Get_Position().Equals(S.PreviousFeet[I], 1.0e-3),
+                    TEXT("Charged failed hip query publishes no target/landing and preserves the accepted stance")))
+            {
+                S.Stop();
+                return;
+            }
+            const auto Hit = DoRay(B, Foot.Get_Position(), Foot.Get_Normal());
+            const auto Post =
+                S.Posts.ContainsByPredicate([&Hit](const auto& X) { return X.Entity == Hit.Get_Entity(); });
+            const auto Hip = UCk_Utils_ProceduralLeg_UE::Get_Placement(B.Legs[I]).Get_HipLocal();
+            if (NOT B.Require(Hit.Get_HasHit() && Post && Hit.Get_Position().Equals(Foot.Get_Position(), 0.05) &&
+                                  FVector::Dist(Body.TransformPosition(Hip), Foot.Get_Position()) <= Reach + 1.0e-3 &&
+                                  FVector::Dist((Pose * Body).TransformPosition(Hip), Foot.Get_Position()) <=
+                                      Reach + 1.0e-3,
+                              TEXT("Failure preserves actual native contact and simulation/posed physical reach")))
+            {
+                S.Stop();
+                return;
+            }
+            S.Joined = true;
+            S.JoinedRecord = R;
+            S.Leg = I;
+            B.Complete = true;
+            S.Stop();
+            break;
+        }
+        if (S.Positive && S.Joined && NOT B.Complete)
+        {
+            const auto& Foot = Snapshot.Get_Legs()[S.Leg].Get_Foot();
+            if (B.Footfalls[S.Leg] > S.FootfallsBefore && Foot.Get_Planted() && Foot.Get_ContactTrusted() &&
+                Foot.Get_Position().Equals(S.Target, 0.05))
+            {
+                const auto Hit = DoRay(B, Foot.Get_Position(), Foot.Get_Normal());
+                const auto Roof =
+                    S.Roofs.ContainsByPredicate([&Hit](const auto& X) { return X.Entity == Hit.Get_Entity(); });
+                const auto Hip = UCk_Utils_ProceduralLeg_UE::Get_Placement(B.Legs[S.Leg]).Get_HipLocal();
+                B.Complete =
+                    B.Require(Hit.Get_HasHit() && Roof && Hit.Get_Position().Equals(S.Target, 0.05) &&
+                                  FVector::Dist(Body.TransformPosition(Hip), S.Target) <= Reach + 1.0e-3 &&
+                                  FVector::Dist((Pose * Body).TransformPosition(Hip), S.Target) <= Reach + 1.0e-3,
+                              TEXT("Accepted hip-native target later becomes the actual trusted native plant"));
+            }
+        }
+        S.PreviousSequence = Sequence;
+        for (auto I = 0; I < 4; ++I)
+        {
+            S.PreviousFeet[I] = Snapshot.Get_Legs()[I].Get_Foot().Get_Position();
+        }
+    }
+
+    auto
+    Run(
+        FAutomationTestBase* Test,
+        bool Positive,
+        bool Tilted = false)
+        -> bool
+    {
+        using namespace ck_test_procedural_gait_committed_landing_pie;
+        const auto S = MakeShared<FState>();
+        S->Base.Test = Test;
+        S->Positive = Positive;
+        S->Tilted = Tilted;
+        S->Base.Origin = BaseOrigin + FVector{0.0, (Positive ? 4000.0 : 6000.0) + (Tilted ? 4000.0 : 0.0), 0.0};
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+        ADD_LATENT_AUTOMATION_COMMAND(
+            FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([S](UWorld* World) {
+                auto& B = S->Base;
+                B.World = World;
+                const auto Weak = TWeakPtr<FState>{S};
+                S->WorldTearDown = FWorldDelegates::OnWorldBeginTearDown.AddLambda([Weak, World](UWorld* TearingDown) {
+                    if (TearingDown == World)
+                    {
+                        if (const auto State = Weak.Pin())
+                        {
+                            State->Stop();
+                        }
+                    }
+                });
+                B.Floor = DoAddSurface(B, B.Origin, FVector{1000.0, 600.0, 20.0});
+                for (const auto X : {40.0, 120.0})
+                {
+                    for (const auto Y : {-60.0, 60.0})
+                    {
+                        S->Posts.Add(DoAddSurface(B, B.Origin + FVector{X, Y, 100.0}, FVector{20.0, 20.0, 50.0}));
+                    }
+                }
+                if (S->Positive)
+                {
+                    for (const auto X : {165.0, 245.0})
+                    {
+                        for (const auto Y : {-30.0, 30.0})
+                        {
+                            S->Roofs.Add(DoAddSurface(B, B.Origin + FVector{X, S->Tilted ? Y * 2.0 : Y,
+                                S->Tilted ? 100.0 : 60.0}, FVector{30.0, S->Tilted ? 20.0 : 5.0, 10.0}));
+                        }
+                    }
+                }
+                if (S->Tilted && S->Positive)
+                {
+                    S->Roofs.Add(DoAddSurface(B, B.Origin + FVector{294.6484375, 46.28125, 100.0},
+                        FVector{1.0, 1.0, 1.0}));
+                    DoAddSurface(B, B.Origin + FVector{357.85016164360684, -40.984341928056566, 325.58869326879244},
+                        FVector{1.0, 1.0, 1.0});
+                }
+            })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(
+            Test, FCk_NetAutoTest_Condition::CreateLambda([S] {
+                for (const auto& X : S->Base.Surfaces)
+                {
+                    if (ck::Is_NOT_Valid(X.Body) || NOT UCk_Utils_JoltBody_UE::Get_IsBodyAdded(X.Body))
+                    {
+                        return false;
+                    }
+                }
+                const auto Hit = DoRay(S->Base, S->Base.Floor.Top);
+                return Hit.Get_HasHit() && Hit.Get_Entity() == S->Base.Floor.Entity;
+            }),
+            5.0, TEXT("Owned hip native surfaces are ready before public composition")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([S](UWorld*) {
+            auto& B = S->Base;
+            if (S->Tilted)
+            {
+                DoCompose(B, 180.0f, 0.0f, 80.0f, FQuat{FVector::ForwardVector, 0.15}, 0.1f, S->Positive ? 300.0f : 100.0f);
+            }
+            else
+            {
+                DoCompose(B, 180.0f, 0.0f, 80.0f);
+            }
+            B.OriginalFixedTime = FApp::UseFixedTimeStep();
+            B.OriginalFixedDelta = FApp::GetFixedDeltaTime();
+            FApp::SetFixedDeltaTime(FrameSeconds);
+            FApp::SetUseFixedTimeStep(true);
+            B.FixedTimeActive = true;
+            const auto Weak = TWeakPtr<FState>{S};
+            const auto World = B.World;
+            B.Monitor =
+                FWorldDelegates::OnWorldPostActorTick.AddLambda([Weak, World](UWorld* Current, ELevelTick, float Dt) {
+                    if (Current == World.Get())
+                    {
+                        if (const auto State = Weak.Pin())
+                        {
+                            Tick(*State, Dt);
+                        }
+                    }
+                });
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(
+            Test, FCk_NetAutoTest_Condition::CreateLambda([S] { return S->Base.Complete || S->Base.Failed; }), 25.0,
+            TEXT("Required real old-floor/new-hip accepted outcome is reached")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([S, Test](
+                                                                                                            UWorld*) {
+            Test->TestTrue(TEXT("Required hip production history completed without fabricated setup"),
+                           S->Base.Complete && NOT S->Base.Failed && S->Joined && S->Sink.Good());
+            Test->AddInfo(FString::Printf(
+                TEXT("HipQueryNative positive%d rows%d joined%d leg%d input%llu frame%llu witnessRays%d"), S->Positive,
+                S->Processed, S->Joined, S->Leg, S->JoinedRecord.W[8], S->JoinedRecord.W[7], S->Base.WitnessRays));
+            // Copy sink state before logging: AddInfo can re-enter the global output devices.
+            auto SinkCount = int32{};
+            auto SinkInvalid = false;
+            auto SinkOverflow = false;
+            {
+                const auto Lock = FScopeLock{&S->Sink.Mutex};
+                SinkCount = S->Sink.Count;
+                SinkInvalid = S->Sink.Invalid;
+                SinkOverflow = S->Sink.Overflow;
+            }
+            const auto& B = S->Base;
+            const auto GaitKnown = ck::IsValid(B.Gait) && UCk_Utils_ProceduralGait_UE::Has(B.Gait);
+            const auto MotionKnown = ck::IsValid(B.Motion) && UCk_Utils_SurfaceMotion_UE::Has(B.Motion);
+            const auto PoseKnown = ck::IsValid(B.Pose) && UCk_Utils_ProceduralBodyPose_UE::Has(B.Pose);
+            const auto GaitStatus = GaitKnown
+                ? FString::FromInt(static_cast<int32>(UCk_Utils_ProceduralGait_UE::Get_Status(B.Gait)))
+                : FString{TEXT("unknown")};
+            const auto MotionStatus = MotionKnown
+                ? FString::FromInt(static_cast<int32>(UCk_Utils_SurfaceMotion_UE::Get_Status(B.Motion)))
+                : FString{TEXT("unknown")};
+            const auto PoseStatus = PoseKnown
+                ? FString::FromInt(static_cast<int32>(UCk_Utils_ProceduralBodyPose_UE::Get_Status(B.Pose)))
+                : FString{TEXT("unknown")};
+            auto Trusted = FString{TEXT("unknown")};
+            auto LegsKnown = B.Legs.Num() == 4;
+            for (const auto& Leg : B.Legs)
+            {
+                LegsKnown &= ck::IsValid(Leg) && UCk_Utils_ProceduralLeg_UE::Has(Leg);
+            }
+            if (GaitKnown && LegsKnown
+                && UCk_Utils_ProceduralGait_UE::Get_Status(B.Gait) == ECk_ProceduralAnimation_Status::Ready)
+            {
+                Trusted = FString::FromInt(UCk_Utils_ProceduralGait_UE::Get_TrustedContactCount(B.Gait));
+            }
+            auto Snapshot = FCk_ProceduralAnimation_DebugSnapshot{};
+            if (IsInGameThread() && ck::IsValid(B.Root))
+            {
+                Snapshot = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(B.Root);
+            }
+            const auto SnapshotKnown = Snapshot.Get_Status().Get_Available();
+            const auto Accepted = SnapshotKnown && Snapshot.Get_Status().Get_HasAcceptedSample();
+            const auto SampleFrame = Accepted ? FString::Printf(TEXT("%llu"), Snapshot.Get_Sample().Get_FrameNumber())
+                                              : FString{TEXT("unknown")};
+            const auto SampleSequence = Accepted ? FString::Printf(TEXT("%llu"), Snapshot.Get_Sample().Get_Sequence())
+                                                 : FString{TEXT("unknown")};
+            const auto Grounded = Accepted && Snapshot.Get_Status().Get_HasSurfaceMotion()
+                ? FString::FromInt(Snapshot.Get_Motion().Get_Grounded()) : FString{TEXT("unknown")};
+            Test->AddInfo(FString::Printf(
+                TEXT("HipQueryNative end elapsed%.6f samples%d sequence%llu gait%s motion%s pose%s ")
+                TEXT("snapshotKnown%d accepted%s frame%s solve%s trusted%s grounded%s driving%d tagged%d ")
+                TEXT("listening%d sinkCount%d sinkInvalid%d sinkOverflow%d"),
+                B.Elapsed, B.Samples, B.Sequence, *GaitStatus, *MotionStatus, *PoseStatus, SnapshotKnown,
+                SnapshotKnown ? (Accepted ? TEXT("1") : TEXT("0")) : TEXT("unknown"), *SampleFrame,
+                *SampleSequence, *Trusted, *Grounded, S->Driving, S->Tagged, S->Listening,
+                SinkCount, SinkInvalid, SinkOverflow));
+            S->Stop();
+            DoCleanup(S->Base);
+        })));
+        ADD_LATENT_AUTOMATION_COMMAND(
+            FCk_Latent_WaitUntil(Test, FCk_NetAutoTest_Condition::CreateLambda([S] {
+                                     if (ck::IsValid(S->Base.Root))
+                                     {
+                                         return false;
+                                     }
+                                     for (const auto& X : S->Base.Surfaces)
+                                     {
+                                         if (ck::IsValid(X.Entity) || ck::IsValid(X.Body))
+                                         {
+                                             return false;
+                                         }
+                                     }
+                                     return NOT S->Listening && NOT S->Tagged && NOT S->WorldTearDown.IsValid();
+                                 }),
+                                 5.0, TEXT("Hip sink/name ownership and native entities retire before EndPIE")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+        return true;
+    }
+} // namespace ck_test_hip_query_native
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkProceduralGaitHipQueryNativeAdmissionTest,
+    "Ck.ProceduralAnimation.Gait.HipQueryNative.LowerRoofAdmission",
+    ck_test_procedural_gait_committed_landing_pie::TestFlags)
+auto
+    FCkProceduralGaitHipQueryNativeAdmissionTest::
+    RunTest(
+        const FString&)
+    -> bool
+{
+    return ck_test_hip_query_native::Run(this, true);
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkProceduralGaitHipQueryNativeFailureTest,
+    "Ck.ProceduralAnimation.Gait.HipQueryNative.RejectionPreservesNativeStance",
+    ck_test_procedural_gait_committed_landing_pie::TestFlags)
+auto
+    FCkProceduralGaitHipQueryNativeFailureTest::
+    RunTest(
+        const FString&)
+    -> bool
+{
+    return ck_test_hip_query_native::Run(this, false);
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkProceduralGaitTiltedSeedNativeAdmissionTest,
+    "Ck.ProceduralAnimation.Gait.TiltedSeedNative.PlaneAdmission",
+    ck_test_procedural_gait_committed_landing_pie::TestFlags)
+
+auto
+    FCkProceduralGaitTiltedSeedNativeAdmissionTest::
+    RunTest(
+        const FString&)
+    -> bool
+{
+    return ck_test_hip_query_native::Run(this, true, true);
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkProceduralGaitTiltedSeedNativeFailureTest,
+    "Ck.ProceduralAnimation.Gait.TiltedSeedNative.RejectionPreservesNativeStance",
+    ck_test_procedural_gait_committed_landing_pie::TestFlags)
+
+auto
+    FCkProceduralGaitTiltedSeedNativeFailureTest::
+    RunTest(
+        const FString&)
+    -> bool
+{
+    return ck_test_hip_query_native::Run(this, false, true);
 }
 
 #endif // WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
