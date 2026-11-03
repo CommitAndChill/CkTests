@@ -1962,12 +1962,25 @@ namespace ck_test_height_planning_native
                 FeetBeforeOwnerControl.Add(UCk_Utils_ProceduralLeg_UE::Get_Foot(RosterLeg));
             }
             const auto EnsuresBeforeOwnerControl = UCk_Utils_Ensure_UE::Get_EnsureCount();
+            if (NOT Require(ck::Get_ProceduralContactStagingLegs(Gait, {}).Num() == Legs.Num(),
+                    TEXT("The mature native roster qualifies the actual staging reader before owner rejection")))
+            {
+                return false;
+            }
             {
                 SubjectLeg.Remove<ck::FFragment_LifetimeOwner>();
                 ON_SCOPE_EXIT
                 {
                     SubjectLeg.Add<ck::FFragment_LifetimeOwner>(OwnerBefore);
                 };
+                auto StagingRays = 0;
+                if (NOT Require(ck::Get_ProceduralContactStagingLegs(Gait, {}).IsEmpty()
+                        && NOT ck::Get_IsProceduralContactStagingBodyAdmitted(Gait, InCurrent, InOffset, StagingRays, 2048)
+                        && StagingRays == 0 && UCk_Utils_Ensure_UE::Get_EnsureCount() == EnsuresBeforeOwnerControl,
+                        TEXT("Missing owner rejects the real staging roster and body reader before native work or ensures")))
+                {
+                    return false;
+                }
                 for (const auto Stage : {ck::EProceduralHeightPlanStage::PreparatoryBody,
                          ck::EProceduralHeightPlanStage::Landing})
                 {

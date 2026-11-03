@@ -324,4 +324,201 @@ auto
     return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkContactStagingTwoPlacementGeometryTest,
+    "Ck.ProceduralAnimation.ContactStaging.Core.TwoPlacementGeometry", ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkContactStagingTwoPlacementGeometryTest::RunTest(const FString&)
+    -> bool
+{
+    {
+        auto SideLeg = ck::FProceduralContactStagingLeg{};
+        SideLeg._RosterIndex = 0;
+        SideLeg._Anchor = ck::FProceduralSurfaceReachPaceAnchor{FVector{1.0, 1.0, -10.0}, FVector::ZeroVector, 20.0f};
+        SideLeg._ForceReach = 20.0f;
+        SideLeg._SearchRadius = 2.0f;
+        SideLeg._OutboardWorld = FVector::RightVector;
+        auto SideLegs = TArray<ck::FProceduralContactStagingLeg>{SideLeg};
+        auto SideInput = ck::FProceduralContactStagingInput{};
+        SideInput._Up = FVector::UpVector;
+        SideInput._Forward = FVector::ForwardVector;
+        SideInput._PosedBody = FTransform::Identity;
+        SideInput._Legs = SideLegs;
+        auto SidePlan = ck::FProceduralContactStagingPlan{};
+        SidePlan._TwoPlacement = true;
+        SidePlan._RequiredCount = 1;
+        SidePlan._Required[0] = {0, FVector{1.0, 1.0, -10.0}, FVector{3.0, 1.0, -10.0}, TOptional<FVector>{FVector{2.0, 1.0, -10.0}}};
+        TestTrue(TEXT("Identity presentation certifies the same-side current/intermediate/final baseline"),
+            ck::Get_IsProceduralContactStagingHoldValid(SideInput, SidePlan));
+        SideInput._PosedBody = FTransform{FQuat{FVector::ForwardVector, FMath::DegreesToRadians(10.0)}};
+        TestFalse(TEXT("Common hold uses the actual posed outboard plane before a charged attempt"),
+            ck::Get_IsProceduralContactStagingHoldValid(SideInput, SidePlan));
+    }
+    auto Legs = TArray<ck::FProceduralContactStagingLeg>{};
+    for (auto Index = 0; Index < 4; ++Index)
+    {
+        const auto Front = Index < 2;
+        const auto Side = Index % 2 == 0 ? -1.0 : 1.0;
+        auto Leg = ck::FProceduralContactStagingLeg{};
+        Leg._RosterIndex = Index;
+        Leg._Anchor = ck::FProceduralSurfaceReachPaceAnchor{
+            FVector{Front ? 0.0 : -20.0, Side * 65.0, 0.0},
+            FVector{Front ? 20.0 : -20.0, Side * 15.0, 0.0}, Front ? 125.0f : 180.0f};
+        Leg._ForceReach = Front ? 115.0f : 165.6f;
+        Leg._SearchRadius = Front ? 31.25f : 45.0f;
+        Leg._OwnSideTolerance = Front ? 12.5f : 18.0f;
+        Leg._OutboardWorld = FVector{Front ? 20.0 : -20.0, Side * 50.0, 0.0}.GetSafeNormal();
+        Leg._NativeTop = ck::FProceduralContactStagingPlane{FVector::ZeroVector, FVector::UpVector};
+        Legs.Add(Leg);
+    }
+    auto Input = ck::FProceduralContactStagingInput{};
+    Input._Body = FTransform{FQuat::Identity, FVector{48.0, 0.0, 40.0}};
+    Input._PosedBody = Input._Body;
+    Input._Up = FVector::UpVector;
+    Input._Forward = FVector::ForwardVector;
+    Input._Face = ck::FProceduralContactStagingPlane{FVector{41.0, 0.0, 0.0}, FVector::ForwardVector};
+    Input._BodyHalfExtents = FVector{68.0, 12.0, 10.0};
+    Input._CollisionMargin = 1.0f;
+    Input._Legs = Legs;
+    TestFalse(TEXT("Legacy selector retains its unchanged direct sphere rejection"),
+        ck::Get_ProceduralContactStagingPlan(Input).IsSet());
+    const auto Plan = ck::Get_ProceduralContactStagingTwoPlacementPlan(Input);
+    if (NOT TestTrue(TEXT("Synthetic common-hold input admits exactly two required legs"),
+        Plan.IsSet() && Plan->_TwoPlacement && Plan->_RequiredCount == 2))
+    { return false; }
+    for (auto Required = 0; Required < 2; ++Required)
+    {
+        const auto& Leg = Plan->_Required[Required];
+        TestTrue(TEXT("Exactly one forward midpoint preserves native plane and lateral coordinate"),
+            Leg._IntermediateQuery.IsSet() && Leg._IntermediateQuery->X == 20.0
+            && Leg._IntermediateQuery->Y == Leg._OriginalPlant.Y && Leg._IntermediateQuery->Z == 0.0
+            && Leg._ProposedQuery == FVector(40.0, Leg._OriginalPlant.Y, 0.0));
+        TestTrue(TEXT("Both represented three-dimensional hops respect the unchanged radius"),
+            FVector::Dist(Leg._OriginalPlant, Leg._IntermediateQuery.GetValue()) <= Legs[Required]._SearchRadius
+            && FVector::Dist(Leg._IntermediateQuery.GetValue(), Leg._ProposedQuery) <= Legs[Required]._SearchRadius);
+        const auto Intermediate = ck::FProceduralSurfaceLandingConstraint{Leg._IntermediateQuery.GetValue(),
+            Legs[Required]._Anchor.Get_HipLocal(), 115.0f, 125.0f};
+        TestFalse(TEXT("Useful intermediate remains outside final Exit physical reach"),
+            ck::Get_IsProceduralContactStagingFuturePlantReachValid(Plan->_ExitBody,
+                TOptional<FTransform>{FTransform::Identity}, Intermediate));
+    }
+    const auto Original = Legs;
+    const auto IsIntermediate = [&](const FVector& InPoint, const FVector& InForward = FVector::ForwardVector,
+        float InRadius = 31.25f)
+    {
+        return ck::Get_IsProceduralContactStagingIntermediateTargetValid(InPoint, FVector::ZeroVector,
+            FVector{40.0, 0.0, 0.0}, InForward, InRadius);
+    };
+    TestTrue(TEXT("Actual ordinary intermediate may differ from the proposed midpoint"),
+        IsIntermediate(FVector{25.0, 0.0, 0.0}));
+    TestFalse(TEXT("Final query belongs to separate final classification"), IsIntermediate(FVector{40.0, 0.0, 0.0}));
+    TestFalse(TEXT("Actual plant cannot renew a zero-length intermediate"), IsIntermediate(FVector::ZeroVector));
+    TestFalse(TEXT("An intermediate must preserve exact lateral coordinate"), IsIntermediate(FVector{20.0, 0.001, 0.0}));
+    TestFalse(TEXT("An intermediate must preserve exact plane coordinate"), IsIntermediate(FVector{20.0, 0.0, 0.001}));
+    TestFalse(TEXT("Both next and current spheres remain decisive"), IsIntermediate(FVector{5.0, 0.0, 0.0}));
+    TestFalse(TEXT("No radius widening or third placement is permitted"), IsIntermediate(FVector{20.0, 0.0, 0.0},
+        FVector::ForwardVector, 19.0f));
+    TestFalse(TEXT("Noncardinal frame is rejected"), IsIntermediate(FVector{20.0, 0.0, 0.0}, FVector{0.5, 0.5, 0.0}));
+    TestFalse(TEXT("Nonfinite point is rejected before arithmetic"), IsIntermediate(FVector{1.0e308}));
+    TestFalse(TEXT("Nonfinite radius is rejected before arithmetic"), IsIntermediate(FVector{20.0, 0.0, 0.0},
+        FVector::ForwardVector, std::numeric_limits<float>::infinity()));
+    for (auto Combination = 0; Combination < 9; ++Combination)
+    {
+        Legs = Original;
+        for (auto Required = 0; Required < 2; ++Required)
+        {
+            const auto State = Required == 0 ? Combination % 3 : Combination / 3;
+            const auto& Milestones = Plan->_Required[Required];
+            const auto Point = State == 0 ? Milestones._OriginalPlant
+                : State == 1 ? Milestones._IntermediateQuery.GetValue() : Milestones._ProposedQuery;
+            Legs[Required]._Anchor = ck::FProceduralSurfaceReachPaceAnchor{
+                Point, Original[Required]._Anchor.Get_HipLocal(), Original[Required]._Anchor.Get_Reach()};
+            Legs[Required]._NativeTop.Reset();
+        }
+        Input._Legs = Legs;
+        TestTrue(TEXT("All nine real-current combinations share the immutable hold without a new top hit"),
+            ck::Get_IsProceduralContactStagingHoldValid(Input, Plan.GetValue()));
+    }
+    Legs = Original;
+    Input._Legs = Legs;
+    for (auto Case = 0; Case < 9; ++Case)
+    {
+        Legs = Original;
+        Input._Legs = Legs;
+        auto Invalid = Input;
+        auto InvalidPlan = Plan.GetValue();
+        switch (Case)
+        {
+            case 0: Legs[0]._SearchRadius = 19.0f; break;
+            case 1: Legs[0]._NativeTop->_Point.Z = 1.0; break;
+            case 2: Legs[0]._NativeTop.Reset(); break;
+            case 3: Legs[0]._SearchRadius = std::numeric_limits<float>::quiet_NaN(); break;
+            case 4: Invalid._Body.SetLocation(FVector{1.0e308}); break;
+            case 5: Invalid._Face._Point.X = std::numeric_limits<double>::infinity(); break;
+            case 6: Legs[0]._ForceReach = 10.0f; break;
+            case 7: Invalid._PosedBody = FTransform{FQuat::Identity, FVector{48.0, 1000.0, 40.0}}; break;
+            case 8: Invalid._Face._Point.X = 41.00000001; break;
+            default: break;
+        }
+        TestFalse(TEXT("Malformed, over-two-radius, missing/split plane, force, pose or unrepresented final declines atomically"),
+            ck::Get_ProceduralContactStagingTwoPlacementPlan(Invalid).IsSet());
+        InvalidPlan._Required[0]._IntermediateQuery = FVector{1.0e308};
+        TestFalse(TEXT("Malformed midpoint cannot pass any common-state certificate"),
+            ck::Get_IsProceduralContactStagingHoldValid(Input, InvalidPlan));
+    }
+    Legs = Original;
+    Input._Legs = Legs;
+    auto BadHold = Plan.GetValue();
+    BadHold._Required[1]._IntermediateQuery = FVector{20.0, 1000.0, 0.0};
+    TestFalse(TEXT("A single intermediate outside hold rejects despite valid old/final endpoints"),
+        ck::Get_IsProceduralContactStagingHoldValid(Input, BadHold));
+    auto Landings = TArray<ck::FProceduralSurfaceLandingConstraint>{
+        ck::FProceduralSurfaceLandingConstraint{FVector{1000.0, 0.0, 0.0}, FVector::ZeroVector, 100.0f, 125.0f}};
+    Input._Landings = Landings;
+    TestFalse(TEXT("A committed landing cannot be omitted from common hold"),
+        ck::Get_IsProceduralContactStagingHoldValid(Input, Plan.GetValue()));
+    Input._Landings = {};
+    Legs[0]._SearchRadius = Legs[1]._SearchRadius = 50.0f;
+    const auto Legacy = ck::Get_ProceduralContactStagingPlan(Input);
+    const auto Priority = ck::Get_ProceduralContactStagingTwoPlacementPlan(Input);
+    TestTrue(TEXT("Old success retains exact selected bodies, queries and single-placement priority"),
+        Legacy.IsSet() && Priority.IsSet() && NOT Priority->_TwoPlacement
+        && Legacy->_RetreatBody.Equals(Priority->_RetreatBody, 0.0)
+        && Legacy->_ExitBody.Equals(Priority->_ExitBody, 0.0)
+        && Legacy->_RequiredCount == Priority->_RequiredCount
+        && Legacy->_Required[0]._ProposedQuery == Priority->_Required[0]._ProposedQuery
+        && NOT Priority->_Required[0]._IntermediateQuery.IsSet());
+    for (auto Coarse = 0; Coarse < 2; ++Coarse)
+    {
+        const auto Offset = Coarse == 0 ? 1048576.0 : 268435456.0;
+        Legs = Original;
+        for (auto Index = 0; Index < Legs.Num(); ++Index)
+        {
+            const auto& Anchor = Original[Index]._Anchor;
+            Legs[Index]._Anchor = ck::FProceduralSurfaceReachPaceAnchor{
+                Anchor.Get_FootWorld() + FVector{Offset, 0.0, 0.0}, Anchor.Get_HipLocal(), Anchor.Get_Reach()};
+            if (Index < 2)
+            { Legs[Index]._SearchRadius = 20.0f; }
+        }
+        auto Translated = Input;
+        Translated._Legs = Legs;
+        Translated._Body.SetLocation(Input._Body.GetLocation() + FVector{Offset, 0.0, 0.0});
+        Translated._PosedBody = Translated._Body;
+        Translated._Face._Point.X = Offset + 33.0;
+        const auto Represented = ck::Get_ProceduralContactStagingTwoPlacementPlan(Translated);
+        if (Coarse == 0)
+        {
+            TestTrue(TEXT("Exactly represented translated forward midpoint admits both unchanged spheres"),
+                Represented.IsSet() && Represented->_Required[0]._IntermediateQuery.IsSet()
+                && Represented->_Required[0]._IntermediateQuery->X == Offset + 16.0);
+        }
+        else
+        {
+            TestFalse(TEXT("Midpoint float rounding rejects even when mathematical span is below two radii"),
+                Represented.IsSet());
+        }
+    }
+    return true;
+}
+
 #endif
