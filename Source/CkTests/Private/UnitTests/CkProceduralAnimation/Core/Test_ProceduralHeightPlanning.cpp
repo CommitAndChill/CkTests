@@ -3805,3 +3805,400 @@ auto
 #endif
 
 // --------------------------------------------------------------------------------------------------------------------
+
+// POSTS_STANCE_READONLY_ORACLE_BEGIN
+#if WITH_DEV_AUTOMATION_TESTS && WITH_EDITOR
+#include "CkProceduralAnimation/BodyPose/CkProceduralBodyPose_Processor.h"
+#include "CkProceduralAnimation/SurfaceMotion/CkSurfaceContactStaging.h"
+
+namespace ck::test_posts_stance
+{
+    auto CurrentTest() -> FAutomationTestBase*
+    {
+        return test_posts_recovery::CurrentTest();
+    }
+    auto Live(const FCk_Handle& H) -> bool
+    {
+        return ck::IsValid(H) && NOT H.Has<FTag_DestroyEntity_Initiate>()
+            && NOT H.Has<FTag_DestroyEntity_EndPlay>() && NOT H.Has<FTag_DestroyEntity_Teardown>()
+            && NOT H.Has<FTag_DestroyEntity_Await>() && NOT H.Has<FTag_DestroyEntity_Finalize>();
+    }
+    auto WorldFor(const FCk_Handle& Root) -> UWorld*
+    {
+        auto H = Root;
+        const auto R = Root.Get_RegistryView().Get_RegistryHandle();
+        for (auto I = 0; I < 64; ++I)
+        {
+            if (NOT Live(H)) { return nullptr; }
+            const auto Other = H.Get_RegistryView().Get_RegistryHandle();
+            if (R.SlotIndex != Other.SlotIndex || R.Generation != Other.Generation) { return nullptr; }
+            if (H.Has<TWeakObjectPtr<UWorld>>()) { return H.Get<TWeakObjectPtr<UWorld>>().Get(); }
+            if (NOT H.Has<FFragment_LifetimeOwner>()) { return nullptr; }
+            H = H.Get<FFragment_LifetimeOwner>().Get_Entity();
+        }
+        return nullptr;
+    }
+    struct FFootCopy
+    {
+        uint32 Entity = 0;
+        FVector Point = FVector::ZeroVector;
+        FVector Normal = FVector::ZeroVector;
+        uint8 Phase = 0, Contact = 0;
+        bool Known = false, Swing = false;
+    };
+    struct FSample
+    {
+        uint64 Frame = 0, Solve = 0, StanceSolve = 0, EvaluatedFrame = 0, Episode = 0;
+        uint64 AckFrame = 0, AckSolve = 0, IntentFrame = 0, IntentSolve = 0;
+        uint8 Phase = 0, Started = 0, Completed = 0, Mode = 0;
+        bool Known = false, PoseKnown = false, StanceKnown = false, FenceKnown = false;
+        bool PublicOutputsKnown = false;
+        bool Spent = false, Aborted = false, Child = false, Overflow = false;
+        bool ClaimsKnown = false, CurrentClaimsKnown = false, LandingSample = false;
+        uint64 Claims = 0, CurrentClaims = 0, LandingFrame = 0, LandingSolve = 0;
+        int32 LandingCount = 0;
+        double Elapsed = 0.0, ElapsedLimit = 0.0, Cycles = 0.0, CycleLimit = 0.0;
+        FTransform Body = FTransform::Identity, Pose = FTransform::Identity;
+        FTransform StanceBody = FTransform::Identity, EvaluatedBody = FTransform::Identity;
+        FTransform Exit = FTransform::Identity;
+        FVector Velocity = FVector::ZeroVector, Up = FVector::ZeroVector;
+        float Scale = 0.0f, AttemptedSpeed = 0.0f;
+        uint8 Pace = 0, Support = 0, ContactSource = 0;
+        int32 Rays = 0, Trials = 0, Envelopes = 0;
+        FFootCopy Feet[4];
+    };
+    struct FEvent
+    {
+        bool Known = false;
+        FSample Sample;
+        FProceduralContactStagingPlacement Placement;
+        FProceduralContactPreparationTestSelection Selection;
+    };
+    auto EmitTransform(const TCHAR* Scope, int32 Row, const TCHAR* Name, bool Known, const FTransform& T) -> void
+    {
+        if (NOT Known || T.ContainsNaN())
+        {
+            UE_LOG(LogTemp, Display, TEXT("PostsStanceTransform scope[%s] row%d name[%s] known%d finite0"), Scope, Row, Name, Known);
+            return;
+        }
+        const auto P = T.GetLocation(); const auto Q = T.GetRotation(); const auto S = T.GetScale3D();
+        UE_LOG(LogTemp, Display, TEXT("PostsStanceTransform scope[%s] row%d name[%s] known1 finite1 p[%.17g,%.17g,%.17g] q[%.17g,%.17g,%.17g,%.17g] s[%.17g,%.17g,%.17g]"),
+            Scope, Row, Name, P.X,P.Y,P.Z,Q.X,Q.Y,Q.Z,Q.W,S.X,S.Y,S.Z);
+    }
+    auto EmitSample(const TCHAR* Scope, int32 Row, const FSample& S) -> void
+    {
+        UE_LOG(LogTemp, Display, TEXT("PostsStanceSample scope[%s] row%d known%d frame%llu solve%llu stanceKnown%d stanceSolve%llu evaluated%llu fence%d episode%llu mode%u phase%u spent%d abort%d child%d started%u completed%u overflow%d claimsKnown%d claims%llu ack%llu:%llu intent%llu:%llu"),
+            Scope,Row,S.Known,S.Frame,S.Solve,S.StanceKnown,S.StanceSolve,S.EvaluatedFrame,S.FenceKnown,S.Episode,S.Mode,S.Phase,S.Spent,S.Aborted,S.Child,S.Started,S.Completed,S.Overflow,S.ClaimsKnown,S.Claims,S.AckFrame,S.AckSolve,S.IntentFrame,S.IntentSolve);
+        UE_LOG(LogTemp, Display, TEXT("PostsStanceOutputs scope[%s] row%d publicOutputsKnown%d elapsed[%.17g,%.17g] cycles[%.17g,%.17g] rays%d trials%d envelopes%d scale%.17g attempted%.17g pace%u support%u source%u velocity[%.17g,%.17g,%.17g] up[%.17g,%.17g,%.17g] privateCoreStateKnown0"),
+            Scope,Row,S.PublicOutputsKnown,S.Elapsed,S.ElapsedLimit,S.Cycles,S.CycleLimit,S.Rays,S.Trials,S.Envelopes,S.Scale,S.AttemptedSpeed,S.Pace,S.Support,S.ContactSource,S.Velocity.X,S.Velocity.Y,S.Velocity.Z,S.Up.X,S.Up.Y,S.Up.Z);
+        UE_LOG(LogTemp, Display, TEXT("PostsStanceLandingStamp scope[%s] row%d known%d frame%llu solve%llu count%d currentClaimsKnown%d currentClaims%llu"),
+            Scope,Row,S.LandingSample,S.LandingFrame,S.LandingSolve,S.LandingCount,S.CurrentClaimsKnown,S.CurrentClaims);
+        EmitTransform(Scope,Row,TEXT("body"),S.Known,S.Body);
+        EmitTransform(Scope,Row,TEXT("pose"),S.PoseKnown,S.Pose);
+        EmitTransform(Scope,Row,TEXT("stanceBody"),S.StanceKnown,S.StanceBody);
+        EmitTransform(Scope,Row,TEXT("evaluatedBody"),S.PublicOutputsKnown,S.EvaluatedBody);
+        EmitTransform(Scope,Row,TEXT("recordedExit"),S.FenceKnown,S.Exit);
+        for (auto I = 0; I < 4; ++I)
+        {
+            const auto& F = S.Feet[I];
+            UE_LOG(LogTemp, Display, TEXT("PostsStanceFoot scope[%s] row%d leg%d known%d entity%u phase%u contact%u swing%d finite%d point[%.17g,%.17g,%.17g] normal[%.17g,%.17g,%.17g]"),
+                Scope,Row,I,F.Known,F.Entity,F.Phase,F.Contact,F.Swing,F.Known && NOT F.Point.ContainsNaN() && NOT F.Normal.ContainsNaN(),F.Point.X,F.Point.Y,F.Point.Z,F.Normal.X,F.Normal.Y,F.Normal.Z);
+        }
+    }
+    auto EmitSelection(const TCHAR* Scope, int32 Row, const FProceduralContactPreparationTestSelection& S) -> void
+    {
+        UE_LOG(LogTemp, Display, TEXT("PostsStanceSelection scope[%s] row%d known%d frame%llu input%llu episode%llu leg%d slot%u ordinarySource%u valid%d trusted%d nativeAccepted%d reused%d ticket%d overlay%d searches%d:%d ordinaryBoundary%d ordinaryBoundaryUsed%d fixedSamples%d rays%d:%d begin%d emergency%d window%d budget%d schedule%d catch%d recovery%d relief%d beyond%d"),
+            Scope,Row,S.Frame != 0,S.Frame,S.InputSolve,S.Episode,S.LegIndex,S.Slot,S.OrdinarySource,S.OrdinaryValid,S.OrdinaryTrusted,S.NativeAccepted,S.ReusedNative,S.PosedTicketConsumed,S.OverlaySelected,S.SearchBefore,S.SearchAfter,S.OrdinaryBoundaryLimit,S.OrdinaryBoundaryUsed,S.FixedSamples,S.RaysBefore,S.RaysAfter,S.ActualBegin,S.Emergency,S.WindowOpen,S.Budget,S.OnSchedule,S.CatchStep,S.RecoveryWants,S.ReachPaceRelief,S.BeyondSchedule);
+        UE_LOG(LogTemp, Display, TEXT("PostsStanceTargets scope[%s] row%d ordinaryFinite%d nativeFinite%d ordinary[%.17g,%.17g,%.17g] native[%.17g,%.17g,%.17g] normal[%.17g,%.17g,%.17g]"),
+            Scope,Row,NOT S.OrdinaryPoint.ContainsNaN(),NOT S.NativePoint.ContainsNaN() && NOT S.NativeNormal.ContainsNaN(),S.OrdinaryPoint.X,S.OrdinaryPoint.Y,S.OrdinaryPoint.Z,S.NativePoint.X,S.NativePoint.Y,S.NativePoint.Z,S.NativeNormal.X,S.NativeNormal.Y,S.NativeNormal.Z);
+        EmitTransform(Scope,Row,TEXT("selectionBody"),S.Frame != 0,S.Body);
+    }
+    struct FProof
+    {
+        FAutomationTestBase* Test = nullptr;
+        TWeakObjectPtr<UWorld> World;
+        UPTRINT WorldIdentity = 0;
+        uint32 Registry = 0, Generation = 0, Entity = 0;
+        FDelegateHandle End;
+        FSample Latest[3], Charge, Child, Terminal;
+        FEvent Starts[4], Touchdowns[4];
+        FFragment_ProceduralContactPreparation_Test Receipt;
+        FProceduralContactPreparationTestSelection FirstReplacement;
+        bool ReplacementKnown = false;
+        bool CertificateKnown = false;
+        FProceduralContactStagingPreparationPlan Certificate;
+        FTransform OriginalA = FTransform::Identity;
+        FProceduralContactStagingLeg InitialGeometry[4];
+        uint64 Episode = 0;
+        bool Finalized = false, Invalid = false, Charged = false, Adopted = false, TerminalKnown = false;
+        ~FProof()
+        {
+            Finalize(CurrentTest());
+            FAutomationTestFramework::Get().OnTestEndEvent.Remove(End);
+        }
+        auto Finalize(FAutomationTestBase* InTest) -> void
+        {
+            if (Finalized || InTest == nullptr || InTest != Test || InTest != CurrentTest()) { return; }
+            Finalized = true;
+            uint8 StartsMask = 0, TouchdownsMask = 0;
+            for (auto I = 0; I < 4; ++I)
+            {
+                if (Starts[I].Known) { StartsMask |= static_cast<uint8>(1u << I); }
+                if (Touchdowns[I].Known) { TouchdownsMask |= static_cast<uint8>(1u << I); }
+            }
+            UE_LOG(LogTemp, Display, TEXT("PostsStanceCoverage root[ProceduralAnimation.Posts.Beast4] world%p registry%u:%u entity%u episode%llu charged%d child%d terminal%d starts%u touchdowns%u invalid%d revocations%u denied%u receiptOverflow%d routeSuccessNotInferred1"),
+                reinterpret_cast<void*>(WorldIdentity),Registry,Generation,Entity,Episode,Charged,Adopted,TerminalKnown,StartsMask,TouchdownsMask,Invalid,Receipt.Revocations,Receipt.DeniedTakeoffs,Receipt.Overflow);
+            UE_LOG(LogTemp, Display, TEXT("PostsStanceCharge episode%llu frame%llu input%llu rays%d envelopes%d trials%d"),Receipt.ChargedEpisode,Receipt.ChargedFrame,Receipt.ChargedInputSolve,Receipt.ChargedRays,Receipt.ChargedEnvelopes,Receipt.ChargedTrials);
+            UE_LOG(LogTemp, Display, TEXT("PostsStanceCertificate known%d proposalOnly1 nativeHitKnown0 trustKnown0 auxiliary%d span%d other%d lower%d required%d twoPlacement%d"),
+                CertificateKnown,Certificate._AuxiliaryRosterIndex,Certificate._SpanRosterIndex,Certificate._OtherRosterIndex,Certificate._LowerPlaneRosterIndex,Certificate._LegacyPlan._RequiredCount,Certificate._LegacyPlan._TwoPlacement);
+            if (CertificateKnown)
+            {
+                EmitTransform(TEXT("proposal"),0,TEXT("originalA"),true,OriginalA);
+                EmitTransform(TEXT("proposal"),0,TEXT("B"),true,Certificate._BodyB);
+                EmitTransform(TEXT("proposal"),0,TEXT("C"),true,Certificate._BodyC);
+                EmitTransform(TEXT("proposal"),0,TEXT("H"),true,Certificate._LegacyPlan._RetreatBody);
+                EmitTransform(TEXT("proposal"),0,TEXT("E"),true,Certificate._LegacyPlan._ExitBody);
+                const FVector Points[4] = {Certificate._AuxiliaryQuery,Certificate._SpanPreparationQuery,Certificate._OtherPreparationQuery,
+                    Certificate._LegacyPlan._RequiredCount == 1 ? Certificate._LegacyPlan._Required[0]._ProposedQuery : FVector::ZeroVector};
+                for (auto I = 0; I < 4; ++I)
+                {
+                    const auto& P = Points[I];
+                    UE_LOG(LogTemp, Display, TEXT("PostsStanceProposal row%d known%d finite%d xyz[%.17g,%.17g,%.17g] nativeHitKnown0"),
+                        I,I != 3 || Certificate._LegacyPlan._RequiredCount == 1,NOT P.ContainsNaN(),P.X,P.Y,P.Z);
+                    const auto& G = InitialGeometry[I]; const auto Hip = G._Anchor.Get_HipLocal(); const auto Plant = G._Anchor.Get_FootWorld();
+                    const auto N = G._RetainedPlantNormal.Get(FVector::ZeroVector);
+                    UE_LOG(LogTemp, Display, TEXT("PostsStanceInitialGeometry row%d roster%d plant[%.17g,%.17g,%.17g] hip[%.17g,%.17g,%.17g] outboard[%.17g,%.17g,%.17g] rawReach%.17g force%.17g search%.17g own%.17g radius%.17g normalKnown%d normal[%.17g,%.17g,%.17g]"),
+                        I,G._RosterIndex,Plant.X,Plant.Y,Plant.Z,Hip.X,Hip.Y,Hip.Z,G._OutboardWorld.X,G._OutboardWorld.Y,G._OutboardWorld.Z,G._Anchor.Get_Reach(),G._ForceReach,G._SearchRadius,G._OwnSideTolerance,G._FootContactRadius,G._RetainedPlantNormal.IsSet(),N.X,N.Y,N.Z);
+                }
+                const auto& P = Certificate._LowerPlane._Point; const auto& N = Certificate._LowerPlane._Normal;
+                UE_LOG(LogTemp, Display, TEXT("PostsStanceLowerPlane proposalOnly1 point[%.17g,%.17g,%.17g] normal[%.17g,%.17g,%.17g] nativeHitKnown0"),P.X,P.Y,P.Z,N.X,N.Y,N.Z);
+            }
+            for (auto I = 0; I < 3; ++I) { EmitSample(TEXT("latestStage"),I,Latest[I]); }
+            EmitSample(TEXT("charge"),0,Charge); EmitSample(TEXT("child"),0,Child); EmitSample(TEXT("terminal"),0,Terminal);
+            EmitSelection(TEXT("last"),0,Receipt.Last);
+            EmitSelection(TEXT("firstReplacement"),0,FirstReplacement);
+            for (auto I = 0; I < 4; ++I)
+            {
+                for (auto Kind = 0; Kind < 2; ++Kind)
+                {
+                    const auto& E = Kind == 0 ? Starts[I] : Touchdowns[I];
+                    const auto* Name = Kind == 0 ? TEXT("firstStart") : TEXT("firstTouchdown");
+                    UE_LOG(LogTemp, Display, TEXT("PostsStanceEvent scope[%s] row%d known%d started%d completed%d final%d start%llu:%llu end%llu:%llu claimsKnown%d claims%llu targetFinite%d plantFinite%d target[%.17g,%.17g,%.17g] plant[%.17g,%.17g,%.17g] normal[%.17g,%.17g,%.17g]"),
+                        Name,I,E.Known,E.Placement._Started,E.Placement._Completed,E.Placement._Final,E.Placement._Frame,E.Placement._InputSolve,E.Placement._CompletedFrame,E.Placement._CompletedSolve,E.Placement._ClaimsRevision.IsSet(),E.Placement._ClaimsRevision.Get(0),NOT E.Placement._Target.ContainsNaN(),NOT E.Placement._Plant.ContainsNaN() && NOT E.Placement._Normal.ContainsNaN(),E.Placement._Target.X,E.Placement._Target.Y,E.Placement._Target.Z,E.Placement._Plant.X,E.Placement._Plant.Y,E.Placement._Plant.Z,E.Placement._Normal.X,E.Placement._Normal.Y,E.Placement._Normal.Z);
+                    if (E.Known)
+                    { EmitSample(Name,I,E.Sample); EmitSelection(Name,I,E.Selection); EmitTransform(Name,I,TEXT("startBody"),true,E.Placement._Body); }
+                }
+            }
+        }
+        auto Observe(FCk_Handle_ProceduralGait Root, int32 Stage) -> void
+        {
+            if (Finalized || CurrentTest() != Test || NOT Live(Root) || Stage < 0 || Stage > 2
+                || NOT World.IsValid() || WorldFor(Root) != World.Get()
+                || NOT Root.Has<FFragment_SurfaceMotion_Support>() || NOT Root.Has<FFragment_ProceduralGait>()
+                || NOT Root.Has<FFragment_ProceduralContactPreparation_Test>()) { return; }
+            const auto R = Root.Get_RegistryView().Get_RegistryHandle();
+            if (static_cast<uint32>(R.SlotIndex) != Registry || static_cast<uint32>(R.Generation) != Generation
+                || static_cast<uint32>(Root.Get_Entity().Get_ID()) != Entity) { Invalid = true; return; }
+            // This oracle owns only its first episode; retain its terminal values across legitimate rearm.
+            if (Episode != 0 && Root.Has<FFragment_ProceduralContactStagingFence>())
+            {
+                const auto& CurrentFence = Root.Get<FFragment_ProceduralContactStagingFence>();
+                if (CurrentFence._Mode == EProceduralContactStagingFenceMode::Preparation && CurrentFence._Episode != Episode)
+                {
+                    if (NOT TerminalKnown) { Invalid = true; }
+                    return;
+                }
+            }
+            // Own raw receipts/ledger independently of Ready: producers may complete then publish a failure.
+            auto& S = Latest[Stage]; S = FSample{}; S.Frame = GFrameCounter;
+            uint8 NewStarts = 0, NewTouchdowns = 0;
+            bool NewCharge = false, NewChild = false, NewTerminal = false;
+            const auto& G = Root.Get<FFragment_ProceduralGait>(); S.Solve = G.Get_SolveSequence();
+            const auto& Support = Root.Get<FFragment_SurfaceMotion_Support>();
+            const auto& State = Support.Get_ContactStaging();
+            S.Phase = static_cast<uint8>(State._Phase); S.IntentFrame = State._IntentFrame; S.IntentSolve = State._ConsumerSolve;
+            Receipt = Root.Get<FFragment_ProceduralContactPreparation_Test>();
+            Invalid |= Receipt.Overflow || (Receipt.StartedMask & 0xf0) != 0;
+            if (NOT ReplacementKnown && Receipt.Last.Frame != 0 && Receipt.Last.OrdinaryValid && Receipt.Last.OrdinaryTrusted
+                && (Receipt.Last.OrdinarySource == static_cast<uint8>(EProceduralFootholdSource::Held)
+                    || Receipt.Last.OrdinarySource == static_cast<uint8>(EProceduralFootholdSource::Ideal))
+                && Receipt.Last.NativeAccepted && Receipt.Last.OverlaySelected)
+            { ReplacementKnown = true; FirstReplacement = Receipt.Last; }
+            if (NOT Root.Has<FFragment_ProceduralContactStagingFence>()) { return; }
+            const auto& Fence = Root.Get<FFragment_ProceduralContactStagingFence>();
+            if (Fence._Mode != EProceduralContactStagingFenceMode::Preparation) { return; }
+            S.FenceKnown = true; S.Mode = static_cast<uint8>(Fence._Mode); S.Spent = Fence._Spent;
+            S.Aborted = Fence._AbortRecorded; S.Episode = Fence._Episode; S.Exit = Fence._Exit;
+            S.AckFrame = Fence._LastAcknowledgedFrame; S.AckSolve = Fence._LastAcknowledgedSolve;
+            S.Elapsed = Fence._Elapsed; S.ElapsedLimit = Fence._ElapsedLimit; S.Cycles = Fence._Cycles; S.CycleLimit = Fence._CycleLimit;
+            const auto& P = Fence._Preparation; S.Started = P._StartedCount; S.Completed = P._CompletedCount;
+            if (NOT CertificateKnown)
+            {
+                Certificate = P._Plan; OriginalA = State._BlockedBody;
+                for (auto I = 0; I < 4; ++I) { InitialGeometry[I] = P._Geometry[I]; }
+                CertificateKnown = true;
+            }
+            S.Child = P._LegacyAdopted; S.ClaimsKnown = P._ClaimsRevision.IsSet(); S.Claims = P._ClaimsRevision.Get(0);
+            if (Episode == 0) { Episode = Fence._Episode; }
+            if (S.Started > 4 || S.Completed > 4) { Invalid = true; return; }
+            for (auto I = 0; I < 4; ++I)
+            {
+                const auto& Leg = P._Roster[I]; auto& F = S.Feet[I];
+                if (NOT Live(Leg) || NOT Leg.Has<FFragment_ProceduralLeg>() || NOT Leg.Has<FFragment_ProceduralLeg_Params>()) { continue; }
+                const auto& Foot = Leg.Get<FFragment_ProceduralLeg>().Get_Foot();
+                F.Known = true; F.Entity = static_cast<uint32>(Leg.Get_Entity().Get_ID()); F.Point = Foot.Get_Position();
+                F.Normal = Foot.Get_Normal(); F.Phase = static_cast<uint8>(Foot.Get_Phase()); F.Contact = static_cast<uint8>(Foot.Get_Contact());
+                F.Swing = Foot.Get_Phase() == ECk_ProceduralLeg_FootPhase::Swinging;
+            }
+            if (NOT Charged && Receipt.ChargedEpisode == Episode && Receipt.ChargedFrame != 0)
+            { Charged = true; NewCharge = true; Charge = S; }
+            if (NOT Adopted && P._LegacyAdopted) { Adopted = true; NewChild = true; Child = S; }
+            for (auto I = 0; I < 4; ++I)
+            {
+                if (NOT Starts[I].Known && P._Placements[I]._Started)
+                { Starts[I].Known = true; NewStarts |= static_cast<uint8>(1u << I); Starts[I].Sample = S; Starts[I].Placement = P._Placements[I]; Starts[I].Selection = Receipt.Starts[I]; }
+                if (NOT Touchdowns[I].Known && P._Placements[I]._Completed)
+                { Touchdowns[I].Known = true; NewTouchdowns |= static_cast<uint8>(1u << I); Touchdowns[I].Sample = S; Touchdowns[I].Placement = P._Placements[I]; Touchdowns[I].Selection = Receipt.Starts[I]; }
+            }
+            if (NOT TerminalKnown && (Fence._AbortRecorded || NOT Fence._Spent || State._Phase == EProceduralContactStagingPhase::Dormant
+                || State._Phase == EProceduralContactStagingPhase::Exhausted))
+            { TerminalKnown = true; NewTerminal = true; Terminal = S; }
+            const auto Transform = UCk_Utils_Transform_UE::Cast(Root);
+            const auto Motion = UCk_Utils_SurfaceMotion_UE::Cast(Root);
+            const auto Pose = UCk_Utils_ProceduralBodyPose_UE::Cast(Root);
+            const auto GaitReady = UCk_Utils_ProceduralGait_UE::Get_Status(Root) == ECk_ProceduralAnimation_Status::Ready;
+            const auto MotionReady = ck::IsValid(Motion)
+                && UCk_Utils_SurfaceMotion_UE::Get_Status(Motion) == ECk_ProceduralAnimation_Status::Ready;
+            const auto PoseReady = ck::IsValid(Pose)
+                && UCk_Utils_ProceduralBodyPose_UE::Get_Status(Pose) == ECk_ProceduralAnimation_Status::Ready;
+            if (ck::IsValid(Transform))
+            { S.Known = true; S.Body = UCk_Utils_Transform_UE::Get_EntityCurrentTransform(Transform); }
+            if (PoseReady)
+            { S.Pose = UCk_Utils_ProceduralBodyPose_UE::Get_Offset(Pose); S.PoseKnown = true; }
+            if (GaitReady)
+            {
+                const auto& Stance = G.Get_ReachStance(); S.StanceKnown = Stance.Get_HasSample();
+                if (S.StanceKnown) { S.StanceSolve = Stance.Get_SolveSequence(); S.StanceBody = Stance.Get_BodyAtSolve(); }
+                const auto& Landing = G.Get_LandingPlanning(); S.LandingSample = Landing.Get_HasSample();
+                if (S.LandingSample)
+                {
+                    S.LandingFrame = Landing.Get_Frame(); S.LandingSolve = Landing.Get_SolveSequence();
+                    S.CurrentClaimsKnown = Landing.Get_ClaimsRevision().IsSet(); S.CurrentClaims = Landing.Get_ClaimsRevision().Get(0);
+                    S.LandingCount = Landing.Get_Landings().Num();
+                }
+            }
+            if (MotionReady)
+            {
+                S.PublicOutputsKnown = true;
+                S.EvaluatedFrame = Support.Get_EvaluatedFrame(); S.EvaluatedBody = Support.Get_EvaluatedBody();
+                S.Scale = Support.Get_ReachPaceScale(); S.Pace = static_cast<uint8>(Support.Get_ReachPaceState());
+                S.AttemptedSpeed = Support.Get_AttemptedStanceSpeed(); S.Rays = Support.Get_HeightPlanningRays();
+                S.Trials = Support.Get_HeightPlanningTrials(); S.Envelopes = Support.Get_HeightEnvelopeQueries();
+                S.Velocity = UCk_Utils_SurfaceMotion_UE::Get_Velocity(Motion); S.Up = UCk_Utils_SurfaceMotion_UE::Get_SupportNormal(Motion);
+                S.Support = static_cast<uint8>(UCk_Utils_SurfaceMotion_UE::Get_Support(Motion));
+                S.ContactSource = static_cast<uint8>(UCk_Utils_SurfaceMotion_UE::Get_ContactSource(Motion));
+            }
+
+            // The actual raw records were owned before Ready-dependent getters; enrich only this observation's new copies.
+            if (NewCharge) { Charge = S; }
+            if (NewChild) { Child = S; }
+            if (NewTerminal) { Terminal = S; }
+            for (auto I = 0; I < 4; ++I)
+            {
+                if ((NewStarts & (1u << I)) != 0) { Starts[I].Sample = S; }
+                if ((NewTouchdowns & (1u << I)) != 0) { Touchdowns[I].Sample = S; }
+            }
+        }
+    };
+    struct FCarrier { CK_GENERATED_BODY(FCarrier); TSharedPtr<FProof> Proof; };
+    struct FProofBudget
+    {
+        FProof Proof;
+        FFragment_ProceduralContactPreparation_Test LiveProducer;
+        FCarrier EntityCarrier;
+        TSharedPtr<FProof> StrongReferences[4];
+        TWeakPtr<FProof> WeakReferences[3];
+        FDelegateHandle Delegate;
+        uint8 SharedAllocationMetadata[128];
+        uint8 DelegateAllocationMetadata[256];
+        // Includes one reset value and bounded simultaneous stack/log-format temporaries, not another history.
+        FSample ResetScratch;
+        FProceduralContactPreparationTestSelection SelectionScratch;
+        FCk_Handle TraversalScratch[4];
+        FTransform TransformScratch[3];
+        FVector CertificateFormatScratch[4];
+        TCHAR FormatScratch[2048];
+    };
+    static_assert(sizeof(FProofBudget) <= 64 * 1024, "Posts stance aggregate readonly proof exceeds fixed64KiB");
+    auto Attach(FCk_Handle_ProceduralGait Root) -> void
+    {
+        auto* Test = CurrentTest();
+        if (Test == nullptr || NOT Live(Root) || Root.Has<FCarrier>()
+            || UCk_Utils_Handle_UE::Get_DebugName(Root) != FName{TEXT("ProceduralAnimation.Posts.Beast4")}
+            || NOT Root.Has<FFragment_SurfaceMotion_Support>() || NOT Root.Has<FFragment_SurfaceMotion_Params>()
+            || NOT Root.Has<FFragment_SurfaceMotion>() || NOT Root.Has<FFragment_ProceduralBodyPose>()
+            || Root.Has<FTag_SurfaceMotion_NeedsSetup>() || Root.Has<FTag_ProceduralGait_NeedsSetup>()) { return; }
+        auto* World = WorldFor(Root);
+        if (NOT ck::IsValid(World) || NOT World->IsGameWorld() || World->GetNetMode() == NM_Client) { return; }
+        if (Root.Has<FFragment_ProceduralContactPreparation_Test>()) { return; }
+        static FAutomationTestBase* Owner = nullptr;
+        static TSharedPtr<FProof> Held;
+        if (Owner == Test && Held.IsValid() && NOT Held->Finalized) { return; }
+        Held.Reset(); Owner = Test;
+        const auto P = MakeShared<FProof>(); P->Test = Test; P->World = World; P->WorldIdentity = reinterpret_cast<UPTRINT>(World);
+        const auto R = Root.Get_RegistryView().Get_RegistryHandle();
+        P->Registry = static_cast<uint32>(R.SlotIndex); P->Generation = static_cast<uint32>(R.Generation);
+        P->Entity = static_cast<uint32>(Root.Get_Entity().Get_ID());
+        const auto Weak = TWeakPtr<FProof>{P};
+        P->End = FAutomationTestFramework::Get().OnTestEndEvent.AddLambda([Weak](FAutomationTestBase* T)
+        { if (const auto Pin = Weak.Pin()) { Pin->Finalize(T); } });
+        Held = P; Root.Add<FCarrier>().Proof = P; Root.Add<FFragment_ProceduralContactPreparation_Test>();
+    }
+}
+namespace ck
+{
+    class FProcessor_TestPostsStanceAttach : public ck_exp::TProcessor<FProcessor_TestPostsStanceAttach,FCk_Handle_ProceduralGait,TReadOnly<FFragment_ProceduralGait>>
+    {
+    public:
+        using Group = FGroup_Physics;
+        using RunAfter = TDepList<FProcessor_SurfaceMotion_HandleRequests>;
+        using RunBefore = TDepList<FProcessor_SurfaceMotion_Update>;
+        using TProcessor::TProcessor;
+        static auto ForEachEntity(TimeType, HandleType Root, const FFragment_ProceduralGait&) -> void
+        { test_posts_stance::Attach(Root); }
+    };
+    class FProcessor_TestPostsStanceBefore : public ck_exp::TProcessor<FProcessor_TestPostsStanceBefore,FCk_Handle_ProceduralGait,TReadOnly<test_posts_stance::FCarrier>>
+    {
+    public:
+        using Group = FGroup_Physics;
+        using RunAfter = TDepList<FProcessor_TestPostsStanceAttach,FProcessor_SurfaceMotion_HandleRequests>;
+        using RunBefore = TDepList<FProcessor_SurfaceMotion_Update>;
+        using TProcessor::TProcessor;
+        static auto ForEachEntity(TimeType, HandleType Root, const test_posts_stance::FCarrier& C) -> void
+        { if (C.Proof.IsValid()) { C.Proof->Observe(Root,0); } }
+    };
+    class FProcessor_TestPostsStanceAfterSurface : public ck_exp::TProcessor<FProcessor_TestPostsStanceAfterSurface,FCk_Handle_ProceduralGait,TReadOnly<test_posts_stance::FCarrier>>
+    {
+    public:
+        using Group = FGroup_Physics;
+        using RunAfter = TDepList<FProcessor_SurfaceMotion_Update>;
+        using TProcessor::TProcessor;
+        static auto ForEachEntity(TimeType, HandleType Root, const test_posts_stance::FCarrier& C) -> void
+        { if (C.Proof.IsValid()) { C.Proof->Observe(Root,1); } }
+    };
+    class FProcessor_TestPostsStanceAfterPose : public ck_exp::TProcessor<FProcessor_TestPostsStanceAfterPose,FCk_Handle_ProceduralGait,TReadOnly<test_posts_stance::FCarrier>>
+    {
+    public:
+        using Group = FGroup_Transform_Derived;
+        using RunAfter = TDepList<FProcessor_ProceduralGait_Update,FProcessor_ProceduralBodyPose_Update>;
+        using TProcessor::TProcessor;
+        static auto ForEachEntity(TimeType, HandleType Root, const test_posts_stance::FCarrier& C) -> void
+        { if (C.Proof.IsValid()) { C.Proof->Observe(Root,2); } }
+    };
+}
+CK_REGISTER_PROCESSOR(ck::FProcessor_TestPostsStanceAttach);
+CK_REGISTER_PROCESSOR(ck::FProcessor_TestPostsStanceBefore);
+CK_REGISTER_PROCESSOR(ck::FProcessor_TestPostsStanceAfterSurface);
+CK_REGISTER_PROCESSOR(ck::FProcessor_TestPostsStanceAfterPose);
+#endif
+// POSTS_STANCE_READONLY_ORACLE_END

@@ -522,3 +522,217 @@ auto
 }
 
 #endif
+
+#if WITH_DEV_AUTOMATION_TESTS
+
+namespace ck_test_procedural_contact_preparation
+{
+    struct FPreparationGeometry
+    {
+        TArray<ck::FProceduralContactStagingLeg> Legs;
+        ck::FProceduralContactStagingInput Data;
+
+        FPreparationGeometry()
+        {
+            const auto Origin = FVector{120000.0, 365000.0, 600.0};
+            const auto Plants = std::array<FVector, 4>{FVector{782.421875, -25.78125, 75.0},
+                FVector{746.3828125, 25.75, 75.0}, FVector{767.2265625, -62.25, 0.0},
+                FVector{777.0546875, 29.53125, 75.0}};
+            for (auto Index = 0; Index < 4; ++Index)
+            {
+                const auto Front = Index < 2;
+                const auto Side = Index % 2 == 0 ? -1.0 : 1.0;
+                auto Leg = ck::FProceduralContactStagingLeg{};
+                Leg._RosterIndex = Index;
+                Leg._Anchor = ck::FProceduralSurfaceReachPaceAnchor{Origin + Plants[Index],
+                    FVector{Front ? 45.0 : -45.0, Side * 28.0, 0.0}, Front ? 100.0f : 120.0f};
+                Leg._OutboardWorld = FVector{Front ? 0.18208926018230742 : -0.18208926018230742,
+                    Side * 0.9832820049844602, 0.0};
+                Leg._ForceReach = Front ? 92.0f : 110.4f;
+                Leg._SearchRadius = Front ? 30.000001907348633f : 36.0f;
+                Leg._OwnSideTolerance = Front ? 10.0f : 12.0f;
+                Leg._NativeTop = ck::FProceduralContactStagingPlane{Origin + Plants[Index], FVector::UpVector};
+                Leg._RetainedPlantNormal = FVector::UpVector;
+                Leg._FootContactRadius = FMath::Sqrt(206.0f);
+                Legs.Add(Leg);
+            }
+            Data._Body = FTransform{FQuat::Identity, Origin + FVector{798.6298168008216, 0.0, 98.1500244140625}};
+            Data._PosedBody = FTransform{FQuat{3.188813242797593e-132, 2.3456205097479706e-131,
+                -4.831605996953514e-137, 1.0}, Data._Body.GetLocation()};
+            Data._Up = FVector::UpVector;
+            Data._Forward = FVector::ForwardVector;
+            Data._BodyHalfExtents = FVector{50.0, 28.0, 22.0};
+            Data._CollisionMargin = 1.0f;
+            Data._Face = ck::FProceduralContactStagingPlane{Origin + FVector{790.0, -26.0625, 75.0},
+                FVector::ForwardVector};
+        }
+
+        auto GetInput() const -> ck::FProceduralContactStagingInput
+        {
+            auto Result = Data;
+            Result._Legs = Legs;
+            return Result;
+        }
+    };
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkContactStagingPreparationGeometryTest,
+    "Ck.ProceduralAnimation.ContactStaging.Core.PreparationGeometry", ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkContactStagingPreparationGeometryTest::RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_contact_preparation;
+    auto Geometry = FPreparationGeometry{};
+    const auto Input = Geometry.GetInput();
+    const auto OriginalPlants = std::array<FVector, 4>{Geometry.Legs[0]._Anchor.Get_FootWorld(),
+        Geometry.Legs[1]._Anchor.Get_FootWorld(), Geometry.Legs[2]._Anchor.Get_FootWorld(),
+        Geometry.Legs[3]._Anchor.Get_FootWorld()};
+    const auto Plan = ck::Get_ProceduralContactStagingPreparationPlan(Input);
+    if (NOT TestTrue(TEXT("Exact old span/common-hold failures admit one pure preparation certificate"), Plan.IsSet()))
+    { return false; }
+    const auto Origin = FVector{120000.0, 365000.0, 600.0};
+    TestTrue(TEXT("Roles come from geometry and actual lower supplier"), Plan->_AuxiliaryRosterIndex == 3
+        && Plan->_SpanRosterIndex == 1 && Plan->_OtherRosterIndex == 0 && Plan->_LowerPlaneRosterIndex == 2);
+    TestTrue(TEXT("One world-float conversion preserves exact R/M/F"),
+        Plan->_AuxiliaryQuery == Origin + FVector{747.078125, 63.40625, 0.0}
+        && Plan->_SpanPreparationQuery == Origin + FVector{775.546875, 29.34375, 75.0}
+        && Plan->_OtherPreparationQuery == Origin + FVector{789.1875, -26.8125, 75.0});
+    TestTrue(TEXT("Fixed represented B/C/H/Q/E preserve the old one-leg arithmetic"),
+        Plan->_BodyB.GetLocation().X == 120790.0 && Plan->_BodyC.GetLocation().X == 120794.3125
+        && Plan->_LegacyPlan._RetreatBody.GetLocation().X == 120792.15625
+        && Plan->_LegacyPlan._ExitBody.GetLocation().X == 120841.1640625
+        && Plan->_LegacyPlan._RequiredCount == 1 && NOT Plan->_LegacyPlan._TwoPlacement
+        && Plan->_LegacyPlan._Required[0]._RosterIndex == 1
+        && Plan->_LegacyPlan._Required[0]._OriginalPlant == Plan->_SpanPreparationQuery
+        && Plan->_LegacyPlan._Required[0]._ProposedQuery == Origin + FVector{789.0, 29.34375, 75.0}
+        && Plan->_BodyC.GetLocation().X - Plan->_LegacyPlan._RetreatBody.GetLocation().X == 2.15625
+        && Plan->_LegacyPlan._ExitBody.GetLocation().X - Plan->_LegacyPlan._RetreatBody.GetLocation().X == 49.0078125);
+    TestTrue(TEXT("Lower plane retains the exact actual supplier geometry"),
+        Plan->_LowerPlane._Point == OriginalPlants[2] && Plan->_LowerPlane._Normal == FVector::UpVector);
+    auto HipPlane = Input._Body.TransformPosition(Geometry.Legs[3]._Anchor.Get_HipLocal());
+    HipPlane.Z = 600.0;
+    TestTrue(TEXT("R radius is the preconversion seed domain, not an invented final sphere"),
+        FMath::Abs(FVector::Dist(Plan->_AuxiliaryQuery, HipPlane) - 36.00732154042359) < 1.0e-8
+        && FVector::Dist(Plan->_AuxiliaryQuery, Geometry.Legs[3]._Anchor.Get_FootWorld()) > Geometry.Legs[3]._SearchRadius);
+    TestTrue(TEXT("Original old selectors still reject this initial geometry"),
+        NOT ck::Get_ProceduralContactStagingPlan(Input).IsSet()
+        && NOT ck::Get_ProceduralContactStagingTwoPlacementPlan(Input).IsSet());
+    for (auto Index = 0; Index < 4; ++Index)
+    { TestTrue(TEXT("Pure construction never substitutes actual input plants"), Input._Legs[Index]._Anchor.Get_FootWorld() == OriginalPlants[Index]); }
+
+    Geometry.Legs[3]._Anchor = ck::FProceduralSurfaceReachPaceAnchor{Plan->_AuxiliaryQuery,
+        Geometry.Legs[3]._Anchor.Get_HipLocal(), Geometry.Legs[3]._Anchor.Get_Reach()};
+    Geometry.Legs[1]._Anchor = ck::FProceduralSurfaceReachPaceAnchor{Plan->_SpanPreparationQuery,
+        Geometry.Legs[1]._Anchor.Get_HipLocal(), Geometry.Legs[1]._Anchor.Get_Reach()};
+    Geometry.Legs[0]._Anchor = ck::FProceduralSurfaceReachPaceAnchor{Plan->_OtherPreparationQuery,
+        Geometry.Legs[0]._Anchor.Get_HipLocal(), Geometry.Legs[0]._Anchor.Get_Reach()};
+    Geometry.Data._Body = Plan->_BodyC;
+    Geometry.Data._PosedBody = FTransform{Plan->_BodyC.GetRotation(), Plan->_BodyC.GetLocation()};
+    const auto Future = Geometry.GetInput();
+    const auto Old = ck::Get_ProceduralContactStagingPlan(Future);
+    const auto Two = ck::Get_ProceduralContactStagingTwoPlacementPlan(Future);
+    TestTrue(TEXT("Earlier old success wins; the new constructor declines"), Old.IsSet() && Two.IsSet()
+        && NOT Two->_TwoPlacement && NOT ck::Get_ProceduralContactStagingPreparationPlan(Future).IsSet());
+    if (Old.IsSet())
+    {
+        TestTrue(TEXT("Certified future plan is the unchanged original selector result"),
+            Old->_RetreatBody.GetLocation() == Plan->_LegacyPlan._RetreatBody.GetLocation()
+            && Old->_ExitBody.GetLocation() == Plan->_LegacyPlan._ExitBody.GetLocation()
+            && Old->_Required[0]._ProposedQuery == Plan->_LegacyPlan._Required[0]._ProposedQuery);
+        Geometry.Legs[0]._RetainedPlantNormal = FVector{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0};
+        Geometry.Legs[0]._FootContactRadius = std::numeric_limits<float>::quiet_NaN();
+        const auto Unchanged = ck::Get_ProceduralContactStagingPlan(Geometry.GetInput());
+        TestTrue(TEXT("New optional fields do not affect old success"), Unchanged.IsSet()
+            && Unchanged->_RetreatBody.GetLocation() == Old->_RetreatBody.GetLocation()
+            && Unchanged->_ExitBody.GetLocation() == Old->_ExitBody.GetLocation());
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkContactStagingPreparationInvalidTest,
+    "Ck.ProceduralAnimation.ContactStaging.Core.PreparationInvalidAndAmbiguous", ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkContactStagingPreparationInvalidTest::RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_contact_preparation;
+    for (auto Case = 0; Case < 13; ++Case)
+    {
+        auto Geometry = FPreparationGeometry{};
+        switch (Case)
+        {
+            case 0: Geometry.Legs[0]._RetainedPlantNormal.Reset(); break;
+            case 1: Geometry.Legs[0]._RetainedPlantNormal = FVector::ForwardVector; break;
+            case 2: Geometry.Legs[0]._FootContactRadius = 0.0f; break;
+            case 3: Geometry.Legs[0]._FootContactRadius = std::numeric_limits<float>::infinity(); break;
+            case 4: Geometry.Legs[1]._RosterIndex = 0; break;
+            case 5: Geometry.Data._Body = FTransform{FQuat::Identity, FVector{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}}; break;
+            case 6: Geometry.Legs[1]._OutboardWorld = FVector::ZeroVector; break;
+            case 7: Geometry.Legs[1]._SearchRadius = 1.0f; break;
+            case 8: Geometry.Legs[1]._NativeTop.Reset(); break;
+            case 9: Geometry.Legs.RemoveAt(3); break;
+            case 10:
+            case 11:
+            {
+                const auto Index = Case == 10 ? 2 : 0;
+                auto Plant = Geometry.Legs[Index]._Anchor.Get_FootWorld();
+                Plant.Z = Case == 10 ? 675.0 : 670.0;
+                Geometry.Legs[Index]._Anchor = ck::FProceduralSurfaceReachPaceAnchor{Plant,
+                    Geometry.Legs[Index]._Anchor.Get_HipLocal(), Geometry.Legs[Index]._Anchor.Get_Reach()};
+                Geometry.Legs[Index]._NativeTop = ck::FProceduralContactStagingPlane{Plant, FVector::UpVector};
+                break;
+            }
+            case 12:
+            {
+                const auto M = FVector{120775.546875, 365029.34375, 675.0};
+                const auto& P = Geometry.Legs[0]._Anchor.Get_FootWorld();
+                Geometry.Legs[0]._FootContactRadius = static_cast<float>((FVector::Dist(M, P)
+                    + FVector::Dist(Geometry.Legs[3]._Anchor.Get_FootWorld(), P)) * 0.5
+                    - Geometry.Legs[1]._FootContactRadius);
+                break;
+            }
+        }
+        TestFalse(TEXT("Malformed, unsupported or ambiguous geometry has no preparation certificate"),
+            ck::Get_ProceduralContactStagingPreparationPlan(Geometry.GetInput()).IsSet());
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkContactStagingPreparationOrientationTest,
+    "Ck.ProceduralAnimation.ContactStaging.Core.PreparationCardinalGeometry", ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkContactStagingPreparationOrientationTest::RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_procedural_contact_preparation;
+    auto Geometry = FPreparationGeometry{};
+    const auto Rotation = FQuat{0.0, 0.0, 1.0, 0.0};
+    Geometry.Data._Body = FTransform{Rotation, Rotation.RotateVector(Geometry.Data._Body.GetLocation())};
+    Geometry.Data._PosedBody = Geometry.Data._Body;
+    Geometry.Data._Forward = -FVector::ForwardVector;
+    Geometry.Data._Face._Point = Rotation.RotateVector(Geometry.Data._Face._Point);
+    Geometry.Data._Face._Normal = Geometry.Data._Forward;
+    for (auto Index = 0; Index < Geometry.Legs.Num(); ++Index)
+    {
+        auto& Leg = Geometry.Legs[Index];
+        Leg._RosterIndex = 10 * (Index + 1);
+        Leg._Anchor = ck::FProceduralSurfaceReachPaceAnchor{Rotation.RotateVector(Leg._Anchor.Get_FootWorld()),
+            Leg._Anchor.Get_HipLocal(), Leg._Anchor.Get_Reach()};
+        Leg._OutboardWorld = Rotation.RotateVector(Leg._OutboardWorld);
+        Leg._NativeTop = ck::FProceduralContactStagingPlane{Leg._Anchor.Get_FootWorld(), FVector::UpVector};
+    }
+    const auto Plan = ck::Get_ProceduralContactStagingPreparationPlan(Geometry.GetInput());
+    TestTrue(TEXT("Cardinal mirrored geometry uses no world-coordinate or species branch"), Plan.IsSet()
+        && Plan->_AuxiliaryQuery == FVector{-120747.078125, -365063.40625, 600.0}
+        && Plan->_SpanPreparationQuery == FVector{-120775.546875, -365029.34375, 675.0}
+        && Plan->_OtherPreparationQuery == FVector{-120789.1875, -364973.1875, 675.0}
+        && Plan->_AuxiliaryRosterIndex == 40 && Plan->_SpanRosterIndex == 20
+        && Plan->_OtherRosterIndex == 10 && Plan->_LowerPlaneRosterIndex == 30);
+    return true;
+}
+
+#endif

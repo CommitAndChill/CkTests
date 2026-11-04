@@ -410,4 +410,84 @@ auto
     return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkPreparationFenceLedgerTest,
+    "Ck.ProceduralAnimation.ContactStaging.Core.PreparationFenceFourActualStarts", ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkPreparationFenceLedgerTest::RunTest(const FString&)
+    -> bool
+{
+    auto Fence = ck::FFragment_ProceduralContactStagingFence{};
+    Fence._Mode = ck::EProceduralContactStagingFenceMode::Preparation;
+    Fence._Spent = true;
+    Fence._CycleLimit = 5.0;
+    Fence._ElapsedLimit = 3.5;
+    Fence._LastAcknowledgedSolve = 20;
+    Fence._Forward = FVector::ForwardVector;
+    Fence._Up = FVector::UpVector;
+    Fence._Exit.SetLocation(FVector{100.0, 0.0, 40.0});
+    auto& Prep = Fence._Preparation;
+    Prep._Plan._AuxiliaryQuery = FVector{1.0, 0.0, 0.0};
+    Prep._Plan._SpanPreparationQuery = FVector{2.0, 0.0, 0.0};
+    Prep._Plan._OtherPreparationQuery = FVector{3.0, 0.0, 0.0};
+    Prep._Plan._LegacyPlan._RequiredCount = 1;
+    Prep._Plan._LegacyPlan._Required[0]._ProposedQuery = FVector{4.0, 0.0, 0.0};
+    TestTrue(TEXT("Preparation has its explicit five-cycle limit without inventing legacy required legs"),
+        Fence.Get_HasValidLimits() && Fence._RequiredCount == 0);
+    auto Rejected = Fence;
+    TestFalse(TEXT("A charged native failure may consume the complete elapsed opportunity before any start"),
+        Rejected.TryAdvanceTime(10, 3.5));
+    TestTrue(TEXT("First failure preserves spent status and zero actual placements"),
+        Rejected._Spent && Rejected._Elapsed == 3.5 && Rejected._Preparation._StartedCount == 0);
+    TestTrue(TEXT("First positive Surface invocation charges time"), Fence.TryAdvanceTime(10, 0.01));
+    TestFalse(TEXT("Missing previous Gait acknowledgement cannot advance another Surface frame"),
+        Fence.TryAdvanceTime(11, 0.01));
+    TestTrue(TEXT("Actual Gait advance acknowledges the same frame/input/produced solve"),
+        Fence.TryAcknowledge(10, 20, 21, 0.1));
+    TestFalse(TEXT("Duplicate acknowledgement grants no additional cycles"), Fence.TryAcknowledge(10, 20, 21, 0.1));
+    for (uint8 Slot = 0; Slot < 4; ++Slot)
+    {
+        const auto Point = Prep.Get_Query(Slot).GetValue();
+        if (Slot == 3)
+        {
+            TestFalse(TEXT("Fourth actual start requires explicit same-episode legacy adoption"),
+                Prep.TryRecordStart(Slot, 20, 30, FTransform::Identity, Point, FVector::UpVector, {}));
+            Prep._LegacyAdopted = true;
+            Fence._RequiredCount = 1;
+        }
+        TestTrue(TEXT("Exactly the next fully guarded actual start commits one slot"),
+            Prep.TryRecordStart(Slot, 20, 30, FTransform::Identity, Point, FVector::UpVector, {}));
+        TestFalse(TEXT("A duplicate begin cannot charge or replace an in-flight slot"),
+            Prep.TryRecordStart(Slot, 20, 30, FTransform::Identity, Point, FVector::UpVector, {}));
+        TestFalse(TEXT("A plan point cannot substitute for a produced native touchdown"),
+            Prep.TryRecordTouchdown(Slot, 20, 30, Point, FVector::UpVector, {}));
+        TestFalse(TEXT("Changed actual touchdown cannot regenerate the fixed certificate"),
+            Prep.TryRecordTouchdown(Slot, 20, 31, Point + FVector::ForwardVector, FVector::UpVector, {}));
+        TestFalse(TEXT("A new native normal at the same point aborts the fixed horizontal certificate"),
+            Prep.TryRecordTouchdown(Slot, 20, 31, Point, FVector::RightVector, {}));
+        TestTrue(TEXT("Same-solve native publication can complete a previously charged start"),
+            Prep.TryRecordTouchdown(Slot, 20, 31, Point, FVector::UpVector, {}));
+        TestFalse(TEXT("Duplicate touchdown grants no completion credit"),
+            Prep.TryRecordTouchdown(Slot, 20, 31, Point, FVector::UpVector, {}));
+    }
+    TestTrue(TEXT("Four ordered starts/completions preserve the same outer five-cycle cap"),
+        Prep.Get_IsLedgerValid() && Prep._StartedCount == 4 && Prep._CompletedCount == 4
+        && Fence.Get_HasValidLimits() && Fence._Cycles == 0.1 && Fence._Elapsed == 0.01);
+    TestFalse(TEXT("A fifth placement is rejected without indexing beyond fixed storage"),
+        Prep.TryRecordStart(4, 21, 31, FTransform::Identity, FVector::ZeroVector, FVector::UpVector, {}));
+    TestTrue(TEXT("Positive next frame remains joined after legacy adoption"), Fence.TryAdvanceTime(11, 0.01));
+    TestFalse(TEXT("Actual five-cycle equality records exhaustion without refund"),
+        Fence.TryAcknowledge(11, 21, 22, 4.9));
+    TestTrue(TEXT("Exhaustion preserves spent status, four starts and actual clock total"),
+        Fence._Spent && Prep._StartedCount == 4 && Fence._Cycles == 5.0);
+    TestFalse(TEXT("Exit equality never releases spent preparation"), Fence.Get_IsBeyondExit(Fence._Exit, FVector::UpVector));
+    auto Invalid = Fence;
+    Invalid._RequiredCount = 2;
+    TestFalse(TEXT("Preparation cannot masquerade as a two-required-leg legacy child"), Invalid.Get_HasValidLimits());
+    Invalid = Fence;
+    Invalid._Preparation._Placements[0]._Completed = false;
+    TestFalse(TEXT("Noncontiguous ledger rejects continued clock authority"), Invalid.Get_HasValidLimits());
+    return true;
+}
+
 #endif
