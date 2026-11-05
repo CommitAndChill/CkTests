@@ -11,6 +11,8 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("AnimationCore");
         // GOAP admission tests directly access A* fragments through EnTT storage.
         PrivateDependencyModuleNames.Add("CkAStar");
+        // Container-admission tests instantiate the Push Model dirty-marking template directly.
+        PrivateDependencyModuleNames.Add("NetCore");
 
         PrivateDependencyModuleNames.AddRange(new string[]
         {
