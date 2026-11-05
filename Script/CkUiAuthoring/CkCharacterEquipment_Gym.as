@@ -124,7 +124,7 @@ class UCk_CharacterEquipment_Widget : UCk_ActivatableWidget_UE
     {
         if (InItem.Kind == "supply") { return InItem.Stats; }
         FString Stats = "";
-        if (InItem.DamageMax > 0) { Stats = f"{InItem.DamageMin}–{InItem.DamageMax} Damage"; }
+        if (InItem.DamageMax > 0) { Stats = f"{InItem.DamageMin}-{InItem.DamageMax} Damage"; }
         if (InItem.Armor > 0)
         { if (!Stats.IsEmpty()) { Stats += "\n"; } Stats += f"{InItem.Armor} Armor"; }
         if (InItem.Strength > 0)
@@ -262,14 +262,14 @@ class UCk_CharacterEquipment_Widget : UCk_ActivatableWidget_UE
     }
     private FString DoPrimaryStat(const FCk_CharacterItem& InItem) const
     {
-        if (InItem.DamageMax > 0) { return f"{InItem.DamageMin}–{InItem.DamageMax} DAMAGE"; }
+        if (InItem.DamageMax > 0) { return f"{InItem.DamageMin}-{InItem.DamageMax} DAMAGE"; }
         if (InItem.Armor > 0) { return f"{InItem.Armor} ARMOR"; }
         if (InItem.Kind == "supply") { return InItem.Stats; }
         return "ACCESSORY";
     }
-    private FString DoAffix(int32 InValue) const { return InValue == 0 ? "—" : f"+{InValue}"; }
+    private FString DoAffix(int32 InValue) const { return InValue == 0 ? "-" : f"+{InValue}"; }
     private FString DoDelta(int32 InValue) const
-    { return InValue == 0 ? "—" : (InValue > 0 ? f"+{InValue}" : f"{InValue}"); }
+    { return InValue == 0 ? "-" : (InValue > 0 ? f"+{InValue}" : f"{InValue}"); }
     private bool DoSetDelta(const FString& InName, int32 InValue, bool InVisible)
     {
         FString Delta = DoDelta(InValue);
@@ -287,11 +287,11 @@ class UCk_CharacterEquipment_Widget : UCk_ActivatableWidget_UE
             && DoSetText(f"{InPrefix}Power", InPresent && InItem.Kind != "supply" ? f"ITEM POWER {InItem.Power}" : "")
             && DoSetText(f"{InPrefix}Primary", InPresent ? DoPrimaryStat(InItem) : "")
             && DoSetText(f"{InPrefix}Description", InPresent ? InItem.Description : "")
-            && DoSetText(f"{InPrefix}Armor", InPresent ? DoAffix(InItem.Armor) : "—")
-            && DoSetText(f"{InPrefix}Strength", InPresent ? DoAffix(InItem.Strength) : "—")
-            && DoSetText(f"{InPrefix}Dexterity", InPresent ? DoAffix(InItem.Dexterity) : "—")
-            && DoSetText(f"{InPrefix}Life", InPresent ? DoAffix(InItem.Life) : "—")
-            && DoSetText(f"{InPrefix}Critical", InPresent && InItem.Critical != 0 ? f"+{InItem.Critical}%" : "—")
+            && DoSetText(f"{InPrefix}Armor", InPresent ? DoAffix(InItem.Armor) : "-")
+            && DoSetText(f"{InPrefix}Strength", InPresent ? DoAffix(InItem.Strength) : "-")
+            && DoSetText(f"{InPrefix}Dexterity", InPresent ? DoAffix(InItem.Dexterity) : "-")
+            && DoSetText(f"{InPrefix}Life", InPresent ? DoAffix(InItem.Life) : "-")
+            && DoSetText(f"{InPrefix}Critical", InPresent && InItem.Critical != 0 ? f"+{InItem.Critical}%" : "-")
             && _Session.TrySetNumber(f"{InPrefix}Icon", InPresent ? float32(InItem.Icon) : -1.0f)
             && _Session.TrySetBool(f"{InPrefix}GearStats", InPresent && InItem.Kind != "supply");
     }
@@ -346,13 +346,13 @@ class UCk_CharacterEquipment_Widget : UCk_ActivatableWidget_UE
         const FString Comparison = HasSelection && InCompare ? DoComparison(Chosen, InItems) : "";
         const FString PrimaryLabel = IsSupply ? "USE" : (CanUnequip ? "UNEQUIP" : (CanEquip ? "EQUIP" : "UNAVAILABLE"));
         const FString SelectionContext = HasSelection && !Chosen.Slot.IsEmpty()
-            ? f" · {Chosen.Slot} equipped" : "";
+            ? f" - {Chosen.Slot} equipped" : "";
         if (!DoSetCard("Selected", Chosen, HasSelection)
             || !DoSetCard("Equipped", Previous, Equipped >= 0)
             || !DoSetText("SelectedStats", HasSelection ? Chosen.Stats : "")
             || !DoSetText("ComparisonStats", Comparison) || !DoSetText("Status", InStatus)
             || !DoSetText("InventoryCount", f"{OwnedCount} / 24")
-            || !DoSetText("FilterContext", f"{InFilter} · {VisibleCount} shown{SelectionContext}")
+            || !DoSetText("FilterContext", f"{InFilter} - {VisibleCount} shown{SelectionContext}")
             || !DoSetText("PrimaryActionLabel", PrimaryLabel)
             || !DoSetText("CompareActionLabel", InCompare ? "HIDE COMPARISON" : "SHOW COMPARISON")
             || !DoSetText("RingTargetLabel", f"TARGET {_RingTarget}")
@@ -488,19 +488,19 @@ class UCk_CharacterEquipment_Widget : UCk_ActivatableWidget_UE
             }
             Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Power", FText::FromString("")));
             Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Primary", FText::FromString("")));
-            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Armor", FText::FromString("—")));
-            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Strength", FText::FromString("—")));
-            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Dexterity", FText::FromString("—")));
-            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Life", FText::FromString("—")));
-            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Critical", FText::FromString("—")));
+            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Armor", FText::FromString("-")));
+            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Strength", FText::FromString("-")));
+            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Dexterity", FText::FromString("-")));
+            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Life", FText::FromString("-")));
+            Texts.Add(FCk_UI_AuthoredText(f"{Prefix}Critical", FText::FromString("-")));
         }
         Texts.Add(FCk_UI_AuthoredText("PrimaryActionLabel", FText::FromString("EQUIP")));
         Texts.Add(FCk_UI_AuthoredText("CompareActionLabel", FText::FromString("HIDE COMPARISON")));
         Texts.Add(FCk_UI_AuthoredText("RingTargetLabel", FText::FromString("TARGET RING1")));
-        Texts.Add(FCk_UI_AuthoredText("FilterContext", FText::FromString("ALL · 16 SHOWN")));
+        Texts.Add(FCk_UI_AuthoredText("FilterContext", FText::FromString("ALL - 16 SHOWN")));
         for (const auto Affix : DoAffixes())
-        { Texts.Add(FCk_UI_AuthoredText(f"SelectedDelta{Affix}", FText::FromString("—")));
-          Texts.Add(FCk_UI_AuthoredText(f"EquippedDelta{Affix}", FText::FromString("—"))); }
+        { Texts.Add(FCk_UI_AuthoredText(f"SelectedDelta{Affix}", FText::FromString("-")));
+          Texts.Add(FCk_UI_AuthoredText(f"EquippedDelta{Affix}", FText::FromString("-"))); }
         auto Numbers = TArray<FCk_UI_AuthoredNumber>();
         for (const auto EquipmentSlot : DoSlots())
         {
