@@ -16,6 +16,7 @@
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
 
+#include "AssetRegistry/IAssetRegistry.h"
 #include "Engine/World.h"
 #include "EditorValidatorSubsystem.h"
 #include "HAL/FileManager.h"
@@ -153,6 +154,15 @@ namespace ck_test_procedural_action_load
             if (NOT UPackage::SavePackage(Package, Clip, *InState.PackageFile, SaveArgs))
             { return false; }
         }
+        // Let every asset-registry listener see the fixture now, while it is still resident. Discovery broadcasts
+        // OnAssetAdded synchronously, and a host editor plugin that loads each added asset (BlueprintNodeTemplate in
+        // BusterBlock does) would otherwise discover the file on its own a frame later and load it synchronously,
+        // ahead of the scheduler's request - leaving this test no in-flight window. The unload below then runs after
+        // every listener has fired.
+        auto& Registry = IAssetRegistry::GetChecked();
+        Registry.ScanFilesSynchronous(TArray<FString>{FPaths::ConvertRelativePathToFull(InState.PackageFile)}, true);
+        if (NOT Registry.GetAssetByObjectPath(FSoftObjectPath{PackageName + TEXT(".Clip")}, true).IsValid())
+        { return false; }
         auto Unload = UPackageTools::FUnloadPackageParams{TArray<UPackage*>{Package}};
         Unload.bResetTransBuffer = false;
         if (NOT UPackageTools::UnloadPackages(Unload)) { return false; }
@@ -182,7 +192,7 @@ FCkProceduralActionInFlightLoadLifetimeTest::RunTest(
         {
             // Create the disk fixture after PIE startup so editor setup cannot load it
             // before the async request that this test observes.
-            if (NOT TestTrue(TEXT("Unique saved clip unloads before async request"),
+            if (NOT TestTrue(TEXT("Unique saved clip is discovered by the asset registry, then unloads before async request"),
                 MakeUniqueDiskClip(*State)))
             { return; }
             auto RootEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(InWorld);
