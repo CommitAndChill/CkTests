@@ -12,10 +12,17 @@
 
 #include "CkCore/Enums/CkEnums.h"
 
+#include "CkLabel/CkLabel_Utils.h"
+
+#include <NativeGameplayTags.h>
+
 // --------------------------------------------------------------------------------------------------------------------
 
 namespace ck::auto_test::netsubject_grid
 {
+    // ConstructSpawned persistence identity, scoped by this child's reconstructed lifetime owner.
+    UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_AutoTest_Grid_Occupant, TEXT("Ck.AutoTest.Grid.Occupant"));
+
     // Small occupancy-capable grid with 1m cells. The net test places a 1x1 occupant at (2,2)
     // and polls that cell's Occupied tag on the client.
     const auto GridDimensions = FIntPoint{10, 10};
@@ -75,6 +82,7 @@ auto
     // client come from the entry's replicated Cells array, so the Occupied tag flips regardless
     // of whether this handle resolves cross-world — see the AS test's risk note.
     auto OccupantEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(InHandle);
+    UCk_Utils_GameplayLabel_UE::Add(OccupantEntity, TAG_AutoTest_Grid_Occupant);
     UCk_Utils_Transform_UE::Add(
         OccupantEntity, FTransform::Identity, ECk_Replication::Replicates);
 
