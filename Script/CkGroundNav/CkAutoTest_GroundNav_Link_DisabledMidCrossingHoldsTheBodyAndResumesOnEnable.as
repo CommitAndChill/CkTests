@@ -139,6 +139,26 @@ class UCk_AutoTest_GroundNav_Link_DisabledMidCrossingHoldsTheBodyAndResumesOnEna
     private ECk_Request_OperationResult _LastLinkResult = ECk_Request_OperationResult::Failed;
     private int32 _AuthoredLinkId = -1;
 
+    // Diagnostic-only callback capture, closed at the actual re-enable boundary.
+    private const int32 DiagnosticEventRowCap = 12;
+    private int32 _DiagnosticEventRows = 0;
+    private int32 _DiagnosticEventOverflow = 0;
+    private bool _DiagnosticDisableIssued = false;
+    private bool _DiagnosticCaptureClosed = false;
+
+    // Lifetime counts remain diagnostic; only the frozen interrupted tuple owns hold assertions.
+    private int32 _TargetCompletedCount = 0;
+    private bool _HasUnmatchedBegin = false;
+    private FCk_Handle _UnmatchedAgent;
+    private int32 _UnmatchedLink = -1;
+    private int32 _UnmatchedCorrelator = -1;
+    private FCk_Handle _InterruptedAgent;
+    private int32 _InterruptedLink = -1;
+    private int32 _InterruptedCorrelator = -1;
+    private bool _DisabledInterval = false;
+    private bool _ProtocolError = false;
+    private bool _AccountingStopped = false;
+
     private int32 _BegunCount = 0;
     private int32 _CompletedCount = 0;
     private int32 _FirstBegunCorrelator = -1;
@@ -425,6 +445,38 @@ class UCk_AutoTest_GroundNav_Link_DisabledMidCrossingHoldsTheBodyAndResumesOnEna
 
         _BegunCount += 1;
 
+        if (!_DiagnosticCaptureClosed)
+        {
+            if (_DiagnosticEventRows < DiagnosticEventRowCap)
+            {
+                _DiagnosticEventRows += 1;
+                ck::nav::Display(f"[GROUNDNAV-LINK-MIDCROSSING-EVENT] row={_DiagnosticEventRows} event=Begun link={InLinkId} corr={InCorrelatorId} result=not-applicable begun={_BegunCount} completed={_CompletedCount} disableIssued={_DiagnosticDisableIssued} disabledInterval={_DisabledInterval}");
+            }
+            else
+            { _DiagnosticEventOverflow += 1; }
+        }
+
+        if (_AccountingStopped) { return; }
+
+        if (_DisabledInterval)
+        {
+            DoRecordProtocolError(f"no crossing may begin while the ladder is disabled (link {InLinkId}, correlator {InCorrelatorId})");
+        }
+        if (InTraverser != _AgentEntity || InLinkId != _AuthoredLinkId || InCorrelatorId == -1)
+        {
+            DoRecordProtocolError(f"Begun must name this agent, authored link and a valid correlator (link {InLinkId}, correlator {InCorrelatorId})");
+            return;
+        }
+        if (_HasUnmatchedBegin)
+        {
+            DoRecordProtocolError(f"Begun cannot overlap an unmatched announcement (open {_UnmatchedLink}/{_UnmatchedCorrelator}, new {InLinkId}/{InCorrelatorId})");
+            return;
+        }
+
+        _HasUnmatchedBegin = true;
+        _UnmatchedAgent = InTraverser;
+        _UnmatchedLink = InLinkId;
+        _UnmatchedCorrelator = InCorrelatorId;
         if (_BegunCount == 1)
         { _FirstBegunCorrelator = InCorrelatorId; }
     }
@@ -436,11 +488,59 @@ class UCk_AutoTest_GroundNav_Link_DisabledMidCrossingHoldsTheBodyAndResumesOnEna
 
         _CompletedCount += 1;
 
-        if (_CompletedCount == 1)
+        if (!_DiagnosticCaptureClosed)
         {
+            if (_DiagnosticEventRows < DiagnosticEventRowCap)
+            {
+                _DiagnosticEventRows += 1;
+                ck::nav::Display(f"[GROUNDNAV-LINK-MIDCROSSING-EVENT] row={_DiagnosticEventRows} event=Completed link={InLinkId} corr={InCorrelatorId} result={InResult} begun={_BegunCount} completed={_CompletedCount} disableIssued={_DiagnosticDisableIssued} disabledInterval={_DisabledInterval}");
+            }
+            else
+            { _DiagnosticEventOverflow += 1; }
+        }
+
+        if (_AccountingStopped) { return; }
+
+        if (InTraverser != _AgentEntity || InLinkId != _AuthoredLinkId || InCorrelatorId == -1)
+        {
+            DoRecordProtocolError(f"Completed must name this agent, authored link and a valid correlator (link {InLinkId}, correlator {InCorrelatorId})");
+            return;
+        }
+        if (!_HasUnmatchedBegin || InTraverser != _UnmatchedAgent
+            || InLinkId != _UnmatchedLink || InCorrelatorId != _UnmatchedCorrelator)
+        {
+            DoRecordProtocolError(f"Completed must match one still-unmatched Begun, never an old or duplicate end (link {InLinkId}, correlator {InCorrelatorId})");
+            return;
+        }
+        _HasUnmatchedBegin = false;
+
+        if (_DisabledInterval)
+        {
+            if (InTraverser != _InterruptedAgent || InLinkId != _InterruptedLink
+                || InCorrelatorId != _InterruptedCorrelator)
+            {
+                DoRecordProtocolError(f"the disabled interval may end only its frozen interrupted crossing (link {InLinkId}, correlator {InCorrelatorId})");
+                return;
+            }
+            _TargetCompletedCount += 1;
+            if (_TargetCompletedCount != 1)
+            {
+                DoRecordProtocolError("the interrupted crossing cannot complete more than once");
+                return;
+            }
             _CrossingEndCorrelator = InCorrelatorId;
             _CrossingEndResult = InResult;
+            if (InResult != ECk_Request_OperationResult::Failed_Cancelled)
+            {
+                DoRecordProtocolError(f"the interrupted crossing must end Failed_Cancelled (got {InResult})");
+            }
         }
+    }
+
+    private void DoRecordProtocolError(const FString& InMessage)
+    {
+        _ProtocolError = true;
+        Assert_True(false, InMessage);
     }
 
     UFUNCTION()
@@ -504,17 +604,50 @@ class UCk_AutoTest_GroundNav_Link_DisabledMidCrossingHoldsTheBodyAndResumesOnEna
     UFUNCTION()
     private void Step_DisableLadder(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
-        Assert_True(utils_nav_surface_link_traversal::Get_IsTraversingLink(_AgentEntity),
+        const auto WasActiveAtDisable = utils_nav_surface_link_traversal::Get_IsTraversingLink(_AgentEntity);
+        Assert_True(WasActiveAtDisable,
             "the crossing must still be the traverser's ACTIVE one when the ladder is pulled - a disable issued after it ended would take nothing away from the body, and every claim below would be about nothing");
 
         // The POSITIVE that makes the stop below a transition rather than a predicate that was
         // already true when the wait opened.
-        Assert_True(utils_crowd_agent::Get_MovementState(_Agent) == ECk_CrowdAgent_MovementState::Walking,
-            f"the walker must still be Walking its route when the ladder is pulled - the crossing tag is ADDITIVE, so a body part-way up a ladder is still walking the polyline it was handed (got {utils_crowd_agent::Get_MovementState(_Agent)})");
+        const auto MovementAtDisable = utils_crowd_agent::Get_MovementState(_Agent);
+        Assert_True(MovementAtDisable == ECk_CrowdAgent_MovementState::Walking,
+            f"the walker must still be Walking its route when the ladder is pulled - the crossing tag is ADDITIVE, so a body part-way up a ladder is still walking the polyline it was handed (got {MovementAtDisable})");
+
+        const auto ActiveTraversal = utils_nav_surface_link_traversal::Get_LinkTraversal(_AgentEntity);
+        const auto HasProvenTarget = WasActiveAtDisable
+            && MovementAtDisable == ECk_CrowdAgent_MovementState::Walking
+            && ActiveTraversal.Get_State() == ECk_NavSurface_LinkTraversalState::Traversing
+            && ActiveTraversal.Get_LinkId() == _AuthoredLinkId
+            && ActiveTraversal.Get_CorrelatorId() != -1
+            && _HasUnmatchedBegin && _UnmatchedAgent == _AgentEntity
+            && _UnmatchedLink == ActiveTraversal.Get_LinkId()
+            && _UnmatchedCorrelator == ActiveTraversal.Get_CorrelatorId()
+            && !_ProtocolError;
+        Assert_True(HasProvenTarget,
+            "Disable requires the public active authored crossing to match this agent's unmatched Begun tuple");
+        if (!HasProvenTarget)
+        {
+            Teardown();
+            FinishFailure("the crossing to interrupt was not proven before Disable");
+            return;
+        }
+
+        _InterruptedAgent = _AgentEntity;
+        _InterruptedLink = ActiveTraversal.Get_LinkId();
+        _InterruptedCorrelator = ActiveTraversal.Get_CorrelatorId();
+        _FirstBegunCorrelator = _InterruptedCorrelator;
+        _TargetCompletedCount = 0;
+        _CrossingEndCorrelator = -1;
+        _CrossingEndResult = ECk_Request_OperationResult::Succeeded;
+        _TraversingDuringHold = false;
 
         _InterruptLocation = Get_AgentLocation();
         _MaxHoldZ = float(_InterruptLocation.Z);
 
+        ck::nav::Display(f"[GROUNDNAV-LINK-MIDCROSSING-DISABLE] begun={_BegunCount} completed={_CompletedCount} targetLink={_InterruptedLink} targetCorr={_InterruptedCorrelator} interruptX={_InterruptLocation.X} interruptY={_InterruptLocation.Y} interruptZ={_InterruptLocation.Z}");
+        _DiagnosticDisableIssued = true;
+        _DisabledInterval = true;
         utils_ground_nav_volume::Request_Link(_Field.Get_OriginVolume(),
             Get_LadderRequest(ECk_EnableDisable::Disable),
             FCk_Delegate_Request_OnCompleted(this, n"OnLinkCompleted"));
@@ -562,10 +695,16 @@ class UCk_AutoTest_GroundNav_Link_DisabledMidCrossingHoldsTheBodyAndResumesOnEna
         // agree with the gate. FTag_CrowdAgent_TraversingLink is the thing that actually licenses
         // FProcessor_CrowdAgent_ConstrainToNavmesh to stand down, it lives crowd-side, and it is the
         // one that was left standing in the field.
-        if (_CompletedCount > 0
+        const auto WasTraversingDuringHold = _TraversingDuringHold;
+        if (_TargetCompletedCount > 0
             && (utils_nav_surface_link_traversal::Get_IsTraversingLink(_AgentEntity)
                 || utils_crowd_agent::Get_IsTraversingLink(_Agent)))
         { _TraversingDuringHold = true; }
+
+        if (!WasTraversingDuringHold && _TraversingDuringHold)
+        {
+            ck::nav::Display(f"[GROUNDNAV-LINK-MIDCROSSING-HOLD-LATCH] begun={_BegunCount} completed={_CompletedCount} disableIssued={_DiagnosticDisableIssued} disabledInterval={_DisabledInterval} heldFrames={_HeldFrames} sampledZ={Z} maxHoldZ={_MaxHoldZ}");
+        }
     }
 
     UFUNCTION()
@@ -577,10 +716,10 @@ class UCk_AutoTest_GroundNav_Link_DisabledMidCrossingHoldsTheBodyAndResumesOnEna
         const auto InterruptZ = float(_InterruptLocation.Z);
         const auto OffMesh = utils_crowd_agent::Get_IsOffNavmesh(_Agent);
 
-        ck::nav::Display(f"[GROUNDNAV-LINK-MIDCROSSING] linkId={_AuthoredLinkId} begun={_BegunCount} completed={_CompletedCount} endResult={_CrossingEndResult} interruptZ={InterruptZ} maxHoldZ={_MaxHoldZ} restZ={RestZ} footZ={FootZ} topZ={TopZ} heldFrames={_HeldFrames} offNavmesh={OffMesh} goalFailures={_GoalFailures} begunCorr={_FirstBegunCorrelator} endCorr={_CrossingEndCorrelator} traversingAfterEnd={_TraversingDuringHold} goalFailureReasons={_GoalFailureReasons}");
+        ck::nav::Display(f"[GROUNDNAV-LINK-MIDCROSSING] linkId={_AuthoredLinkId} begun={_BegunCount} completed={_CompletedCount} endResult={_CrossingEndResult} interruptZ={InterruptZ} maxHoldZ={_MaxHoldZ} restZ={RestZ} footZ={FootZ} topZ={TopZ} heldFrames={_HeldFrames} offNavmesh={OffMesh} goalFailures={_GoalFailures} begunCorr={_FirstBegunCorrelator} endCorr={_CrossingEndCorrelator} traversingAfterEnd={_TraversingDuringHold} goalFailureReasons={_GoalFailureReasons} targetLink={_InterruptedLink} targetCorr={_InterruptedCorrelator} targetCompleted={_TargetCompletedCount} protocolError={_ProtocolError} diagnosticEventRows={_DiagnosticEventRows} diagnosticEventOverflow={_DiagnosticEventOverflow} diagnosticCaptureClosed={_DiagnosticCaptureClosed}");
 
-        Assert_Equals_Int(_CompletedCount, 1,
-            f"the route the crossing was riding was dropped out from under it, so the crossing must be reported ENDED exactly once - a listener gating a ladder animation on it is otherwise held forever on a climb that stopped (got {_CompletedCount})");
+        Assert_Equals_Int(_TargetCompletedCount, 1,
+            f"the route the crossing was riding was dropped out from under it, so the crossing must be reported ENDED exactly once - a listener gating a ladder animation on it is otherwise held forever on a climb that stopped (got {_TargetCompletedCount})");
 
         Assert_True(_CrossingEndResult == ECk_Request_OperationResult::Failed_Cancelled,
             f"the body did not walk off the ladder's far end - the ground under its route went away - so a listener deciding whether it ARRIVED is owed Failed_Cancelled and never Succeeded (got {_CrossingEndResult})");
@@ -619,6 +758,12 @@ class UCk_AutoTest_GroundNav_Link_DisabledMidCrossingHoldsTheBodyAndResumesOnEna
     UFUNCTION()
     private void Step_EnableLadder(FCk_Handle InHandle, FInstancedStruct InPayload)
     {
+        // Keep the guard armed through the last disabled frame, including after the hold assertions.
+        Assert_True(!_ProtocolError && _TargetCompletedCount == 1 && !_HasUnmatchedBegin,
+            "the disabled interval closes with exactly its one matched target end and no reentry or protocol error");
+        ck::nav::Display(f"[GROUNDNAV-LINK-MIDCROSSING-ENABLE] begun={_BegunCount} completed={_CompletedCount} targetCompleted={_TargetCompletedCount} protocolError={_ProtocolError} diagnosticEventRows={_DiagnosticEventRows} diagnosticEventOverflow={_DiagnosticEventOverflow}");
+        _DisabledInterval = false;
+        _DiagnosticCaptureClosed = true;
         utils_ground_nav_volume::Request_Link(_Field.Get_OriginVolume(),
             Get_LadderRequest(ECk_EnableDisable::Enable),
             FCk_Delegate_Request_OnCompleted(this, n"OnLinkCompleted"));
@@ -764,6 +909,9 @@ class UCk_AutoTest_GroundNav_Link_DisabledMidCrossingHoldsTheBodyAndResumesOnEna
     // the rest of the lane.
     private void Teardown()
     {
+        _AccountingStopped = true;
+        _DisabledInterval = false;
+        _DiagnosticCaptureClosed = true;
         if (_Reported == false)
         {
             _Reported = true;
