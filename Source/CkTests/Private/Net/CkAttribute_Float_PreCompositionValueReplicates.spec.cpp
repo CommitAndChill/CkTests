@@ -1,13 +1,8 @@
-// Regression test for the pending-replication stash drain (FProcessor_FloatAttribute_RetryPendingReplication).
-// A replicated attribute value can arrive on a client BEFORE that client has composed the attribute —
-// e.g. composition driven from an OnConstructed callback runs after the replication driver's PostLink
-// replay. The rep handler stashes the value into FFragment_FloatAttribute_PendingReplicationEntries;
-// the retry processor must drain it once the attribute exists. With the processor unregistered (the
-// original bug), the client keeps its locally-composed initial value forever and this test fails.
-//
-// Shape: the server adds a SECOND attribute (Armor) post-construction with a sentinel value. The
-// client world does not have Armor at that point, so the incoming container change stashes. The
-// client then composes Armor late with a different initial value; the drained stash must override it.
+// Regression test for generic replicated-container retry after real pre-composition NotReady.
+// The server adds Armor(77) after actor construction. A bounded client receipt gate proves that
+// exact Current Base/Final payload is pending, the dispatcher already deferred it, and client Armor
+// is still absent. That same Update composes Armor(5) inside the existing retry watchdog; the normal
+// dispatcher and attribute pipeline must then apply 77. No synthetic receipt or handler replay.
 //
 // Surface in Session Frontend: Ck.Attribute.Net.Float_PreComposition_StashedValue_Applies
 
@@ -16,10 +11,14 @@
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
 #include "Engine/World.h"
+#include "HAL/PlatformTime.h"
 
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Fragment_Data.h"
+#include "CkAttribute/FloatAttribute/CkFloatAttribute_Fragment.h"
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Utils.h"
 #include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Fragment.h"
+#include "CkEcs/Persistence/CkPersistenceHydration_Processor.h"
 
 #include "CkTests/Net/CkAutoTest_NetSubject.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
@@ -33,12 +32,140 @@ namespace
     // exist on the client when its replicated value first arrives.
     constexpr auto PreComposition_AttributeTagName = TEXT("FloatAttribute.Armor");
 
-    // Value the server bakes into its Add. This is what must survive the stash → drain round-trip.
+    // Value the server bakes into its Add. This must survive pending receive -> deferred apply.
     constexpr auto PreComposition_ServerValue = 77.0f;
 
     // Value the client composes with, distinct from the server's so a dropped stash shows up as a
     // clear mismatch instead of coincidentally matching.
     constexpr auto PreComposition_ClientInitialValue = 5.0f;
+
+    class FCk_Latent_ComposeFloatOnPendingReceipt final : public IAutomationLatentCommand
+    {
+    public:
+        FCk_Latent_ComposeFloatOnPendingReceipt(
+            FAutomationTestBase& InTest,
+            int32 InMaximumUpdates)
+            : _Test{InTest}, _MaximumUpdates{InMaximumUpdates}
+        {
+        }
+
+        auto
+        Update()
+            -> bool override
+        {
+            if (_Finished)
+            { return true; }
+            ++_Updates;
+
+            auto OwnerEntity = FCk_Handle{};
+            auto ActorIdentity = FString{};
+            auto PendingSince = 0.0;
+            auto ObservedAt = 0.0;
+            auto PendingAge = 0.0;
+            auto ReceivedBase = 0.0f;
+            auto ReceivedFinal = 0.0f;
+            const auto AttributeTag = FGameplayTag::RequestGameplayTag(FName{PreComposition_AttributeTagName});
+            {
+                // Borrowed UObject/entry/payload pointers end before Add; reacquire on every Update.
+                auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+                if (ck::Is_NOT_Valid(Client))
+                { return DoWait(TEXT("Stage 3: client world unavailable")); }
+
+                auto* Subject = ACk_AutoTest_NetSubject::Find(Client);
+                if (ck::Is_NOT_Valid(Subject))
+                { return DoWait(TEXT("Stage 3: client world has no valid ACk_AutoTest_NetSubject - actor failed to replicate")); }
+
+                OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+                if (ck::Is_NOT_Valid(OwnerEntity))
+                { return DoWait(TEXT("Stage 3: client-side actor has no bridged entity - entity-script Construct did not run on client")); }
+
+                if (ck::IsValid(UCk_Utils_FloatAttribute_UE::TryGet(OwnerEntity, AttributeTag)))
+                { return DoReject(TEXT("client Armor already exists before the pending-receipt composition")); }
+
+                if (NOT OwnerEntity.Has<TObjectPtr<UCk_Fragment_EntityReplicationDriver_Rep>>())
+                { return DoWait(TEXT("client owner has no replication-driver fragment")); }
+                auto* Driver = OwnerEntity.Get<TObjectPtr<UCk_Fragment_EntityReplicationDriver_Rep>>().Get();
+                if (ck::Is_NOT_Valid(Driver))
+                { return DoWait(TEXT("client replication-driver UObject is invalid")); }
+
+                const auto* Entry = Driver->FindEntry(FCk_RepData_FloatAttributes::StaticStruct());
+                if (Entry == nullptr)
+                { return DoWait(TEXT("client has not received the FloatAttributes entry")); }
+                if (NOT Entry->Data.IsValid())
+                { return DoWait(TEXT("received FloatAttributes data is invalid")); }
+                if (Entry->Data.GetScriptStruct() != FCk_RepData_FloatAttributes::StaticStruct())
+                { return DoReject(TEXT("received FloatAttributes entry has the wrong data type")); }
+                const auto* Payload = Entry->Data.GetPtr<FCk_RepData_FloatAttributes>();
+                if (Payload == nullptr)
+                { return DoReject(TEXT("received FloatAttributes data has no safe typed payload")); }
+                const auto* ReceivedArmor = Payload->Attributes.FindByPredicate(
+                    [&AttributeTag](const FCk_Fragment_FloatAttribute_BaseFinal& InAttribute) -> bool
+                    {
+                        return InAttribute.Get_AttributeName() == AttributeTag
+                            && InAttribute.Get_Component() == ECk_MinMaxCurrent::Current
+                            && InAttribute.Get_Base() == PreComposition_ServerValue
+                            && InAttribute.Get_Final() == PreComposition_ServerValue;
+                    });
+                if (ReceivedArmor == nullptr)
+                { return DoWait(TEXT("client has not received Armor Current Base/Final 77")); }
+
+                if (NOT Entry->_PendingApply)
+                { return DoReject(TEXT("matching Armor 77 receipt is no longer pending; no late fallback composition")); }
+                PendingSince = Entry->_PendingSinceRealTimeSeconds;
+                if (PendingSince == 0.0)
+                { return DoWait(TEXT("matching Armor receipt has not yet returned NotReady from the dispatcher")); }
+                if (NOT FMath::IsFinite(PendingSince) || PendingSince < 0.0)
+                { return DoReject(TEXT("matching Armor receipt has an invalid NotReady timestamp")); }
+                ObservedAt = FPlatformTime::Seconds();
+                PendingAge = ObservedAt - PendingSince;
+                if (NOT FMath::IsFinite(PendingAge) || PendingAge < 0.0
+                    || PendingAge >= ck::PendingApplyTimeoutSeconds)
+                { return DoReject(TEXT("matching Armor receipt is outside the existing pending-apply watchdog")); }
+
+                ActorIdentity = Subject->GetPathName();
+                ReceivedBase = ReceivedArmor->Get_Base();
+                ReceivedFinal = ReceivedArmor->Get_Final();
+            }
+
+            UE_LOG(LogTemp, Display,
+                TEXT("[ATTRIBUTE-PRECOMPOSE-RECEIPT] actor=%s attribute=FloatAttribute.Armor component=Current base=%.9f final=%.9f pending=true pendingSince=%.9f observedAt=%.9f age=%.9f update=%d"),
+                *ActorIdentity, static_cast<double>(ReceivedBase), static_cast<double>(ReceivedFinal),
+                PendingSince, ObservedAt, PendingAge, _Updates);
+            _Finished = true;
+            UCk_Utils_FloatAttribute_UE::Add(OwnerEntity,
+                FCk_FloatAttribute_Spec{AttributeTag, PreComposition_ClientInitialValue},
+                ECk_Replication::Replicates);
+            return true;
+        }
+
+    private:
+        auto
+        DoWait(
+            const FString& InMissingPrerequisite)
+            -> bool
+        {
+            if (_Updates < _MaximumUpdates)
+            { return false; }
+            return DoReject(FString::Printf(TEXT("no eligible receipt within %d updates; last prerequisite: %s"),
+                _MaximumUpdates, *InMissingPrerequisite));
+        }
+
+        auto
+        DoReject(
+            const FString& InReason)
+            -> bool
+        {
+            _Finished = true;
+            _Test.AddError(FString::Printf(TEXT("Stage 3 pending-receipt gate: %s (update %d); client Armor was not composed"),
+                *InReason, _Updates));
+            return true;
+        }
+
+        FAutomationTestBase& _Test;
+        int32 _MaximumUpdates;
+        int32 _Updates = 0;
+        bool _Finished = false;
+    };
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -59,10 +186,9 @@ bool FCkAttributeNet_Float_PreComposition_StashedValue_Applies::RunTest(const FS
     constexpr auto ExpectedTotalWorlds = 2;
     constexpr auto ReadyTimeoutSeconds = 30.0f;
     constexpr auto FramesAfterSpawn = 30;
-    // Window for the server-side Add to ship its container change to the client while the client
-    // still lacks the attribute — this is the stash-forming window.
+    // Maximum updates to prove the actual client receipt and compose in the same Update.
     constexpr auto FramesAfterServerAdd = 120;
-    // Window for the retry processor to drain the stash after the client's late composition.
+    // Unchanged drain window for the generic dispatcher after the client's late composition.
     constexpr auto FramesAfterClientCompose = 120;
 
     const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
@@ -121,38 +247,11 @@ bool FCkAttributeNet_Float_PreComposition_StashedValue_Applies::RunTest(const FS
             *OwnerSlot = OwnerEntity;
         })));
 
-    // Stash-forming window: the container change replicates while the client lacks the attribute.
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesAfterServerAdd));
+    // Stage 3: actual matching client receipt + dispatcher NotReady precede same-Update Add(5).
+    // This is bounded by the original 120 updates, not an unproved fixed-delay stash window.
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ComposeFloatOnPendingReceipt(*this, FramesAfterServerAdd));
 
-    // ---- Stage 3 — client composes Armor late, with a different initial value. This mirrors ---------------------
-    // ---- OnConstructed-driven composition that runs after the replicated value already arrived. -----------------
-
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
-        FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InClient) -> void
-        {
-            auto* Subject = ACk_AutoTest_NetSubject::Find(InClient);
-            if (Subject == nullptr)
-            {
-                AddError(TEXT("Stage 3: client world has no ACk_AutoTest_NetSubject — actor failed to replicate"));
-                return;
-            }
-
-            auto OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
-            if (ck::Is_NOT_Valid(OwnerEntity))
-            {
-                AddError(TEXT("Stage 3: client-side actor has no bridged entity — entity-script Construct did not run on client"));
-                return;
-            }
-
-            const auto AttributeTag = FGameplayTag::RequestGameplayTag(FName{PreComposition_AttributeTagName});
-
-            UCk_Utils_FloatAttribute_UE::Add(OwnerEntity,
-                FCk_FloatAttribute_Spec{AttributeTag, PreComposition_ClientInitialValue},
-                ECk_Replication::Replicates);
-        })));
-
-    // Drain window: FProcessor_FloatAttribute_RetryPendingReplication applies the stashed entry,
-    // then the attribute request pipeline computes the final value.
+    // The normal generic dispatcher applies the pending entry, then the attribute pipeline computes it.
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesAfterClientCompose));
 
     // ---- Cross-world assertion -----------------------------------------------------------------------------------
@@ -212,8 +311,8 @@ bool FCkAttributeNet_Float_PreComposition_StashedValue_Applies::RunTest(const FS
                 return false;
             }
 
-            // The drained stash must override the client's locally-composed initial value. With the
-            // retry processor unregistered, the client stays at PreComposition_ClientInitialValue.
+            // The pending received value must override the client's locally-composed initial value.
+            // A missing receipt/retry or failed composition remains a failure, never a fallback Add.
             const auto ClientValue = UCk_Utils_FloatAttribute_UE::Get_FinalValue(ClientAttribute);
             TestEqual(TEXT("client FinalValue matches the server value that replicated BEFORE client composition"),
                 ClientValue, PreComposition_ServerValue);
