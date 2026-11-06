@@ -307,8 +307,8 @@
     },
     {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PlantedReachPacesPillarCrossing",
-      "status": "flaky",
-      "reason": "FLAKY: green alone 1/3. Ck_AutoTest_ProceduralAnimation_PlantedReachPacesPillarCrossing: FinishTest TestResult=Failed. Failed: step 1/4 'the tentacled walker crosses the pillar field and returns': condition 'Check_Traversal' did not hold within the declared 50.00s bound. On the 2026-11-04 UE 5.8 walker exclusion list.",
+      "status": "red",
+      "reason": "OSCILLATES - listed red, not flaky, so a pass reports 'Now passing' instead of a failing solo re-run failing the gate: green alone 1/3. Follow-up: make the walker tests frame-rate/load independent, then remove this entry. Ck_AutoTest_ProceduralAnimation_PlantedReachPacesPillarCrossing: FinishTest TestResult=Failed. Failed: step 1/4 'the tentacled walker crosses the pillar field and returns': condition 'Check_Traversal' did not hold within the declared 50.00s bound. On the 2026-11-04 UE 5.8 walker exclusion list.",
       "evidence": "UE 5.8 (ue58_engine 417f32a755), CkTests 05fea466. CkPlugins_58gate full gate on UnrealToolbox v1.75 red; BusterBlock_58 Gate58-MergedMainCk red, Gate58-UiProofFixes green (2026-11-06); BusterBlock_58 solo runs 1 pass / 2 fail (Solo58M-PlantedReach*.log).",
       "added": "2026-11-06"
     }
