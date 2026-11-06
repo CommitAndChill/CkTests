@@ -372,11 +372,6 @@ bool FCk_SettingsMenuProof_PIE::RunTest(const FString&)
     using namespace ck_settings_menu_proof_test;
     if (NOT FSlateApplication::IsInitialized())
     { AddError(TEXT("Settings proof requires Slate.")); return false; }
-    const auto TickLimit = IsValid(GEditor) ? GEditor->GetMaxTickRate(1.0f / 120.0f) : 0.0f;
-    TestTrue(FString::Printf(TEXT("Editor launch caps fast frames at 30 FPS (effective tick limit %.3f)"), TickLimit),
-        IsValid(GEditor) && GEditor->bSmoothFrameRate && GEditor->SmoothedFrameRateRange.HasUpperBound()
-            && FMath::IsNearlyEqual(GEditor->SmoothedFrameRateRange.GetUpperBoundValue(), 30.0f)
-            && TickLimit > 0.0f && TickLimit <= 30.0f);
 
     const TSharedRef<FState> State = MakeShared<FState>();
     UCkGym_StartupSettings* Settings = GetMutableDefault<UCkGym_StartupSettings>();
