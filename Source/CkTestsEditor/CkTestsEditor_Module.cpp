@@ -2,6 +2,12 @@
 
 #include "CkTestsEditor_Log.h"
 
+#include "CkCore/Macros/CkMacros.h"
+
+#include <Framework/Application/SlateApplication.h>
+#include <Misc/App.h>
+#include <Misc/AutomationTest.h>
+
 // --------------------------------------------------------------------------------------------------------------------
 
 #define LOCTEXT_NAMESPACE "FCkTestsEditorModule"
@@ -9,11 +15,42 @@
 void FCkTestsEditorModule::StartupModule()
 {
     ck::tests_editor::Log(TEXT("[CkTestsEditor] Module started."));
+
+    // Tests that drive Slate with synthetic pointer input move the real OS cursor, and the next test in the
+    // same editor inherits it: a widget that opens on hover or closes on mouse-leave then behaves differently
+    // in a suite than alone (Ck.UiAuthoring.CharacterEquipment.PIE after ActionCard, 2026-11-06). Put the
+    // cursor back after every test. OnTestEndEvent fires once the test's latent commands have drained.
+    auto& Framework = FAutomationTestFramework::Get();
+    _TestStartHandle = Framework.OnTestStartEvent.AddRaw(this, &FCkTestsEditorModule::OnTestStart);
+    _TestEndHandle = Framework.OnTestEndEvent.AddRaw(this, &FCkTestsEditorModule::OnTestEnd);
 }
 
 void FCkTestsEditorModule::ShutdownModule()
 {
+    auto& Framework = FAutomationTestFramework::Get();
+    Framework.OnTestStartEvent.Remove(_TestStartHandle);
+    Framework.OnTestEndEvent.Remove(_TestEndHandle);
+
     ck::tests_editor::Log(TEXT("[CkTestsEditor] Module stopped."));
+}
+
+auto FCkTestsEditorModule::OnTestStart(FAutomationTestBase*) -> void
+{
+    // Unattended runs only: a person running tests by hand keeps their own mouse.
+    _CursorCaptured = FApp::IsUnattended() && FSlateApplication::IsInitialized();
+    if (NOT _CursorCaptured)
+    { return; }
+
+    _CursorAtTestStart = FSlateApplication::Get().GetCursorPos();
+}
+
+auto FCkTestsEditorModule::OnTestEnd(FAutomationTestBase*) -> void
+{
+    if (NOT _CursorCaptured || NOT FSlateApplication::IsInitialized())
+    { return; }
+
+    _CursorCaptured = false;
+    FSlateApplication::Get().SetCursorPos(_CursorAtTestStart);
 }
 
 #undef LOCTEXT_NAMESPACE
