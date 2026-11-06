@@ -372,6 +372,26 @@ namespace ck_character_equipment_proof
             && Popup.Left >= Viewport.Left - 1.0f && Popup.Top >= Viewport.Top - 1.0f
             && Popup.Right <= Viewport.Right + 1.0f && Popup.Bottom <= Viewport.Bottom + 1.0f;
     }
+    // Hover opens and closes item tooltips too, and the OS cursor is wherever an earlier test left it.
+    // Park it on a point of the slot's window that hits no item slot, so a focus check measures focus only.
+    auto ParkCursorOffItemSlots(const TSharedPtr<SWidget>& AnySlot, const int32 User) -> bool
+    {
+        if (!AnySlot.IsValid()) { return false; }
+        auto& Slate = FSlateApplication::Get();
+        const auto Window = Slate.FindWidgetWindow(AnySlot.ToSharedRef());
+        if (!Window.IsValid()) { return false; }
+        const FSlateRect Client = Window->GetClientRectInScreen();
+        const FVector2D Away{Client.Left + 2.0, Client.Top + 2.0};
+        Slate.SetCursorPos(Away);
+        Slate.ProcessMouseMoveEvent(FPointerEvent{static_cast<uint32>(User), FSlateApplication::CursorPointerIndex,
+            Away, Away, TSet<FKey>{}, EKeys::Invalid, 0.0f, FModifierKeysState{}}, true);
+        Slate.PumpMessages(); Slate.Tick(); Slate.Tick();
+        const FWidgetPath Hit = Slate.LocateWindowUnderMouse(Away,
+            TArray<TSharedRef<SWindow>>{Window.ToSharedRef()}, false, User);
+        for (int32 Index = 0; Index < Hit.Widgets.Num(); ++Index)
+        { if (Hit.Widgets[Index].Widget->GetTypeAsString() == TEXT("SCkUiItemSlot")) { return false; } }
+        return true;
+    }
     auto PressKey(const FKey& Key, const int32 User) -> bool
     {
         auto& Slate = FSlateApplication::Get();
@@ -477,12 +497,15 @@ namespace ck_character_equipment_proof
             RecentGyms = Settings->RecentGymNames;
             Settings->StartupMode = ECkGym_StartupMode::Cycler;
             Settings->ControlPanelMode = ECkGym_ControlPanel_Mode::Hidden;
+            OriginalCursor = FSlateApplication::Get().GetCursorPos();
         }
         ~FState() { Restore(); }
         void Restore()
         {
             if (Restored) { return; }
             if (const auto Window = OriginalWindow.Pin(); Window.IsValid()) { Window->Resize(OriginalWindowSize); }
+            // The hit-test helpers move the real OS cursor; a later test in the same editor inherits it.
+            if (FSlateApplication::IsInitialized()) { FSlateApplication::Get().SetCursorPos(OriginalCursor); }
             auto* Settings = GetMutableDefault<UCkGym_StartupSettings>();
             Settings->StartupMode = StartupMode; Settings->ControlPanelMode = PanelMode;
             Settings->DefaultGymName = DefaultGym; Settings->LastGymName = LastGym;
@@ -494,6 +517,7 @@ namespace ck_character_equipment_proof
         TArray<FString> RecentGyms;
         TWeakPtr<SWindow> OriginalWindow;
         FVector2D OriginalWindowSize = FVector2D::ZeroVector;
+        FVector2D OriginalCursor = FVector2D::ZeroVector;
         bool Restored = false;
     };
 
@@ -764,6 +788,8 @@ auto FCkCharacterEquipment_Pie::RunTest(const FString&) -> bool
                 && IsRenderedVisible(SelectedGearRows)
                 && IsRenderedVisible(EquippedGearRows));
             TestTrue(TEXT("Authored input owner is active"), Owner->Get_IsInputActive());
+            TestTrue(TEXT("Cursor parks off every item slot before the focus tooltip check"),
+                ParkCursorOffItemSlots(Sword, Owner->Get_SlateUserIndex()));
             TestTrue(TEXT("Session focus API targets a real native inventory slot"),
                 Owner->TryFocusControl(TEXT("items/veilcutter/card")));
             FSlateApplication::Get().PumpMessages(); FSlateApplication::Get().Tick(); FSlateApplication::Get().Tick();

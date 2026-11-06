@@ -87,9 +87,12 @@ namespace ck_tests_ui_action_card
         FSlateApplication& Slate;
         TSharedPtr<SWindow> Window;
         TSharedPtr<SWidget> PreviousFocus;
+        // Press/Release move the real OS cursor; a later test in the same editor inherits it.
+        FVector2D PreviousCursor = Slate.GetCursorPos();
         ~FWindowScope()
         {
             if (Window.IsValid()) { Slate.DestroyWindowImmediately(Window.ToSharedRef()); }
+            Slate.SetCursorPos(PreviousCursor);
             if (PreviousFocus.IsValid()) { Slate.SetKeyboardFocus(PreviousFocus, EFocusCause::SetDirectly); }
             else { Slate.ClearKeyboardFocus(EFocusCause::SetDirectly); }
         }
