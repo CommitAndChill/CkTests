@@ -16,10 +16,14 @@ void FCkTestsEditorModule::StartupModule()
 {
     ck::tests_editor::Log(TEXT("[CkTestsEditor] Module started."));
 
-    // Tests that drive Slate with synthetic pointer input move the real OS cursor, and the next test in the
-    // same editor inherits it: a widget that opens on hover or closes on mouse-leave then behaves differently
-    // in a suite than alone (Ck.UiAuthoring.CharacterEquipment.PIE after ActionCard, 2026-11-06). Put the
-    // cursor back after every test. OnTestEndEvent fires once the test's latent commands have drained.
+    // Tests drive Slate's pointer with FSlateApplication::SetCursorPos. Two problems follow:
+    // - The next test in the same editor inherits the position: a widget that opens on hover or closes on
+    //   mouse-leave then behaves differently in a suite than alone (Ck.UiAuthoring.CharacterEquipment.PIE
+    //   after ActionCard, 2026-11-06). So the cursor is put back after every test; OnTestEndEvent fires once
+    //   the test's latent commands have drained.
+    // - With the platform cursor, every one of those moves (and every put-back) moves the person's real
+    //   mouse while a gate runs. So unattended runs give Slate's cursor user a virtual cursor, and nothing
+    //   here reaches the OS cursor.
     auto& Framework = FAutomationTestFramework::Get();
     _TestStartHandle = Framework.OnTestStartEvent.AddRaw(this, &FCkTestsEditorModule::OnTestStart);
     _TestEndHandle = Framework.OnTestEndEvent.AddRaw(this, &FCkTestsEditorModule::OnTestEnd);
@@ -41,7 +45,12 @@ auto FCkTestsEditorModule::OnTestStart(FAutomationTestBase*) -> void
     if (NOT _CursorCaptured)
     { return; }
 
-    _CursorAtTestStart = FSlateApplication::Get().GetCursorPos();
+    auto& Slate = FSlateApplication::Get();
+    // FFauxSlateCursor: SetCursorPos/GetCursorPos go through the cursor user, so they stay in this process.
+    // A no-op once switched; done here rather than at startup because the cursor user may not exist yet then.
+    Slate.UsePlatformCursorForCursorUser(false);
+
+    _CursorAtTestStart = Slate.GetCursorPos();
 }
 
 auto FCkTestsEditorModule::OnTestEnd(FAutomationTestBase*) -> void
