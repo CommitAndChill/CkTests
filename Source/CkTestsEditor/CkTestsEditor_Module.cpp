@@ -59,7 +59,11 @@ auto FCkTestsEditorModule::OnTestEnd(FAutomationTestBase*) -> void
     { return; }
 
     _CursorCaptured = false;
-    FSlateApplication::Get().SetCursorPos(_CursorAtTestStart);
+    auto& Slate = FSlateApplication::Get();
+    // PIE teardown can hand the cursor user back to the platform cursor before this fires (CommonUI's action router
+    // does on exit). Re-assert the virtual cursor so the put-back never reaches the OS cursor.
+    Slate.UsePlatformCursorForCursorUser(false);
+    Slate.SetCursorPos(_CursorAtTestStart);
 }
 
 #undef LOCTEXT_NAMESPACE
