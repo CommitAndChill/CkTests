@@ -4,6 +4,7 @@
 // factory contract (objects exist, frames encode/decode at the expected sizes), never timings.
 
 #include "Misc/AutomationTest.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #include "Misc/ConfigCacheIni.h"
 #include "Modules/ModuleManager.h"

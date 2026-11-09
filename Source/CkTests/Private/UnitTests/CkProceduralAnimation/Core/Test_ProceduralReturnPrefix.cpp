@@ -1,4 +1,5 @@
 #include "CoreMinimal.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 

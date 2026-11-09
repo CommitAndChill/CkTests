@@ -24,6 +24,7 @@
 // Surface in Session Frontend: Ck.Snapshot.Meta.WallTimeReadsAreAllowListed
 
 #include "Misc/AutomationTest.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 

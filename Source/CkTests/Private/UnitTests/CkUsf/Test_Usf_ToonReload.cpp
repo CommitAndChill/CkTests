@@ -1,6 +1,7 @@
 #if WITH_EDITOR
 
 #include "Misc/AutomationTest.h"
+#include "CkCore/Macros/CkMacros.h"
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
 #include "CkUsfEditor/Generator/CkUsf_Generator.h"
 #include "CkUsfEditor/Reload/CkUsf_ShaderReload.h"

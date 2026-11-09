@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "CkCore/Macros/CkMacros.h"
+#include "CkCore/Format/CkFormat.h"
 
 #include "CkCombatHudProofData.generated.h"
 

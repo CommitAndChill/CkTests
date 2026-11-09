@@ -1,4 +1,5 @@
 #include "SCkGym_ControlPanel.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #include "CkEditorTools/Style/CkStyle.h"
 

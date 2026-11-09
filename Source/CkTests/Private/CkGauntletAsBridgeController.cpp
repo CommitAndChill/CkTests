@@ -1,4 +1,5 @@
 #include "CkGauntletAsBridgeController.h"
+#include "CkCore/Macros/CkMacros.h"
 #include "CkGauntletAsTest_Base.h"
 
 #include "Engine/LocalPlayer.h"

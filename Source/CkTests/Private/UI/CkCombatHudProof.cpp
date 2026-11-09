@@ -1,4 +1,5 @@
 #include "CkTests/UI/CkCombatHudProof.h"
+#include "CkCore/Ensure/CkEnsure.h"
 #include "UI/CkCombatHudProofModel.h"
 #include "UI/CkCombatHudReplicaArt.h"
 #include "UI/CkUiReplicaPresentation.h"

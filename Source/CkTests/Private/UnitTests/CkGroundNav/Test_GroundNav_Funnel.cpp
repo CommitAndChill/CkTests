@@ -14,6 +14,7 @@
 // between the chain through the portal centres and the straight line from start to end.
 
 #include "CkGroundNav/CkGroundNav_Log.h"
+#include "CkCore/Macros/CkMacros.h"
 #include "CkGroundNav/Query/CkGroundNav_Funnel.h"
 
 #include "../CkUnitTest_Common.h"

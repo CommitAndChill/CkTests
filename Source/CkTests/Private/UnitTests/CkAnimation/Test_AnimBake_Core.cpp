@@ -9,6 +9,7 @@
 #if WITH_EDITOR
 
 #include "Misc/AutomationTest.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #include "CkAnimation/AnimBake/CkAnimBake.h"
 
