@@ -33,6 +33,7 @@
 #include "UObject/UnrealType.h"
 #include "Types/SlateAttributeMetaData.h"
 #include "Widgets/Images/SImage.h"
+#include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 
 #include <limits>

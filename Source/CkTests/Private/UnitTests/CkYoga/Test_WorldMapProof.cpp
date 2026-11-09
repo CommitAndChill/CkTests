@@ -27,6 +27,7 @@
 #include "Styling/CoreStyle.h"
 #include "UObject/StructOnScope.h"
 #include "UObject/UnrealType.h"
+#include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 #include <limits>
 

@@ -37,6 +37,7 @@
 #include "Misc/Paths.h"
 #include "Styling/CoreStyle.h"
 #include "Widgets/SNullWidget.h"
+#include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 #include "Widgets/Input/SButton.h"
 

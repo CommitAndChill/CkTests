@@ -35,6 +35,7 @@
 #include "UObject/UnrealType.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Layout/SScaleBox.h"
+#include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 
 namespace ck_tactical_inventory_proof
