@@ -2,6 +2,7 @@
 #include "CkSlateLayout/CkUiCollection.h"
 
 #include "Framework/Application/SlateApplication.h"
+#include "Framework/Application/SlateUser.h"
 #include "InputCoreTypes.h"
 #include "Misc/AutomationTest.h"
 #include "Styling/CoreStyle.h"

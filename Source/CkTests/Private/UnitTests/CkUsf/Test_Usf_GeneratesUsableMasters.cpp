@@ -13,6 +13,7 @@
 #include "Misc/AutomationTest.h"
 
 #include "Misc/App.h"
+#include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"

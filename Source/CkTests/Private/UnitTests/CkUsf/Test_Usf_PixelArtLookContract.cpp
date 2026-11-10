@@ -20,6 +20,7 @@
 
 #include "Misc/AutomationTest.h"
 
+#include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/FileHelper.h"

@@ -6,6 +6,7 @@
 #include "CkUsfEditor/Generator/CkUsf_LookValidator.h"
 #include "CkUsfEditor/Generator/CkUsf_ShadingModelContract.h"
 #include "CkUsf_TestLookMasters.h"
+#include "AssetRegistry/AssetData.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionCustom.h"
 #include "Misc/App.h"

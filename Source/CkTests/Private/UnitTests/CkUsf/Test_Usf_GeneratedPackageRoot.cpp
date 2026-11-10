@@ -26,6 +26,7 @@
 #if WITH_EDITOR
 #include "Misc/App.h"
 #include "Misc/PackageName.h"
+#include "AssetRegistry/AssetData.h"
 #include "Materials/Material.h"
 
 #include "CkUsf/Apply/CkUsf_Utils.h"

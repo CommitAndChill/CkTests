@@ -29,6 +29,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/App.h"
 #include "Misc/PackageName.h"
+#include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionCustom.h"

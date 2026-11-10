@@ -16,6 +16,7 @@
 #include "HAL/FileManager.h"
 #include "ImageUtils.h"
 #include "Layout/Children.h"
+#include "MaterialDomain.h"
 #include "Materials/Material.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"

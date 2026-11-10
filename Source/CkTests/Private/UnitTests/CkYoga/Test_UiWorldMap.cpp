@@ -8,6 +8,7 @@
 #include "CkSlateLayout/SCkUiSurface.h"
 #include "CkWidgets/Authoring/CkAuthoredSession.h"
 #include "Engine/Texture2D.h"
+#include "TextureResource.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Application/SlateUser.h"
 #include "Input/Events.h"

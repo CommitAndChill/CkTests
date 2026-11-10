@@ -29,6 +29,7 @@
 #include "Misc/Paths.h"
 #include "Styling/CoreStyle.h"
 #include "UObject/UnrealType.h"
+#include "UnrealClient.h"
 #include "Widgets/SViewport.h"
 #include "Widgets/SWindow.h"
 
