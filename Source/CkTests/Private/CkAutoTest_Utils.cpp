@@ -2,8 +2,13 @@
 
 #include "CkGoap/Planner/CkGoap_Planner_Fragment.h"
 #include "CkProceduralAnimation/Debug/CkProceduralAnimation_Debug.h"
+#include "CkProceduralAnimation/Gait/CkProceduralGait_Fragment.h"
+#include "CkProceduralAnimation/Gait/CkProceduralGait_Utils.h"
 #include "CkProceduralAnimation/Leg/CkProceduralLeg_Utils.h"
 #include "CkProceduralAnimation/SurfaceMotion/CkSurfaceMotion_Fragment.h"
+#include "CkProceduralAnimation/SurfaceMotion/CkSurfaceMotion_Utils.h"
+
+#include "CkEcsExt/Transform/CkTransform_Fragment.h"
 
 #include <HAL/IConsoleManager.h>
 #include <Misc/ScopeExit.h>
@@ -175,6 +180,105 @@ bool
 
 // --------------------------------------------------------------------------------------------------------------------
 
+int64
+    UCk_Utils_AutoTest_UE::
+    Get_ProceduralAnimationSolveSequence(
+        const FCk_Handle& InBody)
+{
+    const auto Snapshot = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(InBody);
+    return Snapshot.Get_Status().Get_HasAcceptedSample()
+        ? static_cast<int64>(Snapshot.Get_Sample().Get_Sequence()) : -1;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+bool
+    UCk_Utils_AutoTest_UE::
+    TryGet_ProceduralAnimationAdaptiveHeightSample(
+        const FCk_Handle& InBody,
+        int64& OutSolveSequence,
+        bool& OutActive,
+        bool& OutPreparing)
+{
+    OutSolveSequence = -1;
+    OutActive = false;
+    OutPreparing = false;
+    if (NOT IsInGameThread() || ck::Is_NOT_Valid(InBody)
+        || NOT InBody.Has<ck::FFragment_ProceduralGait>()
+        || NOT InBody.Has<ck::FFragment_ProceduralGait_Debug>()
+        || NOT InBody.Has<ck::FFragment_SurfaceMotion>()
+        || NOT InBody.Has<ck::FFragment_SurfaceMotion_Params>()
+        || NOT InBody.Has<ck::FFragment_SurfaceMotion_Support>()
+        || NOT InBody.Has<ck::FFragment_Transform>())
+    { return false; }
+
+    const auto Gait = UCk_Utils_ProceduralGait_UE::CastChecked(InBody);
+    const auto Motion = UCk_Utils_SurfaceMotion_UE::CastChecked(InBody);
+    if (UCk_Utils_ProceduralGait_UE::Get_Status(Gait) != ECk_ProceduralAnimation_Status::Ready
+        || UCk_Utils_SurfaceMotion_UE::Get_Status(Motion) != ECk_ProceduralAnimation_Status::Ready)
+    { return false; }
+
+    // Get_Snapshot copies the accepted solve before refreshing live presentation/rig diagnostics. Only its frozen
+    // sample stamp and accepted gait body participate here; live pose, rig and freshness readouts cannot admit a pair.
+    const auto Snapshot = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(InBody);
+    if (NOT Snapshot.Get_Status().Get_HasAcceptedSample())
+    { return false; }
+    const auto& Sample = Snapshot.Get_Sample();
+    const auto Frame = Sample.Get_FrameNumber();
+    const auto Sequence = Sample.Get_Sequence();
+    const auto CurrentFrame = GFrameCounter;
+    const auto& Support = InBody.Get<ck::FFragment_SurfaceMotion_Support>();
+    const auto& Body = InBody.Get<ck::FFragment_Transform>().Get_Transform();
+    const auto& AcceptedBody = Snapshot.Get_Gait().Get_BodyTransform();
+    if (Frame > CurrentFrame || CurrentFrame - Frame > 1
+        || Frame != Support.Get_EvaluatedFrame()
+        || Sequence != InBody.Get<ck::FFragment_ProceduralGait>().Get_SolveSequence()
+        || Sequence > static_cast<uint64>(TNumericLimits<int64>::Max())
+        || Body.ContainsNaN() || AcceptedBody.ContainsNaN() || Support.Get_EvaluatedBody().ContainsNaN()
+        || NOT AcceptedBody.Equals(Body, 1.0e-3) || NOT Support.Get_EvaluatedBody().Equals(Body, 1.0e-3)
+        || NOT AcceptedBody.Equals(Support.Get_EvaluatedBody(), 1.0e-3))
+    { return false; }
+
+    OutSolveSequence = static_cast<int64>(Sequence);
+    OutActive = Support.Get_AdaptiveHeightActive();
+    OutPreparing = Support.Get_AdaptiveHeightPreparing();
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+bool
+    UCk_Utils_AutoTest_UE::
+    TryGet_ProceduralAnimationLegQueryTarget(
+        const FCk_Handle& InBody,
+        FName InLegId,
+        FVector& OutQuery,
+        FVector& OutSwingTarget,
+        FTransform& OutAcceptedBody,
+        int64& OutSequence)
+{
+    OutQuery = FVector::ZeroVector;
+    OutSwingTarget = FVector::ZeroVector;
+    OutAcceptedBody = FTransform::Identity;
+    OutSequence = -1;
+    const auto Snapshot = UCk_Utils_ProceduralAnimation_Debug_UE::Get_Snapshot(InBody);
+    if (NOT Snapshot.Get_Status().Get_HasAcceptedSample())
+    { return false; }
+    const auto* Leg = Snapshot.Get_Legs().FindByPredicate([InLegId](const FCk_ProceduralAnimation_DebugLeg& InLeg)
+    { return InLeg.Get_Id() == InLegId; });
+    if (Leg == nullptr || NOT Leg->Get_Enabled() || Leg->Get_Status() == ECk_ProceduralLeg_Status::Detached
+        || Leg->Get_Targeting().Get_QueryTarget().ContainsNaN() || Leg->Get_Foot().Get_SwingTarget().ContainsNaN()
+        || Snapshot.Get_Gait().Get_BodyTransform().ContainsNaN())
+    { return false; }
+    OutQuery = Leg->Get_Targeting().Get_QueryTarget();
+    OutSwingTarget = Leg->Get_Foot().Get_SwingTarget();
+    OutAcceptedBody = Snapshot.Get_Gait().Get_BodyTransform();
+    OutSequence = static_cast<int64>(Snapshot.Get_Sample().Get_Sequence());
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
 FString
     UCk_Utils_AutoTest_UE::
     Get_ProceduralAnimationLegSnapshot(
@@ -232,9 +336,23 @@ FString
         Summary += FString::Printf(TEXT(" leg %s missing"), *InLegId.ToString());
         return Summary;
     }
+    Summary += FString::Printf(TEXT(" automaticRecovery %d nativeTouchdownAttempted %d nativeTouchdownResolved %d")
+        TEXT(" hasReservation %d hasReachAnchor %d actualPlantSeedAttempted %d actualPlantSeedForceAdjusted %d actualPlantSeedAdmitted %d"),
+        static_cast<int32>(Leg->Get_AutomaticRecovery()),
+        Leg->Get_NativeTouchdownAttempted(), Leg->Get_NativeTouchdownResolved(),
+        Leg->Get_HasReservation(), Leg->Get_HasReachAnchor(),
+        Leg->Get_ActualPlantSeedAttempted(), Leg->Get_ActualPlantSeedForceAdjusted(), Leg->Get_ActualPlantSeedAdmitted());
+    const auto CommittedLanding = Leg->Get_CommittedLandingWorld() - InOrigin;
+    Summary += FString::Printf(TEXT(" hasCommittedLanding %d committedLanding (%.3f,%.3f,%.3f) committedAdmissionReach %.6f"),
+        Leg->Get_HasCommittedLanding(), CommittedLanding.X, CommittedLanding.Y, CommittedLanding.Z,
+        Leg->Get_CommittedLandingAdmissionReach());
 
     const auto& Target = Leg->Get_Targeting();
     const auto& Foot = Leg->Get_Foot();
+    const auto ValidatedTarget = Foot.Get_SwingValidatedTarget() - InOrigin;
+    Summary += FString::Printf(TEXT(" swingActive %d swingTargetTrusted %d swingFrozen %d validatedTarget (%.3f,%.3f,%.3f)"),
+        Foot.Get_SwingActive(), Foot.Get_SwingTargetTrusted(), Foot.Get_SwingTargetFrozen(),
+        ValidatedTarget.X, ValidatedTarget.Y, ValidatedTarget.Z);
     const auto Hip = Target.Get_HipWorld() - InOrigin;
     const auto Neutral = Target.Get_NeutralWorld() - InOrigin;
     const auto Query = Target.Get_QueryTarget() - InOrigin;

@@ -34,6 +34,14 @@ public:
         bool InAllowDirtyWorld,
         bool InBusy,
         FCk_TestBridge_Env& OutEnv) -> TOptional<FString>;
+
+    // The same admission policy, separated from collection so callers can verify a complete
+    // environment snapshot without depending on unrelated state in the user's editor.
+    static auto Evaluate_Environment(
+        bool InAllowDirtyWorld,
+        bool InBusy,
+        bool InPieActive,
+        const FCk_TestBridge_Env& InEnv) -> TOptional<FString>;
 };
 
 // --------------------------------------------------------------------------------------------------------------------

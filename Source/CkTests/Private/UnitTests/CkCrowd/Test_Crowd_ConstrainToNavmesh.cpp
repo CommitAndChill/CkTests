@@ -1,9 +1,25 @@
-// Pure coverage for the feet-anchor correction applied after a navmesh surface walk. World
-// integration remains covered by the Crowd AutoTests.
+// Feet-anchor arithmetic and production projection admission against baked GroundNav fields.
+// Full scheduled world integration remains covered by the Crowd AutoTests.
 
 #include <limits>
 
 #include "CkCrowd/Agent/CkCrowdAgent_ConstrainToNavmesh_Algorithm.h"
+#include "CkCrowd/Agent/CkCrowdAgent_ConstrainToNavmesh_Processor.h"
+#include "CkCrowd/Agent/CkCrowdAgent_ApplyOffset_Processor.h"
+#include "CkCrowd/Agent/CkCrowdAgent_Utils.h"
+#include "CkCrowd/Settings/CkCrowd_ProjectSettings.h"
+#include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/Net/CkNet_Fragment.h"
+#include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
+#include "CkEcsExt/Transform/CkTransform_Utils.h"
+#include "CkGroundNav/Facade/CkGroundNav_WorldFieldRegistry.h"
+#include "CkNavigation/NavSurface/CkNavSurface_Fragment.h"
+#include "CkNavigation/NavSurface/CkNavSurface_Utils.h"
+#include "CkPhysics/EulerIntegrator/CkEulerIntegrator_Processor.h"
+
+#include "../CkGroundNav/Test_GroundNav_QueryFixtures.h"
+
+#include <Engine/World.h>
 
 #include "../CkUnitTest_Common.h"
 
@@ -240,6 +256,153 @@ bool FCkTest_Crowd_ConstrainToNavmesh_RecoveryStepUp::RunTest(const FString& Par
     TestFalse(TEXT("A negative clamp behaves as disabled, not as reject-everything"),
         Get_RecoveryExceedsStepUp(190.0f, -1.0f));
 
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_Crowd_ConstrainToNavmesh_ProjectionAdmission,
+    "CkTests.UnitTests.CkCrowd.ConstrainToNavmesh.ProjectionAdmission",
+    kCkUnitTestFlags)
+
+bool FCkTest_Crowd_ConstrainToNavmesh_ProjectionAdmission::RunTest(const FString& Parameters)
+{
+    using namespace ck_test_groundnav_queryfixtures;
+    namespace WorldFields = ck::groundnav::world_fields;
+
+    const auto Cap = UCk_Utils_Crowd_Settings_UE::Get_GroundingRecoveryMaxStepUpCm();
+    if (NOT TestTrue(TEXT("this regression requires the default 50cm cap, active grounding lease and Hold policy"),
+        FMath::IsNearlyEqual(Cap, 50.0f) &&
+        UCk_Utils_Crowd_Settings_UE::Get_GroundingVerifyIntervalSeconds() > 0.0f &&
+        UCk_Utils_Crowd_Settings_UE::Get_NavmeshConstraintMode() == ECk_CrowdNavmeshConstraintMode::Enabled &&
+        UCk_Utils_Crowd_Settings_UE::Get_OffMeshDisplacementMode() == ECk_CrowdOffMeshDisplacementMode::Hold))
+    { return false; }
+
+    struct FCase
+    {
+        const TCHAR* _Name;
+        FVector _From;
+        FVector _Displacement;
+        float _Height;
+        bool _HasFloor;
+        bool _Ramp;
+        FVector _ExpectedOffset;
+        bool _OffMesh;
+    };
+
+    const auto Cases = TArray<FCase>{
+        {TEXT("excessive primary lift recovers to lower floor without walking pending XY"),
+            {410.0, 410.0, 140.0}, {20.0, 0.0, 0.0}, 192.0f, true, false, {0.0, 0.0, -140.0}, false},
+        {TEXT("excessive primary lift with no lower floor holds without upward or planar mutation"),
+            {410.0, 410.0, 140.0}, {20.0, 0.0, 0.0}, 192.0f, false, false, FVector::ZeroVector, true},
+        {TEXT("idle excessive primary lift also recovers to lower floor"),
+            {410.0, 410.0, 140.0}, FVector::ZeroVector, 192.0f, true, false, {0.0, 0.0, -140.0}, false},
+        {TEXT("exact cap boundary admits the primary and walks pending XY"),
+            {410.0, 410.0, 200.0 - Cap}, {20.0, 0.0, 0.0}, 192.0f, false, false, {20.0, 0.0, Cap}, false},
+        {TEXT("a primary lift just beyond the cap is rejected without walking"),
+            {410.0, 410.0, 200.0 - Cap - 0.1}, {20.0, 0.0, 0.0}, 192.0f, false, false, FVector::ZeroVector, true},
+        {TEXT("a lower floor beyond body-height reach cannot recover the held body"),
+            {410.0, 410.0, 140.0}, {20.0, 0.0, 0.0}, 100.0f, true, false, FVector::ZeroVector, true},
+        {TEXT("accepted idle primary preserves XY while correcting Z"),
+            {410.0, 410.0, 190.0}, FVector::ZeroVector, 192.0f, false, false, {0.0, 0.0, 10.0}, false},
+        {TEXT("a connected surface walk may ascend farther than the admission cap"),
+            {210.0, 410.0, 125.0}, {300.0, 0.0, 0.0}, 192.0f, false, true, FVector::ZeroVector, false}};
+
+    for (const auto& Case : Cases)
+    {
+        auto Field = MakeShared<FCk_GroundNav_Field>();
+        auto Boxes = TArray<FBox>{
+            FBox{FVector{-400.0, -400.0, 180.0}, FVector{1200.0, 1200.0, 200.0}}};
+        if (Case._HasFloor)
+        { Boxes.Emplace(FVector{-400.0, -400.0, -10.0}, FVector{1200.0, 1200.0, 0.0}); }
+        if (NOT TestTrue(TEXT("the stacked-floor admission scene bakes"), Case._Ramp ? Bake_RampScene(*Field) : Bake(Boxes, Make_FlatParams(), *Field)))
+        { return false; }
+
+        auto* World = UWorld::CreateWorld(EWorldType::Game, false, TEXT("CrowdProjectionAdmission"));
+        if (NOT TestNotNull(TEXT("the admission fixture owns a world"), World))
+        { return false; }
+        auto WorldEntity = UCk_Utils_EcsWorld_Subsystem_UE::Get_TransientEntity(World);
+        if (NOT TestTrue(TEXT("the fixture has a world-owned ECS registry"), ck::IsValid(WorldEntity)))
+        {
+            World->DestroyWorld(false);
+            return false;
+        }
+        WorldEntity.AddOrGet<ck::FFragment_NavSurface_Provider>();
+        WorldEntity.AddOrGet<ck::FFragment_NavSurface_RevisionWatch>();
+        WorldEntity.AddOrGet<ck::FFragment_NavSurface_PendingRebuilds>();
+        WorldFields::Publish(World, FCk_Handle{}, Field, {}, WorldFields::FCk_GroundNav_PublishClaim::Geometry());
+        UCk_Utils_NavSurface_UE::Request_SetProvider(World, ECk_NavSurface_Provider::GroundNav);
+
+        auto From = Case._From;
+        auto ExpectedOffset = Case._ExpectedOffset;
+        const auto Primary = UCk_Utils_NavSurface_UE::Try_ProjectPoint(World,
+            FCk_NavSurface_ProjectionQuery{From}.Set_SearchHalfExtents(FVector{42.0, 42.0, Case._Height}));
+        TestEqual(TEXT("the scene exposes a successful primary projection"),
+            Primary.Get_Status(), ECk_NavSurface_QueryStatus::Success);
+        if (Case._Ramp)
+        {
+            From = Primary.Get_Location();
+            const auto Walk = UCk_Utils_NavSurface_UE::Try_MoveAlongSurface(World,
+                FCk_NavSurface_MoveAlongSurfaceQuery{From, From + Case._Displacement});
+            TestEqual(TEXT("the connected ramp walk succeeds"), Walk.Get_Status(), ECk_NavSurface_QueryStatus::Success);
+            ExpectedOffset = Walk.Get_ReachedLocation() - From;
+            TestTrue(TEXT("the regression walk actually climbs beyond the admission cap"), ExpectedOffset.Z > Cap);
+        }
+        else
+        {
+            TestTrue(TEXT("the primary candidate is the upper deck"),
+                FMath::IsNearlyEqual(Primary.Get_Location().Z, 200.0, 0.01));
+        }
+
+        auto Owner = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(WorldEntity);
+        Owner.AddOrGet<ck::FTag_HasAuthority>();
+        auto Transform = UCk_Utils_Transform_UE::Add(
+            Owner, FTransform{From}, ECk_Replication::DoesNotReplicate);
+        auto Agent = UCk_Utils_CrowdAgent_UE::Add(Transform, FCk_CrowdAgent_Spec{42.0f, Case._Height});
+        if (NOT TestTrue(TEXT("normal composition produced the admission agent"), ck::IsValid(Agent)))
+        {
+            WorldFields::Unpublish(World, FCk_Handle{});
+            World->DestroyWorld(false);
+            return false;
+        }
+
+        auto Integrator = ck::FFragment_EulerIntegrator{};
+        auto Velocity = ck::FFragment_Velocity{Case._Displacement};
+        ck::FProcessor_EulerIntegrator_Update::ForEachEntity(
+            FCk_Time{1.0f}, Agent, Integrator, Velocity, ck::FFragment_Acceleration{});
+        auto& Pending = Agent.Get<ck::FFragment_CrowdAgent_PendingDisplacement>();
+        ck::FProcessor_CrowdAgent_ApplyOffset::ForEachEntity(FCk_Time{1.0f}, Agent, Integrator, Pending);
+
+        auto& Grounding = Agent.Get<ck::FFragment_CrowdAgent_Grounding>();
+        const auto VerifyDelta = FMath::Max(1.0f,
+            UCk_Utils_Crowd_Settings_UE::Get_GroundingVerifyIntervalSeconds() + 1.0f);
+        ck::FProcessor_CrowdAgent_ConstrainToNavmesh{WorldEntity.Get_RegistryView()}.ForEachEntity(
+            FCk_Time{VerifyDelta}, Agent, Agent.Get<ck::FFragment_Transform>(),
+            Agent.Get<ck::FFragment_CrowdAgent_Tunables>(), Pending, Grounding,
+            Agent.Get<ck::FFragment_CrowdAgent_PathFollow>());
+
+        auto Offset = FVector::ZeroVector;
+        if (Agent.Has<ck::FFragment_Transform_Requests>())
+        {
+            for (const auto& Request : Agent.Get<ck::FFragment_Transform_Requests>().Get_LocationRequests())
+            {
+                const auto* Add = std::get_if<FCk_Request_Transform_AddLocationOffset>(&Request);
+                if (TestNotNull(TEXT("admission only enqueues location offsets"), Add))
+                { Offset += Add->Get_DeltaLocation(); }
+            }
+        }
+        TestTrue(Case._Name, Offset.Equals(ExpectedOffset, 0.01));
+        if (Case._OffMesh && Agent.Has<ck::FFragment_Transform_Requests>())
+        {
+            TestTrue(TEXT("rejected admission enqueues no Transform location mutation"),
+                Agent.Get<ck::FFragment_Transform_Requests>().Get_LocationRequests().IsEmpty());
+        }
+        TestEqual(TEXT("failed admission is observable as off mesh"), Grounding.Get_IsOffNavmesh(), Case._OffMesh);
+        TestTrue(TEXT("the single writer drains staged displacement"), Pending.Get_Displacement().IsNearlyZero());
+        WorldFields::Unpublish(World, FCk_Handle{});
+        World->DestroyWorld(false);
+    }
     return true;
 }
 

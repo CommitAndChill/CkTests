@@ -17,6 +17,7 @@
 #include "Engine/World.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformTime.h"
+#include "Misc/App.h"
 #include "Misc/AutomationTest.h"
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -125,6 +126,10 @@ namespace ck_test_procedural_body_pose_tilt_steps
         double EffectiveMaxFPS = 0.0;
         uint32 EffectiveMaxFPSPriority = 0;
         bool TrialTimedOut = false;
+        int32 SustainedSteadySamples = 0;
+        int32 SustainedSteadySamplesNear60Hz = 0;
+        double ShortestSustainedSampleSeconds = TNumericLimits<double>::Max();
+        double LongestSustainedSampleSeconds = 0.0;
     };
 
     class FScopedMaxFPS
@@ -175,6 +180,81 @@ namespace ck_test_procedural_body_pose_tilt_steps
         TSharedPtr<FScopedMaxFPS> _Lease;
         FString _SavedValue;
         uint32 _SavedPriority = 0;
+    };
+
+    // The cap limits wall-clock throughput. These two trials additionally own a fixed simulation clock so their
+    // authored 60 Hz sample bounds remain the same when a rendered frame takes longer than the simulation step.
+    class FScopedFixed60Hz
+    {
+    public:
+        FScopedFixed60Hz()
+            : _SavedUseFixedTimeStep{FApp::UseFixedTimeStep()}, _SavedFixedDeltaTime{FApp::GetFixedDeltaTime()}
+        {}
+
+        ~FScopedFixed60Hz()
+        {
+            if (_Active)
+            {
+                FApp::SetFixedDeltaTime(_SavedFixedDeltaTime);
+                FApp::SetUseFixedTimeStep(_SavedUseFixedTimeStep);
+            }
+        }
+
+        FScopedFixed60Hz(const FScopedFixed60Hz&) = delete;
+        auto operator=(const FScopedFixed60Hz&) -> FScopedFixed60Hz& = delete;
+
+        auto
+        Begin()
+            -> void
+        {
+            FApp::SetFixedDeltaTime(NominalFrameSeconds);
+            FApp::SetUseFixedTimeStep(true);
+            _Active = true;
+        }
+
+        auto
+        Get_SavedUseFixedTimeStep() const
+            -> bool
+        { return _SavedUseFixedTimeStep; }
+
+        auto
+        Get_SavedFixedDeltaTime() const
+            -> double
+        { return _SavedFixedDeltaTime; }
+
+    private:
+        bool _SavedUseFixedTimeStep = false;
+        double _SavedFixedDeltaTime = 0.0;
+        bool _Active = false;
+    };
+
+    class FCk_Latent_ReleaseFixed60Hz : public IAutomationLatentCommand
+    {
+    public:
+        FCk_Latent_ReleaseFixed60Hz(
+            FAutomationTestBase& InTest,
+            const TSharedRef<FScopedFixed60Hz>& InLease)
+            : _Test{InTest}, _Lease{InLease}, _SavedUseFixedTimeStep{InLease->Get_SavedUseFixedTimeStep()},
+              _SavedFixedDeltaTime{InLease->Get_SavedFixedDeltaTime()}
+        {}
+
+        virtual bool Update() override
+        {
+            _Lease.Reset();
+            const auto RestoredFlag = FApp::UseFixedTimeStep();
+            const auto RestoredDelta = FApp::GetFixedDeltaTime();
+            UE_LOG(LogTemp, Display, TEXT("[TILT-60-CLOCK] saved fixed%d/delta%.17g restored fixed%d/delta%.17g"),
+                _SavedUseFixedTimeStep, _SavedFixedDeltaTime, RestoredFlag, RestoredDelta);
+            _Test.TestTrue(TEXT("The authored 60 Hz trial restores its exact prior fixed-clock flag and delta after EndPIE"),
+                RestoredFlag == _SavedUseFixedTimeStep && RestoredDelta == _SavedFixedDeltaTime);
+            return true;
+        }
+
+    private:
+        FAutomationTestBase& _Test;
+        TSharedPtr<FScopedFixed60Hz> _Lease;
+        bool _SavedUseFixedTimeStep = false;
+        double _SavedFixedDeltaTime = 0.0;
     };
 
     auto
@@ -495,6 +575,13 @@ namespace ck_test_procedural_body_pose_tilt_steps
         InState->Driving = true;
         InState->WasDriving = true;
         InState->LastSampleTime = InWorld->GetTimeSeconds();
+        InState->MaxFPSFoundAtTrial = UCk_Utils_AutoTest_UE::Get_CVarExists(FName{TEXT("t.MaxFPS")});
+        if (InState->MaxFPSFoundAtTrial)
+        {
+            const auto& MaxFPS = *IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+            InState->EffectiveMaxFPS = MaxFPS.GetFloat();
+            InState->EffectiveMaxFPSPriority = static_cast<uint32>(MaxFPS.GetFlags() & ECVF_SetByMask);
+        }
 
         const auto WeakState = TWeakPtr<FState>{InState};
         InState->DriveHandle = FWorldDelegates::OnWorldPreActorTick.AddLambda(
@@ -531,6 +618,14 @@ namespace ck_test_procedural_body_pose_tilt_steps
         const auto Steady = InState->WasDriving && InState->Driving;
         InState->WasDriving = InState->Driving;
         const auto Sample = ++InState->Frame;
+        if (Steady)
+        {
+            ++InState->SustainedSteadySamples;
+            InState->ShortestSustainedSampleSeconds = FMath::Min(InState->ShortestSustainedSampleSeconds, Elapsed);
+            InState->LongestSustainedSampleSeconds = FMath::Max(InState->LongestSustainedSampleSeconds, Elapsed);
+            if (Elapsed >= 1.0 / 72.0 && Elapsed <= 1.0 / 50.0)
+            { ++InState->SustainedSteadySamplesNear60Hz; }
+        }
 
         for (auto& Walker : InState->Walkers)
         {
@@ -681,8 +776,12 @@ auto
             && (MaxFPS.GetFlags() & ECVF_SetByMask) == ECVF_SetByConsole))
     { return false; }
 
+    const auto FixedClockLease = MakeShared<FScopedFixed60Hz>();
     const auto State = MakeSteppedWalkers();
     DoEnqueue_Walkers(this, State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [FixedClockLease](UWorld*)
+        { FixedClockLease->Begin(); })));
     DoEnqueue_PitchSteps(State, StepFrames);
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
@@ -729,6 +828,7 @@ auto
             }
         })));
     DoEnqueue_DestroyAndEndPie(State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseFixed60Hz(*this, FixedClockLease));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseMaxFPS(*this, MaxFPSLease, SavedMaxFPSValue, SavedMaxFPSPriority));
     return true;
 }
@@ -747,13 +847,42 @@ auto
 {
     using namespace ck_test_procedural_body_pose_tilt_steps;
 
+    const auto MaxFPSName = FName{TEXT("t.MaxFPS")};
+    if (NOT TestTrue(TEXT("The sustained trial can lease t.MaxFPS"), UCk_Utils_AutoTest_UE::Get_CVarExists(MaxFPSName)))
+    { return false; }
+
+    const auto& MaxFPS = *IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+    const auto SavedMaxFPSValue = MaxFPS.GetString();
+    const auto SavedMaxFPSPriority = static_cast<uint32>(MaxFPS.GetFlags() & ECVF_SetByMask);
+    TSharedPtr<FScopedMaxFPS> MaxFPSLease = MakeShared<FScopedMaxFPS>(MaxFPSName);
+    if (NOT TestTrue(FString::Printf(TEXT("The sustained trial leases t.MaxFPS at 60 (effective %.3f, priority 0x%x)"),
+            MaxFPS.GetFloat(), static_cast<uint32>(MaxFPS.GetFlags() & ECVF_SetByMask)),
+            FMath::IsNearlyEqual(MaxFPS.GetFloat(), 60.0f, 0.01f)
+            && (MaxFPS.GetFlags() & ECVF_SetByMask) == ECVF_SetByConsole))
+    { return false; }
+
+    const auto FixedClockLease = MakeShared<FScopedFixed60Hz>();
     const auto State = MakeSteppedWalkers();
     DoEnqueue_Walkers(this, State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [FixedClockLease](UWorld*)
+        { FixedClockLease->Begin(); })));
     DoEnqueue_SustainedRotation(State);
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State](UWorld*)
         {
             const auto MaxTrail = Get_DefaultMaxAttitudeLag() + TrailSlackDegrees;
+            UE_LOG(LogTemp, Display, TEXT("[SUSTAINED-60-CADENCE] cap %.3f/0x%x found %d steady %d near60 %d min %.5f max %.5f world seconds"),
+                State->EffectiveMaxFPS, State->EffectiveMaxFPSPriority, State->MaxFPSFoundAtTrial,
+                State->SustainedSteadySamples, State->SustainedSteadySamplesNear60Hz,
+                State->ShortestSustainedSampleSeconds, State->LongestSustainedSampleSeconds);
+            TestTrue(TEXT("The sustained cap remains effective in PIE"),
+                State->MaxFPSFoundAtTrial && FMath::IsNearlyEqual(State->EffectiveMaxFPS, 60.0, 0.01)
+                && State->EffectiveMaxFPSPriority == static_cast<uint32>(ECVF_SetByConsole));
+            TestTrue(FString::Printf(TEXT("The sustained trial observes its authored 60-Hz cadence (steady %d, near60 %d, min %.5f s, max %.5f s)"),
+                    State->SustainedSteadySamples, State->SustainedSteadySamplesNear60Hz,
+                    State->ShortestSustainedSampleSeconds, State->LongestSustainedSampleSeconds),
+                State->SustainedSteadySamples > 0 && State->SustainedSteadySamplesNear60Hz == State->SustainedSteadySamples);
             const auto MaxTargetRate = Get_DefaultMaxConformTiltRate() * TargetRateSlack;
             TestEqual(TEXT("The bodies turned the whole sustained rotation"), State->DrivenPitch, SustainedTotalDegrees, BodyStepToleranceDegrees);
             for (const auto& Walker : State->Walkers)
@@ -799,6 +928,8 @@ auto
             }
         })));
     DoEnqueue_DestroyAndEndPie(State);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseFixed60Hz(*this, FixedClockLease));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_ReleaseMaxFPS(*this, MaxFPSLease, SavedMaxFPSValue, SavedMaxFPSPriority));
     return true;
 }
 

@@ -1,0 +1,55 @@
+.ornamental-frame { width: 1050px; height: 300px; horizontal-align: center; vertical-align: bottom; }
+.hud-layout { padding: 30px 42px 18px 42px; }
+.header { height: 330px; gap: 26px; }
+.player-header { width: 280px; padding: 12px 0px 0px 0px; }
+.player-name { height: 66px; font-family: fantasy-display; font-size: 25px; color: #DDD1B4; text-wrap: nowrap; }
+.small { height: 28px; font-family: fantasy-ui; font-size: 18px; color: #C3B89D; text-wrap: nowrap; }
+.muted { color: #AAA89C; }
+.gold { color: #D4B67A; }
+.centered { horizontal-align: center; }
+.quest { flex-grow: 1; padding: 16px 20px 0px 20px; }
+.quest-title { height: 40px; font-family: fantasy-display; font-size: 26px; color: #E8DCC4; text-wrap: nowrap; }
+.objective { height: 36px; font-family: fantasy-ui; font-size: 22px; color: #C8C6BA; text-wrap: nowrap; }
+.map-panel { width: 280px; }
+.map-title { height: 28px; horizontal-align: center; font-family: fantasy-display; font-size: 18px; color: #D4B67A; text-wrap: nowrap; }
+.minimap { width: 280px; height: 280px; }
+.map-meta { height: 24px; gap: 16px; }
+.playfield { height: 470px; gap: 24px; }
+.party { width: 280px; }
+.party-member { height: 88px; padding: 9px 14px 6px 14px; background-color: #10110EC0; border-color: #6E6044; border-width: 1px; }
+.party-name { height: 30px; font-family: fantasy-display; font-size: 22px; color: #E1D7BF; text-wrap: nowrap; }
+.party-vitals { height: 5px; background-color: #8A2028; }
+.wheel-zone { width: 660px; height: 720px; horizontal-align: center; vertical-align: center; }
+.wheel-dots { width: 108px; height: 38px; gap: 12px; horizontal-align: center; }
+.dot-active { width: 26px; height: 28px; font-family: fantasy-ui; font-size: 28px; color: #980F0C; }
+.dot-idle { width: 18px; height: 24px; font-family: fantasy-ui; font-size: 18px; color: #BDB8AA; }
+.wheel-stage { width: 620px; height: 620px; horizontal-align: center; }
+.wheel-vignette { width: 620px; height: 620px; horizontal-align: center; vertical-align: center; }
+.interaction-wheel { width: 620px; height: 620px; horizontal-align: center; vertical-align: center; -ck-radial-tile-size: 70px; -ck-radial-sector-mode: 1; -ck-radial-fantasy-mode: 1; -ck-radial-glyph-font-size: 25px; -ck-radial-label-font-size: 21px; -ck-radial-ring: #8A8C8870; -ck-radial-selected: #DDD8CA; -ck-radial-queued: #D9AE5D; -ck-radial-disabled: #62584E; }
+.wheel-center { width: 136px; height: 620px; horizontal-align: center; }
+.grow { flex-grow: 1; }
+.center-disc { width: 136px; height: 136px; padding: 28px 8px 12px 8px; background-color: #080909F5; border-color: #777A75; border-width: 2px; border-radius: 68px; horizontal-align: center; }
+.wheel-close-label { height: 34px; horizontal-align: center; font-family: fantasy-ui; font-size: 23px; color: #C5C4BF; text-wrap: nowrap; }
+.customize-shell { width: 228px; height: 52px; padding: 6px 15px 6px 15px; horizontal-align: center; background-color: #080909B8; }
+.customize-button { width: 180px; height: 40px; horizontal-align: center; font-family: fantasy-ui; font-size: 19px; -ck-button-background: #500C0AED; -ck-button-color: #D5C7B6; -ck-button-border-color: #B34C3A; -ck-button-outline-width: 2px; -ck-button-radius: 1px; -ck-button-padding-x: 8px; -ck-button-padding-y: 2px; -ck-button-hover-background: #8F1D14; }
+.chat-zone { width: 410px; }
+.chat { height: 172px; padding: 12px 16px 8px 16px; background-color: #0C0E0EC8; border-color: #514B3C; border-width: 1px; }
+.chat-line { height: 31px; font-family: fantasy-ui; font-size: 16px; color: #C4C7BF; text-wrap: nowrap; }
+.action-line { color: #E0C58D; }
+.bottom-hud { width: 1010px; height: 222px; gap: 11px; horizontal-align: center; }
+.orb-panel { width: 240px; }
+.orb { width: 182px; height: 182px; horizontal-align: center; -ck-hud-orb-response: 0.16; -ck-hud-orb-motion-speed: 0.35; }
+.potion-hint { width: 80px; height: 26px; gap: 8px; horizontal-align: center; }
+.potion-count { height: 22px; font-family: fantasy-ui; font-size: 16px; color: #E1DED4; text-wrap: nowrap; }
+.hotbar-panel { width: 510px; padding: 60px 0px 0px 0px; gap: 4px; }
+.hotbar-caption { height: 24px; text-align: center; font-family: fantasy-display; font-size: 17px; color: #ECE5D7; text-wrap: nowrap; }
+.hotbar { width: 506px; height: 106px; padding: 4px 10px 4px 10px; gap: 6px; horizontal-align: center; background-color: #0C1115F5; }
+.skill { width: 76px; height: 98px; gap: 2px; }
+.spell-frame { width: 76px; height: 76px; padding: 4px; background-color: #22282A; border-color: #74654D; border-width: 1px; }
+.spell-inlay { width: 66px; height: 66px; padding: 1px; background-color: #080B0D; border-color: #A38A60; border-width: 1px; }
+.skill-art { width: 62px; height: 62px; -ck-hud-ability-font-size: 18px; }
+.key-hint { width: 22px; height: 20px; horizontal-align: center; -ck-key-hint-font-size: 12px; -ck-key-hint-foreground: #1D1E1D; -ck-key-hint-background: #C8C3B38C; -ck-key-hint-border-color: #44433FB0; -ck-key-hint-border-width: 1px; -ck-key-hint-radius: 2px; -ck-key-hint-padding-x: 0px; -ck-key-hint-padding-y: 0px; }
+.wheel-key { width: 28px; height: 31px; -ck-key-hint-font-size: 20px; -ck-key-hint-background: #C8C4B8CC; }
+.utility-row { height: 28px; gap: 8px; horizontal-align: center; }
+.utility-keycap { width: 48px; -ck-key-hint-font-size: 10px; }
+.open-button { width: 72px; height: 22px; font-family: fantasy-ui; font-size: 11px; -ck-button-text-align: center; -ck-button-content-vertical-align: center; -ck-button-background: #1114178C; -ck-button-color: #CDC7B9; -ck-button-border-color: #5F626190; -ck-button-outline-width: 1px; -ck-button-radius: 1px; -ck-button-padding-x: 4px; -ck-button-padding-y: 0px; -ck-button-hover-background: #3E4342A0; }

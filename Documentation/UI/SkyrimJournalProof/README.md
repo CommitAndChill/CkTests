@@ -1,0 +1,19 @@
+# Skyrim quest journal
+
+Select **UI: Skyrim Journal** in the CkTests gym selector. Press J or the panel's 1 shortcut to open it; J or Escape closes it. Mouse and native arrow navigation select quests and objectives; Enter toggles tracking. Q and E cycle Quests, General Stats and System. With the journal closed, 2 completes the next objective of the selected quest, 3 switches between the normal and 130-entry fixtures, and 4 resets the fixture. Reopen to inspect those changes.
+
+The purpose is to measure what an agent can author through CkSlateLayout HTML/CSS, CkYoga and a code-created UMG host. The [reference breakdown](reference-breakdown.md) separates observed Skyrim pixels from proposed logical geometry. The [74-node widget inventory](widget-breakdown.md) and [design contract](design-contract.json) identify each authored part and its typed binding. The main visual reference is the original-era Miscellaneous journal; the [official PC manual](https://cdn.akamai.steamstatic.com/steam/apps/72850/manuals/skyrim_gfw_manual-07.pdf?t=1647357402#page=7) establishes its journal controls.
+
+The authored source owns the frame composition, native tab rail, quest and objective row templates, text, spacing and footer. The host creates its UMG overlay, safe zone, scale box, reference-size box and authored surface in code. It also owns the local player's pause, cursor, focus and source reload. No Widget Blueprint or new binary Unreal asset is required. Quest data is a deterministic fixture, not a gameplay quest system. General Stats and System contain bounded fixture panels, not Skyrim's complete statistics, save/load or settings implementation.
+
+The revised source uses licensed [Barlow Condensed](https://github.com/google/fonts/tree/main/ofl/barlowcondensed) through `skyrim-ui` and `skyrim-display`, with the engine's Droid Sans fallback for diamond and triangle glyphs. A host-bound Nordic scene sits behind the journal, and a translucent smoky body lets the scene remain visible beneath the text. Original game art is not copied: the thin frame, curved title ornament and active-tab marks are passive `journal-art` drawings. The footer composes passive shared key hints for context-specific controls.
+
+The [focused native gate](verification.md) passed **26/26 tests** for the earlier source in one fresh Windows D3D12/SM6 Editor. Its [capture gallery](native-gallery.md) and [receipt](verification-receipt.json) are historical evidence. A newer 1920 × 1080 native capture under the project’s `Saved/Automation/SkyrimJournalProof` shows the scenic backdrop, smoky body, condensed type and transparent tree focus treatment. It exposed footer labels sitting above their keycaps; the footer text bounds and oversized row selection fills were adjusted afterward. That last CSS revision still needs a fresh native capture before visual acceptance.
+
+The [pipeline findings](pipeline-findings.md) record shared tab sizing, tree viewport styling, and deferred keyed selection. The journal now opts into scrolling a newly accepted quest or objective key into view after the tree projection settles; repeating the same key leaves the user's scroll position alone. This keeps the selected Miscellaneous row visible beside its details. The tab focus outline is suppressed through the registered transparent `-ck-tabs-focus-outline-color` style while active markers still identify the tab. These latest changes await native verification. Remaining authoring gaps include [scripting and packaged resource setup](../font-authoring-gap.md), default scrollbar styling, variable-height rows, and reusable menu lifecycle.
+
+![Native Miscellaneous journal](Captures/miscellaneous-1920x1080.png)
+
+## Mass Effect and Skyrim remake evidence
+
+The revised presentation and current scoped native evidence are collected in the [remake gallery](../ReplicaRemakes/README.md). Earlier screenshots and receipts on this page describe their original verification revision.

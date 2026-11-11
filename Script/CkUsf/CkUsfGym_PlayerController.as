@@ -193,14 +193,14 @@ class ACk_UsfGym_PlayerController : ACk_Gym_Base_PlayerController
         auto Location = StationTransform.Location + FVector(-200.0, 0.0, 150.0);
 
         TSubclassOf<ACk_UsfGym_Showcase> ShowcaseClass = ACk_UsfGym_Showcase;
-        const auto Name = InLook.Get_EffectiveLookName();
-        if (Name == n"StudioCeramic" || Name == n"StudioCopper" || Name == n"StudioRubber"
-            || Name == n"StudioLacquer" || Name == n"StudioWax")
+        const auto LookName = InLook.Get_EffectiveLookName();
+        if (LookName == n"StudioCeramic" || LookName == n"StudioCopper" || LookName == n"StudioRubber"
+            || LookName == n"StudioLacquer" || LookName == n"StudioWax")
         { ShowcaseClass = ACk_UsfGym_StudioShowcase; }
-        else if (Name == n"Julia" || Name == n"Seascape" || Name == n"Aiekick"
-            || Name == n"PainterlyRuins" || Name == n"Starfield")
+        else if (LookName == n"Julia" || LookName == n"Seascape" || LookName == n"Aiekick"
+            || LookName == n"PainterlyRuins" || LookName == n"Starfield")
         { ShowcaseClass = ACk_UsfGym_ImageShowcase; }
-        else if (Name == n"Displace")
+        else if (LookName == n"Displace")
         { ShowcaseClass = ACk_UsfGym_DisplaceShowcase; }
         else if (InLook._ShadingModel == ECk_Usf_ShadingModel::Toon)
         { ShowcaseClass = ACk_UsfGym_ToonShowcase; }

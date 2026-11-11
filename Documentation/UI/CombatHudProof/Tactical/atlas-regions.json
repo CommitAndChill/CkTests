@@ -1,0 +1,21 @@
+{
+  "theme": "Tactical",
+  "atlas": "../../../../Resources/UiAuthoring/CombatHudProof/Tactical/hud-atlas.png",
+  "width": 1448,
+  "height": 1086,
+  "bounds": "left, top inclusive; right, bottom exclusive",
+  "regions": {
+    "VitalsFrame": [13, 144, 366, 303],
+    "WeaponFrame": [385, 142, 742, 312],
+    "HealthGlyph": [782, 91, 1033, 342],
+    "WeaponGlyph": [1072, 153, 1435, 311],
+    "AbilityOne": [88, 405, 275, 691],
+    "AbilityTwo": [395, 400, 691, 691],
+    "AbilityThree": [761, 398, 1052, 691],
+    "SprintGlyph": [1123, 452, 1405, 690],
+    "CompassFrame": [11, 826, 370, 915],
+    "DamageOverlay": [397, 721, 694, 996],
+    "SmallOrnament": [742, 840, 1071, 919],
+    "Reticle": [1175, 774, 1362, 953]
+  }
+}

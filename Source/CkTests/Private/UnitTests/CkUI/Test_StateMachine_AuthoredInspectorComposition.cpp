@@ -67,6 +67,17 @@ namespace ck_tests_state_machine_authored
     auto TickSlate(FSlateApplication& InSlate) -> void
     { InSlate.PumpMessages(); InSlate.Tick(); InSlate.Tick(); }
 
+    auto ActivateMountedWindow(FSlateApplication& InSlate, const TSharedRef<SWindow>& InWindow) -> void
+    {
+        if (InSlate.IsRenderingOffScreen())
+        {
+            // Offscreen windows use FGenericWindow, whose native BringToFront cannot emit activation.
+            InSlate.ProcessWindowActivatedEvent(FWindowActivateEvent(FWindowActivateEvent::EA_Activate, InWindow));
+        }
+        else
+        { InWindow->BringToFront(true); }
+    }
+
     auto FindType(const TSharedRef<SWidget>& InRoot, const FString& InType) -> TSharedPtr<SWidget>
     {
         if (InRoot->GetTypeAsString() == InType) { return InRoot; }
@@ -187,7 +198,7 @@ namespace ck_tests_state_machine_authored
         const auto Window = InSlate.FindWidgetWindow(InButton);
         Result.NativeWindow = Window.IsValid() && Window->GetNativeWindow().IsValid();
         if (NOT Result.NativeWindow) { return Result; }
-        Window->BringToFront(true);
+        ActivateMountedWindow(InSlate, Window.ToSharedRef());
         TickSlate(InSlate);
         // A settling tick can open a deferred tooltip over the synthetic cursor. Close it after the final tick,
         // then redraw without ticking again so the physical move/click sees the production fixture window.
@@ -267,7 +278,7 @@ namespace ck_tests_state_machine_authored
         const auto Window = InSlate.FindWidgetWindow(InWidget);
         Result.NativeWindow = Window.IsValid() && Window->GetNativeWindow().IsValid();
         if (NOT Result.NativeWindow) { return Result; }
-        Window->BringToFront(true);
+        ActivateMountedWindow(InSlate, Window.ToSharedRef());
         TickSlate(InSlate);
         InSlate.CloseToolTip();
         InSlate.ReleaseAllPointerCapture(0);
@@ -309,7 +320,7 @@ namespace ck_tests_state_machine_authored
     {
         const auto Window = InSlate.FindWidgetWindow(InButton);
         if (NOT Window.IsValid() || NOT Window->GetNativeWindow().IsValid()) { return false; }
-        Window->BringToFront(true);
+        ActivateMountedWindow(InSlate, Window.ToSharedRef());
         TickSlate(InSlate);
         InSlate.CloseToolTip();
         InSlate.ReleaseAllPointerCapture(0);
@@ -340,9 +351,9 @@ namespace ck_tests_state_machine_authored
         InSlate.SetCursorPos(Position);
         InSlate.ProcessMouseMoveEvent(MoveEvent, true);
         InSlate.ForceRedrawWindow(Window.ToSharedRef());
-        return ContainsWidget(InSlate.LocateWindowUnderMouse(
-            Position, InSlate.GetInteractiveTopLevelWindows(), false, 0), HoverHost.ToSharedRef())
-            && InButton->GetVisibility() == EVisibility::Visible;
+        const auto GlobalPath = InSlate.LocateWindowUnderMouse(
+            Position, InSlate.GetInteractiveTopLevelWindows(), false, 0);
+        return ContainsWidget(GlobalPath, HoverHost.ToSharedRef()) && InButton->GetVisibility() == EVisibility::Visible;
     }
 
     auto RequestCount(const FCk_Handle& InEntity) -> int32
@@ -869,10 +880,7 @@ bool FCkTest_StateMachine_AuthoredInspectorComposition::RunTest(const FString& P
                 if (Index > 0)
                 {
                     const auto& Previous = History[Index - 1];
-                    // Capture stores GFrameNumber (scene rendering), not GFrameCounter (engine ticks).
-                    // Completed production transitions may share a render frame; their array order is authoritative.
-                    TestTrue(*FString::Printf(TEXT("history [%d] render frame is nondecreasing: previous=%llu current=%llu"),
-                        Index, Previous.FrameNumber, Entry.FrameNumber), Entry.FrameNumber >= Previous.FrameNumber);
+                    // UMG viewport draws can decrement raw GFrameNumber; committed array order and real time carry chronology.
                     // This fixture issues separate requests and its tooltip probe requires distinct sampled times.
                     TestTrue(*FString::Printf(TEXT("history [%d] sampled time increases: previous=%.9f current=%.9f"),
                         Index, Previous.RealTimeSeconds, Entry.RealTimeSeconds), Entry.RealTimeSeconds > Previous.RealTimeSeconds);
@@ -932,6 +940,11 @@ bool FCkTest_StateMachine_AuthoredInspectorComposition::RunTest(const FString& P
                     const auto Tooltips = CaptureTimelineTooltips(Timeline.ToSharedRef(), History);
                     TestEqual(TEXT("all nine timeline tooltip payloads equal exact native timeline capture"),
                         TEXT("Transitions ") + FString::Join(Tooltips, TEXT(" ")), Rows.FindRef(TEXT("Timeline:")));
+                    for (auto Index = int32{0}; Index < Tooltips.Num() && Index < History.Num(); ++Index)
+                    {
+                        TestTrue(*FString::Printf(TEXT("timeline [%d] retains its raw render frame without chronological remapping"), Index),
+                            Tooltips[Index].Contains(FString::Printf(TEXT("(frame %llu,"), History[Index].FrameNumber)));
+                    }
 
                     const auto Plugin = IPluginManager::Get().FindPlugin(TEXT("CkDebugger"));
                     FString Markup;

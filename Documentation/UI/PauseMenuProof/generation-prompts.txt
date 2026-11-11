@@ -1,0 +1,24 @@
+Built-in ChatGPT image generation
+Date: 2026-10-02
+
+1. Visual reference
+
+Use case: ui-mockup.
+Asset type: visual target for a simple native Unreal Engine pause-menu screen; flat front-on full-screen game screenshot, widescreen 16:9, ideally 1920 x 1080.
+Primary request: design one polished, restrained, production-quality pause menu that a native UMG/Slate widget hierarchy can reproduce. It must look like a finished in-game UI, with strong hierarchy and precise spacing, not a presentation slide or a wireframe.
+Scene/backdrop: a quiet softly defocused mountain lake and evergreen forest at dusk; muted blue-grey atmosphere. No characters or extra objects. A dark translucent full-screen scrim lets the UI read clearly.
+Composition: one centered charcoal panel, approximately 560 pixels wide and 600 pixels tall at 1920x1080, with a subtle single-pixel border and 12-pixel corner radius. Generous 40-pixel interior padding. Entire screen visible; no device frame.
+Panel content from top to bottom: small simple amber pause glyph made from two vertical rectangles; large bold clean sans-serif heading 'PAUSED'; smaller muted helper line 'The game is paused.'; thin divider; then exactly three equal-width rounded rectangular buttons in a vertical stack with 12-pixel gaps.
+Text, verbatim: heading 'PAUSED'; helper 'The game is paused.'; buttons 'Resume', 'Settings', 'Return to title'; beneath the panel a small keyboard keycap labeled 'Esc' followed by 'Resume'.
+Button states in this image: Resume is keyboard-focused, with warm amber fill, dark high-contrast label, and a thin separate ivory focus outline. Settings and Return to title are normal state with dark blue-grey fill, subtle border, and ivory labels. All button labels centered and legible. Buttons about 64 pixels high. No mouse cursor.
+Palette: charcoal surfaces, warm ivory typography, muted blue-grey secondary text, restrained amber accent. Crisp native-style geometry; rounded rectangles and simple lines only for UI.
+Constraints: one actual game screen, no annotations, no component breakdown on this image, no extra text, no invented game title or brand, no watermark, no browser chrome, no inventory or HUD. No elaborate ornaments, no gradients on controls, no glass refraction, no decorative glow. Background can be painterly; all UI text and edges must be sharp.
+
+2. Separate background derived from the visual reference
+
+Use case: background-extraction.
+Asset type: a separate background art texture for the pause-menu proof.
+Input image role: edit target, the generated pause-menu mockup.
+Remove the entire central menu panel, all typography, the pause icon, every button, the focus outline, the Esc keycap, and the Resume footer. Reconstruct the mountain landscape, forest, lake and reflections that would be behind those UI elements.
+Preserve the original framing, camera, horizon, mountains, trees, sunset, subdued exposure, palette, and soft-focus character everywhere else. Do not brighten or darken the scene further. Keep the original widescreen aspect ratio and image dimensions as closely as possible.
+Output only the clean background environment, edge to edge. No text, no controls, no panel, no icons, no borders, no watermark. This is an opaque landscape texture, not a transparent cutout.

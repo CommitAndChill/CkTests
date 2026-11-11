@@ -17,10 +17,13 @@
 #include "EngineUtils.h"
 #include "GameFramework/WorldSettings.h"
 #include "AI/NavigationSystemConfig.h"
+#include "AI/Navigation/NavigationDataChunk.h"
 #include "Builders/CubeBuilder.h"
 #include "ActorFactories/ActorFactory.h"
 #include "Misc/PackageName.h"
 #include "Engine/World.h"
+#include "Engine/Level.h"
+#include "Misc/ScopeExit.h"
 #include "NavigationSystem.h"
 #include "NavMesh/NavMeshBoundsVolume.h"
 #include "NavMesh/RecastNavMesh.h"
@@ -392,6 +395,81 @@ namespace ck_groundnav_matched_benchmark
         return true;
     }
 
+    auto
+        PrepareFixtureNavigation(
+            FAutomationTestBase& InTest,
+            UWorld& InWorld)
+        -> bool
+    {
+        auto* Package = InWorld.GetOutermost();
+        auto* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(&InWorld);
+        auto* Recast = Navigation != nullptr
+            ? Cast<ARecastNavMesh>(Navigation->GetDefaultNavDataInstance(FNavigationSystem::DontCreate)) : nullptr;
+        if (InWorld.WorldType != EWorldType::Editor || Package->GetName() != kMapPath ||
+            Package->IsDirty() || Recast == nullptr || Recast->GetOutermost() != Package || Recast->GetExternalPackage() != nullptr ||
+            InWorld.GetLevels().Num() != 1 || InWorld.PersistentLevel == nullptr ||
+            InWorld.PersistentLevel->GetOutermost() != Package)
+        { return InTest.AddError(TEXT("refusing navigation preparation outside the initially clean, single-package benchmark fixture")), false; }
+
+        for (const auto& NavChunk : InWorld.PersistentLevel->NavDataChunks)
+        {
+            if (NavChunk != nullptr && NavChunk->GetOutermost() != Package)
+            { return InTest.AddError(TEXT("benchmark navigation preparation refuses external navigation chunk packages")), false; }
+        }
+
+        auto RecastCount = 0;
+        for (TActorIterator<ARecastNavMesh> It{&InWorld}; It; ++It)
+        { ++RecastCount; }
+        if (RecastCount != 1)
+        { return InTest.AddError(TEXT("benchmark navigation preparation requires exactly one owned Recast actor")), false; }
+
+        const auto WasDirty = Package->IsDirty();
+        {
+            // Editor navigation completion dirties derived nav data in this fixture's map package.
+            ON_SCOPE_EXIT { Package->SetDirtyFlag(WasDirty); };
+            Navigation->Build();
+            Recast->EnsureBuildCompletion();
+        }
+
+        auto Passed = InTest.TestFalse(TEXT("fixture navigation build completes before PIE"), Navigation->IsNavigationBuildInProgress());
+        Passed &= InTest.TestFalse(TEXT("fixture navigation preparation preserves its clean package"), Package->IsDirty());
+
+        auto TileRefs = TArray<FNavTileRef>{};
+        Recast->GetAllNavMeshTiles(TileRefs);
+        auto GroundTiles = 0;
+        auto GroundPolygons = 0;
+        auto PopulatedBounds = FBox{ForceInit};
+        for (const auto TileRef : TileRefs)
+        {
+            const auto Bounds = Recast->GetNavMeshTileBounds(TileRef);
+            if (NOT Bounds.IsValid)
+            { continue; }
+            auto Polygons = TArray<FNavPoly>{};
+            if (Recast->GetPolysInTile(TileRef, Polygons) && NOT Polygons.IsEmpty())
+            {
+                ++GroundTiles;
+                GroundPolygons += Polygons.Num();
+                PopulatedBounds += Bounds;
+            }
+        }
+        Passed &= InTest.TestTrue(TEXT("fixture navigation contains populated ground tiles"), GroundTiles > 0);
+        Passed &= InTest.TestTrue(TEXT("fixture navigation contains ground polygons"), GroundPolygons > 0);
+        Passed &= InTest.TestTrue(TEXT("fixture navigation has valid populated bounds"), PopulatedBounds.IsValid != 0);
+
+        const auto Point = FVector{1400.0f, 0.0f, 0.0f};
+        auto Projected = FNavLocation{};
+        const auto ProjectedSuccessfully = Recast->ProjectPoint(Point, Projected, FVector{kAgentRadiusUu, kAgentRadiusUu, kAgentHeightUu});
+        Passed &= InTest.TestTrue(TEXT("prepared fixture projects the first benchmark endpoint"), ProjectedSuccessfully);
+        if (ProjectedSuccessfully)
+        {
+            const auto Error = (Projected.Location - Point).GetAbs();
+            Passed &= InTest.TestTrue(TEXT("prepared fixture preserves endpoint XY within 25 units"), Error.X <= 25.0f && Error.Y <= 25.0f);
+            Passed &= InTest.TestTrue(TEXT("prepared fixture preserves endpoint height within 2 units"), Error.Z <= 2.0f);
+        }
+        return Passed;
+    }
+
+
     auto EnsureMap(FAutomationTestBase& InTest) -> bool
     {
         if (auto* ExistingWorld = GEditor != nullptr ? GEditor->GetEditorWorldContext().World() : nullptr;
@@ -404,7 +482,8 @@ namespace ck_groundnav_matched_benchmark
         { return InTest.AddError(TEXT("could not load the existing matched benchmark map")), false; }
         auto* World = GEditor != nullptr ? GEditor->GetEditorWorldContext().World() : nullptr;
         auto* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
-        return World != nullptr && Cube != nullptr && ValidateMap(InTest, *World, *Cube);
+        return World != nullptr && Cube != nullptr && ValidateMap(InTest, *World, *Cube)
+            && PrepareFixtureNavigation(InTest, *World);
     }
 
     class FStartStandalonePIE final : public IAutomationLatentCommand
@@ -429,6 +508,13 @@ namespace ck_groundnav_matched_benchmark
             Settings->bLaunchSeparateServer = false;
             auto Params = FRequestPlaySessionParams{};
             Params.WorldType = EPlaySessionWorldType::PlayInEditor;
+            auto* EditorWorld = GEditor->GetEditorWorldContext().World();
+            if (EditorWorld == nullptr || EditorWorld->GetOutermost()->GetName() != kMapPath || EditorWorld->GetOutermost()->IsDirty())
+            {
+                _Test->AddError(TEXT("benchmark fixture must remain clean before PIE"));
+                RestoreStandalonePlaySettings();
+                return true;
+            }
             GUnrealEd->RequestPlaySession(Params);
             return true;
         }
@@ -521,6 +607,9 @@ namespace ck_groundnav_matched_benchmark
                 _Test->AddError(TEXT("standalone PIE did not end within 30 seconds; restoring play settings"));
             }
             RestoreStandalonePlaySettings();
+            auto* EditorWorld = GEditor != nullptr ? GEditor->GetEditorWorldContext().World() : nullptr;
+            _Test->TestTrue(TEXT("benchmark leaves the owned editor fixture clean after PIE"),
+                EditorWorld != nullptr && EditorWorld->GetOutermost()->GetName() == kMapPath && NOT EditorWorld->GetOutermost()->IsDirty());
             return true;
         }
 
@@ -549,7 +638,21 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkGroundNavMatchedBenchmark_MapContract,
 
 bool FCkGroundNavMatchedBenchmark_MapContract::RunTest(const FString& Parameters)
 {
-    return ck_groundnav_matched_benchmark::EnsureMap(*this);
+    if (NOT ck_groundnav_matched_benchmark::EnsureMap(*this))
+    { return false; }
+    auto* World = GEditor->GetEditorWorldContext().World();
+    auto* Package = World->GetOutermost();
+    const auto WasDirty = Package->IsDirty();
+    {
+        ON_SCOPE_EXIT { Package->SetDirtyFlag(WasDirty); };
+        Package->SetDirtyFlag(true);
+        AddExpectedError(TEXT("refusing to replace a dirty editor map while checking the benchmark fixture"),
+            EAutomationExpectedErrorFlags::Contains, 1);
+        TestFalse(TEXT("map preparation refuses an initially dirty editor world"), ck_groundnav_matched_benchmark::EnsureMap(*this));
+        TestTrue(TEXT("dirty-world refusal preserves the editor world identity"), GEditor->GetEditorWorldContext().World() == World);
+        TestTrue(TEXT("dirty-world refusal preserves the package dirty flag"), Package->IsDirty());
+    }
+    return TestFalse(TEXT("dirty-world refusal regression restores its owned clean fixture"), Package->IsDirty());
 }
 
 #define CK_GROUNDNAV_MATCHED_BENCHMARK_TEST(Name, TestName, Provider, Mode) \

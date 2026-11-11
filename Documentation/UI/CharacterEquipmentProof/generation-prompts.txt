@@ -1,0 +1,29 @@
+Image generation provenance, 2026-10-08
+Tool: built-in ChatGPT image generation. All outputs generated for this proof.
+
+character-equipment-reference.png (visual design target; never mounted as UI)
+Prompt intent: Create a polished 1920x1080 landscape dark medieval game character and equipment screen, Diablo IV inspired, with original art and labels. Left: LYRA, level42 rogue, full-body female hooded character between equipment columns. Right: six-column/four-row inventory, rich selected/equipped comparison panels below. Bronze borders, burgundy title panels, charcoal translucent surfaces, restrained ivory/gold typography, generous spacing and small centered key hints. Separate gameplay artwork from readable UI. The generated geometry and copy are illustrative; authored code is authoritative.
+
+character-portrait.png (1024x1536 RGBA)
+Prompt intent: Production game UI asset, one full-body female dark-fantasy rogue, hooded, weathered leather/bronze/burgundy equipment and daggers. Front-facing slightly turned heroic stance, detailed painterly realistic game render, soft grounded lighting, full head and boots visible. True transparent background, no frame, labels or other UI. Generated with transparent_background=true.
+
+item-atlas.png (1448x1086 RGBA)
+Prompt intent: Production dark fantasy game inventory icon ATLAS. Exactly4columns3rows of equal cells with centered isolated item art and generous transparent gutters; no frames, text, labels or UI. Exact row-major order: sword, bow, hood, chest armor; gloves, boots, ember amulet, sapphire ring; skull ring, red potion, blue potion, leggings. Ornate weathered realistic metal/leather/glass, consistent directional light, clear silhouettes, dark medieval palette. Generated with transparent_background=true.
+
+The above records preserve the design/asset instructions; they are prompt summaries rather than verbatim tool payloads. No copyrighted game textures were extracted. Existing dungeon backdrop and OFL font assets are reused from DarkFantasyHudProof.
+
+ornamental-frame.png (separate transparent decoration; generated with transparent_background=true)
+Verbatim prompt: Use case: production game UI decorative frame asset. Create ONLY an ornate dark gothic fantasy menu OUTER FRAME, landscape aspect ratio 16:9, thin weathered black iron and antique bronze double border with delicate interlaced thorn filigree at four corners, subtle red gemstone centered at the top and bottom, tiny scratches and worn metal highlights, elegant Diablo-inspired original craftsmanship. The frame is confined to the outermost 3 percent of the image width/height; nearly all interior area must be FULLY TRANSPARENT, as it will overlay a live code-authored character/inventory screen. No text, no letters, no icons, no items, no character, no inner divider, no fill, no background scenery. Entire image outside the metal itself is true alpha transparency. Keep all outer corners fully visible with a tiny transparent margin; do not crop tips. Detailed realistic videogame metalwork, soft dim highlights, premium subtle gothic art, no glow. This is only a texture asset; all UI content will be rendered separately.
+
+2026-10-08 detail revision assets
+character-alcove.png: Original dark gothic cathedral alcove, portrait 2:3, empty central space for separate character, wet flagstones, low mist, edge candles, narrow burgundy banners, no text or UI apertures. Generated with built-in image generation; original retained in generated_images.
+slot-frame.png: One orthographic square reusable slot backplate. Narrow weathered iron double bevel, muted bronze edges, tiny corner engraving; near-black leather center, no item/text/runes. Opaque image is nested inside live slot bounds.
+ornamental-frame.png revision: Edit original frame to thin low-profile perimeter, remove large inward horns/center gems, preserve 16:9 and true transparent center. Keep small gothic iron/bronze details within outer edge band so live header/footer remain unobstructed. Original pre-revision working asset retained in Saved/ornamental-frame-before-detail-revision.png.
+
+
+Material and spacing revision, 2026-10-08:
+- stat-glyph-atlas.png: Transparent 4-column x 2-row atlas. Equal square cells: fist, dagger, shield, healing cross; critical star, affix diamond, green up triangle, red down triangle. First six antique gold. Center each symbol with transparent safe padding. No text/grid.
+- panel-frame.png: Dark leather/ash panel texture, thin engraved iron/bronze perimeter and restrained corner details confined to the edge. Empty center for live item information; no baked labels/icons.
+- stat-strip.png: Dark leather framed attribute strip, no interior divisions or baked content. First output had unintended white canvas; regenerated through image editing to fill the whole canvas with only the panel.
+- title-strip.png: Deep burgundy velvet, thin aged bronze rails and small corner details. No emblems, labels or baked interface controls.
+All four are independent image-generation assets; widgets own their text, spacing, state and interactions.

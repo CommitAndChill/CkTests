@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "theme": "Fantasy",
+  "gameReference": "Skyrim",
+  "status": "native-runtime-verified",
+  "verification": {
+    "date": "2026-10-04",
+    "log": "Saved/Logs/UiTypography-Gate-03.log",
+    "buildLog": "Saved/Logs/UiTypography-Build-02.log",
+    "selectedTests": 41,
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0,
+    "contaminated": 0,
+    "rhi": "D3D12/SM6",
+    "method": "Actual CkTests gym PIE native Slate viewport screenshots; source frozen; no image editing",
+    "settings": "Watermark, input history and gym hint hidden transiently; original CVar values/flags and gym startup preferences restored by asserted cleanup",
+    "nativeTextFit": "Unconstrained SCkFlexText measurement versus valid cached local geometry for Mass Effect loaded ammo and six Battlefield ticket-row labels in each captured state/resolution",
+    "regression": "Former loaded ammo typography reproduced through live Request_ApplySource: required 80x83 versus allocated 76x58; corrected source restored before captures"
+  },
+  "authoredSourceSha256": {
+    "CombatHudProof.ui.css": "83a0255d3ca7278340a6424c15a8b7581b380c687b18c65b5bd2c1eb89b78f81",
+    "CombatHudProof.ui.html": "269f97740b5f772b257a64e5cd3c6f902904dd086b398623055cbdc1fe1d0a40"
+  },
+  "runtimeSourceSha256": {
+    "Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.css": "83a0255d3ca7278340a6424c15a8b7581b380c687b18c65b5bd2c1eb89b78f81",
+    "Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.html": "269f97740b5f772b257a64e5cd3c6f902904dd086b398623055cbdc1fe1d0a40",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.css": "1913da83dbf5450f622e68a623e84176f0337fd173c57f943484fe95115dae05",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/CombatHudProof.ui.html": "16479086ef57269cc60b08147ddb192300df60f9d92a9ac5b79d0769e73dc7bd",
+    "Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.css": "19c06a499f531305ca1fe24e5320029bb53d875a3dcfb4ace1d0cb71762a878d",
+    "Resources/UiAuthoring/CombatHudProof/Tactical/CombatHudProof.ui.html": "34b3668c06d1d7ce5f995dff77b3af81ed59211d539b0f2f205a60eb516d0c76",
+    "Resources/UiAuthoring/CombatHudProof/Futuristic/squad-portraits.png": "d2d06856d85d570154bdc322674eae4d693d374770336e9ce096760d6fd3f391",
+    "Source/CkTests/Private/UI/CkCombatHudProof.cpp": "1cd3008a24e46773e64b3a3edca23f0b84a3d60c48f9690c57f90dcefa083d3c",
+    "Source/CkTests/Private/UI/CkCombatHudProofModel.cpp": "d789686da83546efa32ba294cc602d7434f0f6a9e77c3f50624c588e19cf4fbb",
+    "Source/CkTests/Private/UI/CkCombatHudReplicaArt.cpp": "daadb6875f0e692b37c18719dda7b56920a61a76f8a4e11b6afd93460f6a752f",
+    "Source/CkTests/Private/UI/CkCombatHudProofModel.h": "b6060ad9cb54d9ea6a201cb92498b0c8d466198c26e4206c68e1f3c55aa58e7c",
+    "Source/CkTests/Private/UI/CkCombatHudReplicaArt.h": "2d79cc344cf90794f9092ae21163a7d474e49fbaf76c210e056e7994f0fc8684",
+    "Source/CkTests/Public/CkTests/UI/CkCombatHudProof.h": "82beff11b0222611b2fc28b18402520d592ed7bb6cf5862a3ee013e069610e79",
+    "Source/CkTests/Public/CkTests/UI/CkCombatHudProofData.h": "085ce8ce9f4a62669c0e9416f459fc836e659f350bca4415c749d9d78afb2b04",
+    "Source/CkTests/Private/UnitTests/CkYoga/Test_CombatHudProof.cpp": "9eba974512af53a19eec20ba7a26cde9ab11d7252b097d17fcb395db19638b3e",
+    "Source/CkTests/Private/UnitTests/CkYoga/Test_CombatHudReplicaArt.cpp": "d02692c808f5af0137dfeadd1ee30162549caeef2d791a5787a371b2e5accd3a",
+    "Script/CkUiAuthoring/CkCombatHud_Gym.as": "1739ad24e97c8ec9405e831de1e84146ba7a1f915d0402b323638916bf8acefa",
+    "Script/Common/CkTests_GymRegistry.as": "ca4377d6862e286bf10508b4a6238aaea49a89ee66c63e5d579a7d18686ea3ce",
+    "Source/CkTests/CkTests.Build.cs": "9b8880b74355fb8e215cfd62a2224d9686d13873e5131e81e482153c6de5f11a"
+  },
+  "captures": [
+    {
+      "file": "replica-native-initial-1280x720.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-1280x720.png",
+      "state": "initial",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "9aa52d24f6a51466f24d26471255a948108c1c4b93ecad780bd3a03eec969dfe",
+      "capturedUtc": "2026-10-04T10:53:58.916092+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-initial-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-1920x1080.png",
+      "state": "initial",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "b4f39df4ba77ad0ba1a53053d1de4e7e30d4308056f00aca7b8dd50f6c8734d9",
+      "capturedUtc": "2026-10-04T10:53:58.696097+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-initial-2560x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-initial-2560x1080.png",
+      "state": "initial",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "35b240839cc3bec71aaa207964cdbb0c681d0ca1692d00594ad233d42e5294f9",
+      "capturedUtc": "2026-10-04T10:53:59.232173+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-reloading-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-reloading-1920x1080.png",
+      "state": "reloading",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "bd948f724acfedcedb6999fb599544ac6476a76d43ad0e08dccfc12c5e0121cb",
+      "capturedUtc": "2026-10-04T10:53:59.678227+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-ability-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-ability-1920x1080.png",
+      "state": "ability",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "547282789a028a007517ee1f1db7daa91f7599898e873801552b0151be1d5c39",
+      "capturedUtc": "2026-10-04T10:53:59.899153+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-low-health-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-low-health-1920x1080.png",
+      "state": "low-health",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "101a77ab422a1d1f481574aaeee601cfcf5ee4b6c0e8e2f8003e531cc4e8c9b1",
+      "capturedUtc": "2026-10-04T10:54:01.299166+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-context-one-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-context-one-1920x1080.png",
+      "state": "context-one",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "e6ae8a7b16821f36d85d1c75c7a98436043fe2c718fbf859859df86976b95827",
+      "capturedUtc": "2026-10-04T10:54:01.857337+00:00",
+      "edited": false
+    },
+    {
+      "file": "replica-native-context-two-1920x1080.png",
+      "source": "Saved/Automation/CombatHudProof/Fantasy-replica-context-two-1920x1080.png",
+      "state": "context-two",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "a5636c3ae2fddd4e5c5c5c58e06b10b2141401e31950286b34a512aaefd2d185",
+      "capturedUtc": "2026-10-04T10:54:02.302841+00:00",
+      "edited": false
+    }
+  ],
+  "limitations": [
+    "Recreated native glyphs, meter engraving and substituted fonts; no pixel-perfect claim",
+    "Deterministic in-memory fixture, not real gameplay integration",
+    "Underlying sky/world is the CkTests gym; no source-game scene reproduced",
+    "Procedural Battlefield minimap; no original terrain feed",
+    "Physical gamepad and packaged execution remain unverified"
+  ]
+}

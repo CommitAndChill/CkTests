@@ -1,0 +1,116 @@
+<ui version="1">
+ <template name="gear-preview">
+  <param name="label" type="text" />
+  <param name="icon" type="number-binding" />
+  <param name="left" type="number-binding" />
+  <param name="top" type="number-binding" />
+  <param name="right" type="number-binding" />
+  <param name="bottom" type="number-binding" />
+  <param name="name" type="text" />
+  <column id="gear" class="gear">
+   <text id="label" text-param="label" class="small muted" />
+   <overlay id="frame" class="gear-frame">
+    <atlas-image aspect-fit="true" id="image" image-bind="InventoryAtlas" index-bind-param="icon" crop-left-bind-param="left" crop-top-bind-param="top" crop-right-bind-param="right" crop-bottom-bind-param="bottom" columns="5" rows="4" class="gear-art" />
+   </overlay>
+   <text id="name" text-param="name" class="small gear-name" />
+  </column>
+ </template>
+ <region name="main">
+  <overlay id="root">
+   <column id="shade" class="shade" />
+   <column id="shell" class="shell">
+    <row id="navigation" class="navigation">
+     <text id="character-tab" class="tab muted">CHARACTER</text>
+     <text id="gear-tab" class="tab active-tab">GEAR</text>
+     <text id="health-tab" class="tab muted">HEALTH</text>
+     <text id="skills-tab" class="tab muted">SKILLS</text>
+     <text id="map-tab" class="tab muted">MAP</text>
+     <text id="tasks-tab" class="tab muted">TASKS</text>
+     <text id="profile" class="profile small">USEC  /  A. MERCER  /  LVL 28</text>
+    </row>
+    <column id="nav-rule" class="rule" />
+    <row id="body" class="body">
+     <column id="operator-panel" class="operator-panel">
+      <row id="identity" class="section-header">
+       <text id="operator-heading" class="heading">EQUIPMENT</text>
+       <text id="operator-level" class="small accent">28</text>
+      </row>
+      <overlay id="operator-stage" class="operator-stage">
+       <image id="operator-image" bind="OperatorPortrait" class="operator-image" />
+       <row id="equipment-preview" class="equipment-preview">
+        <column id="gear-left" class="gear-column">
+         <use id="headwear" template="gear-preview" label="HEADWEAR" icon-bind="GearIcon3" left-bind="GearIcon3Left" top-bind="GearIcon3Top" right-bind="GearIcon3Right" bottom-bind="GearIcon3Bottom" name="FAST MT" />
+         <use id="earpiece" template="gear-preview" label="EARPIECE" icon-bind="GearIcon18" left-bind="GearIcon18Left" top-bind="GearIcon18Top" right-bind="GearIcon18Right" bottom-bind="GearIcon18Bottom" name="COMTAC" />
+         <use id="body-armor" template="gear-preview" label="BODY ARMOR" icon-bind="GearIcon2" left-bind="GearIcon2Left" top-bind="GearIcon2Top" right-bind="GearIcon2Right" bottom-bind="GearIcon2Bottom" name="FORT" />
+        </column>
+        <column id="operator-gap" class="operator-gap" />
+        <column id="gear-right" class="gear-column">
+         <use id="rig-preview" template="gear-preview" label="TACTICAL RIG" icon-bind="GearIcon12" left-bind="GearIcon12Left" top-bind="GearIcon12Top" right-bind="GearIcon12Right" bottom-bind="GearIcon12Bottom" name="BANK ROBBER" />
+         <use id="holster" template="gear-preview" label="HOLSTER" icon-bind="GearIcon10" left-bind="GearIcon10Left" top-bind="GearIcon10Top" right-bind="GearIcon10Right" bottom-bind="GearIcon10Bottom" name="GLOCK 17" />
+         <use id="scabbard" template="gear-preview" label="SCABBARD" icon-bind="GearIcon19" left-bind="GearIcon19Left" top-bind="GearIcon19Top" right-bind="GearIcon19Right" bottom-bind="GearIcon19Bottom" name="FOLDING KNIFE" />
+        </column>
+       </row>
+      </overlay>
+      <row id="weapon-preview" class="weapon-preview">
+       <atlas-image aspect-fit="true" id="sling-image" image-bind="InventoryAtlas" index-bind="GearIcon0" crop-left-bind="GearIcon0Left" crop-top-bind="GearIcon0Top" crop-right-bind="GearIcon0Right" crop-bottom-bind="GearIcon0Bottom" columns="5" rows="4" class="sling-art" />
+       <column id="sling-labels" class="sling-labels">
+        <text id="sling-heading" class="small muted">ON SLING</text>
+        <text id="sling-name" class="body-text">M4A1</text>
+        <text id="sling-ammo" class="small accent">5.56 x 45</text>
+       </column>
+      </row>
+      <row id="vitals" class="vitals">
+       <column id="weight" class="vital"><text id="weight-label" class="small muted">WEIGHT</text><text id="weight-value" class="vital-value">27.4 KG</text></column>
+       <column id="health" class="vital"><text id="health-label" class="small muted">HEALTH</text><text id="health-value" class="vital-value green">440 / 440</text></column>
+       <column id="hydration" class="vital"><text id="hydration-label" class="small muted">HYDRATION</text><text id="hydration-value" class="vital-value blue">100</text></column>
+      </row>
+      <text id="equipment-context" class="small muted context">Equipped loadout preview</text>
+     </column>
+     <column id="pack-panel" class="pack-panel">
+      <row id="pack-header" class="section-header"><text id="pack-heading" class="heading">BACKPACK</text><text id="pack-count" bind="PackCount" class="small accent" /></row>
+      <row id="pack-meta" class="meta-row"><text id="pack-type" class="small muted">TRI-ZIP</text><text id="pack-capacity" class="small meta-right">6 x 6</text></row>
+      <inventory-grid id="pack-grid" items-bind="Pack" image-bind="InventoryAtlas" columns="6" rows="6" cell-size="52" atlas-columns="5" atlas-rows="4" select="SelectItem" move="OnPackMove" selected-key-bind="SelectedItemKey" font-family="tactical-ui" class="pack-grid inventory-grid" />
+      <text id="pack-guidance" class="small muted context">Drag to place  /  R to rotate</text>
+      <column id="case-panel" visible="CaseOpen" class="case-panel">
+       <row id="case-header" class="case-header"><text id="case-title" class="heading">DOCUMENT CASE</text><key-hint id="case-close" label="X" action="CloseCase" font-family="tactical-ui" class="key-hint" /></row>
+       <row id="case-meta" class="meta-row"><text id="case-caption" class="small muted">CONTENTS</text><text id="case-count" bind="CaseCount" class="small meta-right" /></row>
+       <inventory-grid id="case-grid" items-bind="Case" image-bind="InventoryAtlas" columns="4" rows="4" cell-size="52" atlas-columns="5" atlas-rows="4" select="SelectItem" move="OnCaseMove" selected-key-bind="SelectedItemKey" font-family="tactical-ui" class="case-grid inventory-grid" />
+       <text id="case-guidance" class="small muted context">Independent container storage</text>
+      </column>
+     </column>
+     <column id="stash-panel" class="stash-panel">
+      <row id="stash-header" class="section-header"><text id="stash-heading" class="heading">STASH</text><text id="stash-count" bind="StashCount" class="small accent" /></row>
+      <row id="stash-meta" class="meta-row"><text id="stash-currency" class="small">1 284 650 RUB</text><text id="stash-capacity" class="small meta-right muted">10 x 14</text></row>
+      <inventory-grid id="stash-grid" items-bind="Stash" image-bind="InventoryAtlas" columns="10" rows="14" cell-size="52" atlas-columns="5" atlas-rows="4" select="SelectItem" move="OnStashMove" selected-key-bind="SelectedItemKey" font-family="tactical-ui" class="stash-grid inventory-grid" />
+      <text id="stash-guidance" class="small muted context">Personal storage  /  placement validated before transfer</text>
+     </column>
+     <column id="inspection-panel" visible="HasSelection" class="inspection-panel">
+      <row id="inspection-header" class="section-header"><text id="inspection-heading" class="heading">INSPECT</text><text id="inspection-kind" bind="SelectedKind" class="small accent" /></row>
+      <column id="inspection-content" class="inspection-content">
+       <text id="inspection-name" bind="SelectedName" class="item-name" />
+       <overlay id="inspection-art-frame" class="inspection-art-frame"><atlas-image aspect-fit="true" id="inspection-icon" image-bind="InventoryAtlas" index-bind="SelectedIcon" crop-left-bind="SelectedIconLeft" crop-top-bind="SelectedIconTop" crop-right-bind="SelectedIconRight" crop-bottom-bind="SelectedIconBottom" columns="5" rows="4" class="inspection-art" /></overlay>
+       <row id="condition-row" class="stat-row"><text id="condition-label" class="body-text muted stat-label">Condition</text><text id="condition-value" bind="SelectedCondition" class="body-text green stat-value" /></row>
+       <row id="weight-row" class="stat-row"><text id="item-weight-label" class="body-text muted stat-label">Weight</text><text id="item-weight-value" bind="SelectedWeight" class="body-text stat-value" /></row>
+       <row id="caliber-row" class="stat-row"><text id="caliber-label" class="body-text muted stat-label">Caliber</text><text id="caliber-value" bind="SelectedCaliber" class="body-text stat-value" /></row>
+       <row id="footprint-row" class="stat-row"><text id="footprint-label" class="body-text muted stat-label">Footprint</text><text id="footprint-value" bind="SelectedFootprint" class="body-text stat-value" /></row>
+       <row id="ownership-row" class="stat-row"><text id="ownership-label" class="body-text muted stat-label">Location</text><text id="ownership-value" bind="SelectedContainer" class="body-text stat-value" /></row>
+       <row id="quantity-row" class="stat-row"><text id="item-quantity-label" class="body-text muted stat-label">Quantity</text><text id="item-quantity-value" bind="SelectedQuantity" class="body-text stat-value" /></row>
+       <column id="inspection-rule" class="rule" />
+       <text id="inspection-description" bind="SelectedDescription" class="description" />
+       <action-card id="rotate-action" action="RotateSelected" enabled-bind="CanRotate" class="action"><slot name="content"><row id="rotate-content" class="action-content"><key-hint id="rotate-label-key" label="R" font-family="tactical-ui" class="key-hint" /><text id="rotate-label" class="body-text action-label">ROTATE ITEM</text></row></slot></action-card>
+       <action-card id="transfer-action" action="QuickTransfer" enabled-bind="CanQuickTransfer" class="action"><slot name="content"><row id="transfer-content" class="action-content"><key-hint id="transfer-label-key" label="E" font-family="tactical-ui" class="key-hint" /><text id="transfer-label" class="body-text action-label">QUICK TRANSFER</text></row></slot></action-card>
+       <action-card id="open-case-action" action="OpenCase" visible="CanOpenCase" class="action"><slot name="content"><row id="open-case-content" class="action-content"><key-hint id="open-case-label-key" label="O" font-family="tactical-ui" class="key-hint" /><text id="open-case-label" class="body-text action-label">OPEN CONTAINER</text></row></slot></action-card>
+      </column>
+     </column>
+    </row>
+    <column id="footer-rule" class="rule" />
+    <row id="footer" class="footer">
+     <key-hint id="close-key" label="ESC" action="Close" font-family="tactical-ui" class="key-hint wide-key" /><text id="close-label" class="small">BACK</text>
+     <key-hint id="reset-key" label="RESET" action="ResetFixture" font-family="tactical-ui" class="key-hint wide-key" />
+     <text id="status" bind="Status" class="status" />
+     <text id="pipeline-note" class="small muted">SPATIAL INVENTORY PROOF</text>
+    </row>
+   </column>
+  </overlay>
+ </region>
+</ui>

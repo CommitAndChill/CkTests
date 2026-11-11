@@ -20,7 +20,7 @@ class UCk_AutoTest_ProceduralAnimation_PostsBeastPosedReach : UCk_AutoTest_Base
         auto Roster = TArray<ECkProceduralAnimationGym_Species>();
         Roster.Add(ECkProceduralAnimationGym_Species::Beast);
         if (_Fixture.Create_WithRoster(InHandle, FVector(120000.0, 365000.0, 600.0),
-            ECkProceduralAnimationGym_Course::Posts, Roster, false) == false)
+            ECkProceduralAnimationGym_Course::Posts, Roster, false, InAdaptiveHeight: true) == false)
         {
             FinishFailure("The isolated real-Jolt Beast posts course could not be created");
             return;

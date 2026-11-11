@@ -1,0 +1,21 @@
+{
+  "theme": "Fantasy",
+  "atlas": "../../../../Resources/UiAuthoring/CombatHudProof/Fantasy/hud-atlas.png",
+  "width": 1448,
+  "height": 1086,
+  "bounds": "left, top inclusive; right, bottom exclusive",
+  "regions": {
+    "VitalsFrame": [12, 135, 444, 260],
+    "WeaponFrame": [456, 132, 855, 260],
+    "HealthGlyph": [856, 61, 1095, 319],
+    "WeaponGlyph": [1131, 7, 1430, 386],
+    "AbilityOne": [15, 385, 357, 721],
+    "AbilityTwo": [380, 384, 720, 722],
+    "AbilityThree": [737, 378, 1088, 723],
+    "SprintGlyph": [1095, 419, 1435, 724],
+    "CompassFrame": [12, 830, 442, 969],
+    "DamageOverlay": [449, 743, 748, 1036],
+    "SmallOrnament": [771, 846, 1162, 950],
+    "Reticle": [1225, 816, 1381, 973]
+  }
+}

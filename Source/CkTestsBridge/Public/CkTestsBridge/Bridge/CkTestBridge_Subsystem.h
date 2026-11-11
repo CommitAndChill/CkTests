@@ -21,9 +21,8 @@
 // A 0.5s ticker lazily CLAIMS serving (writes server.json), defers to a live owner, reclaims a demonstrably-stale
 // slot, and while claimed drains + pumps requests each tick. TWO gates beyond CkAssetExporter's bridge:
 //
-//   (a) SERVE-MODE opt-in — UCk_TestBridge_UserSettings::Get_ServeMode(). Off never claims; AutoTestsMapOnly claims
-//       only when the current editor map is the AutoTests map (or this is the warm server); CleanEditorBorrow claims
-//       from any editor state. (Per-request PIE/AS/dirty preconditions still gate every actual run.)
+//   (a) SERVE-MODE opt-in — UCk_TestBridge_UserSettings::Get_ServeMode(). Off never claims; Allow donates the
+//       interactive editor. Per-request PIE/AS/dirty preconditions still gate every actual run.
 //
 //   (b) INVERTED unattended guard — CkAssetExporter's bridge goes dormant under commandlets; here the WARM server IS
 //       an unattended headless editor and MUST serve. So: skip claiming when IsRunningCommandlet() ||
@@ -54,6 +53,10 @@ public:
     auto
     Deinitialize() -> void override;
 
+    // Called explicitly after repairing protocol file access. Publishes only the retained outcome;
+    // it never re-runs the request. Also exposed as Ck.TestBridge.RecoverPublication.
+    auto Request_RecoverPublication() -> bool;
+
 private:
     auto
     OnTick(
@@ -74,6 +77,8 @@ private:
 
     auto
     DoReleaseServing() -> void;
+
+    auto DoHandlePublicationFault() -> void;
 
     // Only armed for the -CkTestBridgeServe warm server: quit the editor on an idle window or a wall-clock cap.
     auto
@@ -96,6 +101,7 @@ private:
     // Edge-detect the processor's busy flag so the editor-presence effects (background-throttle suppression, the
     // stronger title suffix) fire once per run rather than on every tick.
     bool _WasBusy = false;
+    bool _PublicationFaultObserved = false;
 
     // The ticker fires every frame (an active run must pump the automation controller at frame rate); this throttles
     // the IDLE work — claim attempts, request scans, server.json heartbeat — back to the ~0.5s cadence.

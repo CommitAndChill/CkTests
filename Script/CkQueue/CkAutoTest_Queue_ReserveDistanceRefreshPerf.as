@@ -106,7 +106,8 @@ class UCk_AutoTest_Queue_ReserveDistanceRefreshPerf : UCk_AutoTest_Base
     {
         for (int32 QueueIndex = 0; QueueIndex < QueueCount; ++QueueIndex)
         {
-            const FVector QueueLocation = FVector::ZeroVector;
+            // Keep all twelve slots inside the origin field and clear of the host pawn.
+            const FVector QueueLocation = FVector(600.0f, 600.0f, 0.0f);
             auto Owner = utils_entity_lifetime::Request_CreateEntity(InHandle);
             utils_transform::Add(Owner,
                 FTransform(FRotator::ZeroRotator, QueueLocation, FVector::OneVector),

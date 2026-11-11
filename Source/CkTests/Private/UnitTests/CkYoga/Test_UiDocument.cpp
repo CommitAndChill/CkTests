@@ -232,6 +232,21 @@ auto FCkUiAuthoringParser_FontFamilySubset::RunTest(const FString&) -> bool
     if (!TestEqual(TEXT("Font-family test root has two children"), Root->Children.Num(), 2)) { return false; }
     TestTrue(TEXT("Monospace is represented"), Root->Children[0].Style.Monospace.IsSet() && Root->Children[0].Style.Monospace.GetValue());
     TestTrue(TEXT("Sans-serif is represented"), Root->Children[1].Style.Monospace.IsSet() && !Root->Children[1].Style.Monospace.GetValue());
+    const auto NamedResult = Parse(Markup, TEXT(".mono { font-family: journal-ui; } .sans { font-family: sans-serif; }"), {}, Document);
+    if (!TestTrue(TEXT("Registered-family name grammar parses independently of resources"), NamedResult.Succeeded))
+    { for (const FString& Error : NamedResult.Errors) { AddError(Error); } return false; }
+    const auto* NamedRoot = Document.Regions.Find(TEXT("main"));
+    if (!TestNotNull(TEXT("Named family document root exists"), NamedRoot)) { return false; }
+    TestEqual(TEXT("Named family is preserved for view resolution"), NamedRoot->Children[0].Style.FontFamily, FString{TEXT("journal-ui")});
+    TestFalse(TEXT("Named family is not interpreted as a generic face"), NamedRoot->Children[0].Style.Monospace.IsSet());
+    const auto TabsMarkup = TEXT("<ui version=\"1\"><region name=\"main\"><tabs id=\"tabs\" class=\"family\" value-bind=\"active\" changed=\"activate\"><tab id=\"first\" key=\"first\" label=\"First\"><text id=\"body\">Body</text></tab></tabs></region></ui>");
+    const auto TabsResult = Parse(TabsMarkup, TEXT(".family { font-family: journal-ui; -ck-tabs-font-weight: bold; -ck-tabs-font-size: 19px; }"), {}, Document);
+    if (!TestTrue(TEXT("Tabs admit family alongside their explicit size and weight properties"), TabsResult.Succeeded))
+    { for (const FString& Error : TabsResult.Errors) { AddError(Error); } return false; }
+    const auto* TabsRoot = Document.Regions.Find(TEXT("main"));
+    if (!TestNotNull(TEXT("Named tabs root exists"), TabsRoot)) { return false; }
+    TestEqual(TEXT("Tabs preserve named family"), TabsRoot->Style.FontFamily, FString{TEXT("journal-ui")});
+    TestTrue(TEXT("Tabs preserve explicit Bold face request"), TabsRoot->TabsVisualStyle.Bold.IsSet() && TabsRoot->TabsVisualStyle.Bold.GetValue());
     return true;
 }
 
@@ -242,11 +257,19 @@ auto FCkUiAuthoringParser_FontFamilyRejectsUnsupported::RunTest(const FString&) 
 {
     using namespace ck_tests_ui_document;
     auto Document = FCkUiDocument{};
-    const auto Result = Parse(TEXT("<ui version=\"1\"><region name=\"main\"><text id=\"label\">X</text></region></ui>"), TEXT(".label { font-family: serif; }"), {}, Document);
-    if (!TestFalse(TEXT("Unsupported font-family rejects"), Result.Succeeded)) { return false; }
+    const auto Result = Parse(TEXT("<ui version=\"1\"><region name=\"main\"><text id=\"label\">X</text></region></ui>"), TEXT(".label { font-family: url(font.ttf); }"), {}, Document);
+    if (!TestFalse(TEXT("Font resource URL syntax rejects"), Result.Succeeded)) { return false; }
     auto UnsupportedNode = FCkUiDocument{};
     const auto UnsupportedNodeResult = Parse(TEXT("<ui version=\"1\"><region name=\"main\"><column id=\"root\" class=\"mono\"/></region></ui>"), TEXT(".mono { font-family: monospace; }"), {}, UnsupportedNode);
-    return TestFalse(TEXT("Font-family on unsupported node rejects"), UnsupportedNodeResult.Succeeded);
+    TestFalse(TEXT("Font-family on unsupported node rejects"), UnsupportedNodeResult.Succeeded);
+    const auto TabsMarkup = TEXT("<ui version=\"1\"><region name=\"main\"><tabs id=\"tabs\" class=\"family\" value-bind=\"active\" changed=\"activate\"><tab id=\"first\" key=\"first\" label=\"First\"><text id=\"body\">Body</text></tab></tabs></region></ui>");
+    for (const FString& Property : {FString{TEXT("font-size: 19px")}, FString{TEXT("font-weight: bold")}, FString{TEXT("letter-spacing: .12em")}})
+    {
+        const auto Rejected = Parse(TabsMarkup, TEXT(".family { font-family: journal-ui; ") + Property + TEXT("; }"), {}, UnsupportedNode);
+        TestFalse(TEXT("Tabs family admission does not widen ordinary text styles"), Rejected.Succeeded);
+        TestTrue(TEXT("Unsupported tabs text style has an applicability diagnostic"), HasError(Rejected, TEXT("not applicable")));
+    }
+    return !HasAnyErrors();
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkUiAuthoringParser_ChildBind,

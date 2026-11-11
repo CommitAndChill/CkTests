@@ -1,0 +1,814 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-native-verified",
+  "date": "2026-10-04",
+  "theme": "Fantasy",
+  "gameReference": "Skyrim",
+  "gymStation": "UI HUD: Skyrim",
+  "sourceOfTruth": "current CombatHudProof.ui.html and CombatHudProof.ui.css; source consistency here is not native runtime acceptance",
+  "pathsBase": "Plugins/CkTests",
+  "paths": {
+    "markup": "Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.html",
+    "stylesheet": "Resources/UiAuthoring/CombatHudProof/Fantasy/CombatHudProof.ui.css",
+    "replicaContract": "Documentation/UI/CombatHudProof/Fantasy/replica-contract.md"
+  },
+  "architecture": {
+    "host": "code-created passive UCk_CombatHudProof_UE UMG wrapper",
+    "nativeWrapper": "UOverlay > USafeZone > UScaleBox ScaleToFit > USizeBox 1920x1080 > authored surface",
+    "region": "main",
+    "rootId": "hud-root",
+    "geometry": "fixed logical 1920x1080; ultrawide uses letterboxing rather than stretching the frame",
+    "input": "gym controls own keys and player keeps gameplay focus; HUD is passive",
+    "model": "shared deterministic in-memory CkTests fixture, not entire source-game gameplay simulation"
+  },
+  "fixture": {
+    "ammo": 18,
+    "reserve": 60,
+    "weaponCapacity": 18,
+    "context": "Key 9 cycles combat bow/target → sneaking → interaction. The target and arrow count disappear outside combat; full inactive resource bars fade after their hold period.",
+    "commands": {
+      "1": "Damage",
+      "2": "Sprint",
+      "3": "Fire / arrow",
+      "4": "Reload / replenish",
+      "5": "Power / capture / spell",
+      "6": "Restore",
+      "7": "Reset",
+      "8": "Low health",
+      "9": "Context cycle"
+    }
+  },
+  "presentation": {
+    "topology": "Vanilla PC topology: top-center compass and conditional target name/health, centered reticle/stealth eye and interaction prompt, and independent magicka-left, health-center, stamina-right bars at the bottom.",
+    "visual": "Narrow desaturated compass, pale text, tapered grey-edged blue/red/green vital bars and a small central crosshair.",
+    "runtimeArt": "A host-bound scenic image paints first; compass, engraved bars, stealth eye and damage effect remain native replica-art vectors. The interaction cue uses a passive shared key-hint.",
+    "fidelityLimit": "Barlow Condensed substitutes for Skyrim type; icons and engraving recreated. New scene and key-hint composition require native comparison."
+  },
+  "bindings": {
+    "number": [
+      "DamageOpacity",
+      "HealthFraction",
+      "HealthOpacity",
+      "MagickaFraction",
+      "MagickaOpacity",
+      "MapPhase",
+      "SneakFraction",
+      "StaminaFraction",
+      "StaminaOpacity",
+      "TargetHealthFraction"
+    ],
+    "text": [
+      "AmmoText",
+      "SneakText",
+      "TargetName"
+    ],
+    "visibility": [
+      "ShowArrows",
+      "ShowInteraction",
+      "ShowSneak",
+      "ShowTarget"
+    ],
+    "image": [
+      "ReplicaBackdrop"
+    ]
+  },
+  "verification": {
+    "staticContract": "passed: XML structure, unique IDs, CSS class declarations and schemaVersion 1 node identity",
+    "runtime": "Final remake gate passed 34/34 on Windows D3D11/SM5; see ReplicaRemakes verification receipt and current native gallery.",
+    "historicalCaptureNote": "prior native-*.png and native-captures.json belong to retired shared layouts; only replica-native gallery/manifest are current replica evidence",
+    "notCovered": [
+      "physical gamepad input",
+      "real gameplay state integration",
+      "packaged build"
+    ],
+    "buildLog": "Saved/Logs/CombatHudReplica-Build-03.log",
+    "gateLog": "Saved/Logs/CombatHudReplica-Gate-02.log",
+    "scope": "Earlier focused native gate and pixel review predate the backdrop, font and key-hint changes; current source requires fresh native verification.",
+    "replicaGallery": "replica-native-gallery.md (earlier source)",
+    "replicaCaptureManifest": "replica-native-captures.json (earlier source)",
+    "verificationReceipt": "../replica-verification.md",
+    "captureSettings": "capture-only debug/logging settings transient and restored; no persistent project or engine change"
+  },
+  "nodeCount": 40,
+  "nodes": [
+    {
+      "id": "hud-root",
+      "tag": "overlay",
+      "parentId": null,
+      "scope": "main-region",
+      "classes": [
+        "hud-root"
+      ],
+      "nativeWidget": "Yoga-backed Slate overlay",
+      "properties": {},
+      "computedStyle": {
+        "padding": "0px"
+      }
+    },
+    {
+      "id": "replica-backdrop",
+      "tag": "image",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "replica-backdrop"
+      ],
+      "nativeWidget": "native Slate image",
+      "properties": {
+        "bind": "ReplicaBackdrop"
+      },
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      }
+    },
+    {
+      "id": "damage-overlay",
+      "tag": "replica-art",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "damage-overlay"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "damage",
+        "value-bind": "DamageOpacity"
+      },
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      }
+    },
+    {
+      "id": "hud-layout",
+      "tag": "column",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "hud-layout"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px"
+      }
+    },
+    {
+      "id": "top-hud",
+      "tag": "column",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "top-hud"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "140px"
+      }
+    },
+    {
+      "id": "top-offset",
+      "tag": "column",
+      "parentId": "top-hud",
+      "scope": "main-region",
+      "classes": [
+        "top-offset"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "28px"
+      }
+    },
+    {
+      "id": "compass-layer",
+      "tag": "overlay",
+      "parentId": "top-hud",
+      "scope": "main-region",
+      "classes": [
+        "compass-layer"
+      ],
+      "nativeWidget": "Yoga-backed Slate overlay",
+      "properties": {},
+      "computedStyle": {
+        "width": "600px",
+        "height": "28px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "compass-strip",
+      "tag": "replica-art",
+      "parentId": "compass-layer",
+      "scope": "main-region",
+      "classes": [
+        "compass-strip"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "sk-compass",
+        "value-bind": "MapPhase"
+      },
+      "computedStyle": {
+        "width": "600px",
+        "height": "28px"
+      }
+    },
+    {
+      "id": "compass-west",
+      "tag": "text",
+      "parentId": "compass-layer",
+      "scope": "main-region",
+      "classes": [
+        "compass-direction",
+        "compass-west"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "28px",
+        "vertical-align": "center",
+        "font-family": "skyrim-ui",
+        "font-size": "17px",
+        "color": "#E7E5DB",
+        "text-wrap": "nowrap",
+        "horizontal-align": "left"
+      },
+      "literalText": "W"
+    },
+    {
+      "id": "compass-north",
+      "tag": "text",
+      "parentId": "compass-layer",
+      "scope": "main-region",
+      "classes": [
+        "compass-direction",
+        "compass-north"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "28px",
+        "vertical-align": "center",
+        "font-family": "skyrim-ui",
+        "font-size": "17px",
+        "color": "#E7E5DB",
+        "text-wrap": "nowrap",
+        "horizontal-align": "center"
+      },
+      "literalText": "N"
+    },
+    {
+      "id": "compass-east",
+      "tag": "text",
+      "parentId": "compass-layer",
+      "scope": "main-region",
+      "classes": [
+        "compass-direction",
+        "compass-east"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "28px",
+        "vertical-align": "center",
+        "font-family": "skyrim-ui",
+        "font-size": "17px",
+        "color": "#E7E5DB",
+        "text-wrap": "nowrap",
+        "horizontal-align": "right"
+      },
+      "literalText": "E"
+    },
+    {
+      "id": "target-gap",
+      "tag": "column",
+      "parentId": "top-hud",
+      "scope": "main-region",
+      "classes": [
+        "target-gap"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "20px"
+      }
+    },
+    {
+      "id": "target-group",
+      "tag": "column",
+      "parentId": "top-hud",
+      "scope": "main-region",
+      "classes": [
+        "target-group"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {
+        "visible": "ShowTarget"
+      },
+      "computedStyle": {
+        "width": "400px",
+        "height": "48px",
+        "gap": "8px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "target-health",
+      "tag": "replica-art",
+      "parentId": "target-group",
+      "scope": "main-region",
+      "classes": [
+        "target-health"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "sk-meter",
+        "variant": "1",
+        "value-bind": "TargetHealthFraction"
+      },
+      "computedStyle": {
+        "width": "400px",
+        "height": "16px"
+      }
+    },
+    {
+      "id": "target-name",
+      "tag": "text",
+      "parentId": "target-group",
+      "scope": "main-region",
+      "classes": [
+        "target-name"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "TargetName"
+      },
+      "computedStyle": {
+        "height": "24px",
+        "horizontal-align": "center",
+        "font-family": "skyrim-display",
+        "font-size": "17px",
+        "color": "#F0ECE4",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "world-space",
+      "tag": "column",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "bottom-bars",
+      "tag": "row",
+      "parentId": "hud-layout",
+      "scope": "main-region",
+      "classes": [
+        "bottom-bars"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "60px",
+        "padding": "0px 100px"
+      }
+    },
+    {
+      "id": "magicka-meter",
+      "tag": "replica-art",
+      "parentId": "bottom-bars",
+      "scope": "main-region",
+      "classes": [
+        "vital-meter"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "sk-meter",
+        "variant": "0",
+        "value-bind": "MagickaFraction",
+        "opacity-bind": "MagickaOpacity"
+      },
+      "computedStyle": {
+        "width": "450px",
+        "height": "20px",
+        "vertical-align": "top"
+      }
+    },
+    {
+      "id": "bar-left-space",
+      "tag": "column",
+      "parentId": "bottom-bars",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "health-meter",
+      "tag": "replica-art",
+      "parentId": "bottom-bars",
+      "scope": "main-region",
+      "classes": [
+        "vital-meter"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "sk-meter",
+        "variant": "1",
+        "value-bind": "HealthFraction",
+        "opacity-bind": "HealthOpacity"
+      },
+      "computedStyle": {
+        "width": "450px",
+        "height": "20px",
+        "vertical-align": "top"
+      }
+    },
+    {
+      "id": "bar-right-space",
+      "tag": "column",
+      "parentId": "bottom-bars",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "stamina-meter",
+      "tag": "replica-art",
+      "parentId": "bottom-bars",
+      "scope": "main-region",
+      "classes": [
+        "vital-meter"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "sk-meter",
+        "variant": "2",
+        "value-bind": "StaminaFraction",
+        "opacity-bind": "StaminaOpacity"
+      },
+      "computedStyle": {
+        "width": "450px",
+        "height": "20px",
+        "vertical-align": "top"
+      }
+    },
+    {
+      "id": "reticle-cluster",
+      "tag": "column",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "reticle-cluster"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "180px",
+        "height": "106px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "reticle-top-space",
+      "tag": "column",
+      "parentId": "reticle-cluster",
+      "scope": "main-region",
+      "classes": [
+        "reticle-top-space"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "29px"
+      }
+    },
+    {
+      "id": "reticle-core",
+      "tag": "overlay",
+      "parentId": "reticle-cluster",
+      "scope": "main-region",
+      "classes": [
+        "reticle-core"
+      ],
+      "nativeWidget": "Yoga-backed Slate overlay",
+      "properties": {},
+      "computedStyle": {
+        "width": "180px",
+        "height": "48px"
+      }
+    },
+    {
+      "id": "reticle-bounds",
+      "tag": "column",
+      "parentId": "reticle-core",
+      "scope": "main-region",
+      "classes": [
+        "reticle-bounds"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "180px",
+        "height": "48px"
+      }
+    },
+    {
+      "id": "aim-reticle",
+      "tag": "replica-art",
+      "parentId": "reticle-core",
+      "scope": "main-region",
+      "classes": [
+        "aim-reticle"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "crosshair"
+      },
+      "computedStyle": {
+        "width": "30px",
+        "height": "30px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "sneak-eye",
+      "tag": "replica-art",
+      "parentId": "reticle-core",
+      "scope": "main-region",
+      "classes": [
+        "sneak-eye"
+      ],
+      "nativeWidget": "native retained vector leaf",
+      "properties": {
+        "piece": "sk-eye",
+        "value-bind": "SneakFraction",
+        "visible": "ShowSneak"
+      },
+      "computedStyle": {
+        "width": "100px",
+        "height": "42px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "sneak-label",
+      "tag": "text",
+      "parentId": "reticle-cluster",
+      "scope": "main-region",
+      "classes": [
+        "sneak-label"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "SneakText",
+        "visible": "ShowSneak"
+      },
+      "computedStyle": {
+        "height": "28px",
+        "horizontal-align": "center",
+        "font-family": "skyrim-ui",
+        "font-size": "17px",
+        "color": "#F0ECE4",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "interaction-cluster",
+      "tag": "column",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "interaction-cluster"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "420px",
+        "height": "180px",
+        "horizontal-align": "center",
+        "vertical-align": "center"
+      }
+    },
+    {
+      "id": "interaction-offset",
+      "tag": "column",
+      "parentId": "interaction-cluster",
+      "scope": "main-region",
+      "classes": [
+        "interaction-offset"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "height": "125px"
+      }
+    },
+    {
+      "id": "interaction-row",
+      "tag": "row",
+      "parentId": "interaction-cluster",
+      "scope": "main-region",
+      "classes": [
+        "interaction-row"
+      ],
+      "nativeWidget": "Yoga-backed Slate row",
+      "properties": {
+        "visible": "ShowInteraction"
+      },
+      "computedStyle": {
+        "width": "420px",
+        "height": "36px",
+        "gap": "8px",
+        "horizontal-align": "center"
+      }
+    },
+    {
+      "id": "interaction-keycap",
+      "tag": "key-hint",
+      "parentId": "interaction-row",
+      "scope": "main-region",
+      "classes": [
+        "interaction-keycap"
+      ],
+      "nativeWidget": "native retained key-hint",
+      "properties": {
+        "label": "E",
+        "font-family": "skyrim-ui"
+      },
+      "computedStyle": {
+        "width": "28px",
+        "height": "28px",
+        "vertical-align": "center",
+        "-ck-key-hint-font-size": "14px",
+        "-ck-key-hint-foreground": "#EEECE6",
+        "-ck-key-hint-background": "#08090980",
+        "-ck-key-hint-border-color": "#B9B8AF",
+        "-ck-key-hint-border-width": "1px",
+        "-ck-key-hint-radius": "0px",
+        "-ck-key-hint-padding-x": "2px",
+        "-ck-key-hint-padding-y": "1px"
+      }
+    },
+    {
+      "id": "interaction-key",
+      "tag": "text",
+      "parentId": "interaction-row",
+      "scope": "main-region",
+      "classes": [
+        "interaction-key"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "42px",
+        "height": "36px",
+        "vertical-align": "center",
+        "font-family": "skyrim-ui",
+        "font-size": "18px",
+        "color": "#F0ECE4",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "Talk"
+    },
+    {
+      "id": "interaction-target",
+      "tag": "text",
+      "parentId": "interaction-row",
+      "scope": "main-region",
+      "classes": [
+        "interaction-target"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "width": "250px",
+        "height": "36px",
+        "vertical-align": "center",
+        "font-family": "skyrim-display",
+        "font-size": "18px",
+        "color": "#F0ECE4",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "Whiterun Guard"
+    },
+    {
+      "id": "arrows-layer",
+      "tag": "column",
+      "parentId": "hud-root",
+      "scope": "main-region",
+      "classes": [
+        "arrows-layer"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "width": "1920px",
+        "height": "1080px",
+        "padding": "0px 100px 100px 0px"
+      }
+    },
+    {
+      "id": "arrows-space",
+      "tag": "column",
+      "parentId": "arrows-layer",
+      "scope": "main-region",
+      "classes": [
+        "grow"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {},
+      "computedStyle": {
+        "flex-grow": "1"
+      }
+    },
+    {
+      "id": "arrow-readout",
+      "tag": "column",
+      "parentId": "arrows-layer",
+      "scope": "main-region",
+      "classes": [
+        "arrow-readout"
+      ],
+      "nativeWidget": "Yoga-backed Slate column",
+      "properties": {
+        "visible": "ShowArrows"
+      },
+      "computedStyle": {
+        "width": "180px",
+        "height": "50px",
+        "horizontal-align": "right"
+      }
+    },
+    {
+      "id": "ammo-value",
+      "tag": "text",
+      "parentId": "arrow-readout",
+      "scope": "main-region",
+      "classes": [
+        "ammo-value"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {
+        "bind": "AmmoText"
+      },
+      "computedStyle": {
+        "height": "26px",
+        "horizontal-align": "right",
+        "font-family": "skyrim-display",
+        "font-size": "20px",
+        "color": "#F0ECE4",
+        "text-wrap": "nowrap"
+      }
+    },
+    {
+      "id": "ammo-label",
+      "tag": "text",
+      "parentId": "arrow-readout",
+      "scope": "main-region",
+      "classes": [
+        "ammo-label"
+      ],
+      "nativeWidget": "native Slate text",
+      "properties": {},
+      "computedStyle": {
+        "height": "24px",
+        "horizontal-align": "right",
+        "font-family": "skyrim-ui",
+        "font-size": "15px",
+        "color": "#F0ECE4",
+        "text-wrap": "nowrap"
+      },
+      "literalText": "Steel Arrow"
+    }
+  ],
+  "currentRemakeEvidence": "../../ReplicaRemakes/verification-receipt.json"
+}

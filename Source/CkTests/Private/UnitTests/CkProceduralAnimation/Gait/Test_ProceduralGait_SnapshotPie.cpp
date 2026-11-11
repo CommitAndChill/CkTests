@@ -540,7 +540,7 @@ namespace ck_test_procedural_gait_snapshot_pie
     {
         FWalker Walker;
         FCourse Course;
-        FDelegateHandle Drive;
+        FDelegateHandle Observation;
         uint64 LastSequence = 0;
         int32 FacePlantSamplesWhileFloor = 0;
         int32 TrustedFaceTouchdownsWhileFloor = 0;
@@ -553,6 +553,17 @@ namespace ck_test_procedural_gait_snapshot_pie
         bool ParticipationFrameMatchesSupport = false;
         int32 PendingWallSamplesBeforeAdoption = 0;
         double CandidateSeenOnAdoption = -1.0;
+
+        ~FWallState()
+        { StopObserving(); }
+
+        auto
+            StopObserving()
+            -> void
+        {
+            FWorldDelegates::OnWorldPostActorTick.Remove(Observation);
+            Observation.Reset();
+        }
     };
 
     auto
@@ -1534,12 +1545,17 @@ auto
             UCk_Utils_SurfaceMotion_UE::Request_Steering(Motion, FCk_Request_SurfaceMotion_Steering{FVector::ForwardVector, SteerSpeed}, {});
 
             const auto WeakState = TWeakPtr<FWallState>{State};
-            State->Drive = DoStart_Drive(InWorld, [WeakState](UWorld*, float)
-            {
-                const auto Pinned = WeakState.Pin();
-                if (Pinned.IsValid())
-                { DoSample_Wall(*Pinned); }
-            });
+            const auto WeakWorld = TWeakObjectPtr<UWorld>{InWorld};
+            State->Observation = FWorldDelegates::OnWorldPostActorTick.AddLambda(
+                [WeakState, WeakWorld](UWorld* InTickingWorld, ELevelTick, float)
+                {
+                    if (InTickingWorld != WeakWorld.Get())
+                    { return; }
+
+                    const auto Pinned = WeakState.Pin();
+                    if (Pinned.IsValid())
+                    { DoSample_Wall(*Pinned); }
+                });
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
         FCk_NetAutoTest_Condition::CreateLambda([State] { return State->WallAdopted; }),
@@ -1547,7 +1563,7 @@ auto
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
         [this, State, ConfirmTime](UWorld*)
         {
-            DoStop_Drive(State->Drive);
+            State->StopObserving();
             AddInfo(FString::Printf(TEXT("%d solves showed a pending contact, %d of them the wall over the floor support, seen for up to "
                 "%.4f s (confirm time %.4f s)"), State->PendingSamples, State->PendingWallSamples, State->MaxCandidateSeen, ConfirmTime));
 

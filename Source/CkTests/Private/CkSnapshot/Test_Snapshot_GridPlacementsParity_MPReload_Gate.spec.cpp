@@ -9,7 +9,7 @@
 //   - the grid's placement RECORD — NOT re-created by Construct (it was a runtime Request_AddPlacement) — is
 //     rebuilt on the AUTHORITY host by the 2dGridOccupancy Apply handler's load-hydration branch, which
 //     re-drives Request_AddPlacement per restored payload entry (occupant handle remapped through
-//     FSnapshotContext; a save-transient occupant restores invalid, tolerated by design),
+//     FSnapshotContext to the named ConstructSpawned child rebuilt by the fresh subject),
 //   - Request_AddPlacement re-arms MayRequireReplication so the AuthorityOnly Replicate pass pushes the rebuilt
 //     set and the fresh post-travel client converges through the ordinary placement-record SyncReplication path.
 //
@@ -32,6 +32,7 @@
 #include "HAL/IConsoleManager.h"       // net.AllowPIESeamlessTravel
 
 #include "CkGrid/2dGridSystem/Grid/Ck2dGridSystem_Utils.h"
+#include "CkGrid/2dGridSystem/Object/Ck2dGridObject_Utils.h"
 #include "CkGrid/2dGridSystem/Occupancy/Ck2dGridOccupancy_Utils.h"
 
 #include "CkCore/Enums/CkEnums.h"      // ECk_CardinalRotation
@@ -183,6 +184,18 @@ bool FCkSnapshot_GridPlacementsParity_MPReload_Gate::RunTest(const FString& Para
             auto* Sub = GridParity_Subsystem(InServer);
             if (Sub == nullptr) { AddError(TEXT("Stage 4: no snapshot subsystem")); return; }
             Sub->Request_Save(GridParity_SlotName, FCk_Delegate_OnSaveComplete{});
+            const auto SaveReport = Sub->Get_LastSaveReport();
+            TestTrue(FString::Printf(TEXT("Stage 4: capture report result is Success (actual %d)"),
+                static_cast<int32>(SaveReport.Get_Result())),
+                SaveReport.Get_Result() == ECk_SnapshotResult::Success);
+            TestTrue(TEXT("Stage 4: save has no durable-value losses"), SaveReport.Get_Losses().IsEmpty());
+            for (const auto& Loss : SaveReport.Get_Losses())
+            {
+                AddError(FString::Printf(
+                    TEXT("Stage 4: save loss payload=%s field=%s ownerSavedId=%u targetEntityId=%u target=%s reason=%s"),
+                    *Loss.Get_PayloadType(), *Loss.Get_FieldPath(), Loss.Get_OwnerSavedId(),
+                    Loss.Get_TargetEntityId(), *Loss.Get_TargetIdentity(), *Loss.Get_Reason()));
+            }
         })));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesPerSettle));
 
@@ -225,6 +238,35 @@ bool FCkSnapshot_GridPlacementsParity_MPReload_Gate::RunTest(const FString& Para
             auto* Server = ck::auto_test::net::Get_ServerWorld();
             TestTrue(TEXT("server: cell (2,2) Occupied post-reload (grid re-composed + placement re-stamped)"),
                 GridParity_CellOccupied(Server));
+
+            auto* ServerProbe = GridParity_FindProbe(Server);
+            if (ServerProbe == nullptr)
+            {
+                AddError(TEXT("Stage 7: no fresh post-travel server grid subject"));
+            }
+            else
+            {
+                const auto ServerGrid = GridParity_ResolveGrid(ServerProbe);
+                const auto GridValid = ck::IsValid(ServerGrid);
+                TestTrue(TEXT("server: fresh post-reload grid is valid"), GridValid);
+                if (GridValid)
+                {
+                    const auto RestoredOccupant = UCk_Utils_2dGridOccupancy_UE::Get_OccupantAt(
+                        ServerGrid, GridParity_Coordinate);
+                    const auto ConstructedOccupant = ServerProbe->_TestOccupant;
+                    const auto RestoredOccupantValid = ck::IsValid(RestoredOccupant);
+                    const auto ConstructedOccupantValid = ck::IsValid(ConstructedOccupant);
+                    TestTrue(TEXT("server: restored placement occupant is valid"), RestoredOccupantValid);
+                    TestTrue(TEXT("server: fresh Construct occupant is valid"), ConstructedOccupantValid);
+                    if (RestoredOccupantValid && ConstructedOccupantValid)
+                    {
+                        TestTrue(TEXT("server: restored placement maps to the fresh Construct occupant"),
+                            RestoredOccupant == ConstructedOccupant);
+                        TestTrue(TEXT("server: restored occupant retains GridObject"),
+                            UCk_Utils_2dGridObject_UE::Has(RestoredOccupant));
+                    }
+                }
+            }
 
             auto* Client = ck::auto_test::net::Get_ClientWorld(0);
             if (Client == nullptr) { AddError(TEXT("Stage 7: no post-travel client world")); return false; }

@@ -19,7 +19,7 @@ class UCk_AutoTest_GameSettings_VideoPack_ExternalNeverStored : UCk_AutoTest_Bas
         Assert_True(utils_game_settings::Get_SettingValue_Bool(n"video.vsync", OriginalVSync) == !OriginalVSync,
             "read routes through GameUserSettings and sees the new value");
 
-        utils_game_settings::Request_FlushStorage();
+        Assert_True(utils_game_settings::Request_FlushStorage(), "settings flush succeeds");
 
         auto LiveProvider = Cast<UCk_GameSettings_IniStorageProvider_UE>(utils_game_settings::Get_StorageProvider());
         if (LiveProvider == nullptr)
@@ -33,13 +33,19 @@ class UCk_AutoTest_GameSettings_VideoPack_ExternalNeverStored : UCk_AutoTest_Bas
         FreshProvider.Set_FilePathOverride(LiveProvider.Get_StorageFilePath());
 
         auto FoundInStore = false;
-        auto MachineValues = FreshProvider.Get_StoredValues(ECk_GameSettings_Scope::Machine, 0);
+        auto MachineValues = TArray<FCk_GameSettings_StoredValue>();
+        auto MachineRead = FreshProvider.Get_StoredValues(ECk_GameSettings_Scope::Machine, 0, MachineValues);
+        Assert_True(MachineRead == ECk_GameSettings_StorageReadResult::Succeeded
+            || MachineRead == ECk_GameSettings_StorageReadResult::NotFound, "machine scope is readable or absent");
         for (int32 Index = 0; Index < MachineValues.Num(); ++Index)
         {
             if (MachineValues[Index].Get_Key() == n"video.vsync")
             { FoundInStore = true; }
         }
-        auto PlayerValues = FreshProvider.Get_StoredValues(ECk_GameSettings_Scope::Player, 0);
+        auto PlayerValues = TArray<FCk_GameSettings_StoredValue>();
+        auto PlayerRead = FreshProvider.Get_StoredValues(ECk_GameSettings_Scope::Player, 0, PlayerValues);
+        Assert_True(PlayerRead == ECk_GameSettings_StorageReadResult::Succeeded
+            || PlayerRead == ECk_GameSettings_StorageReadResult::NotFound, "player scope is readable or absent");
         for (int32 Index = 0; Index < PlayerValues.Num(); ++Index)
         {
             if (PlayerValues[Index].Get_Key() == n"video.vsync")

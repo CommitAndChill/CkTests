@@ -37,7 +37,7 @@ class UCk_AutoTest_ProceduralAnimation_CrossesStairsAndHump : UCk_AutoTest_Base
         StairsRoster.Add(ECkProceduralAnimationGym_Species::Beast);
         auto HumpRoster = TArray<ECkProceduralAnimationGym_Species>();
         HumpRoster.Add(ECkProceduralAnimationGym_Species::Spider);
-        auto Created = _Stairs.Create_WithRoster(InHandle, _StairsOrigin, ECkProceduralAnimationGym_Course::Stairs, StairsRoster, false);
+        auto Created = _Stairs.Create_WithRoster(InHandle, _StairsOrigin, ECkProceduralAnimationGym_Course::Stairs, StairsRoster, false, InAdaptiveHeight: true);
         Created = _Hump.Create_WithRoster(InHandle, _HumpOrigin, ECkProceduralAnimationGym_Course::Hump, HumpRoster, false) && Created;
         if (Created == false)
         {

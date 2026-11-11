@@ -26,6 +26,7 @@
 #if WITH_EDITOR
 #include "Misc/App.h"
 #include "Misc/PackageName.h"
+#include "AssetRegistry/AssetData.h"
 #include "Materials/Material.h"
 
 #include "CkUsf/Apply/CkUsf_Utils.h"
@@ -305,59 +306,63 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FCkTest_Usf_GeneratedPackageRoot_CustomRootGeneratesAndResolves::RunTest(const FString& Parameters)
 {
-    using namespace ck_test_usf_generated_package_root;
-
-    if (FApp::CanEverRender() == false)
+    auto GeneratedMasters = ck_test_usf::FGeneratedMasterScope{*this};
+    if (!GeneratedMasters.Initialize()) { return false; }
+    const auto Succeeded = [&]() -> bool
     {
-        // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
-        // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
-        // must never read as a pass.
-        AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
-                      "toolbox gate or with --no-nullrhi."));
-        return false;
-    }
+        using namespace ck_test_usf_generated_package_root;
 
-    // The lane-unique test root is set ON THE DEFINITION and no override is passed: the generator must find the
-    // root through the definition alone, and the master still never lands in shipped content.
-    const auto TestPackageRoot = ck_test_usf::Get_TestPackageRoot();
-    const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
-        Make_ProbeLookDefinition(kGenerationProbeLookName, TestPackageRoot)};
+        if (FApp::CanEverRender() == false)
+        {
+            // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
+            // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
+            // must never read as a pass.
+            AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
+                          "toolbox gate or with --no-nullrhi."));
+            return false;
+        }
 
-    const auto LookName = FName(kGenerationProbeLookName);
-    const auto ExpectedPackagePath = ck::usf::Get_GeneratedMasterPackagePath(LookName, TestPackageRoot);
+        // The invocation-unique Saved test root is set ON THE DEFINITION and no override is passed: the generator must find the
+        // root through the definition alone, and the master still never lands in shipped content.
+        const auto TestPackageRoot = GeneratedMasters.Get_PackageRoot();
+        const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
+            Make_ProbeLookDefinition(kGenerationProbeLookName, TestPackageRoot)};
 
-    TestEqual(TEXT("the definition resolves its master under its own root"),
-        Definition->Get_GeneratedMasterPackagePath(), ExpectedPackagePath);
+        const auto LookName = FName(kGenerationProbeLookName);
+        const auto ExpectedPackagePath = ck::usf::Get_GeneratedMasterPackagePath(LookName, TestPackageRoot);
 
-    auto* Master = ck::usf_editor::Generate_LookMaterial(Definition.Get());
-    if (TestNotNull(TEXT("the custom-rooted look generates a master"), Master) == false)
-    { return false; }
+        TestEqual(TEXT("the definition resolves its master under its own root"),
+            Definition->Get_GeneratedMasterPackagePath(), ExpectedPackagePath);
 
-    TestTrue(*FString::Printf(TEXT("the master's package is saved at [%s]"), *ExpectedPackagePath),
-        FPackageName::DoesPackageExist(ExpectedPackagePath));
+        auto* Master = ck::usf_editor::Generate_LookMaterial(Definition.Get());
+        if (TestNotNull(TEXT("the custom-rooted look generates a master"), Master) == false)
+        { return false; }
 
-    const auto FrameworkPackagePath = ck::usf::Get_GeneratedMasterPackagePath(LookName);
-    TestFalse(*FString::Printf(TEXT("nothing was saved at the framework root [%s]"), *FrameworkPackagePath),
-        FPackageName::DoesPackageExist(FrameworkPackagePath));
+        TestTrue(*FString::Printf(TEXT("the master's package is saved at [%s]"), *ExpectedPackagePath),
+            FPackageName::DoesPackageExist(ExpectedPackagePath));
 
-    // Lets the master's shader jobs finish before the runtime lookup inspects it, without the destructive
-    // force-compile; the lookup is what is under test here, not the HLSL.
-    {
-        constexpr auto ForceSynchronousCompile = false;
-        auto CompileErrors = TArray<FString>{};
-        ck::usf_editor::Validate_LookShaderCompile(Master, LookName, CompileErrors, ForceSynchronousCompile);
-        for (const auto& CompileError : CompileErrors)
-        { AddError(CompileError); }
-    }
+        const auto FrameworkPackagePath = ck::usf::Get_GeneratedMasterPackagePath(LookName);
+        TestFalse(*FString::Printf(TEXT("nothing was saved at the framework root [%s]"), *FrameworkPackagePath),
+            FPackageName::DoesPackageExist(FrameworkPackagePath));
 
-    const auto* Resolved = UCk_Utils_Usf_UE::Get_LookMasterMaterial(Definition.Get());
-    TestTrue(TEXT("the runtime lookup resolves the master generated under the definition's root"),
-        Resolved != nullptr && Resolved == Master);
+        // Lets the master's shader jobs finish before the runtime lookup inspects it, without the destructive
+        // force-compile; the lookup is what is under test here, not the HLSL.
+        {
+            constexpr auto ForceSynchronousCompile = false;
+            auto CompileErrors = TArray<FString>{};
+            ck::usf_editor::Validate_LookShaderCompile(Master, LookName, CompileErrors, ForceSynchronousCompile);
+            for (const auto& CompileError : CompileErrors)
+            { AddError(CompileError); }
+        }
 
-    if (ck_test_usf::Delete_TestGeneratedMaster(LookName) == false)
-    { AddInfo(TEXT("Could not delete the probe's generated master file — harmless, but it is a stray asset on disk.")); }
+        const auto* Resolved = UCk_Utils_Usf_UE::Get_LookMasterMaterial(Definition.Get());
+        TestTrue(TEXT("the runtime lookup resolves the master generated under the definition's root"),
+            Resolved != nullptr && Resolved == Master);
 
-    return true;
+        return true;
+    }();
+    const auto CleanupSucceeded = GeneratedMasters.Close();
+    return Succeeded && CleanupSucceeded;
 }
 
 // --------------------------------------------------------------------------------------------------------------------

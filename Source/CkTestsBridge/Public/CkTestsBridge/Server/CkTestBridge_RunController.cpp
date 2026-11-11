@@ -97,6 +97,15 @@ ToString(
 // --------------------------------------------------------------------------------------------------------------------
 
 FCk_TestBridge_RunController::
+    FCk_TestBridge_RunController(
+        ControllerResolverType InResolveController)
+    : _ResolveController{MoveTemp(InResolveController)}
+{
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+FCk_TestBridge_RunController::
     ~FCk_TestBridge_RunController()
 {
     Reset();
@@ -118,18 +127,26 @@ auto
     _Request   = InRequest;
     _Callbacks = InCallbacks;
 
-    auto* ControllerModule = FModuleManager::LoadModulePtr<IAutomationControllerModule>(TEXT("AutomationController"));
-    const auto ModuleIsValid = ControllerModule != nullptr;
-    CK_ENSURE_IF_NOT(ModuleIsValid, TEXT("[RunController] AutomationController module unavailable"))
+    if (_ResolveController)
     {
-        Do_TransitionToComplete(false);
-        return;
+        _Controller = _ResolveController();
+    }
+    else
+    {
+        auto* ControllerModule = FModuleManager::LoadModulePtr<IAutomationControllerModule>(TEXT("AutomationController"));
+        CK_ENSURE_IF_NOT(ControllerModule != nullptr, TEXT("[RunController] AutomationController module unavailable"))
+        {
+            _Result.Error = TEXT("AutomationController module unavailable");
+            Do_TransitionToComplete(false);
+            return;
+        }
+
+        _Controller = ControllerModule->GetAutomationController();
     }
 
-    _Controller = ControllerModule->GetAutomationController();
-    const auto ControllerIsValid = _Controller.IsValid();
-    CK_ENSURE_IF_NOT(ControllerIsValid, TEXT("[RunController] AutomationController manager is null"))
+    CK_ENSURE_IF_NOT(_Controller.IsValid(), TEXT("[RunController] AutomationController manager is null"))
     {
+        _Result.Error = TEXT("AutomationController manager is null");
         Do_TransitionToComplete(false);
         return;
     }
@@ -164,8 +181,9 @@ auto
     if (_State == EState::Idle || _State == EState::Complete)
     { return; }
 
-    if (NOT _Controller.IsValid())
+    CK_ENSURE_IF_NOT(_Controller.IsValid(), TEXT("[RunController] AutomationController manager lost during a run"))
     {
+        _Result.Error = TEXT("AutomationController manager lost during a run");
         Do_TransitionToComplete(false);
         return;
     }
@@ -185,14 +203,14 @@ auto
             {
                 // The editor never reported ready — almost always its interactive-frame-rate gate not passing
                 // because the editor is busy / low-FPS (e.g. flooding the log with per-frame errors). Abort with
-                // a diagnostic and mark every requested test NotFound so the request completes and frees the bridge.
+                // a diagnostic and account for every requested test as NotRun.
                 ck::tests_bridge::Error(
                     TEXT("[RunController] editor did not become ready for tests within {}s. IsReadyForTests() gates "
                          "on an interactive editor frame rate — is the editor busy, minimized, or spamming per-frame "
                          "errors? Try serving from the (clean) AutoTests map. Aborting."),
                     ReadyForTestsTimeoutSeconds);
-                _Result.NotFound = _Request.Tests;
-                Do_TransitionToComplete(true);
+                _Result.Error = TEXT("Editor did not become ready for tests within the readiness deadline");
+                Do_TransitionToComplete(false);
             }
             break;
         }
@@ -211,14 +229,14 @@ auto
         case EState::RequestTests:
         {
             // OnTestsRefreshed advances us out of this state. If the workers never answer, retry a bounded number
-            // of times then give up with everything marked NotFound.
+            // of times then give up with an explicit infrastructure error and NotRun outcomes.
             _FindWorkersTimeout -= InDeltaTime;
             if (_FindWorkersTimeout <= 0.0f)
             {
                 if (_FindWorkerAttempts >= MaxFindWorkerAttempts)
                 {
                     ck::tests_bridge::Error(TEXT("[RunController] no automation workers after {} attempts — giving up"), _FindWorkerAttempts);
-                    _Result.NotFound = _Request.Tests;
+                    _Result.Error = TEXT("No automation workers answered within the discovery attempt budget");
                     Do_TransitionToComplete(false);
                 }
                 else
@@ -388,15 +406,15 @@ auto
 {
     using namespace ck_test_bridge_runcontroller;
 
-    if (NOT _Controller.IsValid())
-    { return; }
-
     // Map full path -> report so per-request lookup is O(1).
     auto ReportByPath = TMap<FString, TSharedPtr<IAutomationReport>>{};
-    for (const auto& Report : _Controller->GetEnabledReports())
+    if (_Controller.IsValid())
     {
-        if (Report.IsValid())
-        { ReportByPath.Add(Report->GetFullTestPath(), Report); }
+        for (const auto& Report : _Controller->GetEnabledReports())
+        {
+            if (Report.IsValid())
+            { ReportByPath.Add(Report->GetFullTestPath(), Report); }
+        }
     }
 
     const auto NotFoundSet = TSet<FString>{_Result.NotFound};
@@ -413,6 +431,8 @@ auto
         if (ReportPtr == nullptr || NOT ReportPtr->IsValid())
         {
             PerTest.Result = InForcedStop ? ECk_TestBridge_TestResult::Failed : ECk_TestBridge_TestResult::NotRun;
+            if (NOT _Result.Error.IsEmpty())
+            { PerTest.Entries.Add(FCk_TestBridge_LogEntry{TEXT("Error"), _Result.Error}); }
             _Result.PerTest.Add(MoveTemp(PerTest));
             continue;
         }

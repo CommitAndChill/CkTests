@@ -1,0 +1,41 @@
+<ui version="1">
+  <region name="main">
+    <column id="card-composition" class="composition">
+      <column id="card-top-space" class="outer-space" />
+      <column id="card-panel" class="panel">
+        <row id="card-header" class="header">
+          <text id="card-kicker" class="kicker">HELIOS / ARMORY</text>
+          <text id="card-unit" class="unit">MK. VII</text>
+        </row>
+        <text id="card-title" class="title">PULSE CARBINE</text>
+        <text id="card-subtitle" class="subtitle">Weapon systems online. Awaiting operator.</text>
+        <column id="card-divider" class="divider" />
+        <row id="card-telemetry" class="telemetry">
+          <column id="card-shot-readout" class="readout">
+            <text id="card-shot-label" class="readout-label">ROUNDS FIRED</text>
+            <text id="card-shot-value" bind="ShotCount" class="shot-value" />
+          </column>
+          <column id="card-state-readout" class="state-readout">
+            <text id="card-state-label" class="readout-label">SYSTEM STATUS</text>
+            <text id="card-status" bind="Status" class="status" />
+          </column>
+        </row>
+        <row id="card-charge-header" class="charge-header">
+          <text id="card-charge-label" class="field-label">CAPACITOR CHARGE</text>
+          <text id="card-charge-value" bind="ChargeLabel" class="field-value" />
+        </row>
+        <slider id="card-charge" value-bind="Charge" interaction="Charge" min="0" max="100" step="1" class="charge-slider" />
+        <row id="card-safety-row" class="safety-row">
+          <column id="card-safety-copy" class="safety-copy">
+            <text id="card-safety-label" class="field-label">SAFETY INTERLOCK</text>
+            <text id="card-safety-hint" class="helper">Disengage to enable live fire.</text>
+          </column>
+          <checkbox id="card-safety" value-bind="Safety" changed="Safety" class="safety-checkbox" />
+        </row>
+        <button id="card-fire" action="Fire" class="fire-button">FIRE WEAPON</button>
+        <text id="card-footer" class="footer">HELIOS SYSTEMS / TRAINING LINK ACTIVE</text>
+      </column>
+      <column id="card-bottom-space" class="outer-space" />
+    </column>
+  </region>
+</ui>

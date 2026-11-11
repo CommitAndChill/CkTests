@@ -1,0 +1,334 @@
+<ui version="1">
+ <template name="equipment-slot">
+  <param name="label" type="text" />
+  <param name="key" type="text-binding" />
+  <param name="kind" type="text-binding" />
+  <param name="name" type="text-binding" />
+  <param name="stats" type="text-binding" />
+  <param name="icon" type="number-binding" />
+  <param name="tier" type="number-binding" />
+  <param name="selected" type="bool-binding" />
+  <param name="empty" type="bool-binding" />
+  <param name="placeholder" type="number-binding" />
+  <param name="accepts" type="text" />
+  <param name="drop" type="string-changed" />
+  <column id="slot" class="equipment-slot">
+   <item-slot id="card" key-bind-param="key" kind-bind-param="kind" rarity-bind-param="tier" accepts-param="accepts" selected-bind-param="selected" drop-param="drop" select="SelectItem" drag-label-bind-param="name" drag-image-bind="ItemAtlas" drag-index-bind-param="icon" drag-columns="4" drag-rows="3" class="equipment-card">
+    <slot name="content">
+     <overlay id="inlay" class="equipment-inlay">
+      <image id="backplate" bind="SlotFrame" class="slot-art" />
+      <overlay id="placeholder" visible-param="empty" class="placeholder">
+       <atlas-image id="ghost-icon" image-bind="ItemAtlas" index-bind-param="placeholder" columns="4" rows="3" class="equipment-icon" />
+       <column id="ghost-shade" class="ghost-shade" />
+      </overlay>
+      <atlas-image id="icon" image-bind="ItemAtlas" index-bind-param="icon" columns="4" rows="3" class="equipment-icon" />
+     </overlay>
+    </slot>
+    <slot name="tooltip">
+     <column id="tooltip" class="equipment-tooltip">
+      <text id="tooltip-name" bind-param="name" class="tooltip-name" />
+      <column id="rule" class="rule" />
+      <text id="tooltip-stats" bind-param="stats" class="tooltip-stats" />
+     </column>
+    </slot>
+   </item-slot>
+   <text id="caption" text-param="label" class="slot-caption" />
+  </column>
+ </template>
+ <template name="inspection-card">
+  <param name="heading" type="text" />
+  <param name="name" type="text-binding" />
+  <param name="rarity" type="text-binding" />
+  <param name="power" type="text-binding" />
+  <param name="primary" type="text-binding" />
+  <param name="description" type="text-binding" />
+  <param name="icon" type="number-binding" />
+  <param name="critical" type="text-binding" />
+  <param name="strength" type="text-binding" />
+  <param name="dexterity" type="text-binding" />
+  <param name="life" type="text-binding" />
+  <param name="gear" type="bool-binding" />
+  <param name="critical-delta" type="text-binding" />
+  <param name="critical-gain" type="bool-binding" />
+  <param name="critical-loss" type="bool-binding" />
+  <param name="critical-neutral" type="bool-binding" />
+  <param name="strength-delta" type="text-binding" />
+  <param name="strength-gain" type="bool-binding" />
+  <param name="strength-loss" type="bool-binding" />
+  <param name="strength-neutral" type="bool-binding" />
+  <param name="dexterity-delta" type="text-binding" />
+  <param name="dexterity-gain" type="bool-binding" />
+  <param name="dexterity-loss" type="bool-binding" />
+  <param name="dexterity-neutral" type="bool-binding" />
+  <param name="life-delta" type="text-binding" />
+  <param name="life-gain" type="bool-binding" />
+  <param name="life-loss" type="bool-binding" />
+  <param name="life-neutral" type="bool-binding" />
+  <column id="card" class="detail-card">
+   <text id="heading" text-param="heading" class="detail-heading" />
+   <row id="identity" class="detail-identity">
+    <overlay id="thumb" class="detail-thumb">
+     <image id="backplate" bind="SlotFrame" class="slot-art" />
+     <atlas-image id="icon" image-bind="ItemAtlas" index-bind-param="icon" columns="4" rows="3" class="detail-icon" />
+    </overlay>
+    <column id="names" class="detail-names">
+     <text id="name" bind-param="name" class="detail-name" />
+     <text id="rarity" bind-param="rarity" class="detail-rarity" />
+     <text id="power" bind-param="power" class="detail-power" visible-param="gear" />
+    </column>
+   </row>
+   <column id="rule" class="rule" />
+   <text id="primary" bind-param="primary" class="detail-primary" />
+   <column id="gear-stats" visible-param="gear" class="gear-stats">
+    <row id="critical-row" class="affix-row">
+     <atlas-image id="critical-icon" image-bind="StatGlyphAtlas" index-bind="GlyphCritical" columns="4" rows="2" class="affix-icon" />
+     <text id="critical-value" bind-param="critical" class="affix-value" />
+     <text id="critical-row-label" class="affix-label">Critical chance</text>
+     <overlay id="critical-delta" class="affix-delta">
+      <row id="critical-gain" visible-param="critical-gain" class="delta-state">
+       <atlas-image id="critical-gain-arrow" image-bind="StatGlyphAtlas" index-bind="GlyphGain" columns="4" rows="2" class="delta-arrow" />
+       <text id="critical-gain-value" bind-param="critical-delta" class="delta gain" />
+      </row>
+      <row id="critical-loss" visible-param="critical-loss" class="delta-state">
+       <atlas-image id="critical-loss-arrow" image-bind="StatGlyphAtlas" index-bind="GlyphLoss" columns="4" rows="2" class="delta-arrow" />
+       <text id="critical-loss-value" bind-param="critical-delta" class="delta loss" />
+      </row>
+      <row id="critical-neutral" visible-param="critical-neutral" class="delta-state">
+       <text id="critical-neutral-value" bind-param="critical-delta" class="delta neutral" />
+      </row>
+     </overlay>
+    </row>
+    <row id="strength-row" class="affix-row">
+     <atlas-image id="strength-icon" image-bind="StatGlyphAtlas" index-bind="GlyphStrength" columns="4" rows="2" class="affix-icon" />
+     <text id="strength-value" bind-param="strength" class="affix-value" />
+     <text id="strength-row-label" class="affix-label">Strength</text>
+     <overlay id="strength-delta" class="affix-delta">
+      <row id="strength-gain" visible-param="strength-gain" class="delta-state">
+       <atlas-image id="strength-gain-arrow" image-bind="StatGlyphAtlas" index-bind="GlyphGain" columns="4" rows="2" class="delta-arrow" />
+       <text id="strength-gain-value" bind-param="strength-delta" class="delta gain" />
+      </row>
+      <row id="strength-loss" visible-param="strength-loss" class="delta-state">
+       <atlas-image id="strength-loss-arrow" image-bind="StatGlyphAtlas" index-bind="GlyphLoss" columns="4" rows="2" class="delta-arrow" />
+       <text id="strength-loss-value" bind-param="strength-delta" class="delta loss" />
+      </row>
+      <row id="strength-neutral" visible-param="strength-neutral" class="delta-state">
+       <text id="strength-neutral-value" bind-param="strength-delta" class="delta neutral" />
+      </row>
+     </overlay>
+    </row>
+    <row id="dexterity-row" class="affix-row">
+     <atlas-image id="dexterity-icon" image-bind="StatGlyphAtlas" index-bind="GlyphDexterity" columns="4" rows="2" class="affix-icon" />
+     <text id="dexterity-value" bind-param="dexterity" class="affix-value" />
+     <text id="dexterity-row-label" class="affix-label">Dexterity</text>
+     <overlay id="dexterity-delta" class="affix-delta">
+      <row id="dexterity-gain" visible-param="dexterity-gain" class="delta-state">
+       <atlas-image id="dexterity-gain-arrow" image-bind="StatGlyphAtlas" index-bind="GlyphGain" columns="4" rows="2" class="delta-arrow" />
+       <text id="dexterity-gain-value" bind-param="dexterity-delta" class="delta gain" />
+      </row>
+      <row id="dexterity-loss" visible-param="dexterity-loss" class="delta-state">
+       <atlas-image id="dexterity-loss-arrow" image-bind="StatGlyphAtlas" index-bind="GlyphLoss" columns="4" rows="2" class="delta-arrow" />
+       <text id="dexterity-loss-value" bind-param="dexterity-delta" class="delta loss" />
+      </row>
+      <row id="dexterity-neutral" visible-param="dexterity-neutral" class="delta-state">
+       <text id="dexterity-neutral-value" bind-param="dexterity-delta" class="delta neutral" />
+      </row>
+     </overlay>
+    </row>
+    <row id="life-row" class="affix-row">
+     <atlas-image id="life-icon" image-bind="StatGlyphAtlas" index-bind="GlyphLife" columns="4" rows="2" class="affix-icon" />
+     <text id="life-value" bind-param="life" class="affix-value" />
+     <text id="life-row-label" class="affix-label">Life</text>
+     <overlay id="life-delta" class="affix-delta">
+      <row id="life-gain" visible-param="life-gain" class="delta-state">
+       <atlas-image id="life-gain-arrow" image-bind="StatGlyphAtlas" index-bind="GlyphGain" columns="4" rows="2" class="delta-arrow" />
+       <text id="life-gain-value" bind-param="life-delta" class="delta gain" />
+      </row>
+      <row id="life-loss" visible-param="life-loss" class="delta-state">
+       <atlas-image id="life-loss-arrow" image-bind="StatGlyphAtlas" index-bind="GlyphLoss" columns="4" rows="2" class="delta-arrow" />
+       <text id="life-loss-value" bind-param="life-delta" class="delta loss" />
+      </row>
+      <row id="life-neutral" visible-param="life-neutral" class="delta-state">
+       <text id="life-neutral-value" bind-param="life-delta" class="delta neutral" />
+      </row>
+     </overlay>
+    </row>
+   </column>
+   <column id="flavor-rule" class="rule" />
+   <text id="description" bind-param="description" class="detail-description" />
+  </column>
+ </template>
+ <region name="main">
+  <overlay id="root">
+   <column id="shade" class="shade" />
+   <column id="shell" class="shell">
+    <overlay id="header-frame" class="header-frame">
+     <image id="header-background" bind="TitleStrip" class="fill-art" />
+     <row id="header" class="header">
+      <text id="title" class="title">CHARACTER</text>
+      <text id="realm" class="realm">ALL THINGS FADE.  ONLY BLOOD REMAINS.</text>
+     </row>
+    </overlay>
+    <row id="body" class="body">
+     <column id="character-panel" class="character-panel">
+      <overlay id="identity" class="identity-frame">
+       <image id="identity-background" bind="StatStrip" class="fill-art" />
+       <column id="identity-content" class="identity">
+        <text id="character-name" class="character-name">LYRA</text>
+        <row id="character-class" class="character-class">
+         <text id="level-label" class="level-label">LEVEL</text>
+         <text id="level-value" class="level-value">42</text>
+         <text id="class-divider" class="class-divider">/</text>
+         <text id="class-name" class="class-name">ROGUE</text>
+        </row>
+       </column>
+      </overlay>
+      <overlay id="character-stage" class="character-stage">
+       <image id="alcove" bind="CharacterAlcove" class="alcove" />
+       <image id="portrait" bind="CharacterPortrait" class="portrait" />
+       <row id="equipment-layout" class="equipment-layout">
+        <column id="armor-slots" class="equipment-column">
+         <use id="equip-head" template="equipment-slot" label="HEAD" accepts="head" drop="EquipHead" key-bind="HeadKey" kind-bind="HeadKind" name-bind="HeadName" stats-bind="HeadStats" icon-bind="HeadIcon" tier-bind="HeadTier" selected-bind="HeadSelected" empty-bind="HeadEmpty" placeholder-bind="HeadPlaceholder" />
+         <use id="equip-chest" template="equipment-slot" label="CHEST" accepts="chest" drop="EquipChest" key-bind="ChestKey" kind-bind="ChestKind" name-bind="ChestName" stats-bind="ChestStats" icon-bind="ChestIcon" tier-bind="ChestTier" selected-bind="ChestSelected" empty-bind="ChestEmpty" placeholder-bind="ChestPlaceholder" />
+         <use id="equip-hands" template="equipment-slot" label="HANDS" accepts="hands" drop="EquipHands" key-bind="HandsKey" kind-bind="HandsKind" name-bind="HandsName" stats-bind="HandsStats" icon-bind="HandsIcon" tier-bind="HandsTier" selected-bind="HandsSelected" empty-bind="HandsEmpty" placeholder-bind="HandsPlaceholder" />
+         <use id="equip-legs" template="equipment-slot" label="LEGS" accepts="legs" drop="EquipLegs" key-bind="LegsKey" kind-bind="LegsKind" name-bind="LegsName" stats-bind="LegsStats" icon-bind="LegsIcon" tier-bind="LegsTier" selected-bind="LegsSelected" empty-bind="LegsEmpty" placeholder-bind="LegsPlaceholder" />
+         <use id="equip-boots" template="equipment-slot" label="BOOTS" accepts="boots" drop="EquipBoots" key-bind="BootsKey" kind-bind="BootsKind" name-bind="BootsName" stats-bind="BootsStats" icon-bind="BootsIcon" tier-bind="BootsTier" selected-bind="BootsSelected" empty-bind="BootsEmpty" placeholder-bind="BootsPlaceholder" />
+        </column>
+        <column id="portrait-space" class="portrait-space" />
+        <column id="jewelry-slots" class="equipment-column">
+         <use id="equip-weapon" template="equipment-slot" label="WEAPON" accepts="weapon" drop="EquipWeapon" key-bind="WeaponKey" kind-bind="WeaponKind" name-bind="WeaponName" stats-bind="WeaponStats" icon-bind="WeaponIcon" tier-bind="WeaponTier" selected-bind="WeaponSelected" empty-bind="WeaponEmpty" placeholder-bind="WeaponPlaceholder" />
+         <use id="equip-amulet" template="equipment-slot" label="AMULET" accepts="amulet" drop="EquipAmulet" key-bind="AmuletKey" kind-bind="AmuletKind" name-bind="AmuletName" stats-bind="AmuletStats" icon-bind="AmuletIcon" tier-bind="AmuletTier" selected-bind="AmuletSelected" empty-bind="AmuletEmpty" placeholder-bind="AmuletPlaceholder" />
+         <use id="equip-ring1" template="equipment-slot" label="RING I" accepts="ring" drop="EquipRing1" key-bind="Ring1Key" kind-bind="Ring1Kind" name-bind="Ring1Name" stats-bind="Ring1Stats" icon-bind="Ring1Icon" tier-bind="Ring1Tier" selected-bind="Ring1Selected" empty-bind="Ring1Empty" placeholder-bind="Ring1Placeholder" />
+         <use id="equip-ring2" template="equipment-slot" label="RING II" accepts="ring" drop="EquipRing2" key-bind="Ring2Key" kind-bind="Ring2Kind" name-bind="Ring2Name" stats-bind="Ring2Stats" icon-bind="Ring2Icon" tier-bind="Ring2Tier" selected-bind="Ring2Selected" empty-bind="Ring2Empty" placeholder-bind="Ring2Placeholder" />
+         <use id="equip-offhand" template="equipment-slot" label="QUIVER" accepts="offhand" drop="EquipOffhand" key-bind="OffhandKey" kind-bind="OffhandKind" name-bind="OffhandName" stats-bind="OffhandStats" icon-bind="OffhandIcon" tier-bind="OffhandTier" selected-bind="OffhandSelected" empty-bind="OffhandEmpty" placeholder-bind="OffhandPlaceholder" />
+        </column>
+       </row>
+      </overlay>
+      <overlay id="attributes" class="attributes-frame">
+       <image id="attributes-background" bind="StatStrip" class="fill-art" />
+       <row id="attributes-content" class="attributes">
+        <column id="strength-stat" class="stat">
+         <atlas-image id="strength-glyph" image-bind="StatGlyphAtlas" index-bind="GlyphStrength" columns="4" rows="2" class="stat-glyph" />
+         <text id="strength-label" class="stat-label">STRENGTH</text>
+         <text id="strength-value" bind="Strength" class="stat-value" />
+        </column>
+        <column id="attribute-divider-1" class="attribute-divider" />
+        <column id="dexterity-stat" class="stat">
+         <atlas-image id="dexterity-glyph" image-bind="StatGlyphAtlas" index-bind="GlyphDexterity" columns="4" rows="2" class="stat-glyph" />
+         <text id="dexterity-label" class="stat-label">DEXTERITY</text>
+         <text id="dexterity-value" bind="Dexterity" class="stat-value" />
+        </column>
+        <column id="attribute-divider-2" class="attribute-divider" />
+        <column id="armor-stat" class="stat">
+         <atlas-image id="armor-glyph" image-bind="StatGlyphAtlas" index-bind="GlyphArmor" columns="4" rows="2" class="stat-glyph" />
+         <text id="armor-label" class="stat-label">ARMOR</text>
+         <text id="armor-value" bind="Armor" class="stat-value" />
+        </column>
+        <column id="attribute-divider-3" class="attribute-divider" />
+        <column id="life-stat" class="stat">
+         <atlas-image id="life-glyph" image-bind="StatGlyphAtlas" index-bind="GlyphLife" columns="4" rows="2" class="stat-glyph" />
+         <text id="life-label" class="stat-label">LIFE</text>
+         <text id="life-value" bind="Life" class="stat-value" />
+        </column>
+       </row>
+      </overlay>
+     </column>
+     <column id="inventory-panel" class="inventory-panel">
+      <overlay id="inventory-heading-frame" class="inventory-heading-frame">
+       <image id="inventory-heading-background" bind="TitleStrip" class="fill-art" />
+       <row id="inventory-heading" class="inventory-heading">
+        <text id="inventory-title" class="section-title">INVENTORY</text>
+        <text id="inventory-count" bind="InventoryCount" class="inventory-count" />
+       </row>
+      </overlay>
+      <row id="filters" class="filters">
+       <action-card id="filter-all" action="FilterAll" selected-bind="FilterAllActive" class="filter-button">
+        <slot name="content">
+         <text id="filter-all-label" class="filter-label">ALL</text>
+        </slot>
+       </action-card>
+       <action-card id="filter-equipment" action="FilterEquipment" selected-bind="FilterEquipmentActive" class="filter-button">
+        <slot name="content">
+         <text id="filter-equipment-label" class="filter-label">EQUIPMENT</text>
+        </slot>
+       </action-card>
+       <action-card id="filter-supplies" action="FilterSupplies" selected-bind="FilterSuppliesActive" class="filter-button">
+        <slot name="content">
+         <text id="filter-supplies-label" class="filter-label">SUPPLIES</text>
+        </slot>
+       </action-card>
+       <text id="filter-context" bind="FilterContext" class="filter-context" />
+      </row>
+      <row id="inventory-grid-row" class="inventory-grid-row">
+       <repeat id="items" bind="Items" direction="horizontal" class="inventory-grid">
+        <item-slot id="card" key-field="key" kind-field="kind" rarity-field="tier" selected-field="selected" enabled-field="enabled" select="SelectItem" drag-label-field="name" drag-image-bind="ItemAtlas" drag-index-field="icon" drag-columns="4" drag-rows="3" class="inventory-card">
+         <slot name="content">
+          <overlay id="item-content" class="item-content">
+           <image id="backplate" bind="SlotFrame" class="slot-art" />
+           <atlas-image id="icon" image-bind="ItemAtlas" index-field="icon" columns="4" rows="3" class="item-icon" />
+           <text id="quantity" bind-field="quantityLabel" class="quantity" />
+          </overlay>
+         </slot>
+         <slot name="tooltip">
+          <column id="item-tooltip" class="item-tooltip">
+           <text id="item-name" bind-field="name" class="tooltip-name" />
+           <text id="item-rarity" bind-field="rarity" class="tooltip-rarity" />
+           <text id="item-stats" bind-field="stats" class="tooltip-stats" />
+           <text id="item-description" bind-field="description" class="tooltip-description" />
+           <text id="item-comparison" bind-field="compare" class="tooltip-comparison" />
+          </column>
+         </slot>
+        </item-slot>
+       </repeat>
+       <overlay id="inventory-side" class="inventory-side">
+        <image id="side-stone" bind="CharacterAlcove" class="side-stone" />
+        <column id="side-inscription" class="side-inscription">
+         <text id="side-motto" class="side-motto">BETTER
+TOOLS
+
+A
+KINDER
+DEATH.</text>
+         <text id="side-cross" class="side-cross">+</text>
+        </column>
+       </overlay>
+      </row>
+      <row id="inspection" class="inspection">
+       <overlay id="selected-details" class="detail-frame selected-frame">
+        <image id="selected-details-background" bind="PanelFrame" class="fill-art" />
+        <use id="selected-card" template="inspection-card" heading="SELECTED" name-bind="SelectedName" rarity-bind="SelectedRarity" power-bind="SelectedPower" primary-bind="SelectedPrimary" description-bind="SelectedDescription" icon-bind="SelectedIcon" strength-bind="SelectedStrength" dexterity-bind="SelectedDexterity" life-bind="SelectedLife" critical-bind="SelectedCritical" gear-bind="SelectedGearStats" critical-delta-bind="SelectedDeltaCritical" critical-gain-bind="SelectedDeltaCriticalGain" critical-loss-bind="SelectedDeltaCriticalLoss" critical-neutral-bind="SelectedDeltaCriticalNeutral" strength-delta-bind="SelectedDeltaStrength" strength-gain-bind="SelectedDeltaStrengthGain" strength-loss-bind="SelectedDeltaStrengthLoss" strength-neutral-bind="SelectedDeltaStrengthNeutral" dexterity-delta-bind="SelectedDeltaDexterity" dexterity-gain-bind="SelectedDeltaDexterityGain" dexterity-loss-bind="SelectedDeltaDexterityLoss" dexterity-neutral-bind="SelectedDeltaDexterityNeutral" life-delta-bind="SelectedDeltaLife" life-gain-bind="SelectedDeltaLifeGain" life-loss-bind="SelectedDeltaLifeLoss" life-neutral-bind="SelectedDeltaLifeNeutral" />
+       </overlay>
+       <overlay id="comparison-actions" visible="CompareVisible" class="detail-frame equipped-frame">
+        <image id="comparison-actions-background" bind="PanelFrame" class="fill-art" />
+        <use id="equipped-card" template="inspection-card" heading="EQUIPPED" name-bind="EquippedName" rarity-bind="EquippedRarity" power-bind="EquippedPower" primary-bind="EquippedPrimary" description-bind="EquippedDescription" icon-bind="EquippedIcon" strength-bind="EquippedStrength" dexterity-bind="EquippedDexterity" life-bind="EquippedLife" critical-bind="EquippedCritical" gear-bind="EquippedGearStats" critical-delta-bind="EquippedDeltaCritical" critical-gain-bind="EquippedDeltaCriticalGain" critical-loss-bind="EquippedDeltaCriticalLoss" critical-neutral-bind="EquippedDeltaCriticalNeutral" strength-delta-bind="EquippedDeltaStrength" strength-gain-bind="EquippedDeltaStrengthGain" strength-loss-bind="EquippedDeltaStrengthLoss" strength-neutral-bind="EquippedDeltaStrengthNeutral" dexterity-delta-bind="EquippedDeltaDexterity" dexterity-gain-bind="EquippedDeltaDexterityGain" dexterity-loss-bind="EquippedDeltaDexterityLoss" dexterity-neutral-bind="EquippedDeltaDexterityNeutral" life-delta-bind="EquippedDeltaLife" life-gain-bind="EquippedDeltaLifeGain" life-loss-bind="EquippedDeltaLifeLoss" life-neutral-bind="EquippedDeltaLifeNeutral" />
+       </overlay>
+      </row>
+     </column>
+    </row>
+    <row id="footer" class="footer">
+     <text id="status" bind="Status" class="status" />
+     <row id="region-action" class="footer-action">
+      <key-hint id="region-key" label="Q" action="ToggleRegion" font-family="fantasy-body" class="key-hint" />
+      <text id="region-hint" class="footer-label">REGION</text>
+     </row>
+     <row id="equip-action" class="footer-action">
+      <key-hint id="equip-key" label="E" action="PrimaryAction" font-family="fantasy-body" class="key-hint" visible="CanPrimaryAction" />
+      <text id="equip-hint" bind="PrimaryActionLabel" class="footer-label" />
+     </row>
+     <row id="compare-action" class="footer-action">
+      <key-hint id="compare-key" label="SHIFT" action="ToggleCompare" font-family="fantasy-body" class="key-hint wide-key" />
+      <text id="compare-hint" bind="CompareActionLabel" class="footer-label" />
+     </row>
+     <row id="close-action" class="footer-action">
+      <key-hint id="close-key" label="ESC" action="Close" font-family="fantasy-body" class="key-hint wide-key" />
+      <text id="close-hint" class="footer-label">CLOSE</text>
+     </row>
+     <row id="ring-target-action" visible="RingTargetVisible" class="footer-action">
+      <key-hint id="ring-target-key" label="R" action="CycleRingTarget" font-family="fantasy-body" class="key-hint" />
+      <text id="ring-target-hint" bind="RingTargetLabel" class="footer-label" />
+     </row>
+    </row>
+   </column>
+   <hud-graphic id="ornamental-frame" image-bind="OrnamentalFrame" class="ornamental-frame" />
+  </overlay>
+ </region>
+</ui>

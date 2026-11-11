@@ -1,4 +1,5 @@
 #include "CkUsfGym_ShadingModels.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -25,18 +26,26 @@ auto FCkTest_UsfGym_ShadingModelBatch::RunTest(const FString& Parameters) -> boo
     auto Errors = TArray<FString>{};
     auto Batch = ck::usf_gym::FBatch{};
     const auto Environment = ck::usf_gym::Get_Environment();
-    if (Environment.IsSubstrate)
+    auto ExpectedEnvironmentErrors = TArray<FString>{};
+    if (Environment.IsPIE)
+    { ExpectedEnvironmentErrors.Add(TEXT("Stop PIE before generating comparison materials, then run Ck_GymUsf_GenerateShadingModels in the editor console.")); }
+    if (NOT Environment.CanRender)
+    { ExpectedEnvironmentErrors.Add(TEXT("Shading-model generation requires a real RHI; restart without -nullrhi.")); }
+    if (NOT Environment.IsPlatformReady)
+    { ExpectedEnvironmentErrors.Add(TEXT("Shading-model generation requires initialized desktop shader-platform metadata.")); }
+    if (Environment.IsMobile || Environment.IsForward || Environment.IsSubstrate)
+    { ExpectedEnvironmentErrors.Add(TEXT("Shading-model comparison requires desktop deferred rendering with Substrate disabled.")); }
+    if (NOT Environment.HasNativeToon)
+    { ExpectedEnvironmentErrors.Add(TEXT("Shading-model comparison requires UE_CK_USF_SHADING_MODEL_VERSION >= 1.")); }
+    if (NOT ExpectedEnvironmentErrors.IsEmpty())
     {
-        // The legacy comparison gym intentionally excludes Substrate, including Blendable GBuffer.
-        // Exercise that production boundary on this host instead of claiming legacy shader coverage.
         const auto PackagePath = FPackageName::ObjectPathToPackageName(ck::usf_gym::CatalogPath);
         const auto PreviousPackage = TWeakObjectPtr<UPackage>{FindPackage(nullptr, *PackagePath)};
         const auto PackageExisted = FPackageName::DoesPackageExist(PackagePath);
-        TestFalse(TEXT("Legacy gym rejects the active Substrate environment before staging"),
+        TestFalse(TEXT("Legacy gym rejects the unsupported active environment before staging"),
             ck::usf_gym::Build_TransientBatch(Environment, Batch, Errors));
-        TestEqual(TEXT("Active host rejection has only the expected environment violation"), Errors.Num(), 1);
-        TestTrue(TEXT("Legacy gym reports that Substrate must be disabled"), Errors.Contains(
-            TEXT("Shading-model comparison requires desktop deferred rendering with Substrate disabled.")));
+        TestTrue(TEXT("Active host rejection reports exactly its applicable environment violations"),
+            Errors == ExpectedEnvironmentErrors);
         TestTrue(TEXT("Active environment rejection creates no candidate rows or materials"),
             Batch.Models.IsEmpty() && Batch.Materials.IsEmpty());
         TestFalse(TEXT("Active environment rejection allocates no scattering profile"), Batch.Profile.IsValid());
@@ -44,7 +53,6 @@ auto FCkTest_UsfGym_ShadingModelBatch::RunTest(const FString& Parameters) -> boo
             PreviousPackage.Get() == FindPackage(nullptr, *PackagePath));
         TestEqual(TEXT("Active environment rejection preserves catalog disk occupancy"),
             FPackageName::DoesPackageExist(PackagePath), PackageExisted);
-        AddInfo(TEXT("Active Substrate host exercised atomic legacy-gym rejection; legacy shader compilation requires a Substrate-disabled host."));
         return true;
     }
     if (ck::usf_gym::Build_TransientBatch(Environment, Batch, Errors) == false)

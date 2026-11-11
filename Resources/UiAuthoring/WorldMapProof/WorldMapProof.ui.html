@@ -1,0 +1,77 @@
+<ui version="1">
+ <region name="main">
+  <column id="screen-root">
+   <column id="screen-shell" class="shell">
+    <row id="topbar" class="topbar">
+     <column id="title-group" class="title-group">
+      <text id="eyebrow" class="eyebrow">TACTICAL ATLAS  /  CITY NETWORK 07</text>
+      <row id="title-line" class="title-line"><text id="map-title" class="display-title">MAP</text><text id="title-divider" class="title-divider">/</text><text id="city-title" class="city-title">VESPER</text></row>
+     </column>
+     <column id="header-right" class="header-right">
+      <text id="clock-label" class="header-kicker">NIGHT CYCLE 03  /  SIGNAL STABLE</text>
+      <row id="location-line" class="location-line"><text id="location-dot" class="live-dot">●</text><text id="location-text" class="header-location">LOWER CONCOURSE</text><text id="sector-text" class="header-sector">SECTOR 04 — WEST</text></row>
+     </column>
+    </row>
+    <row id="main-body" class="main-body">
+     <column id="mission-rail" class="mission-rail">
+      <row id="rail-section" class="rail-section"><text id="rail-section-label" class="eyebrow">FIELD INTELLIGENCE</text><text id="rail-index" class="rail-index">01 / 04</text></row>
+      <column id="mission-card" class="mission-card">
+       <row id="mission-chip-row" class="mission-chip-row"><text id="signal-glyph" class="signal-glyph">◇</text><text id="selected-kind" bind="SelectedKind" class="kind-label" /></row>
+       <text id="selected-title" bind="SelectedTitle" class="mission-title" />
+       <text id="selected-description" bind="SelectedDescription" class="mission-description" />
+       <column id="detail-rule" class="fine-rule" />
+       <row id="district-row" class="detail-row"><text id="district-label" class="detail-label">DISTRICT</text><text id="district-value" bind="SelectedDistrict" class="detail-value" /></row>
+       <row id="distance-row" class="detail-row"><text id="distance-label" class="detail-label">DISTANCE</text><text id="distance-value" bind="SelectedDistance" class="detail-value" /></row>
+       <row id="status-row" class="detail-row"><text id="status-label" class="detail-label">STATUS</text><text id="status-value" bind="SelectedStatus" class="detail-value status-value" /></row>
+       <column id="mission-spacer" class="mission-spacer" />
+       <button id="route-button" action="ToggleRoute" visible="RouteHidden" enabled-bind="CanRoute" class="route-button">PLOT ROUTE  →</button>
+       <button id="clear-route-button" action="ToggleRoute" visible="RouteVisible" enabled-bind="CanRoute" class="route-button route-clear">CLEAR ROUTE  ×</button>
+       <text id="route-note" class="rail-footnote">NAVIGATION LINK / LIVE TRACKING</text>
+      </column>
+      <column id="rail-bottom" class="rail-bottom">
+       <row id="rail-bottom-head" class="rail-bottom-head"><text id="rail-bottom-title" class="eyebrow">OPERATIONAL CHANNELS</text><text id="rail-bottom-live" class="rail-live">●  LIVE</text></row>
+       <text id="rail-bottom-copy" class="rail-copy">The city shifts. Your map keeps its memory. Select any signal to inspect its current field report.</text>
+       <row id="rail-pulse-row" class="rail-pulse-row"><text id="pulse-a" class="pulse-a">| | | | | |</text><text id="pulse-b" class="pulse-b">GRID SYNC 98%</text></row>
+      </column>
+     </column>
+     <column id="map-column" class="map-column">
+      <row id="map-toolbar" class="map-toolbar">
+       <row id="filter-group" class="filter-group">
+        <text id="filter-caption" class="toolbar-caption">SHOW</text>
+        <button id="filter-all-active" action="FilterAllAction" visible="FilterAll" class="filter-active">ALL</button>
+        <button id="filter-all" action="FilterAllAction" visible="FilterAllInactive" class="filter-button">ALL</button>
+        <button id="filter-quests-active" action="FilterQuestsAction" visible="FilterQuests" class="filter-active">QUESTS</button>
+        <button id="filter-quests" action="FilterQuestsAction" visible="FilterQuestsInactive" class="filter-button">QUESTS</button>
+        <button id="filter-services-active" action="FilterServicesAction" visible="FilterServices" class="filter-active">SERVICES</button>
+        <button id="filter-services" action="FilterServicesAction" visible="FilterServicesInactive" class="filter-button">SERVICES</button>
+       </row>
+       <row id="camera-group" class="camera-group"><column id="camera-spacer" class="mission-spacer" />
+        <button id="zoom-out" action="ZoomOut" class="tool-square">−</button>
+        <button id="zoom-in" action="ZoomIn" class="tool-square">+</button>
+        <button id="reset-view" action="ResetCamera" class="tool-wide">RESET</button>
+        <button id="center-target" action="CenterTarget" enabled-bind="HasSelection" class="tool-wide">CENTER TARGET</button>
+       </row>
+      </row>
+      <column id="map-frame" class="map-frame">
+       <row id="map-frame-top" class="map-frame-top"><text id="map-grid-label" class="map-frame-label">VESPER / CITY GRID</text><text id="map-scale-label" class="map-frame-label">N ↑  ·  CITY ATLAS</text></row>
+       <world-map id="map-view" markers-bind="Markers" image-bind="MapImage" select="SelectMarker" selected-key-bind="SelectedKey" route-bind="RouteVisible" origin-x="0.3" origin-y="0.55" font-family="map-ui" class="map" />
+       <row id="map-frame-bottom" class="map-frame-bottom"><text id="map-coordinate" class="map-frame-label">47° 18'  /  122° 10'</text><text id="map-zoom-label" class="map-frame-label">LIVE TOPOGRAPHY  ·  VSP-04</text></row>
+      </column>
+      <row id="map-legend" class="map-legend">
+       <text id="legend-caption" class="legend-caption">KEY</text>
+       <text id="legend-quest" class="legend-quest">◆  OBJECTIVE</text>
+       <text id="legend-service" class="legend-service">●  SERVICE</text>
+       <text id="legend-risk" class="legend-risk">▲  HAZARD</text>
+       <text id="legend-player" class="legend-player">◎  YOU</text>
+       <text id="legend-status" bind="Status" class="legend-status" />
+      </row>
+     </column>
+    </row>
+    <row id="footer" class="footer">
+     <row id="footer-left" class="footer-left"><key-hint id="pan-keys" label="WASD" font-family="map-ui" class="key-wide" /><text id="pan-label" class="footer-label">PAN MAP</text><key-hint id="select-keys" label="←↑→↓" font-family="map-ui" class="key-wide" /><text id="select-label" class="footer-label">SELECT SIGNAL</text><key-hint id="zoom-key" label="WHEEL" font-family="map-ui" class="key-wide" /><text id="zoom-label" class="footer-label">ZOOM</text></row>
+     <row id="footer-right" class="footer-right"><column id="footer-spacer" class="mission-spacer" /><text id="footer-build" class="footer-build">VESPER ATLAS / FIELD ISSUE 04</text><key-hint id="close-key" label="ESC" action="Close" font-family="map-ui" class="key-close" /><text id="close-label" class="footer-label">CLOSE MAP</text></row>
+    </row>
+   </column>
+  </column>
+ </region>
+</ui>

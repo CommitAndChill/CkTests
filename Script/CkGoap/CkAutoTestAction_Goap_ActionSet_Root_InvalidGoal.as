@@ -4,12 +4,9 @@
 // CK GOAP - AUTOMATION TEST ACTION: ROOT (InvalidGoal test)
 //============================================================================
 //
-// Root action for the InvalidGoal test. Effect: Ready=true. Used purely as
-// a class reference for the first AddAction call; its CDO registers the Ready key in
-// the WS. No goal set on PlannerParams, so the root plans with an empty
-// goal (immediately PlanFound with empty plan). The test overrides the goal
-// via utils_goap_planner::Request_SetGoal with an unregistered key to populate
-// _InvalidGoal diagnostics.
+// Supplies the unconditional Ready=true action for the accepted goal. The test
+// rejects a mixed goal containing UnknownKey and verifies this action remains
+// selected by an explicit replan before accepting an intentionally empty goal.
 //============================================================================
 
 class UCk_AutoTestAction_Goap_ActionSet_Root_InvalidGoal : UCk_GoapAction_EntityScript

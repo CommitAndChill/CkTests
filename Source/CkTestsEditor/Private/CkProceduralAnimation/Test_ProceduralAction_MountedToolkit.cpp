@@ -220,6 +220,7 @@ namespace ck_test_procedural_action_mounted_toolkit
 
     struct FAxisDragObservation
     {
+        FIntPoint PressPixel = FIntPoint{-1, -1};
         bool PressHandled = false;
         bool PickedXAxis = false;
         bool MoveHandled = false;
@@ -254,9 +255,10 @@ namespace ck_test_procedural_action_mounted_toolkit
         if (Size.X <= 0 || Size.Y <= 0)
         { return false; }
         const auto& Geometry = Path.Widgets.Last().Geometry;
+        // SceneViewport rounds the mapped local position to an integer pixel; a half-pixel offset selects its neighbor.
         OutState.Start = FVector2D{Geometry.GetAbsolutePositionAtCoordinates(FVector2D{
-            (static_cast<double>(InSample.Pixel.X) + 0.5) / Size.X,
-            (static_cast<double>(InSample.Pixel.Y) + 0.5) / Size.Y})};
+            static_cast<double>(InSample.Pixel.X) / Size.X,
+            static_cast<double>(InSample.Pixel.Y) / Size.Y})};
         const auto LocalSize = Geometry.GetLocalSize();
         OutState.ScreenDrag = FVector2D{InSample.Drag.X * LocalSize.X / Size.X,
             InSample.Drag.Y * LocalSize.Y / Size.Y};
@@ -273,6 +275,8 @@ namespace ck_test_procedural_action_mounted_toolkit
         OutState.Observation.PressHandled = Slate.ProcessMouseButtonDownEvent(
             Window->GetNativeWindow(), Down);
         OutState.Observation.PickedXAxis = InClient.GetCurrentWidgetAxis() == EAxisList::X;
+        if (InClient.Viewport != nullptr)
+        { OutState.Observation.PressPixel = FIntPoint{InClient.Viewport->GetMouseX(), InClient.Viewport->GetMouseY()}; }
         OutState.Previous = OutState.Start;
         OutState.Active = OutState.Observation.PressHandled;
         return OutState.Observation.PressHandled && OutState.Observation.PickedXAxis;
@@ -850,6 +854,10 @@ namespace ck_test_procedural_action_mounted_toolkit
                 State.GizmoAttempted = true;
                 const auto Accepted = BeginXAxisDragThroughSlate(Surface.ToSharedRef(),
                     *ViewportClient, Axis, State.AxisDrag);
+                State.Test->TestEqual(TEXT("routed mouse down preserves requested viewport pixel X"),
+                    State.AxisDrag.Observation.PressPixel.X, Axis.Pixel.X);
+                State.Test->TestEqual(TEXT("routed mouse down preserves requested viewport pixel Y"),
+                    State.AxisDrag.Observation.PressPixel.Y, Axis.Pixel.Y);
                 State.Test->TestTrue(TEXT("rendered endpoint axis receives routed mouse down"),
                     Accepted);
                 State.Stage = 17;

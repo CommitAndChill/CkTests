@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 
+#include "CkCore/Macros/CkMacros.h"
+
 #include "CkTestsBridge/Server/CkTestBridge_Preconditions.h"
 #include "CkTestsBridge/Server/CkTestBridge_RunController.h"
 
@@ -16,8 +18,8 @@
 //   Progress/<id>.jsonl  — append-only, one JSON object per line, flushed per line
 //   server.json          — pid / startedAt / project / protocolVersion / busy / currentRequestId / lastActivityAt
 //
-// Contains NO watchdog / sleep / lifetime policy — the driving loop (subsystem ticker) owns idle + wall-clock
-// timeouts. It DOES pump the in-flight RunController each poll (that is the async part).
+// A terminal I/O failure retains the captured response and request ownership until explicit recovery.
+// It never re-runs tests or retries publication from an ordinary poll.
 // --------------------------------------------------------------------------------------------------------------------
 
 // Protocol version advertised in server.json and enforced against a request's optional "protocolVersion" field.
@@ -29,6 +31,7 @@ struct FCk_TestBridge_ProcessResult
 {
     bool QuitRequested = false;
     bool AnyProcessed  = false;
+    bool TerminalFault = false;
 };
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -48,11 +51,20 @@ enum class ECk_TestBridge_StaleRequestPolicy : uint8
 class CKTESTSBRIDGE_API FCk_TestBridge_RequestProcessor
 {
 public:
+    using PreconditionEvaluatorType = TFunction<TOptional<FString>(bool, bool, FCk_TestBridge_Env&)>;
+
     FCk_TestBridge_RequestProcessor();
+
+    // Alternate protocol root and external-environment providers; request parsing, runner state,
+    // and file publication still follow the normal ProcessPending path.
+    FCk_TestBridge_RequestProcessor(
+        const FString& InProtocolRoot,
+        FCk_TestBridge_RunController::ControllerResolverType InResolveController,
+        PreconditionEvaluatorType InEvaluatePreconditions);
 
 public:
     // Create the protocol dirs, (per policy) wipe stale requests, wait once for the asset registry, publish
-    // server.json. Returns false ONLY if the dirs could not be created. Re-runnable.
+    // server.json. Returns false if directories/ownership publication fail. Re-runnable when idle.
     auto
     Startup(
         ECk_TestBridge_StaleRequestPolicy InStaleRequestPolicy = ECk_TestBridge_StaleRequestPolicy::WipeStale) -> bool;
@@ -63,6 +75,10 @@ public:
     auto
     ProcessPending(
         float InDeltaTime) -> FCk_TestBridge_ProcessResult;
+
+    // Retry only the captured terminal response/outstanding request deletion. This never reparses
+    // the request, re-evaluates the environment, or starts automation.
+    auto Request_RecoverPublication() -> FCk_TestBridge_ProcessResult;
 
     // Remove server.json. Safe whether or not Startup ran. Does NOT abort an in-flight run (the caller owns that).
     auto
@@ -79,18 +95,19 @@ public:
     auto Get_ServerStatusPath() const -> const FString& { return _ServerStatusPath; }
 
     auto Get_IsBusy() const -> bool { return _Busy; }
+    auto Get_HasTerminalFault() const -> bool { return NOT _TerminalFault.IsEmpty(); }
+    auto Get_TerminalFault() const -> const FString& { return _TerminalFault; }
 
 private:
     auto
     Do_WriteStatusFile(
         bool InBusy,
-        const FString& InCurrentRequestId) -> void;
+        const FString& InCurrentRequestId) -> bool;
 
-    // Parse + validate one request file. Refuses (writes a refused result + deletes) or accepts (marks busy, starts
-    // the RunController). Returns true if the op asked the server to quit.
+    // Parse + validate one request file. Captures a terminal rejection/quit or starts the runner.
     auto
     Do_ClaimRequest(
-        const FString& InRequestPath) -> bool;
+        const FString& InRequestPath) -> void;
 
     // Called each poll while _Busy: pump the runner, and on completion finalize (write result, delete request).
     auto
@@ -101,7 +118,16 @@ private:
     Do_AppendProgress(
         const TSharedPtr<class FJsonObject>& InEvent) -> void;
 
+    auto Do_CaptureResponse(
+        const TSharedPtr<class FJsonObject>& InResponse,
+        bool InQuitRequested = false) -> void;
+
+    auto Do_PublishCapturedResponse() -> FCk_TestBridge_ProcessResult;
+
+    auto Do_FaultPublication(const FString& InReason) -> void;
+
 private:
+    PreconditionEvaluatorType _EvaluatePreconditions;
     FString _Root;
     FString _RequestsDir;
     FString _ResultsDir;
@@ -110,6 +136,10 @@ private:
     FString _StartedAtIso;
 
     bool    _Busy = false;
+    // Private and never mutated after capture: this is the one terminal outcome recovery publishes.
+    TSharedPtr<class FJsonObject> _CapturedResponse;
+    bool _CapturedQuitRequested = false;
+    FString _TerminalFault;
     FString _CurrentRequestId;
     FString _CurrentRequestPath;
     FString _CurrentResultPath;

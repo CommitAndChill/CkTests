@@ -757,7 +757,7 @@ namespace ck_procedural_gym
     }
 
     FCk_SurfaceMotion_Spec MakeMotionParams(float InClearance, float InSurfaceTurnRate, ECk_SurfaceMotion_HeightSource InHeightSource,
-        ECk_SurfaceMotion_WallPolicy InWallPolicy, float InMaxStepHeight)
+        ECk_SurfaceMotion_WallPolicy InWallPolicy, float InMaxStepHeight, FVector InBodyHalfExtents = FVector::ZeroVector)
     {
         auto Contact = FCk_SurfaceMotion_Contact();
         Contact.Set_Clearance(InClearance);
@@ -773,6 +773,14 @@ namespace ck_procedural_gym
         auto Params = FCk_SurfaceMotion_Spec();
         Params.Set_Contact(Contact);
         Params.Set_Movement(Movement);
+        if (InBodyHalfExtents.Equals(FVector::ZeroVector, 0.0) == false)
+        {
+            auto AdaptiveHeight = FCk_SurfaceMotion_AdaptiveHeight();
+            AdaptiveHeight.Set_Enabled(true);
+            AdaptiveHeight.Set_BodyHalfExtents(InBodyHalfExtents);
+            AdaptiveHeight.Set_CollisionMargin(1.0f);
+            Params.Set_AdaptiveHeight(AdaptiveHeight);
+        }
         return Params;
     }
 }
@@ -1478,6 +1486,9 @@ struct FCkProceduralAnimationGym_SpawnRequest
     bool SiblingAvoidance = true;
     UPROPERTY()
     bool FootReservations = true;
+    // Existing fixtures keep their clearance policy; authored collision extents require an explicit opt-in.
+    UPROPERTY()
+    bool AdaptiveHeight = false;
 }
 
 struct FCkProceduralAnimationGym_Fixture
@@ -1503,7 +1514,7 @@ struct FCkProceduralAnimationGym_Fixture
 
     // The first InCount of the 4, 6 and 8-leg crawlers; see Create_WithRoster.
     bool Create(FCk_Handle InOwner, FVector InOrigin, ECkProceduralAnimationGym_Course InCourse,
-        bool InRender = true, int32 InCount = 3)
+        bool InRender = true, int32 InCount = 3, bool InAdaptiveHeight = false)
     {
         auto Roster = TArray<ECkProceduralAnimationGym_Species>();
         for (auto Index = 0; Index < InCount; Index++)
@@ -1511,7 +1522,7 @@ struct FCkProceduralAnimationGym_Fixture
             Roster.Add(Index == 0 ? ECkProceduralAnimationGym_Species::Crawler4 :
                 (Index == 1 ? ECkProceduralAnimationGym_Species::Crawler6 : ECkProceduralAnimationGym_Species::Crawler8));
         }
-        return Create_WithRoster(InOwner, InOrigin, InCourse, Roster, InRender);
+        return Create_WithRoster(InOwner, InOrigin, InCourse, Roster, InRender, InAdaptiveHeight: InAdaptiveHeight);
     }
 
     // Caller first retires the previous fixture and waits for Get_IsDestroyed(). No overlapping
@@ -1522,7 +1533,7 @@ struct FCkProceduralAnimationGym_Fixture
         ECkProceduralAnimationGym_HeightSource InHeightSource = ECkProceduralAnimationGym_HeightSource::Species,
         float InStartHeight = 0.0,
         FCkProceduralAnimationGym_WallOverride InWallOverride = FCkProceduralAnimationGym_WallOverride(),
-        bool InSiblingAvoidance = true, bool InFootReservations = true)
+        bool InSiblingAvoidance = true, bool InFootReservations = true, bool InAdaptiveHeight = false)
     {
         if (Get_IsDestroyed() == false || ck::Is_NOT_Valid(InOwner) || InRoster.Num() < 1 || InRoster.Num() > 3)
         {
@@ -1552,6 +1563,7 @@ struct FCkProceduralAnimationGym_Fixture
         Spawn.WallOverride = InWallOverride;
         Spawn.SiblingAvoidance = InSiblingAvoidance;
         Spawn.FootReservations = InFootReservations;
+        Spawn.AdaptiveHeight = InAdaptiveHeight;
         Spawn.Pending = true;
 
         auto GroundColor = FLinearColor(0.12, 0.18, 0.24, 1.0);
@@ -2062,7 +2074,8 @@ struct FCkProceduralAnimationGym_Fixture
         auto WallPolicy = WallsOverridden ? Spawn.WallOverride.WallPolicy : Profile.WallPolicy;
         auto MaxStepHeight = WallsOverridden ? Spawn.WallOverride.MaxStepHeight : Profile.MaxStepHeight;
         Crawler.Handles.Motion = utils_surface_motion::Add(Crawler.Handles.Root, ck_procedural_gym::MakeMotionParams(Profile.Clearance,
-            Profile.SurfaceTurnRate, ck_procedural_gym::Get_HeightSource(Spawn.HeightSource, Profile.HeightSource), WallPolicy, MaxStepHeight));
+            Profile.SurfaceTurnRate, ck_procedural_gym::Get_HeightSource(Spawn.HeightSource, Profile.HeightSource), WallPolicy, MaxStepHeight,
+            Spawn.AdaptiveHeight ? Profile.BodyHalfExtents : FVector::ZeroVector));
 
         Crawler.Layout.GaitPreset = Profile.Gait;
         auto InstanceRig = MakeInstanceRig(Profile, 0);

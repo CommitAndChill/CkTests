@@ -94,6 +94,18 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Timer",              ACk_TimerGym_GameMode,                   "", "CkTimer");
         CkGym_Cycler::RegisterProjectGym("Transform",          ACk_TransformGym_GameMode,               "", "CkEcsExt");
         CkGym_Cycler::RegisterProjectGym("Tween",              ACk_TweenTest_GymGameMode,               "", "CkTween");
+        CkGym_Cycler::RegisterProjectGym("UI Authoring",       ACk_UiAuthoringGym_GameMode,             "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI HUD: Skyrim",    ACk_CombatHud_Fantasy_GameMode,          "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI HUD: Mass Effect 3", ACk_CombatHud_Futuristic_GameMode,       "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: Mass Effect 3 Power Wheel", ACk_PowerWheel_GameMode,       "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: Skyrim Journal", ACk_SkyrimJournal_GameMode,               "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: Scripted Mission Board", ACk_ScriptingMissions_GameMode,   "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: Dark Fantasy HUD", ACk_DarkFantasyHud_GameMode,            "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: Character & Equipment", ACk_CharacterEquipment_GameMode,   "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: Tactical Inventory", ACk_TacticalInventory_GameMode,       "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: World Map", ACk_WorldMap_GameMode,                        "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI: Scripted UMG Card", ACk_ScriptingCard_GameMode,            "", "CkUI");
+        CkGym_Cycler::RegisterProjectGym("UI HUD: Battlefield 4",   ACk_CombatHud_Tactical_GameMode,         "", "CkUI");
         CkGym_Cycler::RegisterProjectGym("USF Materials",      ACk_UsfGym_GameMode,                     "", "CkUsf");
         CkGym_Cycler::RegisterProjectGym("Vat",                ACk_VatGym_GameMode,                     "", "CkVat");
         CkGym_Cycler::RegisterProjectGym("VfxExamples",        ACk_VfxExamplesGym_GameMode,             "", "CkVfx");

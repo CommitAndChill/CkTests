@@ -65,6 +65,7 @@ struct FCk_TestBridge_RunResult
 {
     TArray<FCk_TestBridge_PerTest> PerTest;
     TArray<FString>                NotFound;
+    FString                       Error;
 };
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -83,6 +84,12 @@ struct FCk_TestBridge_RunCallbacks
 class CKTESTSBRIDGE_API FCk_TestBridge_RunController
 {
 public:
+    using ControllerResolverType = TFunction<TSharedPtr<class IAutomationControllerManager>()>;
+
+    // An omitted resolver retains the normal module lookup. Supplying one lets a caller exercise
+    // controller unavailability without unloading the editor's shared automation module.
+    explicit FCk_TestBridge_RunController(ControllerResolverType InResolveController = {});
+
     // Detaches the OnTestsRefreshed delegate (via Reset) so a mid-run editor shutdown that destroys the owning
     // processor cannot leave the controller holding a raw pointer to freed memory.
     ~FCk_TestBridge_RunController();
@@ -143,6 +150,7 @@ private:
         bool InForcedStop) -> void;
 
 private:
+    ControllerResolverType _ResolveController;
     TSharedPtr<class IAutomationControllerManager> _Controller;
     FDelegateHandle                                _TestsRefreshedHandle;
     FDelegateHandle                                _TestsCompleteHandle;

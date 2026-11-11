@@ -4,20 +4,9 @@
 // CK TIMER - AUTOMATION TEST: JUMP BACKWARD
 //============================================================================
 //
-// Pairs with CkAutoTest_Timer_Jump_Forward. Pins the backward-jump contract
-// on a CountUp timer:
-//   1. Start a long-goal timer (10s) so natural completion can't happen.
-//   2. Wait for some elapsed time to accumulate (> 30ms).
-//   3. Capture pre-jump value.
-//   4. Request_Jump with a NEGATIVE FCk_Time delta whose magnitude
-//      exceeds the elapsed value.
-//   5. Assert elapsed clamps to zero (FCk_Chrono::Tick clamps to
-//      [0, GoalValue]).
-//
-// CountUp + negative jump exercises FCk_Chrono::Tick's negative-input path
-// (line 35: `_CurrentValue + InDeltaT` then Clamp). The contract: backward
-// jumps shouldn't take the timer past zero into negative territory; the
-// chrono's clamp catches it.
+// A relative backward jump larger than the elapsed time clamps a CountUp timer
+// to zero. Seed a paused timer through Request_Jump, then inspect the negative
+// jump in its completion callback, before any normal elapsed-time advance.
 //============================================================================
 
 class UCk_AutoTest_Timer_Jump_Backward : UCk_AutoTest_Base
@@ -25,10 +14,6 @@ class UCk_AutoTest_Timer_Jump_Backward : UCk_AutoTest_Base
     default _TimeoutSeconds = 4.0f;
 
     private FCk_Handle_Timer _Timer;
-    private int32 _ElapsedMsBeforeJump = 0;
-    private FCk_Time _JumpDelta;
-    private bool _JumpDone = false;
-    private int32 _TicksAfterJump = 0;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
@@ -37,42 +22,52 @@ class UCk_AutoTest_Timer_Jump_Backward : UCk_AutoTest_Base
         auto LocalHandle = InHandle;
 
         auto Params = FCk_Timer_Spec(FCk_Time(10.0f));
-        Params.Set_StartingState(ECk_Timer_State::Running);
+        Params.Set_StartingState(ECk_Timer_State::Paused);
         Params.Set_Behavior(ECk_Timer_Behavior::PauseOnDone);
-
         _Timer = utils_timer::Add(LocalHandle, Params);
-        // Large negative delta so the clamp-to-zero behavior is unambiguous
-        // (any pre-jump elapsed in the [30ms, ~1s] window we're testing
-        // gets driven below zero pre-clamp).
-        _JumpDelta = FCk_Time(-5.0f);
-        utils_timer::Create_Tick(LocalHandle, FCk_Delegate_Timer(this, n"OnTick"));
+
+        auto SeedJump = FCk_Request_Timer_Jump(FCk_Time(1.0f));
+        SeedJump.Set_JumpMode(ECk_RelativeAbsolute::Relative);
+        utils_timer::Request_Jump(_Timer, SeedJump,
+            FCk_Delegate_Request_OnCompleted(this, n"OnSeedCompleted"));
     }
 
     UFUNCTION()
-    private void OnTick(FCk_Handle_Timer InHandle, FCk_Chrono InChrono, FCk_Time InDeltaT)
+    private void OnSeedCompleted(FCk_Handle InRequestOwner, ECk_Request_OperationResult InResult)
     {
         if (IsFinished()) { return; }
-
-        if (_JumpDone == false)
+        if (InResult != ECk_Request_OperationResult::Succeeded || InRequestOwner != _Timer)
         {
-            auto LiveChrono = utils_timer::Get_CurrentTimerValue(_Timer);
-            FCk_Time LiveGoal;
-            FCk_Time LiveElapsed;
-            FCk_Time LiveRemaining;
-            LiveChrono.Break_Chrono(LiveGoal, LiveElapsed, LiveRemaining);
-
-            if (LiveElapsed.Get_Milliseconds() > 30)
-            {
-                _ElapsedMsBeforeJump = int32(LiveElapsed.Get_Milliseconds());
-                utils_timer::Request_Jump(_Timer, FCk_Request_Timer_Jump(_JumpDelta));
-                _JumpDone = true;
-            }
+            FinishFailure(f"Seed jump must succeed on the timer owner (got {InResult})");
             return;
         }
 
-        // Read on the tick AFTER the jump so the request has been processed.
-        _TicksAfterJump += 1;
-        if (_TicksAfterJump < 2) { return; }
+        auto SeedChrono = utils_timer::Get_CurrentTimerValue(_Timer);
+        FCk_Time SeedGoal;
+        FCk_Time SeedElapsed;
+        FCk_Time SeedRemaining;
+        SeedChrono.Break_Chrono(SeedGoal, SeedElapsed, SeedRemaining);
+        if (SeedElapsed.Get_Seconds() != 1.0)
+        {
+            FinishFailure(f"Seed jump must establish exactly one second (got {SeedElapsed.Get_Seconds()})");
+            return;
+        }
+
+        auto BackwardJump = FCk_Request_Timer_Jump(FCk_Time(-5.0f));
+        BackwardJump.Set_JumpMode(ECk_RelativeAbsolute::Relative);
+        utils_timer::Request_Jump(_Timer, BackwardJump,
+            FCk_Delegate_Request_OnCompleted(this, n"OnBackwardJumpCompleted"));
+    }
+
+    UFUNCTION()
+    private void OnBackwardJumpCompleted(FCk_Handle InRequestOwner, ECk_Request_OperationResult InResult)
+    {
+        if (IsFinished()) { return; }
+        if (InResult != ECk_Request_OperationResult::Succeeded || InRequestOwner != _Timer)
+        {
+            FinishFailure(f"Backward jump must succeed on the timer owner (got {InResult})");
+            return;
+        }
 
         auto NowChrono = utils_timer::Get_CurrentTimerValue(_Timer);
         FCk_Time NowGoal;
@@ -80,16 +75,11 @@ class UCk_AutoTest_Timer_Jump_Backward : UCk_AutoTest_Base
         FCk_Time NowRemaining;
         NowChrono.Break_Chrono(NowGoal, NowElapsed, NowRemaining);
 
-        // Elapsed must have dropped from pre-jump (backward DID move).
-        Assert_True(NowElapsed.Get_Milliseconds() < _ElapsedMsBeforeJump,
-            f"After Request_Jump({_JumpDelta.Get_Milliseconds()}ms) from {_ElapsedMsBeforeJump}ms, elapsed must decrease (got {NowElapsed.Get_Milliseconds()}ms)");
-
-        // FCk_Chrono::Tick clamps to [0, Goal]. Backward jump magnitude
-        // exceeds pre-jump elapsed, so post-jump elapsed should be at most
-        // the normal ~2 ticks worth of elapsed advance after the clamp
-        // (well under 100ms).
-        Assert_True(NowElapsed.Get_Milliseconds() < 100,
-            f"After clamp-to-zero backward jump + 2 ticks of normal advance, elapsed should be < 100ms (got {NowElapsed.Get_Milliseconds()}ms)");
+        Assert_True(NowElapsed.Get_Seconds() == 0.0,
+            f"Relative -5s jump from 1s must clamp elapsed to zero (got {NowElapsed.Get_Seconds()}s)");
+        Assert_True(NowGoal.Get_Seconds() == 10.0, "Backward jump preserves the ten-second goal");
+        Assert_True(_Timer.Get_CurrentState() == ECk_Timer_State::Paused,
+            "Backward jump preserves the paused timer state");
 
         FinishSuccess();
     }

@@ -1,4 +1,5 @@
 #include "Misc/AutomationTest.h"
+#include "CkCore/Macros/CkMacros.h"
 
 #include "CkPathNetwork/Network/CkPathNetwork_PathSimplify.h"
 

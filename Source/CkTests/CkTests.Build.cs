@@ -9,14 +9,16 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("Json");
         // Bend-side admission tests inspect the actual two-bone and FABRIK solver joint results.
         PrivateDependencyModuleNames.Add("AnimationCore");
+        // GOAP admission tests directly access A* fragments through EnTT storage.
+        PrivateDependencyModuleNames.Add("CkAStar");
+        // Container-admission tests instantiate the Push Model dirty-marking template directly.
+        PrivateDependencyModuleNames.Add("NetCore");
 
         PrivateDependencyModuleNames.AddRange(new string[]
         {
-            // The layout lifecycle fixture creates and activates CommonUI widgets directly.
-            "UMG",
-            "CommonUI",
             "Text3D",
             "PhysicsCore",
+            "ApplicationCore",
         });
 
         // Direct C API integration coverage lives in this module's private unit-test source.
@@ -25,6 +27,9 @@ public class CkTests : CkModuleRules
         PrivateDependencyModuleNames.Add("AppFramework"); // Exercise native color-picker behavior through authored controls.
         PrivateDependencyModuleNames.Add("ImageCore");
         PrivateDependencyModuleNames.Add("CkRuntimeMesh");
+        PrivateDependencyModuleNames.Add("CommonInput"); // Inspect the actual controller input mode in menu acceptance tests.
+        // The nonzero-player UI proof temporarily overlays player widget layers without a second scene view.
+        PrivateDependencyModuleNames.Add("EngineSettings");
 
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "ResourceInspector", "ResourceInspector.ui.css"), StagedFileType.NonUFS);
@@ -32,6 +37,60 @@ public class CkTests : CkModuleRules
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "CapabilityGallery", "CapabilityGallery.ui.css"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "CapabilityGallery", "Templates", "GalleryStarter.ui.html"), StagedFileType.NonUFS);
         RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "CapabilityGallery", "Templates", "GalleryStarter.ui.css"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PauseMenuProof", "PauseMenuProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PauseMenuProof", "PauseMenuProof.ui.css"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PauseMenuProof", "pause-menu-backdrop.png"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "SettingsMenuProof", "SettingsMenuProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "SettingsMenuProof", "SettingsMenuProof.ui.css"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "InventoryMenuProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "GameplayInventoryMenuProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "InventoryMenuProof.ui.css"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "InventoryMenuProof", "inventory-item-atlas.png"), StagedFileType.NonUFS);
+        foreach (var Theme in new[] { "Futuristic", "Tactical", "Fantasy" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", Theme, "CombatHudProof.ui.html"), StagedFileType.NonUFS);
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", Theme, "CombatHudProof.ui.css"), StagedFileType.NonUFS);
+        }
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "CombatHudProof", "Futuristic", "squad-portraits.png"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PowerWheelProof", "PowerWheelProof.ui.html"), StagedFileType.NonUFS);
+        RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "PowerWheelProof", "PowerWheelProof.ui.css"), StagedFileType.NonUFS);
+        foreach (var Resource in new[] { "SkyrimJournalProof.ui.html", "SkyrimJournalProof.ui.css", "RobotoCondensed.ttf", "OFL.txt" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "SkyrimJournalProof", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Resource in new[] { "ScriptingCardProof.ui.html", "ScriptingCardProof.ui.css" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ScriptingCardProof", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Resource in new[] { "ScriptedCollectionProof.ui.html", "ScriptedCollectionProof.ui.css", "mission-board-backdrop.png" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ScriptedCollectionProof", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Resource in new[] { "DarkFantasyHudProof.ui.html", "DarkFantasyHudProof.ui.css", "dungeon-backdrop.png", "sewer-minimap.png", "ornamental-hud-frame.png",
+            "orb-bezel.png", "orb-health.png", "orb-energy.png", "wheel-vignette.png",
+            "ability-cut.png", "ability-flurry.png", "ability-shadow.png", "ability-dash.png", "ability-strike.png", "ability-pierce.png",
+            "wheel-empty.png", "wheel-thanks.png", "wheel-bye.png", "wheel-cheer.png", "wheel-follow.png", "wheel-help.png", "wheel-sorry.png", "wheel-taunt.png" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "DarkFantasyHudProof", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Font in new[] { "MarcellusSC-Regular.ttf", "SourceSans3-Regular.ttf", "SourceSans3-Bold.ttf", "OFL_MarcellusSC.txt", "OFL_SourceSans3.txt" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "DarkFantasyHudProof", "Fonts", Font), StagedFileType.NonUFS);
+        }
+
+        foreach (var Resource in new[] { "me-backdrop.png", "skyrim-backdrop.png" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ReplicaPresentation", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Resource in new[] { "WorldMapProof.ui.html", "WorldMapProof.ui.css", "vesper-map.png" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "WorldMapProof", Resource), StagedFileType.NonUFS);
+        }
+        foreach (var Font in new[] { "Rajdhani-Regular.ttf", "Rajdhani-SemiBold.ttf", "Rajdhani-Bold.ttf",
+            "BarlowCondensed-Regular.ttf", "BarlowCondensed-Medium.ttf", "BarlowCondensed-SemiBold.ttf", "OFL_Rajdhani.txt", "OFL_BarlowCondensed.txt" })
+        {
+            RuntimeDependencies.Add(Path.Combine(PluginDirectory, "Resources", "UiAuthoring", "ReplicaPresentation", "Fonts", Font), StagedFileType.NonUFS);
+        }
 
         PublicDependencyModuleNames.AddRange(new string[]
         {
@@ -39,6 +98,9 @@ public class CkTests : CkModuleRules
             "CoreUObject",
             "DeveloperSettings",
             "Engine",
+            // The public UI gym fixture derives from a CommonUI UWidget host.
+            "UMG",
+            "CommonUI",
             // Public fixture config derives from UNavigationSystemModuleConfig.
             "NavigationSystem",
             "Projects",
@@ -163,9 +225,12 @@ public class CkTests : CkModuleRules
             PrivateDependencyModuleNames.AddRange(new string[]
             {
                 "UnrealEd",
+                "DataValidation",
                 "EditorSubsystem",
                 "SourceControl",
                 "CkUsfEditor",
+                // Shader reload tests attest real file events before their negative observation window.
+                "DirectoryWatcher",
                 // The Jolt incremental-cook planner and index remap are pure functions living in the
                 // editor cooker; their tests link against it directly.
                 "CkJoltEditor",

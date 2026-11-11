@@ -29,7 +29,9 @@ class UCk_AutoTest_GameSettings_ResetAll_PersistsDefaults : UCk_AutoTest_Base
             "default restored in memory");
 
         auto Provider = utils_game_settings::Get_StorageProvider();
-        auto StoredValues = Provider.Get_StoredValues(ECk_GameSettings_Scope::Machine, 0);
+        auto StoredValues = TArray<FCk_GameSettings_StoredValue>();
+        Assert_True(Provider.Get_StoredValues(ECk_GameSettings_Scope::Machine, 0, StoredValues)
+            == ECk_GameSettings_StorageReadResult::Succeeded, "provider reads the stored defaults");
 
         auto StoredMode = FString();
         auto StoredLevel = FString();

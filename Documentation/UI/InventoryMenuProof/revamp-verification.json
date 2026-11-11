@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-09",
+  "status": "focused-native-verified",
+  "gym": "UI Authoring / [3] Inventory",
+  "renderer": "D3D12/SM6",
+  "testPattern": "Ck.UiAuthoring.MenuProof",
+  "projectPrefix": "Ck.UiAuthoring",
+  "selectedTests": 4,
+  "passed": 4,
+  "failed": 0,
+  "skipped": 0,
+  "contaminated": 0,
+  "tests": [
+    "Ck.UiAuthoring.InventoryMenuProof.PIE",
+    "Ck.UiAuthoring.PauseMenuProof.GymSelector.PIE",
+    "Ck.UiAuthoring.PauseMenuProof.PIE",
+    "Ck.UiAuthoring.SettingsMenuProof.PIE"
+  ],
+  "build": "Incremental UnrealToolbox editor build succeeded",
+  "gateLog": "Saved/Logs/OlderUI-Inventory-Gate-05.log",
+  "gateLogSha256": "3198a5b1c67ed2ee371599505aef13d55b51f3f7c653e9558629c9e691e4dfb8",
+  "sourceSha256": {
+    "Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.html": "6f5e38743ede8deee2d60f893f4dc97864bc8a1e4b0503f667dcec773ba94405",
+    "Resources/UiAuthoring/InventoryMenuProof/InventoryMenuProof.ui.css": "8870dcb653378295d8c5dac18599cd78d0c4a19fe14db333b92393142fddd6c6",
+    "Source/CkTests/Private/UI/CkInventoryMenuProofModel.cpp": "de1736eca4aa5d65d93df8e925369ce9c002cfeef1b055e1b71fe4a9197d5383",
+    "Source/CkTests/Private/UI/CkInventoryMenuProofModel.h": "41a1c1613d1eddb4c8bc9beb5085e2eb3cc00bdd128b9acc6eff15e3091ea28a",
+    "Source/CkTests/Private/UI/CkPauseMenuProof.cpp": "eb8c12245aed9d89a736b4d65b99149aeb18451fd66bfab0602acaa34be7f758",
+    "Source/CkTests/Private/UI/CkUiReplicaPresentation.cpp": "6b7ce3cc5154315d602cf8c599ff082acc0fd342a51fa7a7355144f1aa926583",
+    "Source/CkTests/Private/UnitTests/CkYoga/Test_InventoryMenuProof.cpp": "beaff9e0589fcc7d4f35d23318d0d9b430b47e00001c5864e7f7df292230fb77",
+    "Source/CkTests/Private/UnitTests/CkTestsGym/Test_UiAuthoringGym.cpp": "515207b4ca2cd3b56e35d6e8eefbfaffad16ccf8722b42e161f16bddbb92b61c"
+  },
+  "captures": [
+    {
+      "file": "revamped-native-all-1280x720.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-all-1280x720.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "3f34dae951a007890d2758626c4c928b1b1b0e44815d1f4d0328486ec5254489",
+      "edited": false
+    },
+    {
+      "file": "revamped-native-all-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-all-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "c0f5d4945731ceadfd7828b72138f648fa6b7ecf96dd5a35a0fa76ed2dbd08c5",
+      "edited": false
+    },
+    {
+      "file": "revamped-native-all-2560x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-all-2560x1080.png",
+      "dimensions": [
+        2560,
+        1080
+      ],
+      "sha256": "4d4f0964944b9cecba6c4991fde100bb9919ef8da0f38fa0cadb289f326221b0",
+      "edited": false
+    },
+    {
+      "file": "revamped-native-all-restored-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-all-restored-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "c0f5d4945731ceadfd7828b72138f648fa6b7ecf96dd5a35a0fa76ed2dbd08c5",
+      "edited": false
+    },
+    {
+      "file": "revamped-native-empty-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-empty-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "31277e021715464841bcad61c48561a7aa0518a904125a1addf1d9b551941884",
+      "edited": false
+    },
+    {
+      "file": "revamped-native-equipped-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-equipped-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "988196e272d951b540d0c01950fecba526e7a969007ebc45d149f41882e2d8b8",
+      "edited": false
+    },
+    {
+      "file": "revamped-native-scrolled-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-scrolled-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "c0f5d4945731ceadfd7828b72138f648fa6b7ecf96dd5a35a0fa76ed2dbd08c5",
+      "edited": false
+    },
+    {
+      "file": "revamped-native-supplies-1920x1080.png",
+      "source": "Saved/Automation/InventoryMenuProof/inventory-supplies-1920x1080.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "sha256": "62dcd2d5bc706a9da8f040c029f06612e0fd264522aa9f71d0e0c549a5a9778e",
+      "edited": false
+    }
+  ],
+  "editorBootPidsByAttempt": {
+    "OlderUI-Inventory-Gate-01.log": [
+      "27564",
+      "34684"
+    ],
+    "OlderUI-Inventory-Gate-02.log": [
+      "26728"
+    ],
+    "OlderUI-Inventory-Gate-03.log": [
+      "13656",
+      "25220",
+      "29076"
+    ],
+    "OlderUI-Inventory-Gate-04.log": [
+      "10436",
+      "26236",
+      "9040"
+    ],
+    "OlderUI-Inventory-Gate-05.log": [
+      "13372",
+      "28648",
+      "30272"
+    ]
+  },
+  "totalEditorBoots": 12,
+  "iterationHistory": [
+    "01: build passed; test root missing from gate population, no runtime tests selected",
+    "02: passive hint lookup test mistake and stale native selector expectation",
+    "03: Inventory/Settings/native Pause passed; stale selector failed",
+    "04: button width check reproduced longest disabled label overflow; selector reopened without viewport focus",
+    "05: widened primary label box and restored viewport focus; all four passed"
+  ],
+  "coverage": [
+    "Admitted named body/display fonts and native text height checks at 720p/1080p/ultrawide",
+    "All visible keyed cards within results bounds, including all twelve initial cards",
+    "Unwrapped button labels fit actual inner content width, including disabled empty-state primary label",
+    "Filters, search input/debounce, directional card navigation, equip/unequip, supply depletion, empty selection and disabled actions",
+    "Invalid/stale requests, source reload acceptance/rejection, close/reopen state and actual PIE teardown",
+    "Scripted Pause actual [1] activation/focus/Tab/Escape/reopen/EndPlay; native Pause and Settings siblings"
+  ],
+  "limits": [
+    "Generated illustrative reference and existing item artwork; not a game-specific pixel-identical replica",
+    "Fixed 1920x1080 logical canvas with uniform scaling/ultrawide letterboxing, not independent responsive layout",
+    "Physical gamepad, localization coverage, cooked execution and gameplay persistence unverified",
+    "Focused MenuProof gate only; no repository-wide regression claim"
+  ]
+}

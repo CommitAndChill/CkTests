@@ -49,6 +49,38 @@ asCompileError|dirtyWorld|busy|staleRequest|submitterGone|protocolVersion",
 **Progress events:** `{"event":"accepted","testCount":N}`, `{"event":"testStarted","path":..}`,
 `{"event":"testCompleted","path":..,"result":..,"durationSec":N}`, `{"event":"runCompleted"}`.
 
+### Terminal result integrity
+
+- File-access/publication failures are operational errors, not developer ensures. Ordinary result
+  branches retain the response and propagate the fault; invariant checks still use CK_ENSURE_IF_NOT.
+- Infrastructure failure is `ok:false` with an `error` diagnostic and a `NotRun` outcome for each
+  requested leaf that could not run. It is not test discovery's `notFound` result.
+- A `tests` array containing any non-string element is rejected as a whole before automation starts.
+  Existing missing-field, empty-list, duplicate-list, and string handling is otherwise unchanged.
+- All terminal paths (test results, refusals, malformed requests, and quit) capture one private JSON
+  response. Publication checks serialization, writes an adjacent `.tmp`, and attempts one
+  non-replacing install with engine move retries disabled. An existing byte-identical result is
+  accepted; a conflicting result is preserved and faults delivery. This is not a crash-durability
+  or cross-platform atomic-replacement guarantee.
+- The original request is deleted only after its result is installed, and deletion is checked too.
+  Any publication/deletion failure immediately stops request processing. The processor retains the
+  original request and captured response, keeps its live PID claim, and reports `faulted:true` plus
+  `faultReason` in `server.json`. Ordinary polls only refresh that ownership heartbeat; they never
+  retry publication or execute more tests. The editor's title/throttle are restored, and the warm
+  server's lifetime watchdogs do not terminate a process holding such an unresolved outcome.
+- Repair file access and run **`Ck.TestBridge.RecoverPublication`**. Recovery publishes only the
+  captured response (or verifies its existing bytes and finishes deletion); it never reparses the
+  request or re-runs automation. Quit releases ownership only after this cleanup succeeds.
+- Retention is **in memory for this editor's lifetime**. Recover before closing: shutdown logs the
+  loss and leaves the request on disk, but cannot preserve the captured outcome after process exit.
+  External drivers may time out or run fallback work; this server does not promise otherwise.
+- Without explicit `allowDirtyWorld:true`, every collected dirty on-disk package refuses admission.
+  An `AutoTests` substring grants no exemption: one request may load several different maps.
+
+Focused source-path regressions: `Ck.TestsBridge.TenetIntegrity.*` in
+`Tests/Test_TestBridge_TenetIntegrity.cpp`. These cover the actual parser/runner/finalizer with
+isolated real protocol files; the deletion obstruction uses Windows read-only-file semantics.
+
 ---
 
 ## Key files
@@ -143,7 +175,7 @@ The interactive live bridge has **no** watchdog (the editor's lifetime is the us
      not one, because of `kMaxNoProgressSpawns == 2`. The guard was *not* loosened (it is what killed the ready-wait
      false green — v1.26): the decision was **split**. New pure `Decide_FallbackOnNotFound` falls back **iff zero
      verdicts were produced**, which is the exact discriminator — all three RunController give-up paths stuff every
-     requested test into `NotFound` and harvest nothing, so an abort always yields an empty `perTest`, whereas a run
+     requested test into `NotFound` and harvest nothing, so an abort always yielded an empty `perTest`, whereas a run
      with real verdicts got past the ready-wait and its `notFound` is therefore a cache artifact. Those entries are
      now pruned from the driver's cache so the staleness self-heals. Verified end-to-end: 72 submitted → 63 verdicts
      + 9 `notFound`, no fresh boot, all 9 pruned, cache 6471→6462, exit 0; the re-run submitted 63 with zero
@@ -152,11 +184,11 @@ The interactive live bridge has **no** watchdog (the editor's lifetime is the us
      implies the editor's AngelScript matches disk — which rests on the `FAngelscriptManager` members this module
      itself tags `[VERIFY]` (item 1 above). If that is wrong the symptom is a **real** test being pruned; recovery is
      `--discover-fresh`.
-4. **Dirty-world heuristic** (`Preconditions.cpp`). The host-agnostic proxy for "the only unsaved work IS the
-   AutoTests map automation would open" is a package-name `Contains("AutoTests")`. A host with a differently-named
-   automation map must widen this. **RESOLVED for `Subsystem.cpp`:** the serve gate no longer uses this heuristic at
-   all — the map-scoped ServeMode was removed (2026-07-25) once it was measured that a project can hold several
-   `*AutoTests*` maps and a single run spans them, so being "on the AutoTests map" guaranteed nothing.
+4. **Dirty-world heuristic — removed.** `Preconditions.cpp` now refuses every collected dirty on-disk package unless
+   `allowDirtyWorld` is explicitly true. The old `Contains("AutoTests")` proxy could not establish target-map identity
+   or safety, for the same reason the map-scoped ServeMode was removed (2026-07-25): a single run can span maps.
+   Infrastructure failures now also carry explicit `error`/`NotRun` outcomes; the older NotFound-based abort/fallback
+   behavior described in item 3 is historical, and external driver fallback coordination is separate.
 5. **Controller tick cadence — RESOLVED 2026-07-25, and the answer matters more than the latency question.**
    Measured by sampling `server.json` once a second (the subsystem refreshes `lastActivityAt` from its tick) across
    `Ck_AutoTest_Crowd_SteeringPerf`, a single 55.23 s test: the timestamp **froze for 43 consecutive seconds**

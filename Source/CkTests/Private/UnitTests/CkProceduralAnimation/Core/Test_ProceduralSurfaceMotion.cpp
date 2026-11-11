@@ -2798,4 +2798,291 @@ auto
 
 // --------------------------------------------------------------------------------------------------------------------
 
+// CONTACT_CORRECTION_REGRESSION_BEGIN
+namespace ck_test_contact_correction
+{
+    using namespace ck_test_procedural_surface_motion;
+
+    auto
+        SameState(
+            const ck::FProceduralSurfaceMotionState& A,
+            const ck::FProceduralSurfaceMotionState& B)
+        -> bool
+    {
+        return A.Get_SupportNormal().Equals(B.Get_SupportNormal(), 1.0e-9)
+            && A.Get_SupportPoint().Equals(B.Get_SupportPoint(), 1.0e-9)
+            && A.Get_TravelTangent().Equals(B.Get_TravelTangent(), 1.0e-9)
+            && A.Get_StepForward().Equals(B.Get_StepForward(), 1.0e-9)
+            && A.Get_Velocity().Equals(B.Get_Velocity(), 1.0e-9)
+            && A.Get_MissingContact() == B.Get_MissingContact()
+            && A.Get_Grounded() == B.Get_Grounded() && A.Get_ContactTrusted() == B.Get_ContactTrusted()
+            && A.Get_ContactSource() == B.Get_ContactSource()
+            && A.Get_CandidateNormal().Equals(B.Get_CandidateNormal(), 1.0e-9)
+            && A.Get_CandidatePoint().Equals(B.Get_CandidatePoint(), 1.0e-9)
+            && A.Get_CandidateSeen() == B.Get_CandidateSeen()
+            && A.Get_Obstruction() == B.Get_Obstruction()
+            && A.Get_ObstructionPoint().Equals(B.Get_ObstructionPoint(), 1.0e-9)
+            && A.Get_ObstructionNormal().Equals(B.Get_ObstructionNormal(), 1.0e-9)
+            && A.Get_ObstructionStandoff() == B.Get_ObstructionStandoff()
+            && A.Get_ClimbAcquisition().IsSet() == B.Get_ClimbAcquisition().IsSet();
+    }
+
+    auto
+        AnchorsAt(
+            double InDistance)
+        -> TArray<ck::FProceduralSurfaceReachPaceAnchor>
+    {
+        // Physical geometry: the foot is five centimetres below the hip. Moving forward lengthens the chain;
+        // descending toward native floor clearance shortens it. No expected correction vector is reimplemented.
+        return {{FVector{-FMath::Sqrt(InDistance * InDistance - 25.0), 0.0, 70.0}, FVector::ZeroVector, 100.0f}};
+    }
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkSurfaceContactCorrectionAtomicTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.ContactCorrection.FreshBlockedContactAtomicAdmission",
+    ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkSurfaceContactCorrectionAtomicTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_contact_correction;
+    const auto World = TArray<FSolid>{MakeHalfSpace(FVector::UpVector, FVector::ZeroVector)};
+    auto Rays = 0;
+    const auto Cast = [&](const FVector& A, const FVector& B) { ++Rays; return RayCast(World, A, B); };
+    const auto Settings = MakeSettings();
+    const auto Start = MakeBody(FVector{0.0, 0.0, 75.0}, FVector::UpVector, FVector::ForwardVector);
+    const auto Initial = MakeState(FVector::UpVector, FVector::ForwardVector, true);
+    const auto Anchors = AnchorsAt(100.0);
+    const auto View = TArrayView<const ck::FProceduralSurfaceReachPaceAnchor>{Anchors};
+    auto Zero = Start;
+    auto ZeroState = Initial;
+    ck::StepProceduralSurfaceMotion(Settings, FVector::ForwardVector, Speed, Step, Cast, NoFeet, Zero, ZeroState, 0.0f);
+    const auto RaysPerStep = Rays;
+    TestTrue(TEXT("Public direct zero scale retains translation and rotation with actual refreshed contact"),
+        Zero.Equals(Start, 1.0e-9) && ZeroState.Get_ContactTrusted());
+
+    auto Calls = 0;
+    auto Candidate = FTransform::Identity;
+    const auto Reject = [&](const FTransform& InCandidate) { ++Calls; Candidate = InCandidate; return false; };
+    auto Rejected = Start;
+    auto RejectedState = Initial;
+    Rays = 0;
+    const auto RejectedOutcome = ck::StepProceduralSurfaceMotionPaced(Settings, FVector::ForwardVector, Speed, Step, Cast,
+        NoFeet, View, {}, Rejected, RejectedState, {},
+        TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{Reject}});
+    const auto RejectedRays = Rays;
+    TestTrue(TEXT("A blocked fresh contact offers exactly one feasible candidate to admission"),
+        Calls == 1 && RejectedOutcome.Get_Scale() == 0.0f && NOT RejectedOutcome.Get_PhysicalOverride()
+        && RejectedOutcome.Get_Trials() == 8 && Candidate.GetLocation().Z < Start.GetLocation().Z);
+    TestTrue(TEXT("Admission rejection preserves the original accepted zero body and every observed support-state field"),
+        Rejected.Equals(Zero, 1.0e-9) && SameState(RejectedState, ZeroState));
+
+    // Reuse the genuinely adopted state, then remove every hit: last call's cached correction must not survive grace.
+    auto StaleCalls = 0;
+    const auto StaleAdmission = [&](const FTransform&) { ++StaleCalls; return true; };
+    const auto Empty = TArray<FSolid>{};
+    const auto Miss = [&](const FVector& A, const FVector& B) { return RayCast(Empty, A, B); };
+    auto StaleBody = Rejected;
+    auto StaleState = RejectedState;
+    ck::StepProceduralSurfaceMotionPaced(Settings, FVector::ForwardVector, Speed, Step, Miss, NoFeet,
+        View, {}, StaleBody, StaleState, {},
+        TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{StaleAdmission}});
+    TestTrue(TEXT("A previous genuinely adopted contact cannot supply correction after actual miss/grace"),
+        StaleCalls == 0 && NOT StaleState.Get_ContactTrusted() && StaleState.Get_MissingContact() > FCk_Time{});
+
+    Calls = 0;
+    const auto Accept = [&](const FTransform& InCandidate) { ++Calls; Candidate = InCandidate; return true; };
+    auto Body = Start;
+    auto State = Initial;
+    Rays = 0;
+    const auto Outcome = ck::StepProceduralSurfaceMotionPaced(Settings, FVector::ForwardVector, Speed, Step, Cast,
+        NoFeet, View, {}, Body, State, {},
+        TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{Accept}});
+    const auto Delta = Body.GetLocation() - Zero.GetLocation();
+    TestTrue(TEXT("The returned accepted pose actually corrects height while forward pace stays blocked"),
+        Calls == 1 && Outcome.Get_Scale() == 0.0f && Outcome.Get_Trials() == 8 && NOT Outcome.Get_PhysicalOverride()
+        && Body.Equals(Candidate, 1.0e-9) && Delta.Z < 0.0 && FVector::VectorPlaneProject(Delta, ZeroState.Get_SupportNormal()).IsNearlyZero()
+        && Delta.Size() <= Settings.Get_ClearanceSpeed() * Step.Get_Seconds() + 1.0e-9
+        && Body.GetRotation().Equals(Zero.GetRotation(), 1.0e-9));
+    TestTrue(TEXT("Correction retains original reach, contact and one-step timers and publishes actual velocity"),
+        FVector::Dist(Body.GetLocation(), Anchors[0].Get_FootWorld()) <= 100.001
+        && State.Get_SupportPoint().Equals(ZeroState.Get_SupportPoint(), 1.0e-9)
+        && State.Get_SupportNormal().Equals(ZeroState.Get_SupportNormal(), 1.0e-9)
+        && State.Get_ContactSource() == ZeroState.Get_ContactSource()
+        && State.Get_MissingContact() == ZeroState.Get_MissingContact()
+        && State.Get_CandidateSeen() == ZeroState.Get_CandidateSeen()
+        && State.Get_Velocity().Equals((Body.GetLocation() - Start.GetLocation()) / Step.Get_Seconds(), 1.0e-6));
+    TestTrue(TEXT("Cached correction adds neither a replay nor a ray to identical floor trials"),
+        Rays == RejectedRays && Rays == Outcome.Get_Trials() * RaysPerStep);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkSurfaceContactCorrectionEligibilityTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.ContactCorrection.NoGraceFallOrPendingCoast",
+    ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkSurfaceContactCorrectionEligibilityTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_contact_correction;
+    const auto Start = MakeBody(FVector{0.0, 0.0, 75.0}, FVector::UpVector, FVector::ForwardVector);
+    const auto Initial = MakeState(FVector::UpVector, FVector::ForwardVector, true);
+    const auto Anchors = AnchorsAt(100.0);
+    const auto View = TArrayView<const ck::FProceduralSurfaceReachPaceAnchor>{Anchors};
+    const auto Empty = TArray<FSolid>{};
+    const auto Miss = [&](const FVector& A, const FVector& B) { return RayCast(Empty, A, B); };
+    for (const auto Falling : {false, true})
+    {
+        const auto Settings = MakeSettings().Set_ContactGrace(Falling ? FCk_Time{} : FCk_Time{0.12});
+        auto Zero = Start;
+        auto ZeroState = Initial;
+        ck::StepProceduralSurfaceMotion(Settings, FVector::ForwardVector, 100000.0f, Step, Miss, NoFeet, Zero, ZeroState, 0.0f);
+        if (NOT TestTrue(TEXT("Geometric miss actually exercises grace or falling, with no adopted contact"),
+            NOT ZeroState.Get_ContactTrusted() && ZeroState.Get_Grounded() != Falling
+            && (Falling || ZeroState.Get_MissingContact() == Step))) { return false; }
+        auto Calls = 0;
+        const auto Admission = [&](const FTransform&) { ++Calls; return true; };
+        auto Body = Start;
+        auto State = Initial;
+        ck::StepProceduralSurfaceMotionPaced(Settings, FVector::ForwardVector, 100000.0f, Step, Miss, NoFeet,
+            View, {}, Body, State, {},
+            TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{Admission}});
+        TestTrue(TEXT("Grace/fall cannot supply secondary contact correction and real-time state advances only once"),
+            Calls == 0 && Body.Equals(Zero, 1.0e-9) && SameState(State, ZeroState));
+    }
+    const auto RampNormal = FVector{-FMath::Sin(FMath::DegreesToRadians(60.0)), 0.0, 0.5};
+    const auto Ramp = TArray<FSolid>{MakeHalfSpace(RampNormal, FVector::ZeroVector)};
+    const auto RampCast = [&](const FVector& A, const FVector& B) { return RayCast(Ramp, A, B); };
+    const auto Settings = MakeSettings().Set_ConfirmTime(FCk_Time{1.0});
+    auto Zero = Start;
+    auto ZeroState = Initial;
+    ck::StepProceduralSurfaceMotion(Settings, FVector::ForwardVector, Speed, Step, RampCast, NoFeet, Zero, ZeroState, 0.0f);
+    if (NOT TestTrue(TEXT("Native-like ramp intersections establish actual pending confirmation/coast, not fresh adoption"),
+        ZeroState.Get_CandidateSeen() > FCk_Time{} && ZeroState.Get_SupportNormal().Equals(FVector::UpVector, 1.0e-6)))
+    { return false; }
+    auto Calls = 0;
+    const auto Admission = [&](const FTransform&) { ++Calls; return true; };
+    auto Body = Start;
+    auto State = Initial;
+    ck::StepProceduralSurfaceMotionPaced(Settings, FVector::ForwardVector, Speed, Step, RampCast, NoFeet,
+        View, {}, Body, State, {},
+        TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{Admission}});
+    TestEqual(TEXT("Pending coast never supplies a secondary correction"), Calls, 0);
+    TestEqual(TEXT("Pacing does not advance contact confirmation a second time"), State.Get_CandidateSeen(), ZeroState.Get_CandidateSeen());
+    const auto Floor = TArray<FSolid>{MakeHalfSpace(FVector::UpVector, FVector::ZeroVector)};
+    const auto FloorCast = [&](const FVector& A, const FVector& B) { return RayCast(Floor, A, B); };
+    const auto TurnAnchor = TArray<ck::FProceduralSurfaceReachPaceAnchor>{{
+        FVector{40.0, -FMath::Sqrt(65.0 * 65.0 - 25.0), 70.0}, FVector{40.0, 0.0, 0.0}, 65.0f}};
+    auto TurnBody = Start;
+    auto TurnState = Initial;
+    Calls = 0;
+    const auto TurnOutcome = ck::StepProceduralSurfaceMotionPaced(MakeSettings(), FVector::RightVector, 0.0f, Step,
+        FloorCast, NoFeet, TArrayView<const ck::FProceduralSurfaceReachPaceAnchor>{TurnAnchor}, {}, TurnBody, TurnState, {},
+        TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{Admission}});
+    TestTrue(TEXT("A blocked stationary turn gains no contact-only correction under the approved forward-only scope"),
+        TurnOutcome.Get_Scale() == 0.0f && Calls == 0 && TurnBody.Equals(Start, 1.0e-9));
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkSurfaceContactCorrectionOriginalReachTest,
+    "Ck.ProceduralAnimation.SurfaceMotion.ContactCorrection.OriginalReachToleranceAndMalformedAnchors",
+    ck::tests::kCkUnitTestFlags)
+
+auto
+    FCkSurfaceContactCorrectionOriginalReachTest::
+    RunTest(const FString&)
+    -> bool
+{
+    using namespace ck_test_contact_correction;
+    const auto Floor = TArray<FSolid>{MakeHalfSpace(FVector::UpVector, FVector::ZeroVector)};
+    const auto Cast = [&](const FVector& A, const FVector& B) { return RayCast(Floor, A, B); };
+    const auto Start = MakeBody(FVector{0.0, 0.0, 75.0}, FVector::UpVector, FVector::ForwardVector);
+    const auto Initial = MakeState(FVector::UpVector, FVector::ForwardVector, true);
+    for (const auto Excess : {0.00099, 0.00101})
+    {
+        const auto Anchors = AnchorsAt(100.0 + Excess);
+        auto Calls = 0;
+        const auto Admission = [&](const FTransform&) { ++Calls; return true; };
+        auto Body = Start;
+        auto State = Initial;
+        const auto Outcome = ck::StepProceduralSurfaceMotionPaced(MakeSettings(), FVector::ForwardVector, Speed, Step,
+            Cast, NoFeet, TArrayView<const ck::FProceduralSurfaceReachPaceAnchor>{Anchors}, {}, Body, State, {},
+            TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{Admission}});
+        TestTrue(TEXT("Existing0.001 reach tolerance, not enlarged physical baseline, controls the voluntary contact candidate"),
+            Excess < 0.001 ? (Calls == 1 && NOT Outcome.Get_PhysicalOverride() && Body.GetLocation().Z < 75.0)
+                : (Calls == 0 && Outcome.Get_PhysicalOverride() && Body.Equals(Start, 1.0e-9)));
+    }
+    // Distinguish original authored reach from the ordinary physical-zero widened baseline. Both anchors
+    // fit original tolerance atzero; a tiny actual normal descent would exceed only anchor2's original limit.
+    const auto TinySettings = MakeSettings().Set_ClearanceSpeed(static_cast<float>(0.0008 / Step.Get_Seconds()));
+    auto TightAnchors = AnchorsAt(100.0);
+    TightAnchors.Emplace(FVector{0.0, 0.0, 175.0005}, FVector::ZeroVector, 100.0f);
+    auto TinyZero = Start;
+    auto TinyZeroState = Initial;
+    ck::StepProceduralSurfaceMotion(TinySettings, FVector::ForwardVector, Speed, Step, Cast, NoFeet,
+        TinyZero, TinyZeroState, 0.0f);
+    // The existing public full-scale stationary path supplies the actual normal-only reference displacement.
+    // It has no forward travel and is not the new cached candidate implementation.
+    auto NormalOnly = Start;
+    auto NormalOnlyState = Initial;
+    ck::StepProceduralSurfaceMotion(TinySettings, FVector::ForwardVector, 0.0f, Step, Cast, NoFeet,
+        NormalOnly, NormalOnlyState);
+    const auto SecondZeroDistance = FVector::Dist(TinyZero.GetLocation(), TightAnchors[1].Get_FootWorld());
+    const auto SecondNormalDistance = FVector::Dist(NormalOnly.GetLocation(), TightAnchors[1].Get_FootWorld());
+    if (NOT TestTrue(TEXT("Tiny public descent crosses original100.001 but fits the forbidden widened100.0015 limit"),
+        TinyZero.Equals(Start, 1.0e-9)
+        && FMath::IsNearlyEqual(Start.GetLocation().Z - NormalOnly.GetLocation().Z, 0.0008, 1.0e-9)
+        && FMath::IsNearlyEqual(SecondZeroDistance, 100.0005, 1.0e-9)
+        && SecondZeroDistance <= 100.001 && SecondNormalDistance > 100.001
+        && SecondNormalDistance <= SecondZeroDistance + 0.001
+        && FVector::Dist(NormalOnly.GetLocation(), TightAnchors[0].Get_FootWorld()) <= 100.001))
+    { return false; }
+    auto TinyCalls = 0;
+    const auto TinyAdmission = [&](const FTransform&) { ++TinyCalls; return true; };
+    auto TinyBody = Start;
+    auto TinyState = Initial;
+    const auto TinyOutcome = ck::StepProceduralSurfaceMotionPaced(TinySettings, FVector::ForwardVector, Speed, Step,
+        Cast, NoFeet, TArrayView<const ck::FProceduralSurfaceReachPaceAnchor>{TightAnchors}, {}, TinyBody, TinyState, {},
+        TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{TinyAdmission}});
+    TestTrue(TEXT("Original reach rejects before admission despite bothzero anchors fitting existing tolerance"),
+        TinyOutcome.Get_Scale() == 0.0f && NOT TinyOutcome.Get_PhysicalOverride() && TinyCalls == 0
+        && TinyBody.Equals(TinyZero, 1.0e-9) && SameState(TinyState, TinyZeroState));
+    const auto PosedAnchors = AnchorsAt(100.0);
+    const auto PoseOffset = FTransform{FVector{0.0, 0.0, 0.03}};
+    auto PosedCalls = 0;
+    const auto PosedAdmission = [&](const FTransform&) { ++PosedCalls; return true; };
+    auto PosedBody = Start;
+    auto PosedState = Initial;
+    const auto PosedOutcome = ck::StepProceduralSurfaceMotionPaced(MakeSettings(), FVector::ForwardVector, Speed, Step,
+        Cast, NoFeet, TArrayView<const ck::FProceduralSurfaceReachPaceAnchor>{PosedAnchors}, TOptional<FTransform>{PoseOffset},
+        PosedBody, PosedState, {},
+        TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{PosedAdmission}});
+    TestTrue(TEXT("A posed-only original reach violation cannot borrow enlarged PhysicalOverride limits for correction"),
+        FVector::Dist(Start.GetLocation(), PosedAnchors[0].Get_FootWorld()) <= 100.001
+        && FVector::Dist((PoseOffset * Start).GetLocation(), PosedAnchors[0].Get_FootWorld()) > 100.001
+        && PosedOutcome.Get_PhysicalOverride() && PosedCalls == 0 && PosedBody.Equals(Start, 1.0e-9));
+    for (const auto ReachValue : {0.0f, -1.0f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()})
+    {
+        const auto Anchor = TArray<ck::FProceduralSurfaceReachPaceAnchor>{{FVector{-100.0, 0.0, 70.0}, FVector::ZeroVector, ReachValue}};
+        auto Calls = 0;
+        const auto Admission = [&](const FTransform&) { ++Calls; return true; };
+        auto Body = Start;
+        auto State = Initial;
+        ck::StepProceduralSurfaceMotionPaced(MakeSettings(), FVector::ForwardVector, Speed, Step, Cast, NoFeet,
+            TArrayView<const ck::FProceduralSurfaceReachPaceAnchor>{Anchor}, {}, Body, State, {},
+            TOptional<ck::FProceduralSurfaceContactCorrectionAdmission>{ck::FProceduralSurfaceContactCorrectionAdmission{Admission}});
+        TestEqual(TEXT("Malformed original anchor reach never authorizes a secondary voluntary correction"), Calls, 0);
+    }
+    return true;
+}
+// CONTACT_CORRECTION_REGRESSION_END
+
+
 #endif

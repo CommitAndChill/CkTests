@@ -51,6 +51,7 @@ public class CkTestsEditor : CkModuleRules
             "DataValidation",
             "GeometryFramework",
             "InputCore",
+            "IrisCore",
             "MaterialEditor",
             "MeshDescription",
             "RHI",

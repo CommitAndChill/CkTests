@@ -124,6 +124,35 @@ public:
         const FCk_Handle_Goap_Planner& InPlanner,
         UPARAM(ref) TArray<FCk_Goap_SearchDebugRow>& OutRows);
 
+    // -1 until a gait has an accepted advancing solve. Does not query physics or advance simulation.
+    UFUNCTION(BlueprintPure, Category = "Ck|Utils|AutoTest", meta = (DevelopmentOnly))
+    static int64
+    Get_ProceduralAnimationSolveSequence(
+        const FCk_Handle& InBody);
+
+    // Pairs the accepted gait solve with SurfaceMotion's evaluated body/frame on the current root. The current or
+    // immediately previous frame is admissible for an AS check before physics; older, mismatched or unready data rejects.
+    // Read-only: no physics queries or simulation advance. False resets sequence to -1 and both flags to false.
+    UFUNCTION(BlueprintCallable, Category = "Ck|Utils|AutoTest", meta = (DevelopmentOnly))
+    static bool
+    TryGet_ProceduralAnimationAdaptiveHeightSample(
+        const FCk_Handle& InBody,
+        int64& OutSolveSequence,
+        bool& OutActive,
+        bool& OutPreparing);
+
+    // Reads one accepted sample atomically. SwingTarget is the debug swing target, not a generic committed landing.
+    // False clears both vectors, resets the body transform, and sets the sequence to -1.
+    UFUNCTION(BlueprintCallable, Category = "Ck|Utils|AutoTest", meta = (DevelopmentOnly))
+    static bool
+    TryGet_ProceduralAnimationLegQueryTarget(
+        const FCk_Handle& InBody,
+        FName InLegId,
+        FVector& OutQuery,
+        FVector& OutSwingTarget,
+        FTransform& OutAcceptedBody,
+        int64& OutSequence);
+
     // Test-only, read-only summary of one leg's last accepted procedural-animation solve.
     UFUNCTION(BlueprintPure, Category = "Ck|Utils|AutoTest", meta = (DevelopmentOnly))
     static FString

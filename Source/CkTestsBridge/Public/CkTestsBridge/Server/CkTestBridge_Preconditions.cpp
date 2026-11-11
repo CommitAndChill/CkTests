@@ -60,24 +60,6 @@ namespace ck_test_bridge_preconditions
         }
     }
 
-    // The automation map-load is safe when the only unsaved work IS the AutoTests map automation would open.
-    // [VERIFY] host-agnostic proxy: package name contains "AutoTests" (BB's map is AutoTests_BB_MAP). A host with a
-    // differently-named automation map would need this widened.
-    static auto
-    Are_AllDirtyPackagesTheAutoTestsMap(
-        const TArray<FString>& InDirtyPackages)
-        -> bool
-    {
-        if (InDirtyPackages.Num() == 0)
-        { return true; }
-
-        for (const auto& Name : InDirtyPackages)
-        {
-            if (NOT Name.Contains(TEXT("AutoTests")))
-            { return false; }
-        }
-        return true;
-    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -116,20 +98,34 @@ auto
 #endif
 
     Collect_DirtyPackages(OutEnv.DirtyPackages);
+    return Evaluate_Environment(InAllowDirtyWorld, InBusy, Is_PieActive(), OutEnv);
+}
 
+// --------------------------------------------------------------------------------------------------------------------
+
+auto
+    FCk_TestBridge_Preconditions::
+    Evaluate_Environment(
+        bool InAllowDirtyWorld,
+        bool InBusy,
+        bool InPieActive,
+        const FCk_TestBridge_Env& InEnv)
+    -> TOptional<FString>
+{
     if (InBusy)
     { return FString{TEXT("busy")}; }
 
-    if (Is_PieActive())
+    if (InPieActive)
     { return FString{TEXT("pieActive")}; }
 
-    if (OutEnv.AsPendingFullReload)
+    if (InEnv.AsPendingFullReload)
     { return FString{TEXT("asPendingFullReload")}; }
 
-    if (OutEnv.AsCompileErrors)
+    if (InEnv.AsCompileErrors)
     { return FString{TEXT("asCompileError")}; }
 
-    if (NOT InAllowDirtyWorld && NOT Are_AllDirtyPackagesTheAutoTestsMap(OutEnv.DirtyPackages))
+    // A run can open several maps. No package name proves that unsaved work is safe to replace.
+    if (NOT InAllowDirtyWorld && NOT InEnv.DirtyPackages.IsEmpty())
     { return FString{TEXT("dirtyWorld")}; }
 
     return {};
