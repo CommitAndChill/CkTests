@@ -55,13 +55,15 @@ namespace ck_test_usf_collection_param
     constexpr auto kCollectionErrorMarker = TEXT("_FromCollection");
     constexpr auto kMissingParameterErrorMarker = TEXT("has no");
 
-    // In memory only, under the lane's test root: a soft reference resolves it without a file, and a real
-    // (non-transient) package is what a saved master may hold a hard import of.
+    // In memory only, under the test's generated-master mount: a soft reference resolves it without a file, and a
+    // real (non-transient) package is what a saved master may hold a hard import of. Release it before the scope
+    // closes, so the scope can retire every package under its mount.
     auto
-        Make_Collection()
+        Make_Collection(
+            const FString& InPackageRoot)
         -> UMaterialParameterCollection*
     {
-        auto* Package = CreatePackage(*(ck_test_usf::Get_TestPackageRoot() / TEXT("MPC_CkUsfCollectionProbe")));
+        auto* Package = CreatePackage(*(InPackageRoot / TEXT("MPC_CkUsfCollectionProbe")));
         const auto ObjectName = MakeUniqueObjectName(
             Package, UMaterialParameterCollection::StaticClass(), FName(TEXT("MPC_CkUsfCollectionProbe")));
         auto* Collection = NewObject<UMaterialParameterCollection>(Package, ObjectName, RF_Public | RF_Standalone);
@@ -187,70 +189,77 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FCkTest_Usf_LookValidator_CollectionParamIsValidated::RunTest(const FString& Parameters)
 {
-    using namespace ck_test_usf_collection_param;
-
-    auto* Collection = Make_Collection();
-    ON_SCOPE_EXIT { Release_Collection(Collection); };
-
+    auto GeneratedMasters = ck_test_usf::FGeneratedMasterScope{*this};
+    if (!GeneratedMasters.Initialize()) { return false; }
+    const auto Succeeded = [&]() -> bool
     {
-        const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
-            Make_ProbeLookDefinition(kValidatorLookName, Collection)};
-        const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition.Get());
+        using namespace ck_test_usf_collection_param;
 
-        TestEqual(TEXT("a well-formed look raises no collection error"),
-            Get_ErrorsContaining(Validation, kCollectionErrorMarker).Num(), 0);
-        TestTrue(TEXT("a well-formed look reads its collection parameters"),
-            Get_ErrorsContaining(Validation, TEXT("material parameter collection")).IsEmpty());
-    }
+        auto* Collection = Make_Collection(GeneratedMasters.Get_PackageRoot());
+        ON_SCOPE_EXIT { Release_Collection(Collection); };
 
-    struct FCase
-    {
-        const TCHAR* Description;
-        TFunction<void(FCk_Usf_ParamDesc& InOutPaintColor)> Break;
-        const TCHAR* Marker;
-    };
+        {
+            const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
+                Make_ProbeLookDefinition(kValidatorLookName, Collection)};
+            const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition.Get());
 
-    const FCase Cases[] =
-    {
-        { TEXT("a collection parameter name the collection does not have"),
-          [](FCk_Usf_ParamDesc& P) { P._CollectionParameterName = FName(TEXT("NoSuchParameter")); },
-          kMissingParameterErrorMarker },
-        { TEXT("a Vector reading a scalar collection parameter"),
-          [](FCk_Usf_ParamDesc& P) { P._CollectionParameterName = FName(kFlakeParam); },
-          TEXT("(it is a scalar parameter)") },
-        { TEXT("an unset collection"),
-          [](FCk_Usf_ParamDesc& P) { P._Collection.Reset(); },
-          TEXT("_Collection is not set") },
-        { TEXT("a texture param from a collection"),
-          [](FCk_Usf_ParamDesc& P) { P._Type = ECk_Usf_ParamType::Texture2D; },
-          TEXT("_FromCollection but not Scalar/Vector") },
-        { TEXT("a collection param that is also per-instance"),
-          [](FCk_Usf_ParamDesc& P) { P._PerInstance = true; },
-          TEXT("both _FromCollection and _PerInstance") },
-        { TEXT("a collection param that is also custom primitive data"),
-          [](FCk_Usf_ParamDesc& P) { P._CustomPrimitiveData = true; P._CustomPrimitiveDataIndex = 0; },
-          TEXT("both _FromCollection and _CustomPrimitiveData") },
-    };
+            TestEqual(TEXT("a well-formed look raises no collection error"),
+                Get_ErrorsContaining(Validation, kCollectionErrorMarker).Num(), 0);
+            TestTrue(TEXT("a well-formed look reads its collection parameters"),
+                Get_ErrorsContaining(Validation, TEXT("material parameter collection")).IsEmpty());
+        }
 
-    for (const auto& Case : Cases)
-    {
-        const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
-            Make_ProbeLookDefinition(kValidatorLookName, Collection)};
-        Case.Break(Definition->_Parameters[0]);
+        struct FCase
+        {
+            const TCHAR* Description;
+            TFunction<void(FCk_Usf_ParamDesc& InOutPaintColor)> Break;
+            const TCHAR* Marker;
+        };
 
-        const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition.Get());
-        const auto Errors = Get_ErrorsContaining(Validation, Case.Marker);
+        const FCase Cases[] =
+        {
+            { TEXT("a collection parameter name the collection does not have"),
+              [](FCk_Usf_ParamDesc& P) { P._CollectionParameterName = FName(TEXT("NoSuchParameter")); },
+              kMissingParameterErrorMarker },
+            { TEXT("a Vector reading a scalar collection parameter"),
+              [](FCk_Usf_ParamDesc& P) { P._CollectionParameterName = FName(kFlakeParam); },
+              TEXT("(it is a scalar parameter)") },
+            { TEXT("an unset collection"),
+              [](FCk_Usf_ParamDesc& P) { P._Collection.Reset(); },
+              TEXT("_Collection is not set") },
+            { TEXT("a texture param from a collection"),
+              [](FCk_Usf_ParamDesc& P) { P._Type = ECk_Usf_ParamType::Texture2D; },
+              TEXT("_FromCollection but not Scalar/Vector") },
+            { TEXT("a collection param that is also per-instance"),
+              [](FCk_Usf_ParamDesc& P) { P._PerInstance = true; },
+              TEXT("both _FromCollection and _PerInstance") },
+            { TEXT("a collection param that is also custom primitive data"),
+              [](FCk_Usf_ParamDesc& P) { P._CustomPrimitiveData = true; P._CustomPrimitiveDataIndex = 0; },
+              TEXT("both _FromCollection and _CustomPrimitiveData") },
+        };
 
-        if (TestEqual(*FString::Printf(TEXT("%s is one validation error"), Case.Description), Errors.Num(), 1) == false)
-        { continue; }
+        for (const auto& Case : Cases)
+        {
+            const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
+                Make_ProbeLookDefinition(kValidatorLookName, Collection)};
+            Case.Break(Definition->_Parameters[0]);
 
-        TestTrue(*FString::Printf(TEXT("the error for %s names the look"), Case.Description),
-            Errors[0].Contains(FString::Printf(TEXT("Look [%s]"), kValidatorLookName)));
-        TestTrue(*FString::Printf(TEXT("the error for %s names the param"), Case.Description),
-            Errors[0].Contains(FString::Printf(TEXT("param [%s]"), kPaintColorParam)));
-    }
+            const auto Validation = ck::usf_editor::Validate_LookDefinition(Definition.Get());
+            const auto Errors = Get_ErrorsContaining(Validation, Case.Marker);
 
-    return true;
+            if (TestEqual(*FString::Printf(TEXT("%s is one validation error"), Case.Description), Errors.Num(), 1) == false)
+            { continue; }
+
+            TestTrue(*FString::Printf(TEXT("the error for %s names the look"), Case.Description),
+                Errors[0].Contains(FString::Printf(TEXT("Look [%s]"), kValidatorLookName)));
+            TestTrue(*FString::Printf(TEXT("the error for %s names the param"), Case.Description),
+                Errors[0].Contains(FString::Printf(TEXT("param [%s]"), kPaintColorParam)));
+        }
+
+        return true;
+    }();
+    const auto CleanupSucceeded = GeneratedMasters.Close();
+    return Succeeded && CleanupSucceeded;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -262,75 +271,79 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FCkTest_Usf_CollectionParam_GeneratesCollectionNodes::RunTest(const FString& Parameters)
 {
-    using namespace ck_test_usf_collection_param;
-
-    if (FApp::CanEverRender() == false)
+    auto GeneratedMasters = ck_test_usf::FGeneratedMasterScope{*this};
+    if (!GeneratedMasters.Initialize()) { return false; }
+    const auto Succeeded = [&]() -> bool
     {
-        // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
-        // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
-        // must never read as a pass.
-        AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
-                      "toolbox gate or with --no-nullrhi."));
-        return false;
-    }
+        using namespace ck_test_usf_collection_param;
 
-    auto* Collection = Make_Collection();
-    ON_SCOPE_EXIT { Release_Collection(Collection); };
+        if (FApp::CanEverRender() == false)
+        {
+            // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
+            // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
+            // must never read as a pass.
+            AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
+                          "toolbox gate or with --no-nullrhi."));
+            return false;
+        }
 
-    const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
-        Make_ProbeLookDefinition(kGenerationLookName, Collection)};
-    const auto LookName = FName(kGenerationLookName);
+        auto* Collection = Make_Collection(GeneratedMasters.Get_PackageRoot());
+        ON_SCOPE_EXIT { Release_Collection(Collection); };
 
-    auto* Master = ck::usf_editor::Generate_LookMaterial(Definition.Get(), ck_test_usf::Get_TestPackageRoot());
-    if (TestNotNull(TEXT("the collection-sourced look generates a master"), Master) == false)
-    { return false; }
+        const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
+            Make_ProbeLookDefinition(kGenerationLookName, Collection)};
+        const auto LookName = FName(kGenerationLookName);
 
-    struct FExpectedNode
-    {
-        const TCHAR* Param;
-        const TCHAR* CollectionParam;
-        FGuid Id;
-    };
+        auto* Master = ck::usf_editor::Generate_LookMaterial(Definition.Get(), GeneratedMasters.Get_PackageRoot());
+        if (TestNotNull(TEXT("the collection-sourced look generates a master"), Master) == false)
+        { return false; }
 
-    const FExpectedNode ExpectedNodes[] =
-    {
-        { kPaintColorParam, kPaintColorCollectionParam,
-          Collection->GetVectorParameterByName(FName(kPaintColorCollectionParam))->Id },
-        { kFlakeParam, kFlakeParam,
-          Collection->GetScalarParameterByName(FName(kFlakeParam))->Id },
-    };
+        struct FExpectedNode
+        {
+            const TCHAR* Param;
+            const TCHAR* CollectionParam;
+            FGuid Id;
+        };
 
-    for (const auto& Expected : ExpectedNodes)
-    {
-        const auto* Node = Find_CollectionNode(Master, FName(Expected.CollectionParam));
-        if (TestNotNull(*FString::Printf(TEXT("param [%s] is a CollectionParameter node reading [%s]"),
-                Expected.Param, Expected.CollectionParam), Node) == false)
-        { continue; }
+        const FExpectedNode ExpectedNodes[] =
+        {
+            { kPaintColorParam, kPaintColorCollectionParam,
+              Collection->GetVectorParameterByName(FName(kPaintColorCollectionParam))->Id },
+            { kFlakeParam, kFlakeParam,
+              Collection->GetScalarParameterByName(FName(kFlakeParam))->Id },
+        };
 
-        TestTrue(*FString::Printf(TEXT("param [%s]'s node points at the collection"), Expected.Param),
-            Node->Collection == Collection);
-        TestEqual(*FString::Printf(TEXT("param [%s]'s node carries the collection parameter's Id"), Expected.Param),
-            Node->ParameterId, Expected.Id);
-        TestTrue(*FString::Printf(TEXT("param [%s]'s node feeds the Custom input of the same name"), Expected.Param),
-            Find_CustomInputSource(Master, FName(Expected.Param)) == Node);
-    }
+        for (const auto& Expected : ExpectedNodes)
+        {
+            const auto* Node = Find_CollectionNode(Master, FName(Expected.CollectionParam));
+            if (TestNotNull(*FString::Printf(TEXT("param [%s] is a CollectionParameter node reading [%s]"),
+                    Expected.Param, Expected.CollectionParam), Node) == false)
+            { continue; }
 
-    TestNull(TEXT("a uniform param beside the collection params stays a uniform"),
-        Find_CollectionNode(Master, FName(kCoatRoughnessParam)));
+            TestTrue(*FString::Printf(TEXT("param [%s]'s node points at the collection"), Expected.Param),
+                Node->Collection == Collection);
+            TestEqual(*FString::Printf(TEXT("param [%s]'s node carries the collection parameter's Id"), Expected.Param),
+                Node->ParameterId, Expected.Id);
+            TestTrue(*FString::Printf(TEXT("param [%s]'s node feeds the Custom input of the same name"), Expected.Param),
+                Find_CustomInputSource(Master, FName(Expected.Param)) == Node);
+        }
 
-    // Throwaway master, so the destructive forced compile is allowed: it is what gives the verdict teeth.
-    {
-        constexpr auto ForceSynchronousCompile = true;
-        auto CompileErrors = TArray<FString>{};
-        ck::usf_editor::Validate_LookShaderCompile(Master, LookName, CompileErrors, ForceSynchronousCompile);
-        for (const auto& CompileError : CompileErrors)
-        { AddError(CompileError); }
-    }
+        TestNull(TEXT("a uniform param beside the collection params stays a uniform"),
+            Find_CollectionNode(Master, FName(kCoatRoughnessParam)));
 
-    if (ck_test_usf::Delete_TestGeneratedMaster(LookName) == false)
-    { AddInfo(TEXT("Could not delete the probe's generated master file — harmless, but it is a stray asset on disk.")); }
+        // Throwaway master, so the destructive forced compile is allowed: it is what gives the verdict teeth.
+        {
+            constexpr auto ForceSynchronousCompile = true;
+            auto CompileErrors = TArray<FString>{};
+            ck::usf_editor::Validate_LookShaderCompile(Master, LookName, CompileErrors, ForceSynchronousCompile);
+            for (const auto& CompileError : CompileErrors)
+            { AddError(CompileError); }
+        }
 
-    return true;
+        return true;
+    }();
+    const auto CleanupSucceeded = GeneratedMasters.Close();
+    return Succeeded && CleanupSucceeded;
 }
 
 // --------------------------------------------------------------------------------------------------------------------

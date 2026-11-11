@@ -149,49 +149,53 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FCkTest_Usf_PixelInstanceFrame_SetsTheInstanceFrameDefine::RunTest(const FString& Parameters)
 {
-    using namespace ck_test_usf_pixel_instance_frame;
-
-    if (FApp::CanEverRender() == false)
+    auto GeneratedMasters = ck_test_usf::FGeneratedMasterScope{*this};
+    if (!GeneratedMasters.Initialize()) { return false; }
+    const auto Succeeded = [&]() -> bool
     {
-        // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
-        // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
-        // must never read as a pass.
-        AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
-                      "toolbox gate or with --no-nullrhi."));
-        return false;
-    }
+        using namespace ck_test_usf_pixel_instance_frame;
 
-    const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
-        Make_ProbeLookDefinition(kGenerationLookName, ECk_Usf_Domain::SurfaceLit)};
-    const auto LookName = FName(kGenerationLookName);
+        if (FApp::CanEverRender() == false)
+        {
+            // Flagged EAutomationTestFlags::NonNullRHI, so a -nullrhi editor never lists this test and the
+            // toolbox runs it in its real-renderer pass. Reaching here headless would test nothing, which
+            // must never read as a pass.
+            AddError(TEXT("Requires a real renderer (this test is flagged NonNullRHI); run it through the "
+                          "toolbox gate or with --no-nullrhi."));
+            return false;
+        }
 
-    auto* Master = ck::usf_editor::Generate_LookMaterial(Definition.Get(), ck_test_usf::Get_TestPackageRoot());
-    if (TestNotNull(TEXT("the instance-frame look generates a master"), Master) == false)
-    { return false; }
+        const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
+            Make_ProbeLookDefinition(kGenerationLookName, ECk_Usf_Domain::SurfaceLit)};
+        const auto LookName = FName(kGenerationLookName);
 
-    const auto* Frame = Cast<UMaterialExpressionTransform>(Find_ProbeInputSource(Master));
-    if (TestNotNull(TEXT("the pixel Custom node's probe input is fed by a Transform"), Frame))
-    {
-        TestTrue(TEXT("the probe transforms from world space"),
-            Frame->TransformSourceType == TRANSFORMSOURCE_World);
-        TestTrue(TEXT("the probe transforms into instance space"),
-            Frame->TransformType == TRANSFORM_Instance);
-    }
+        auto* Master = ck::usf_editor::Generate_LookMaterial(Definition.Get(), GeneratedMasters.Get_PackageRoot());
+        if (TestNotNull(TEXT("the instance-frame look generates a master"), Master) == false)
+        { return false; }
 
-    // Throwaway master, so the destructive forced compile is allowed. InstanceFrameProbe.ush #errors unless the
-    // translator set NEEDS_INSTANCE_WORLD_TO_LOCAL_PS, so a clean compile is the define check.
-    {
-        constexpr auto ForceSynchronousCompile = true;
-        auto CompileErrors = TArray<FString>{};
-        ck::usf_editor::Validate_LookShaderCompile(Master, LookName, CompileErrors, ForceSynchronousCompile);
-        for (const auto& CompileError : CompileErrors)
-        { AddError(CompileError); }
-    }
+        const auto* Frame = Cast<UMaterialExpressionTransform>(Find_ProbeInputSource(Master));
+        if (TestNotNull(TEXT("the pixel Custom node's probe input is fed by a Transform"), Frame))
+        {
+            TestTrue(TEXT("the probe transforms from world space"),
+                Frame->TransformSourceType == TRANSFORMSOURCE_World);
+            TestTrue(TEXT("the probe transforms into instance space"),
+                Frame->TransformType == TRANSFORM_Instance);
+        }
 
-    if (ck_test_usf::Delete_TestGeneratedMaster(LookName) == false)
-    { AddInfo(TEXT("Could not delete the probe's generated master file — harmless, but it is a stray asset on disk.")); }
+        // Throwaway master, so the destructive forced compile is allowed. InstanceFrameProbe.ush #errors unless the
+        // translator set NEEDS_INSTANCE_WORLD_TO_LOCAL_PS, so a clean compile is the define check.
+        {
+            constexpr auto ForceSynchronousCompile = true;
+            auto CompileErrors = TArray<FString>{};
+            ck::usf_editor::Validate_LookShaderCompile(Master, LookName, CompileErrors, ForceSynchronousCompile);
+            for (const auto& CompileError : CompileErrors)
+            { AddError(CompileError); }
+        }
 
-    return true;
+        return true;
+    }();
+    const auto CleanupSucceeded = GeneratedMasters.Close();
+    return Succeeded && CleanupSucceeded;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
