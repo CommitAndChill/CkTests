@@ -495,4 +495,60 @@ bool FCkTest_RuntimeMesh_DisplayTangents::RunTest(const FString&)
     return true;
 }
 
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_RuntimeMesh_DisplaySharedGeometry,
+    "Ck.RuntimeMesh.Display.SharedGeometryDisplays", ck_test_runtime_mesh_display::Flags)
+
+bool FCkTest_RuntimeMesh_DisplaySharedGeometry::RunTest(const FString&)
+{
+    using namespace ck_test_runtime_mesh_display;
+
+    auto* World = UWorld::CreateWorld(EWorldType::Editor, false);
+    if (NOT TestNotNull(TEXT("isolated world"), World))
+    { return false; }
+
+    ON_SCOPE_EXIT { World->DestroyWorld(false); };
+
+    auto SourceOwner = FCk_Handle{};
+    const auto Imported = AddReadyGeometry(*World, SourceOwner);
+    if (NOT TestTrue(TEXT("public import Ready"), ck::IsValid(Imported) &&
+        UCk_Utils_RuntimeMesh_UE::Get_SetupState(Imported) == ECk_RuntimeMesh_SetupState::Ready))
+    { return false; }
+
+    auto ImportedOwner = NewDisplayOwner(*World);
+    const auto ImportedDisplay = UCk_Utils_RuntimeMeshDisplay_UE::Add(ImportedOwner, MakeDisplaySpec(Imported));
+    if (NOT TestTrue(TEXT("display on the imported mesh accepted"), ck::IsValid(ImportedDisplay)))
+    { return false; }
+
+    auto SharedOwner = NewDisplayOwner(*World);
+    auto SharedEntity = SharedOwner.ConvertToHandle();
+    const auto Shared = UCk_Utils_RuntimeMesh_UE::Add_SharedGeometry(SharedEntity, Imported);
+    if (NOT TestTrue(TEXT("shared geometry composed on the display owner"), ck::IsValid(Shared)))
+    { return false; }
+
+    const auto SharedDisplay = UCk_Utils_RuntimeMeshDisplay_UE::Add(SharedOwner, MakeDisplaySpec(Shared));
+    if (NOT TestTrue(TEXT("display on the shared geometry accepted"), ck::IsValid(SharedDisplay)))
+    { return false; }
+
+    TestEqual(TEXT("imported display Ready"), TickUntilSettled(*World, ImportedDisplay), ECk_RuntimeMesh_SetupState::Ready);
+    if (NOT TestEqual(TEXT("shared display Ready"), TickUntilSettled(*World, SharedDisplay), ECk_RuntimeMesh_SetupState::Ready))
+    { return false; }
+
+    const auto ImportedComponent = ImportedDisplay.Get<ck::FFragment_RuntimeMeshDisplay>().Get_Component();
+    const auto SharedComponent = SharedDisplay.Get<ck::FFragment_RuntimeMeshDisplay>().Get_Component();
+    if (NOT TestTrue(TEXT("both displays published a component"), ImportedComponent.IsValid() && SharedComponent.IsValid()))
+    { return false; }
+
+    TestEqual(TEXT("same material slots"), SharedComponent->GetNumMaterials(), ImportedComponent->GetNumMaterials());
+    TestEqual(TEXT("same triangle count"),
+        SharedComponent->GetDynamicMesh()->GetTriangleCount(), ImportedComponent->GetDynamicMesh()->GetTriangleCount());
+
+    UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(SharedOwner);
+    UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(ImportedOwner);
+    UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(SourceOwner);
+    Tick(*World, 3);
+    return true;
+}
+
 #endif

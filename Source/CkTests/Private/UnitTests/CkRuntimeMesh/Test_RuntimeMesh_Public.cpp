@@ -5,6 +5,7 @@
 #include "CkRuntimeMesh/CkRuntimeMesh_Utils.h"
 #include "CkRuntimeMesh/CkRuntimeMesh_Processor.h"
 #include "CkRuntimeMesh/Settings/CkRuntimeMesh_ProjectSettings.h"
+#include "CkEcs/EntityLifetime/CkEntityLifetime_Processor.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 #include "CkCore/Time/CkTime.h"
@@ -126,6 +127,32 @@ namespace ck_test_runtime_mesh_public
             Settings->Set_MaximumSlicesPerDrain(PreviousMaximum);
         }
     };
+
+    constexpr auto SharedGeometryRejectionText = TEXT("RuntimeMesh Add Shared Geometry rejected");
+
+    // Runs the production destruction phases on one entity until the registry has destroyed it.
+    auto DestroyAndDrain(const FFixture& InFixture, FCk_Handle InHandle) -> void
+    {
+        UCk_Utils_EntityLifetime_UE::Request_DestroyEntity(InHandle);
+        ck::FProcessor_EntityLifetime_DestructionPhase_Endplay::ForEachEntity(FCk_Time{}, InHandle);
+        ck::FProcessor_EntityLifetime_DestructionPhase_Teardown::ForEachEntity(FCk_Time{}, InHandle);
+        ck::FProcessor_EntityLifetime_DestructionPhase_Await::ForEachEntity(FCk_Time{}, InHandle);
+        ck::FProcessor_EntityLifetime_DestructionPhase_Finalize::ForEachEntity(FCk_Time{}, InHandle);
+        ck::FProcessor_EntityLifetime_DestroyEntity{InFixture.WorldEntity.Get_RegistryView()}.DoTick(FCk_Time{});
+    }
+
+    auto TestSameMetrics(
+        FAutomationTestBase& InTest,
+        const TCHAR* InCase,
+        const FCk_RuntimeMesh_Metrics& InExpected,
+        const FCk_RuntimeMesh_Metrics& InActual) -> void
+    {
+        InTest.TestEqual(FString::Printf(TEXT("%s: volume"), InCase), InActual.Get_VolumeCm3(), InExpected.Get_VolumeCm3());
+        InTest.TestEqual(FString::Printf(TEXT("%s: centroid"), InCase), InActual.Get_CentroidCm(), InExpected.Get_CentroidCm());
+        InTest.TestEqual(FString::Printf(TEXT("%s: bounds min"), InCase), InActual.Get_BoundsMinCm(), InExpected.Get_BoundsMinCm());
+        InTest.TestEqual(FString::Printf(TEXT("%s: bounds max"), InCase), InActual.Get_BoundsMaxCm(), InExpected.Get_BoundsMaxCm());
+        InTest.TestEqual(FString::Printf(TEXT("%s: triangles"), InCase), InActual.Get_TriangleCount(), InExpected.Get_TriangleCount());
+    }
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -634,6 +661,210 @@ bool FCkTest_RuntimeMesh_PublicQueuedGCAndIndependentRecut::RunTest(
     TestEqual(TEXT("derived geometry can be cut again"), RecutListener->Results.Num(), 1);
     TestEqual(TEXT("recut succeeds"), RecutListener->Results[0].Get_Outcome(),
         ECk_RuntimeMesh_SliceOutcome::Succeeded);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_PublicSharedGeometryIsReady,
+    "Ck.RuntimeMesh.Public.SharedGeometryIsReady",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_PublicSharedGeometryIsReady::RunTest(
+    const FString& Parameters)
+{
+    using namespace ck_test_runtime_mesh_public;
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
+    if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
+    { return false; }
+    auto Target = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.WorldEntity);
+    const auto Shared = UCk_Utils_RuntimeMesh_UE::Add_SharedGeometry(Target, Fixture.Source);
+    if (NOT TestTrue(TEXT("composed on the target"), ck::IsValid(Shared) && Shared == Target))
+    { return false; }
+    TestEqual(TEXT("Ready on return"), UCk_Utils_RuntimeMesh_UE::Get_SetupState(Shared),
+        ECk_RuntimeMesh_SetupState::Ready);
+    TestEqual(TEXT("no setup failure"), UCk_Utils_RuntimeMesh_UE::Get_SetupFailure(Shared),
+        ECk_RuntimeMesh_SetupFailure::None);
+    TestFalse(TEXT("no pending import"), Shared.Has<ck::FFragment_RuntimeMesh_PendingImport>());
+    TestSameMetrics(*this, TEXT("shared metrics"),
+        UCk_Utils_RuntimeMesh_UE::Get_Metrics(Fixture.Source), UCk_Utils_RuntimeMesh_UE::Get_Metrics(Shared));
+    const auto SourceVertices = UCk_Utils_RuntimeMesh_UE::Copy_LocalVerticesCm(Fixture.Source);
+    const auto SharedVertices = UCk_Utils_RuntimeMesh_UE::Copy_LocalVerticesCm(Shared);
+    TestTrue(TEXT("source has vertices"), SourceVertices.Num() > 0);
+    TestTrue(TEXT("vertices identical element by element"), SourceVertices == SharedVertices);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_PublicSharedGeometryOutlivesItsSource,
+    "Ck.RuntimeMesh.Public.SharedGeometryOutlivesItsSource",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_PublicSharedGeometryOutlivesItsSource::RunTest(
+    const FString& Parameters)
+{
+    using namespace ck_test_runtime_mesh_public;
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
+    if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
+    { return false; }
+    const auto SourceMetrics = UCk_Utils_RuntimeMesh_UE::Get_Metrics(Fixture.Source);
+
+    // The target lives under a different owner than the source.
+    auto Target = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.ResultOwner);
+    const auto Shared = UCk_Utils_RuntimeMesh_UE::Add_SharedGeometry(Target, Fixture.Source);
+    if (NOT TestTrue(TEXT("composed on the target"), ck::IsValid(Shared)))
+    { return false; }
+    DestroyAndDrain(Fixture, Fixture.Source);
+    TestFalse(TEXT("source destroyed"), ck::IsValid(Fixture.Source, ck::IsValid_Policy_IncludePendingKill{}));
+    TestEqual(TEXT("target Ready after the source is gone"), UCk_Utils_RuntimeMesh_UE::Get_SetupState(Shared),
+        ECk_RuntimeMesh_SetupState::Ready);
+    TestSameMetrics(*this, TEXT("target after source destroyed"), SourceMetrics,
+        UCk_Utils_RuntimeMesh_UE::Get_Metrics(Shared));
+
+    auto MirrorOwner = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.WorldEntity);
+    auto Spec = FCk_RuntimeMesh_Spec{};
+    Spec.Set_SourceMesh(TSoftObjectPtr<UStaticMesh>{Fixture.Asset.Get()});
+    auto MirrorSource = UCk_Utils_RuntimeMesh_UE::Add(MirrorOwner, Spec);
+    if (NOT TestTrue(TEXT("mirror source composed"), ck::IsValid(MirrorSource)))
+    { return false; }
+    ck::FProcessor_RuntimeMesh_Setup{Fixture.WorldEntity.Get_RegistryView()}.ForEachEntity(
+        FCk_Time{}, MirrorSource, MirrorSource.Get<ck::FFragment_RuntimeMesh>(),
+        MirrorSource.Get<ck::FFragment_RuntimeMesh_PendingImport>());
+    if (NOT TestEqual(TEXT("mirror source Ready"), UCk_Utils_RuntimeMesh_UE::Get_SetupState(MirrorSource),
+        ECk_RuntimeMesh_SetupState::Ready))
+    { return false; }
+    auto MirrorTarget = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.ResultOwner);
+    const auto MirrorShared = UCk_Utils_RuntimeMesh_UE::Add_SharedGeometry(MirrorTarget, MirrorSource);
+    if (NOT TestTrue(TEXT("mirror composed on the target"), ck::IsValid(MirrorShared)))
+    { return false; }
+    DestroyAndDrain(Fixture, MirrorShared);
+    TestFalse(TEXT("target destroyed"), ck::IsValid(MirrorShared, ck::IsValid_Policy_IncludePendingKill{}));
+    TestEqual(TEXT("source Ready after the target is gone"), UCk_Utils_RuntimeMesh_UE::Get_SetupState(MirrorSource),
+        ECk_RuntimeMesh_SetupState::Ready);
+    TestSameMetrics(*this, TEXT("source after target destroyed"), SourceMetrics,
+        UCk_Utils_RuntimeMesh_UE::Get_Metrics(MirrorSource));
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_PublicSharedGeometryRejectsASourceThatIsNotReady,
+    "Ck.RuntimeMesh.Public.SharedGeometryRejectsASourceThatIsNotReady",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_PublicSharedGeometryRejectsASourceThatIsNotReady::RunTest(
+    const FString& Parameters)
+{
+    using namespace ck_test_runtime_mesh_public;
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
+    if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
+    { return false; }
+
+    auto Spec = FCk_RuntimeMesh_Spec{};
+    Spec.Set_SourceMesh(TSoftObjectPtr<UStaticMesh>{Fixture.Asset.Get()});
+    auto PendingOwner = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.WorldEntity);
+    const auto Pending = UCk_Utils_RuntimeMesh_UE::Add(PendingOwner, Spec);
+    if (NOT TestEqual(TEXT("unprocessed source is Pending"), UCk_Utils_RuntimeMesh_UE::Get_SetupState(Pending),
+        ECk_RuntimeMesh_SetupState::Pending))
+    { return false; }
+
+    // A render LOD the asset does not have: the Spec is valid, the import fails.
+    auto FailingSpec = Spec;
+    auto Limits = FailingSpec.Get_Import();
+    Limits.Set_LODIndex(7);
+    FailingSpec.Set_Import(Limits);
+    auto FailedOwner = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.WorldEntity);
+    auto Failed = UCk_Utils_RuntimeMesh_UE::Add(FailedOwner, FailingSpec);
+    if (NOT TestTrue(TEXT("failing source composed"), ck::IsValid(Failed)))
+    { return false; }
+    ck::FProcessor_RuntimeMesh_Setup{Fixture.WorldEntity.Get_RegistryView()}.ForEachEntity(
+        FCk_Time{}, Failed, Failed.Get<ck::FFragment_RuntimeMesh>(),
+        Failed.Get<ck::FFragment_RuntimeMesh_PendingImport>());
+    if (NOT TestEqual(TEXT("failing source Failed"), UCk_Utils_RuntimeMesh_UE::Get_SetupState(Failed),
+        ECk_RuntimeMesh_SetupState::Failed))
+    { return false; }
+
+    // One ensure site may collapse repeats, so the per-case proof is the returned handle and the absent fragment.
+    AddExpectedError(SharedGeometryRejectionText, EAutomationExpectedErrorFlags::Contains, 0);
+    for (const auto& [Case, Source] : TArray<TPair<const TCHAR*, FCk_Handle_RuntimeMesh>>{
+        {TEXT("pending source"), Pending}, {TEXT("failed source"), Failed}})
+    {
+        auto Target = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.WorldEntity);
+        const auto Shared = UCk_Utils_RuntimeMesh_UE::Add_SharedGeometry(Target, Source);
+        TestFalse(FString::Printf(TEXT("%s: invalid handle"), Case), ck::IsValid(Shared));
+        TestFalse(FString::Printf(TEXT("%s: target has no RuntimeMesh"), Case), UCk_Utils_RuntimeMesh_UE::Has(Target));
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_PublicSharedGeometryRejectsATargetThatHasOne,
+    "Ck.RuntimeMesh.Public.SharedGeometryRejectsATargetThatHasOne",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_PublicSharedGeometryRejectsATargetThatHasOne::RunTest(
+    const FString& Parameters)
+{
+    using namespace ck_test_runtime_mesh_public;
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
+    if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
+    { return false; }
+    auto Target = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.WorldEntity);
+    const auto First = UCk_Utils_RuntimeMesh_UE::Add_SharedGeometry(Target, Fixture.Source);
+    if (NOT TestTrue(TEXT("first composition accepted"), ck::IsValid(First)))
+    { return false; }
+    const auto* GeometryBefore = First.Get<ck::FFragment_RuntimeMesh>().Get_Geometry().Get();
+
+    AddExpectedError(SharedGeometryRejectionText, EAutomationExpectedErrorFlags::Contains, 0);
+    const auto Second = UCk_Utils_RuntimeMesh_UE::Add_SharedGeometry(Target, Fixture.Source);
+    TestFalse(TEXT("second composition rejected"), ck::IsValid(Second));
+    TestEqual(TEXT("target still Ready"), UCk_Utils_RuntimeMesh_UE::Get_SetupState(First),
+        ECk_RuntimeMesh_SetupState::Ready);
+    TestTrue(TEXT("target geometry untouched"),
+        First.Get<ck::FFragment_RuntimeMesh>().Get_Geometry().Get() == GeometryBefore);
+    TestFalse(TEXT("no pending import added"), First.Has<ck::FFragment_RuntimeMesh_PendingImport>());
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_RuntimeMesh_PublicSharedGeometrySlicesLikeItsSource,
+    "Ck.RuntimeMesh.Public.SharedGeometrySlicesLikeItsSource",
+    ck::tests::kCkUnitTestFlags)
+
+bool FCkTest_RuntimeMesh_PublicSharedGeometrySlicesLikeItsSource::RunTest(
+    const FString& Parameters)
+{
+    using namespace ck_test_runtime_mesh_public;
+    auto Fixture = ck_test_runtime_mesh_public::FFixture{};
+    if (NOT TestTrue(TEXT("cooked fixture imports"), Fixture.Initialize()))
+    { return false; }
+    auto Target = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Fixture.WorldEntity);
+    auto Shared = UCk_Utils_RuntimeMesh_UE::Add_SharedGeometry(Target, Fixture.Source);
+    if (NOT TestTrue(TEXT("composed on the target"), ck::IsValid(Shared)))
+    { return false; }
+
+    auto SourceListener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
+        NewObject<UCk_Test_RuntimeMeshListener_UE>(GetTransientPackage())};
+    auto SharedListener = TStrongObjectPtr<UCk_Test_RuntimeMeshListener_UE>{
+        NewObject<UCk_Test_RuntimeMeshListener_UE>(GetTransientPackage())};
+    auto SourceRequest = MakeRequest(Fixture, FVector{5, 0, 0});
+    auto SharedRequest = MakeRequest(Fixture, FVector{5, 0, 0});
+    UCk_Utils_RuntimeMesh_UE::Request_Slice(Fixture.Source, SourceRequest,
+        Receiver(SourceListener.Get()), Completion(SourceListener.Get()));
+    UCk_Utils_RuntimeMesh_UE::Request_Slice(Shared, SharedRequest,
+        Receiver(SharedListener.Get()), Completion(SharedListener.Get()));
+    for (auto Pass = 0; Pass < 2 && (SourceListener->Results.Num() == 0 || SharedListener->Results.Num() == 0); ++Pass)
+    { Fixture.Drain(); }
+    if (NOT TestEqual(TEXT("source cut resolved once"), SourceListener->Results.Num(), 1)
+        || NOT TestEqual(TEXT("shared cut resolved once"), SharedListener->Results.Num(), 1))
+    { return false; }
+
+    const auto& SourceResult = SourceListener->Results[0];
+    const auto& SharedResult = SharedListener->Results[0];
+    TestEqual(TEXT("source cut succeeds"), SourceResult.Get_Outcome(), ECk_RuntimeMesh_SliceOutcome::Succeeded);
+    TestEqual(TEXT("same outcome"), SharedResult.Get_Outcome(), SourceResult.Get_Outcome());
+    TestSameMetrics(*this, TEXT("positive side"), SourceResult.Get_PositiveMetrics(), SharedResult.Get_PositiveMetrics());
+    TestSameMetrics(*this, TEXT("negative side"), SourceResult.Get_NegativeMetrics(), SharedResult.Get_NegativeMetrics());
+    TestEqual(TEXT("same positive cap"), SharedResult.Get_PositiveCapTriangles(), SourceResult.Get_PositiveCapTriangles());
+    TestEqual(TEXT("same negative cap"), SharedResult.Get_NegativeCapTriangles(), SourceResult.Get_NegativeCapTriangles());
     return true;
 }
 #endif
