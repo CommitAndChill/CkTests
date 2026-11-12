@@ -53,6 +53,41 @@ namespace ck_pmg_polyline_geometry_spec
 
         return true;
     }
+
+    // The direction Unreal renders triangle InTriangle from. Its front face is clockwise seen from the front, so the
+    // normal is (C - A) x (B - A): KismetProceduralMeshLibrary::GenerateBoxMesh winds its +Z face that way. Zero for a
+    // degenerate triangle.
+    auto
+        Get_FrontNormal(
+            const TArray<FVector>& InPositions,
+            const TArray<int32>& InTriangles,
+            int32 InTriangle)
+        -> FVector
+    {
+        const auto& A = InPositions[InTriangles[InTriangle * 3 + 0]];
+        const auto& B = InPositions[InTriangles[InTriangle * 3 + 1]];
+        const auto& C = InPositions[InTriangles[InTriangle * 3 + 2]];
+        return FVector::CrossProduct(C - A, B - A);
+    }
+
+    auto
+        Make_Shape(
+            ECk_Pmg_Polyline_Profile InProfile,
+            float InRadius,
+            int32 InMaxPoints,
+            float InArrowLength,
+            float InArrowRadius)
+        -> ck::pmg::polyline::FShape
+    {
+        auto Shape = ck::pmg::polyline::FShape{};
+        Shape._Profile = InProfile;
+        Shape._Radius = InRadius;
+        Shape._Sides = Sides;
+        Shape._MaxPoints = InMaxPoints;
+        Shape._ArrowLength = InArrowLength;
+        Shape._ArrowRadius = InArrowRadius;
+        return Shape;
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -122,15 +157,20 @@ bool FCkPmg_Polyline_Geometry_RingsSitAtTheRadius::RunTest(const FString& Parame
         }
     }
 
-    // Outward-facing: the first triangle's geometric normal points away from the tube's axis.
+    // Outward-facing as Unreal renders it: every triangle between the first two rings shows its front to the outside.
     const auto Triangles = ck::pmg::polyline::Build_Triangles(MaxPoints, Sides);
-    const auto& A = Buffers._Positions[Triangles[0]];
-    const auto& B = Buffers._Positions[Triangles[1]];
-    const auto& C = Buffers._Positions[Triangles[2]];
-    const auto FaceNormal = FVector::CrossProduct(B - A, C - A);
-    const auto FaceCentre = (A + B + C) / 3.0;
-    const auto Outward = FVector{0.0, FaceCentre.Y, FaceCentre.Z};
-    TestTrue(TEXT("triangles face outward"), FVector::DotProduct(FaceNormal, Outward) > 0.0);
+    for (auto Triangle = 0; Triangle < Sides * 2; ++Triangle)
+    {
+        const auto& A = Buffers._Positions[Triangles[Triangle * 3 + 0]];
+        const auto& B = Buffers._Positions[Triangles[Triangle * 3 + 1]];
+        const auto& C = Buffers._Positions[Triangles[Triangle * 3 + 2]];
+        const auto FaceCentre = (A + B + C) / 3.0;
+        const auto Outward = FVector{0.0, FaceCentre.Y, FaceCentre.Z};
+        const auto FrontNormal = Get_FrontNormal(Buffers._Positions, Triangles, Triangle);
+
+        TestTrue(FString::Printf(TEXT("triangle %d faces outward"), Triangle),
+            FVector::DotProduct(FrontNormal, Outward) > 0.0);
+    }
 
     return true;
 }
@@ -375,6 +415,264 @@ bool FCkPmg_Polyline_Geometry_VerticalStartHasAFrame::RunTest(const FString& Par
                 Offset.Z, 0.0, 0.001);
         }
     }
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkPmg_Polyline_Geometry_ShapeVertexCountIsFixed,
+    "Ck.Pmg.Polyline.Geometry.ShapeVertexCountIsFixed",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkPmg_Polyline_Geometry_ShapeVertexCountIsFixed::RunTest(const FString& Parameters)
+{
+    using namespace ck_pmg_polyline_geometry_spec;
+
+    constexpr auto ShapeMaxPoints = 16;
+
+    struct FCase
+    {
+        const TCHAR* _Name;
+        ck::pmg::polyline::FShape _Shape;
+        int32 _Vertices;
+        int32 _Indices;
+    };
+
+    const auto Cases = TArray<FCase>{
+        {TEXT("ribbon"), Make_Shape(ECk_Pmg_Polyline_Profile::Ribbon, 1.0f, ShapeMaxPoints, 0.0f, 0.0f),
+            ShapeMaxPoints * 2, (ShapeMaxPoints - 1) * 6},
+        {TEXT("ribbon with a head"), Make_Shape(ECk_Pmg_Polyline_Profile::Ribbon, 1.0f, ShapeMaxPoints, 10.0f, 4.0f),
+            (ShapeMaxPoints + 2) * 2, (ShapeMaxPoints + 1) * 6},
+        {TEXT("tube with a head"), Make_Shape(ECk_Pmg_Polyline_Profile::Tube, 1.0f, ShapeMaxPoints, 10.0f, 4.0f),
+            (ShapeMaxPoints + 2) * RingSize, (ShapeMaxPoints + 1) * Sides * 6},
+    };
+
+    for (const auto& Case : Cases)
+    {
+        TestEqual(FString::Printf(TEXT("%s: vertex count"), Case._Name),
+            ck::pmg::polyline::Get_NumVertices(Case._Shape), Case._Vertices);
+
+        const auto Triangles = ck::pmg::polyline::Build_Triangles(Case._Shape);
+        TestEqual(FString::Printf(TEXT("%s: index count"), Case._Name), Triangles.Num(), Case._Indices);
+
+        auto AllIndicesInRange = true;
+        for (const auto Index : Triangles)
+        { AllIndicesInRange &= Index >= 0 && Index < Case._Vertices; }
+        TestTrue(FString::Printf(TEXT("%s: every index addresses a vertex"), Case._Name), AllIndicesInRange);
+
+        for (const auto NumPoints : {0, 2, 10, 200})
+        {
+            const auto Buffers = ck::pmg::polyline::Build(Get_StraightLine(NumPoints, 10.0), Case._Shape);
+            TestEqual(FString::Printf(TEXT("%s: %d input points keep the vertex count"), Case._Name, NumPoints),
+                Buffers._Positions.Num(), Case._Vertices);
+            TestEqual(FString::Printf(TEXT("%s: %d input points keep the normal count"), Case._Name, NumPoints),
+                Buffers._Normals.Num(), Case._Vertices);
+        }
+    }
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkPmg_Polyline_Geometry_RibbonLiesLevelAndFacesUp,
+    "Ck.Pmg.Polyline.Geometry.RibbonLiesLevelAndFacesUp",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkPmg_Polyline_Geometry_RibbonLiesLevelAndFacesUp::RunTest(const FString& Parameters)
+{
+    using namespace ck_pmg_polyline_geometry_spec;
+
+    constexpr auto HalfWidth = 2.0f;
+    constexpr auto ShapeMaxPoints = 8;
+    const auto Shape = Make_Shape(ECk_Pmg_Polyline_Profile::Ribbon, HalfWidth, ShapeMaxPoints, 0.0f, 0.0f);
+    const auto Points = TArray<FVector>{FVector{0.0, 0.0, 0.0}, FVector{100.0, 0.0, 0.0}, FVector{250.0, 0.0, 0.0}};
+    const auto Buffers = ck::pmg::polyline::Build(Points, Shape);
+
+    TestEqual(TEXT("three points are drawn"), Buffers._NumDrawnPoints, 3);
+
+    for (auto Ring = 0; Ring < 3; ++Ring)
+    {
+        for (auto Across = 0; Across < 2; ++Across)
+        {
+            const auto& Position = Buffers._Positions[Ring * 2 + Across];
+            TestNearlyEqual(FString::Printf(TEXT("ring %d edge %d shares its point's X"), Ring, Across),
+                Position.X, Points[Ring].X, 0.001);
+            TestNearlyEqual(FString::Printf(TEXT("ring %d edge %d is level with the path"), Ring, Across),
+                Position.Z, 0.0, 0.001);
+            TestNearlyEqual(FString::Printf(TEXT("ring %d edge %d sits half the width to the side"), Ring, Across),
+                FMath::Abs(Position.Y), static_cast<double>(HalfWidth), 0.001);
+            TestTrue(FString::Printf(TEXT("ring %d edge %d has an upward normal"), Ring, Across),
+                Buffers._Normals[Ring * 2 + Across].Equals(FVector::UpVector, 0.001));
+        }
+
+        TestNearlyEqual(FString::Printf(TEXT("ring %d spans the full width"), Ring),
+            FVector::Dist(Buffers._Positions[Ring * 2], Buffers._Positions[Ring * 2 + 1]), 2.0 * HalfWidth, 0.001);
+    }
+
+    const auto Triangles = ck::pmg::polyline::Build_Triangles(Shape);
+    for (auto Triangle = 0; Triangle < 4; ++Triangle)
+    {
+        const auto FrontNormal = Get_FrontNormal(Buffers._Positions, Triangles, Triangle).GetSafeNormal();
+        TestTrue(FString::Printf(TEXT("triangle %d shows its front upward"), Triangle),
+            FrontNormal.Equals(FVector::UpVector, 0.001));
+    }
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkPmg_Polyline_Geometry_RibbonOnAnArcStaysLevelAcross,
+    "Ck.Pmg.Polyline.Geometry.RibbonOnAnArcStaysLevelAcross",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkPmg_Polyline_Geometry_RibbonOnAnArcStaysLevelAcross::RunTest(const FString& Parameters)
+{
+    using namespace ck_pmg_polyline_geometry_spec;
+
+    constexpr auto HalfWidth = 1.5f;
+    constexpr auto NumPoints = 20;
+    const auto Shape = Make_Shape(ECk_Pmg_Polyline_Profile::Ribbon, HalfWidth, MaxPoints, 0.0f, 0.0f);
+
+    // An arc in the XZ plane that rises, then falls well below its start.
+    auto Points = TArray<FVector>{};
+    for (auto Index = 0; Index < NumPoints; ++Index)
+    {
+        const auto X = Index * 40.0;
+        Points.Add(FVector{X, 0.0, 300.0 * (X / 400.0) - 300.0 * FMath::Square(X / 400.0)});
+    }
+
+    const auto Buffers = ck::pmg::polyline::Build(Points, Shape);
+    TestEqual(TEXT("every point is drawn"), Buffers._NumDrawnPoints, NumPoints);
+
+    for (auto Ring = 0; Ring < NumPoints; ++Ring)
+    {
+        const auto Across = Buffers._Positions[Ring * 2] - Buffers._Positions[Ring * 2 + 1];
+        TestTrue(FString::Printf(TEXT("ring %d runs across the path, out of the plane of the arc"), Ring),
+            FMath::Abs(Across.X) < 0.001 && FMath::Abs(Across.Z) < 0.001);
+        TestNearlyEqual(FString::Printf(TEXT("ring %d keeps the full width"), Ring),
+            Across.Size(), 2.0 * HalfWidth, 0.001);
+    }
+
+    // Rising and falling, the ribbon shows its front to the sky, where an eye above and behind the start sees it.
+    const auto Triangles = ck::pmg::polyline::Build_Triangles(Shape);
+    for (auto Triangle = 0; Triangle < (NumPoints - 1) * 2; ++Triangle)
+    {
+        const auto FrontNormal = Get_FrontNormal(Buffers._Positions, Triangles, Triangle);
+        TestTrue(FString::Printf(TEXT("triangle %d faces upward"), Triangle), FrontNormal.Z > 0.0);
+    }
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkPmg_Polyline_Geometry_ArrowHeadEndsAtTheLastPoint,
+    "Ck.Pmg.Polyline.Geometry.ArrowHeadEndsAtTheLastPoint",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkPmg_Polyline_Geometry_ArrowHeadEndsAtTheLastPoint::RunTest(const FString& Parameters)
+{
+    using namespace ck_pmg_polyline_geometry_spec;
+
+    constexpr auto ShaftRadius = 1.0f;
+    constexpr auto ArrowLength = 20.0f;
+    constexpr auto ArrowRadius = 4.0f;
+    constexpr auto ShapeMaxPoints = 8;
+    const auto Points = Get_StraightLine(5, 50.0);
+
+    for (const auto Profile : {ECk_Pmg_Polyline_Profile::Tube, ECk_Pmg_Polyline_Profile::Ribbon})
+    {
+        const auto IsRibbon = Profile == ECk_Pmg_Polyline_Profile::Ribbon;
+        const auto Name = IsRibbon ? TEXT("ribbon") : TEXT("tube");
+        const auto ProfileRingSize = IsRibbon ? 2 : RingSize;
+        const auto Shape = Make_Shape(Profile, ShaftRadius, ShapeMaxPoints, ArrowLength, ArrowRadius);
+        const auto Buffers = ck::pmg::polyline::Build(Points, Shape);
+
+        TestEqual(FString::Printf(TEXT("%s: the head adds no drawn point"), Name), Buffers._NumDrawnPoints, 5);
+        TestNearlyEqual(FString::Printf(TEXT("%s: the drawn length is the length of the path"), Name),
+            Buffers._Length, 200.0, 0.001);
+
+        const auto BaseRing = ShapeMaxPoints;
+        const auto TipRing = ShapeMaxPoints + 1;
+        for (auto Around = 0; Around < ProfileRingSize; ++Around)
+        {
+            const auto& Tip = Buffers._Positions[TipRing * ProfileRingSize + Around];
+            TestTrue(FString::Printf(TEXT("%s: tip vertex %d is the last point"), Name, Around),
+                Tip.Equals(FVector{200.0, 0.0, 0.0}, 0.001));
+
+            const auto& Base = Buffers._Positions[BaseRing * ProfileRingSize + Around];
+            TestNearlyEqual(FString::Printf(TEXT("%s: base vertex %d is the arrow length short of the end"), Name, Around),
+                Base.X, 180.0, 0.001);
+            TestNearlyEqual(FString::Printf(TEXT("%s: base vertex %d sits at the arrow radius"), Name, Around),
+                FVector2D{Base.Y, Base.Z}.Size(), static_cast<double>(ArrowRadius), 0.001);
+
+            const auto& ShaftEnd = Buffers._Positions[(ShapeMaxPoints - 1) * ProfileRingSize + Around];
+            TestNearlyEqual(FString::Printf(TEXT("%s: the shaft stops at the base of the head (vertex %d)"), Name, Around),
+                ShaftEnd.X, 180.0, 0.001);
+            TestNearlyEqual(FString::Printf(TEXT("%s: the shaft keeps its own radius at the base (vertex %d)"), Name, Around),
+                FVector2D{ShaftEnd.Y, ShaftEnd.Z}.Size(), static_cast<double>(ShaftRadius), 0.001);
+        }
+
+        TestNearlyEqual(FString::Printf(TEXT("%s: the tip UV carries the full length"), Name),
+            Buffers._UV0[TipRing * ProfileRingSize].X, 200.0, 0.001);
+        TestNearlyEqual(FString::Printf(TEXT("%s: the base UV carries its distance"), Name),
+            Buffers._UV0[BaseRing * ProfileRingSize].X, 180.0, 0.001);
+
+        // The first face between the base and the tip shows its front outward on a tube, upward on a ribbon.
+        const auto Triangles = ck::pmg::polyline::Build_Triangles(Shape);
+        const auto FacesPerGap = IsRibbon ? 1 : Sides;
+        const auto FirstHeadTriangle = BaseRing * FacesPerGap * 2;
+        const auto FrontNormal = Get_FrontNormal(Buffers._Positions, Triangles, FirstHeadTriangle);
+        const auto& HeadA = Buffers._Positions[Triangles[FirstHeadTriangle * 3]];
+        const auto Expected = IsRibbon ? FVector::UpVector : FVector{0.0, HeadA.Y, HeadA.Z}.GetSafeNormal();
+        TestTrue(FString::Printf(TEXT("%s: the first face of the head shows its front %s"), Name,
+            IsRibbon ? TEXT("upward") : TEXT("outward")), FVector::DotProduct(FrontNormal, Expected) > 0.0);
+    }
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkPmg_Polyline_Geometry_AnArrowLongerThanThePathIsAllHead,
+    "Ck.Pmg.Polyline.Geometry.AnArrowLongerThanThePathIsAllHead",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkPmg_Polyline_Geometry_AnArrowLongerThanThePathIsAllHead::RunTest(const FString& Parameters)
+{
+    using namespace ck_pmg_polyline_geometry_spec;
+
+    constexpr auto ArrowRadius = 3.0f;
+    constexpr auto ShapeMaxPoints = 6;
+    const auto Shape = Make_Shape(ECk_Pmg_Polyline_Profile::Ribbon, 1.0f, ShapeMaxPoints, 20.0f, ArrowRadius);
+    const auto Points = TArray<FVector>{FVector{0.0, 0.0, 0.0}, FVector{10.0, 0.0, 0.0}};
+    const auto Buffers = ck::pmg::polyline::Build(Points, Shape);
+
+    TestEqual(TEXT("the path is drawn"), Buffers._NumDrawnPoints, 2);
+    TestNearlyEqual(TEXT("its length is the length of the path"), Buffers._Length, 10.0, 0.001);
+
+    for (auto Ring = 0; Ring < ShapeMaxPoints; ++Ring)
+    {
+        for (auto Across = 0; Across < 2; ++Across)
+        {
+            TestNearlyEqual(FString::Printf(TEXT("shaft ring %d edge %d sits at the start: no shaft"), Ring, Across),
+                Buffers._Positions[Ring * 2 + Across].X, 0.0, 0.001);
+        }
+    }
+
+    TestNearlyEqual(TEXT("the base spans the width of the arrow at the start"),
+        FVector::Dist(Buffers._Positions[ShapeMaxPoints * 2], Buffers._Positions[ShapeMaxPoints * 2 + 1]),
+        2.0 * ArrowRadius, 0.001);
+    TestTrue(TEXT("the tip is the last point"),
+        Buffers._Positions[(ShapeMaxPoints + 1) * 2].Equals(FVector{10.0, 0.0, 0.0}, 0.001));
 
     return true;
 }
