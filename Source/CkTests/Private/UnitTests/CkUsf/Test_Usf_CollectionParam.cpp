@@ -256,6 +256,37 @@ bool FCkTest_Usf_LookValidator_CollectionParamIsValidated::RunTest(const FString
                 Errors[0].Contains(FString::Printf(TEXT("param [%s]"), kPaintColorParam)));
         }
 
+        // The translator refuses a material reading more than MaxNumParameterCollectionsPerMaterial (2) distinct
+        // collections, and a headless generation never compiles the master, so the validator holds the limit.
+        {
+            constexpr auto kCollectionCountMarker = TEXT("distinct material parameter collections");
+
+            auto* SecondCollection = Make_Collection(GeneratedMasters.Get_PackageRoot());
+            ON_SCOPE_EXIT { Release_Collection(SecondCollection); };
+            auto* ThirdCollection = Make_Collection(GeneratedMasters.Get_PackageRoot());
+            ON_SCOPE_EXIT { Release_Collection(ThirdCollection); };
+
+            const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{
+                Make_ProbeLookDefinition(kValidatorLookName, Collection)};
+            Definition->_Parameters[1]._Collection = SecondCollection;
+
+            TestEqual(TEXT("a look reading two distinct collections raises no collection-count error"),
+                Get_ErrorsContaining(ck::usf_editor::Validate_LookDefinition(Definition.Get()), kCollectionCountMarker).Num(), 0);
+
+            auto& CoatRoughness = Definition->_Parameters[2];
+            CoatRoughness._FromCollection = true;
+            CoatRoughness._Collection = ThirdCollection;
+            CoatRoughness._CollectionParameterName = FName(kFlakeParam);
+
+            const auto Errors = Get_ErrorsContaining(
+                ck::usf_editor::Validate_LookDefinition(Definition.Get()), kCollectionCountMarker);
+            if (TestEqual(TEXT("a look reading three distinct collections is one validation error"), Errors.Num(), 1))
+            {
+                TestTrue(TEXT("the collection-count error names the look"),
+                    Errors[0].Contains(FString::Printf(TEXT("Look [%s]"), kValidatorLookName)));
+            }
+        }
+
         return true;
     }();
     const auto CleanupSucceeded = GeneratedMasters.Close();
