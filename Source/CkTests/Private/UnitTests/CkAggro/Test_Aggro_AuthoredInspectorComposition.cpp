@@ -198,7 +198,6 @@ bool FCkTest_Aggro_AuthoredInspectorComposition::RunTest(const FString&)
                 ck::IsValid(Scenario->Owner) && ck::IsValid(Scenario->Aggro)
                     && ck::IsValid(Scenario->TargetA) && ck::IsValid(Scenario->TargetB));
         })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(60));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(FCk_NetAutoTest_Condition::CreateLambda([Scenario]()
     {
         return ck::IsValid(Scenario->Aggro) && ck::IsValid(Scenario->TargetA) && ck::IsValid(Scenario->TargetB)
@@ -213,7 +212,6 @@ bool FCkTest_Aggro_AuthoredInspectorComposition::RunTest(const FString&)
         {
             UCk_Utils_Aggro_UE::Request_SetActiveTarget(Scenario->Aggro, Scenario->TrackedA, {});
         })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(FCk_NetAutoTest_Condition::CreateLambda([Scenario]()
     {
         return ck::IsValid(Scenario->Aggro)
@@ -366,10 +364,10 @@ bool FCkTest_Aggro_AuthoredInspectorComposition::RunTest(const FString&)
             }
             Slate.DestroyWindowImmediately(Window);
         })));
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(60));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(FCk_NetAutoTest_Condition::CreateLambda([Scenario]()
     {
         return ck::IsValid(Scenario->Aggro) && ck::IsValid(Scenario->TargetA)
+            && OwnerRequestCount(Scenario->Aggro) == 0
             && NOT UCk_Utils_Aggro_UE::Get_IsEnabled(Scenario->Aggro)
             && UCk_Utils_Aggro_UE::TryGet_ActiveTrackedEntity(Scenario->Aggro) == Scenario->TrackedA
             && FMath::IsNearlyEqual(UCk_Utils_AggroTarget_UE::Get_Threat(Scenario->TargetA), 85.0f)
