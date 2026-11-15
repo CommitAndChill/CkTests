@@ -29,6 +29,7 @@
 #include <UObject/ObjectSaveContext.h>
 #include <UObject/StrongObjectPtr.h>
 #include <UObject/UnrealType.h>
+#include <Templates/UnrealTemplate.h>
 
 namespace ck_test_entityscript_editor_services
 {
@@ -331,6 +332,127 @@ bool FCkTest_EntityScript_EditorServices::RunTest(const FString& Parameters)
     bFinalSpawnParamsRemoved = NOT FPackageName::DoesPackageExist(
         FPackageName::ObjectPathToPackageName(CleanupRenamedSpawnParamsPath));
     TestTrue(TEXT("restored editor services replay SpawnParams removal"), bFinalSpawnParamsRemoved);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+namespace ck_test_entityscript_editor_services
+{
+    auto MakeEntityScriptBlueprintData(const FString& InPackageName) -> FAssetData
+    {
+        auto Tags = FAssetDataTagMap{};
+        Tags.Add(FBlueprintTags::NativeParentClassPath,
+            FObjectPropertyBase::GetExportPath(UCk_EntityScript_UE::StaticClass()));
+
+        return FAssetData{
+            FName(*InPackageName),
+            FName(*FPackageName::GetLongPackagePath(InPackageName)),
+            FName(*FPackageName::GetShortName(InPackageName)),
+            UBlueprint::StaticClass()->GetClassPathName(),
+            Tags};
+    }
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_EntityScript_EditorServices_ForeignAssetEvents,
+    "Ck.EntityScript.EditorServices.ForeignAssetEventsQueueNothing",
+    ck_test_entityscript_editor_services::kTestFlags)
+
+bool FCkTest_EntityScript_EditorServices_ForeignAssetEvents::RunTest(const FString& Parameters)
+{
+    using namespace ck_test_entityscript_editor_services;
+
+    if (NOT TestNotNull(TEXT("production EntityScript subsystem exists"),
+        GEngine != nullptr ? GEngine->GetEngineSubsystem<UCk_EntityScript_Subsystem_UE>() : nullptr))
+    { return false; }
+    auto& EntityScripts = *GEngine->GetEngineSubsystem<UCk_EntityScript_Subsystem_UE>();
+
+    const auto Suffix = FGuid::NewGuid().ToString(EGuidFormats::Digits);
+    const auto PackageName = FString::Printf(TEXT("/Game/__CkEntityScriptForeign_%s/BP_CkForeign_%s"), *Suffix, *Suffix);
+    const auto BlueprintData = MakeEntityScriptBlueprintData(PackageName);
+
+    if (NOT TestTrue(TEXT("the fixture reads as an EntityScript Blueprint"),
+        UCk_EntityScript_Subsystem_UE::Get_IsEntityScriptBlueprintData(BlueprintData)))
+    { return false; }
+
+    const auto PendingBefore = EntityScripts._PendingStructAssetOperations.Num();
+    const auto SavesBefore = EntityScripts._EntitySpawnParams_StructsToSave.Num();
+
+    EntityScripts.OnAssetAdded(BlueprintData);
+    EntityScripts.OnAssetRemoved(BlueprintData);
+
+    TestEqual(TEXT("a Blueprint removal this process did not make queues no SpawnParams operation"),
+        EntityScripts._PendingStructAssetOperations.Num(), PendingBefore);
+    TestEqual(TEXT("a Blueprint addition this process did not make schedules no SpawnParams save"),
+        EntityScripts._EntitySpawnParams_StructsToSave.Num(), SavesBefore);
+
+    EntityScripts._LocallyPreDeletedBlueprintPaths.Add(BlueprintData.GetObjectPathString());
+    EntityScripts.OnAssetRemoved(BlueprintData);
+
+    const auto QueuedIndex = EntityScripts._PendingStructAssetOperations.IndexOfByPredicate(
+        [&](const UCk_EntityScript_Subsystem_UE::FPendingStructAssetOperation& InPending)
+        { return InPending.bDelete && InPending.SourcePath.Contains(Suffix); });
+
+    TestTrue(TEXT("the same removal after this process pre-deleted the Blueprint queues the SpawnParams removal"),
+        QueuedIndex != INDEX_NONE);
+    TestFalse(TEXT("the confirmed removal consumes its pre-delete record"),
+        EntityScripts._LocallyPreDeletedBlueprintPaths.Contains(BlueprintData.GetObjectPathString()));
+
+    if (QueuedIndex != INDEX_NONE)
+    { EntityScripts._PendingStructAssetOperations.RemoveAt(QueuedIndex); }
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_EntityScript_EditorServices_DeferredDuringPie,
+    "Ck.EntityScript.EditorServices.StructOperationsDeferDuringPie",
+    ck_test_entityscript_editor_services::kTestFlags)
+
+bool FCkTest_EntityScript_EditorServices_DeferredDuringPie::RunTest(const FString& Parameters)
+{
+    if (NOT TestNotNull(TEXT("production EntityScript subsystem exists"),
+        GEngine != nullptr ? GEngine->GetEngineSubsystem<UCk_EntityScript_Subsystem_UE>() : nullptr))
+    { return false; }
+    auto& EntityScripts = *GEngine->GetEngineSubsystem<UCk_EntityScript_Subsystem_UE>();
+
+    const auto Suffix = FGuid::NewGuid().ToString(EGuidFormats::Digits);
+    const auto StructName = FName(*FString::Printf(TEXT("EntitySpawnParams_CkPieDefer_%s"), *Suffix));
+    const auto StructPackage = FString::Printf(TEXT("/Game/__CkEntityScriptPieDefer_%s/%s"), *Suffix, *StructName.ToString());
+
+    const auto IsQueued = [&]()
+    {
+        return EntityScripts._PendingStructAssetOperations.ContainsByPredicate(
+            [&](const UCk_EntityScript_Subsystem_UE::FPendingStructAssetOperation& InPending)
+            { return InPending.SourcePath == StructPackage; });
+    };
+
+    ON_SCOPE_EXIT
+    {
+        EntityScripts._PendingStructAssetOperations.RemoveAll(
+            [&](const UCk_EntityScript_Subsystem_UE::FPendingStructAssetOperation& InPending)
+            { return InPending.SourcePath == StructPackage; });
+    };
+
+    EntityScripts.QueueStructAssetOperation(UCk_EntityScript_Subsystem_UE::FPendingStructAssetOperation{
+        StructPackage, {}, StructName, {}, true});
+
+    {
+        TGuardValue<bool> PlayInEditor(GIsPlayInEditorWorld, true);
+        TestTrue(TEXT("the subsystem sees play-in-editor as active"),
+            UCk_EntityScript_Subsystem_UE::Get_IsPlayInEditorActive());
+
+        EntityScripts.ProcessPendingStructAssetOperations();
+        TestTrue(TEXT("a struct operation queued during play-in-editor waits instead of touching editor asset services"),
+            IsQueued());
+    }
+
+    EntityScripts.ProcessPendingStructAssetOperations();
+    TestFalse(TEXT("the deferred struct operation runs once play-in-editor ends"), IsQueued());
 
     return true;
 }
