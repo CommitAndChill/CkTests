@@ -180,45 +180,31 @@
       "added": "2026-10-01"
     },
     {
-      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_PaViz_NavigationFocus",
-      "status": "red",
-      "reason": "CkUsf: Look [LitMetal] master material has shader compile errors (or is still compiling) - it will render as the checkered DefaultMaterial. See LogShaderCompilers for the HLSL error, then re-run Generate Look Materials or 'RecompileShaders Material M_CkUsf_Look_LitMetal'. [log]",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
-      "added": "2026-10-01"
-    },
-    {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_PaViz_StressVisual",
       "status": "red",
-      "reason": "CkUsf: Look [LitMetal] master material has shader compile errors (or is still compiling) - it will render as the checkered DefaultMaterial. See LogShaderCompilers for the HLSL error, then re-run Generate Look Materials or 'RecompileShaders Material M_CkUsf_Look_LitMetal'. [log]",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
-      "added": "2026-10-01"
-    },
-    {
-      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_PaViz_Visual",
-      "status": "red",
-      "reason": "CkUsf: Look [LitMetal] master material has shader compile errors (or is still compiling) - it will render as the checkered DefaultMaterial. See LogShaderCompilers for the HLSL error, then re-run Generate Look Materials or 'RecompileShaders Material M_CkUsf_Look_LitMetal'. [log]",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "reason": "Every planned stress shot was captured, including both cylinder directions for every walker (expected 18, got 16-17): a cylinder walker misses a shot window, so the step waits out its 80 s capture window and then fails. Red alone and in the gate. Until CkFoundation#21 'fix(usf): only warn about a look master that really failed to compile' (https://github.com/CommitAndChill/CkFoundation/pull/21) this was hidden behind the CkUsf LitMetal 'shader compile errors' warning, a headless false positive.",
+      "evidence": "CkPlugins_gatespeed: CkPlugins origin/dev f2f32be with CkFoundation#21 (fix/usf-look-compile-check-headless, on CkFoundation dev e5328e833) and CkTests dev 148a02e1 + test-infra-speed S2 commits; UnrealToolbox v1.81, UE 5.8.4; fresh-boot full gate Gate-S2-full 2026-11-15 (4578 run/23 red) plus scoped runs Scoped-UsfFix and Scoped-UsfFix2: red in all three runs",
       "added": "2026-10-01"
     },
     {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PillarCrossingRenderedTraversal",
       "status": "red",
-      "reason": "CkUsf: Look [LitMetal] master material has shader compile errors (or is still compiling) - it will render as the checkered DefaultMaterial. See LogShaderCompilers for the HLSL error, then re-run Generate Look Materials or 'RecompileShaders Material M_CkUsf_Look_LitMetal'. [log]",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "reason": "OSCILLATES - listed red, not flaky, so a pass reports 'Now passing' instead of a failing solo re-run failing the gate. Step 2/4: PillarCrossingRendered30 completed two route traversals with every leg replanted (0 traversals, 8/8 legs). Until CkFoundation#21 'fix(usf): only warn about a look master that really failed to compile' (https://github.com/CommitAndChill/CkFoundation/pull/21) it failed on the CkUsf LitMetal warning instead, a headless false positive.",
+      "evidence": "CkPlugins_gatespeed: CkPlugins origin/dev f2f32be with CkFoundation#21 (fix/usf-look-compile-check-headless, on CkFoundation dev e5328e833) and CkTests dev 148a02e1 + test-infra-speed S2 commits; UnrealToolbox v1.81, UE 5.8.4; fresh-boot full gate Gate-S2-full 2026-11-15 (4578 run/23 red) plus scoped runs Scoped-UsfFix and Scoped-UsfFix2: passed in Scoped-UsfFix, red in Scoped-UsfFix2 and Gate-S2-full",
       "added": "2026-10-01"
     },
     {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PillarsEngageSteppedTops",
-      "status": "flaky",
-      "reason": "FLAKY: green alone. Ck_AutoTest_ProceduralAnimation_PillarsEngageSteppedTops: FinishTest TestResult=Failed. Failed: step 4/6 'verify distinct trusted top engagement and reach': Trusted planted simulation and posed hips stay reachable (13.421 cm at Beast RR x 420.5) (1/57 assertions failed)",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FP, solo GREEN",
+      "status": "red",
+      "reason": "Step 3/6 'all walkers cross the stepping pillars and return': a stepping-pillar walker produced invalid output or lost readiness (1/33 assertions failed). Was listed flaky (green alone); on the 2026-11 dev tips it is red alone too.",
+      "evidence": "CkPlugins_gatespeed: CkPlugins origin/dev f2f32be with CkFoundation#21 (fix/usf-look-compile-check-headless, on CkFoundation dev e5328e833) and CkTests dev 148a02e1 + test-infra-speed S2 commits; UnrealToolbox v1.81, UE 5.8.4; fresh-boot full gate Gate-S2-full 2026-11-15 (4578 run/23 red) plus scoped runs Scoped-UsfFix and Scoped-UsfFix2: red in Gate-S2-full and in its solo re-run, red alone with CkFoundation at origin/dev e5328e833 (AB-reverted); the two full gates on one build: GP-E1-Concurrent-BB and GP-E6-Release-BB (BusterBlock_58 editor binaries last written 2026-11-12 04:11, no build stage in either log), red in both; same in Mars_58port GP-E0..E6 (binaries 2026-11-14 07:14)",
       "added": "2026-10-01"
     },
     {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PostsCentipedeReturns",
       "status": "red",
-      "reason": "Ck_AutoTest_ProceduralAnimation_PostsCentipedeReturns: FinishTest TestResult=Failed. Failed: step 1/4 'the Centipede crosses the posts and returns': condition 'Check_Traversal' did not hold within the declared 120.00s bound (120.02s elapsed) - the step asserts a cadence, so this is a real timing reg",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
+      "reason": "Step 1/4: the Centipede made no route progress for 30s - blocked at its start (local x about -820..-835, route stage 0, reach pace 0, pace state Blocked) from the first seconds. Before the stall watchdog it ran out the full 120 s step with the same picture ([POSTS-CENTIPEDE-BOUNDARY] in GP-E6-Release-BB/-Mars and CkPlugins CrossLane-FullGate). Cause in SurfaceMotion/gait not yet traced.",
+      "evidence": "CkPlugins_gatespeed: CkPlugins origin/dev f2f32be with CkFoundation#21 (fix/usf-look-compile-check-headless, on CkFoundation dev e5328e833) and CkTests dev 148a02e1 + test-infra-speed S2 commits; UnrealToolbox v1.81, UE 5.8.4; fresh-boot full gate Gate-S2-full 2026-11-15 (4578 run/23 red) plus scoped runs Scoped-UsfFix and Scoped-UsfFix2: red in Gate-S2-full (33.5 s) and alone (Scoped-Centipede, 35.8 s)",
       "added": "2026-10-01"
     },
     {
@@ -300,9 +286,9 @@
     },
     {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_PostsBeastPosedReach",
-      "status": "flaky",
-      "reason": "FLAKY: load- or pin-sensitive. Ck_AutoTest_ProceduralAnimation_PostsBeastPosedReach: FinishTest TestResult=Failed. Failed: step 1/4 'the Beast crosses the posts and returns': condition 'Check_Traversal' did not hold within the declared 65.00s bound. On the 2026-11-04 UE 5.8 walker exclusion list (CkPlugins docs/verification/UE58-Walker-Exclusions.json).",
-      "evidence": "UE 5.8 (ue58_engine 417f32a755), CkTests 05fea466. BusterBlock_58 full gates red: Gate58-RebuiltCk (old engine 935c5aa08b6d), Gate58-MergedMainCk, Gate58-UiProofFixes, Gate58-UiProofFixes2 (2026-11-06). Fresh clone CkPlugins_58gate (dev pins 9a4a5f4): red alone on UnrealToolbox v1.75 and v1.74 at 30 fps (Keep-Solo175-4.log, Keep-AB174-4.log). Established CkPlugins_58 (branch fix/per-process-test-content-roots): green alone on v1.68 and v1.75 (Keep-Est58-Solo-1.log, Keep-Est58-v175-Solo-1.log).",
+      "status": "red",
+      "reason": "Step 1/4 'the Beast crosses the posts and returns': condition 'Check_Traversal' did not hold within the declared 65.00s bound. Was listed flaky (load- or pin-sensitive, green alone on CkPlugins_58); on the 2026-11 dev tips it is red alone too.",
+      "evidence": "CkPlugins_gatespeed: CkPlugins origin/dev f2f32be with CkFoundation#21 (fix/usf-look-compile-check-headless, on CkFoundation dev e5328e833) and CkTests dev 148a02e1 + test-infra-speed S2 commits; UnrealToolbox v1.81, UE 5.8.4; fresh-boot full gate Gate-S2-full 2026-11-15 (4578 run/23 red) plus scoped runs Scoped-UsfFix and Scoped-UsfFix2: red in Gate-S2-full and in its solo re-run, red alone with CkFoundation at origin/dev e5328e833 (AB-reverted); the two full gates on one build: GP-E1-Concurrent-BB and GP-E6-Release-BB (BusterBlock_58 editor binaries last written 2026-11-12 04:11, no build stage in either log), red in both; same in Mars_58port GP-E0..E6 (binaries 2026-11-14 07:14)",
       "added": "2026-11-06"
     },
     {
