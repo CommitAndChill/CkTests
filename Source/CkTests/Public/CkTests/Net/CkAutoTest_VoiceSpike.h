@@ -6,8 +6,8 @@
 
 // --------------------------------------------------------------------------------------------------------------------
 //
-// THROWAWAY spike vehicles for the CkVoiceChat P0 transport spike (delete with the campaign's
-// P0 artifacts): sustained-rate Unreliable unicast Client-direction RPCs under the fork's Iris
+// Transport vehicles for Ck.Iris.Net.Backpressure (born in the CkVoiceChat P0 transport spike, whose
+// spec is gone): sustained-rate Unreliable unicast Client-direction RPCs under the fork's Iris
 // stack. The channel actor copies the wire-relevant shape of an ActorRelay per-player channel
 // exactly — bReplicates + bAlwaysRelevant (CkActorRelay_Actor.cpp:23-24) with Owner set to the
 // target player's PlayerState (CkActorRelay_GroupSubsystem.cpp:452) — without the group-subsystem
