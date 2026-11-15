@@ -28,8 +28,9 @@
 // mostly-static scene (N static boxes sharing ONE shape) plus a fixed awake dynamic population, which is the shape
 // the 100k scale bar describes.
 //
-// The PRODUCT is the logged per-case milliseconds; the assertions are deliberately loose sanity bounds, because a
-// benchmark that gates on a tight number becomes a flake on a busy machine and gets deleted. Numbers land in
+// Two tests share the fixture. Ck.Jolt.DebugDraw.ScaleMatrix.InstanceCoverage is the gate: every body draws exactly
+// one instance at every scale, with no wall-clock verdict. Ck.Jolt.DebugDraw.Benchmark.ScaleMatrix will be deferred out
+// of the gate (P2.1): its PRODUCT is the logged per-case milliseconds, held to loose sanity bounds. Numbers land in
 // CkJolt/CLAUDE.md.
 //
 // What this fixture does NOT measure, so the numbers are not over-read: the capture's baked-static classification
@@ -54,13 +55,14 @@ namespace ck_test_jolt_debugdraw_benchmark
 
     auto
         Log_Case(
+            const TCHAR* InTag,
             int32 InNumBodies,
             const FString& InCase,
             double InMilliseconds)
         -> void
     {
-        ck::tests::Display(TEXT("[JoltDebugDrawBench] N={} case={} ms={}"),
-            InNumBodies, InCase, FString::Printf(TEXT("%.3f"), InMilliseconds));
+        ck::tests::Display(TEXT("{} N={} case={} ms={}"),
+            InTag, InNumBodies, InCase, FString::Printf(TEXT("%.3f"), InMilliseconds));
     }
 
     auto
@@ -232,12 +234,13 @@ namespace ck_test_jolt_debugdraw_benchmark
         ECk_Jolt_DebugDrawFlags::BoundingBox |
         ECk_Jolt_DebugDrawFlags::MassAndInertia;
 
-    enum class EBudgetPolicy : uint8
+    enum class ERunMode : uint8
     {
-        // The default-flag run gates; the all-flags run only MEASURES. A pass that redraws every body every
-        // capture is a different algorithmic class by construction, so holding it to the same sanity bound
-        // would either fail the gate or force the bound so wide it stops catching anything.
+        // Instance counts only; a body shortfall fails instead of skipping, so the gate never passes on nothing.
+        InstanceCoverage,
         Enforced,
+        // A pass that redraws every body every capture is a different algorithmic class by construction, so holding
+        // the all-flags run to the same sanity bound would force the bound so wide it stops catching anything.
         MeasureOnly
     };
 
@@ -247,9 +250,10 @@ namespace ck_test_jolt_debugdraw_benchmark
             int32 InNumStatics,
             ECk_Jolt_DebugDrawFlags InDrawFlags = ECk_Jolt_DebugDrawFlags::Shape,
             const FString& InCasePrefix = FString{},
-            EBudgetPolicy InBudgetPolicy = EBudgetPolicy::Enforced)
+            ERunMode InRunMode = ERunMode::Enforced)
         -> void
     {
+        const auto* LogTag = InRunMode == ERunMode::InstanceCoverage ? TEXT("[JoltDebugDrawCoverage]") : TEXT("[JoltDebugDrawBench]");
         auto* World = UWorld::CreateWorld(EWorldType::Game, false);
 
         if (NOT InTest.TestNotNull(TEXT("transient world exists"), World))
@@ -269,15 +273,21 @@ namespace ck_test_jolt_debugdraw_benchmark
 
             if (NumStaticsAdded < InNumStatics)
             {
+                if (InRunMode == ERunMode::InstanceCoverage)
+                {
+                    InTest.AddError(FString::Printf(TEXT("only %d of %d static bodies could be allocated"),
+                        NumStaticsAdded, InNumStatics));
+                }
+
                 ck::tests::Display(
-                    TEXT("[JoltDebugDrawBench] N={} SKIPPED — this environment allocated only {} of the requested bodies"),
-                    InNumStatics, NumStaticsAdded);
+                    TEXT("{} N={} SKIPPED — this environment allocated only {} of the requested bodies"),
+                    LogTag, InNumStatics, NumStaticsAdded);
 
                 World->DestroyWorld(false);
                 return;
             }
 
-            JoltWorld.Add_BoxGrid(NumAwakeDynamics, JPH::EMotionType::Dynamic, DynamicOriginZ, Activate);
+            const auto NumDynamicsAdded = JoltWorld.Add_BoxGrid(NumAwakeDynamics, JPH::EMotionType::Dynamic, DynamicOriginZ, Activate);
 
             auto& Renderer = FCk_Jolt_DebugRenderer::Get_OrCreate();
             auto Target = MakeShared<FCk_Jolt_DebugDrawTarget>(World);
@@ -286,7 +296,7 @@ namespace ck_test_jolt_debugdraw_benchmark
 
             const auto& Log_PrefixedCase = [&](const TCHAR* InCase, double InMilliseconds) -> void
             {
-                Log_Case(InNumStatics, InCasePrefix + InCase, InMilliseconds);
+                Log_Case(LogTag, InNumStatics, InCasePrefix + InCase, InMilliseconds);
             };
 
             auto Revision = uint64{1};
@@ -300,8 +310,9 @@ namespace ck_test_jolt_debugdraw_benchmark
 
             // Steady state: the revision never moves, so only the awake dynamics are walked.
             auto SteadyTotalMs = 0.0;
+            const auto NumSteadyCaptures = InRunMode == ERunMode::InstanceCoverage ? 1 : SteadyStateCaptures;
 
-            for (auto Index = 0; Index < SteadyStateCaptures; ++Index)
+            for (auto Index = 0; Index < NumSteadyCaptures; ++Index)
             {
                 SteadyTotalMs += Time_Ms([&]()
                 {
@@ -310,7 +321,7 @@ namespace ck_test_jolt_debugdraw_benchmark
                 });
             }
 
-            const auto SteadyMs = SteadyTotalMs / SteadyStateCaptures;
+            const auto SteadyMs = SteadyTotalMs / NumSteadyCaptures;
             Log_PrefixedCase(TEXT("steady_state_avg"), SteadyMs);
 
             ++Revision;
@@ -332,6 +343,10 @@ namespace ck_test_jolt_debugdraw_benchmark
             });
             Log_PrefixedCase(TEXT("pick_body"), PickMs);
 
+            const auto NumInstancesBeforeHighlight = Target->Get_NumInstances();
+            InTest.TestEqual(FString::Printf(TEXT("every body at N=%d drew exactly one instance"), InNumStatics),
+                NumInstancesBeforeHighlight, NumStaticsAdded + NumDynamicsAdded);
+
             // Selecting re-arms the full inactive pass, so this measures what one selection change costs.
             Target->Set_HighlightedBody(JoltWorld.Get_FirstBodyKey());
 
@@ -342,10 +357,10 @@ namespace ck_test_jolt_debugdraw_benchmark
             });
             Log_PrefixedCase(TEXT("highlight_rearmed_pass"), HighlightPassMs);
 
-            InTest.TestTrue(TEXT("every static body drew an instance"),
-                Target->Get_NumInstances() >= NumStaticsAdded);
+            ck::tests::Display(TEXT("{} N={} instances before_highlight={} after_highlight={}"),
+                LogTag, InNumStatics, NumInstancesBeforeHighlight, Target->Get_NumInstances());
 
-            if (InBudgetPolicy == EBudgetPolicy::Enforced)
+            if (InRunMode == ERunMode::Enforced)
             {
                 InTest.TestTrue(FString::Printf(
                     TEXT("steady-state capture at N=%d stays under the sanity budget"), InNumStatics),
@@ -389,7 +404,28 @@ bool FCkTest_JoltDebugDraw_Benchmark_ScaleMatrix::RunTest(const FString& Paramet
     // The same 100k scene with every per-body extra on. Only at the scale bar, and MEASURE-ONLY: extras are
     // lines, lines are cleared every capture, so the incremental pass has to redraw every body every time — a
     // different algorithmic class, deliberately reported rather than gated.
-    Run_Config(*this, 100000, AllBodyDrawFlags, TEXT("allflags_"), EBudgetPolicy::MeasureOnly);
+    Run_Config(*this, 100000, AllBodyDrawFlags, TEXT("allflags_"), ERunMode::MeasureOnly);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkTest_JoltDebugDraw_ScaleMatrix_InstanceCoverage,
+    "Ck.Jolt.DebugDraw.ScaleMatrix.InstanceCoverage",
+    ck_test_jolt_debugdraw_benchmark::TestFlags)
+
+bool FCkTest_JoltDebugDraw_ScaleMatrix_InstanceCoverage::RunTest(const FString& Parameters)
+{
+    using namespace ck_test_jolt_debugdraw_benchmark;
+
+    const int32 BodyCounts[] = {1000, 10000, 100000};
+
+    for (const auto NumStatics : BodyCounts)
+    { Run_Config(*this, NumStatics, ECk_Jolt_DebugDrawFlags::Shape, FString{}, ERunMode::InstanceCoverage); }
+
+    Run_Config(*this, 100000, AllBodyDrawFlags, TEXT("allflags_"), ERunMode::InstanceCoverage);
 
     return true;
 }
