@@ -324,7 +324,6 @@ bool FCkAggroDebugger_AuthoredPie::RunTest(const FString&)
         State->bFixtureCreated = ck::IsValid(State->Owner) && ck::IsValid(State->Aggro) && ck::IsValid(State->TargetA) && ck::IsValid(State->TargetB);
     })));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(60));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
     {
         if (!State->bFixtureCreated || !ck::IsValid(State->Aggro) || !ck::IsValid(State->TargetA) || !ck::IsValid(State->TargetB)) { return false; }
@@ -338,7 +337,8 @@ bool FCkAggroDebugger_AuthoredPie::RunTest(const FString&)
     {
         const TSharedPtr<const FCkUiCollection> Collection = State->Panel.IsValid() ? State->Panel->Get_AggroCollection() : nullptr;
         return Collection.IsValid() && Collection->GetRecords().Num() == 3 && TargetRecord(Collection, TEXT("TargetAlpha")).IsValid()
-            && TargetRecord(Collection, TEXT("TargetBeta")).IsValid();
+            && TargetRecord(Collection, TEXT("TargetBeta")).IsValid()
+            && FieldText(TargetRecord(Collection, TEXT("TargetAlpha")), TEXT("aggro-threat-text")).Contains(TEXT("10.0"));
     }), 15.0f));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
@@ -442,11 +442,15 @@ bool FCkAggroDebugger_AuthoredPie::RunTest(const FString&)
         UCk_Utils_AggroTarget_UE::Request_SetThreat(State->TargetA, 80.0f, {});
     })));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(60));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
     {
         if (!State->bFixtureCreated || !ck::IsValid(State->Aggro) || !ck::IsValid(State->TargetA) || !ck::IsValid(State->TargetB)) { return false; }
         return UCk_Utils_AggroTarget_UE::Get_Threat(State->TargetA) == 80.0f && UCk_Utils_AggroTarget_UE::Get_Score(State->TargetA) > UCk_Utils_AggroTarget_UE::Get_Score(State->TargetB);
+    }), 15.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+    {
+        const TSharedPtr<const FCkUiCollection> Collection = State->Panel.IsValid() ? State->Panel->Get_AggroCollection() : nullptr;
+        return Collection.IsValid() && FieldText(TargetRecord(Collection, TEXT("TargetAlpha")), TEXT("aggro-threat-text")).Contains(TEXT("80.0"));
     }), 15.0f));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld*) -> void
     {
@@ -465,7 +469,6 @@ bool FCkAggroDebugger_AuthoredPie::RunTest(const FString&)
         UCk_Utils_Aggro_UE::Request_RemoveTarget(State->Aggro, State->TrackedB, {});
     })));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
     {
         if (!State->bFixtureCreated || !ck::IsValid(State->Aggro) || !ck::IsValid(State->TrackedB)) { return false; }
