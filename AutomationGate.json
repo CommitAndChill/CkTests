@@ -152,6 +152,13 @@
       "added": "2026-10-01"
     },
     {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_IskmRenderer_RagdollSettles",
+      "status": "red",
+      "reason": "OSCILLATES - listed red, not flaky: it fails alone every time (2/2), so as flaky its solo re-run would still fail the gate; a pass reports 'Now passing'. It passed once in a full gate (1 pass / 3 fails across two gates). Ck_AutoTest_IskmRenderer_RagdollSettles: FinishTest TestResult=Failed. Failed: step 5/5 'every rigid body goes to sleep': timed out after 13.50s (90% of _TimeoutSeconds). Failing alone consistently reads as a ragdoll-sleep defect rather than load: diagnose it, do not raise the timeout.",
+      "evidence": "CkPlugins_gatespeed, UE 5.8.4, UnrealToolbox v1.81. Gate-S2-full 2026-11-15 (CkFoundation 709cd9925 + the campaign's CkTests branches): lane 2 PASS, lane 6 FAIL. Gate-S2-Bprime 2026-11-15 (CkFoundation 9e3a8384b, CkTests 9a527f00): lane 2 FAIL, lane 4 FAIL. Solo fresh-boot runs: with CkFoundation 9e3a8384b/CkTests 9a527f00 RED; with CkFoundation 709cd9925/CkTests 9b1c9dab RED.",
+      "added": "2026-11-15"
+    },
+    {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_AvoidanceVolume_InitialPathAvoidsExpandedObb",
       "status": "red",
       "reason": "Avoid If Possible did not fall back through the sealed corridor: ECk_Nav_PathStatus::Partial (4). Red alone twice; passed in G2, so it oscillates under load - listed red so a pass only prints 'Now passing'.",
