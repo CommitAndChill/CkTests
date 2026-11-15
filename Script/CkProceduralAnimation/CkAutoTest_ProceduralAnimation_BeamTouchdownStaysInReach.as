@@ -183,6 +183,12 @@ class UCk_AutoTest_ProceduralAnimation_BeamTouchdownStaysInReach : UCk_AutoTest_
             FinishFailure(_Fixture.CompositionError);
             return;
         }
+        auto Stall = _Fixture.Get_StallReason(ck_procedural_gym::StallSeconds);
+        if (Stall.IsEmpty() == false)
+        {
+            FinishFailure(f"A walker stalled: {Stall}");
+            return;
+        }
         SampleAdaptiveMotion();
         SampleTouchdowns();
         auto Now = float(System::GetGameTimeInSeconds());

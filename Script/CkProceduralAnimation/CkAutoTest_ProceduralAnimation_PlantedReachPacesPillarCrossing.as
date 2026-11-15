@@ -97,6 +97,12 @@ class UCk_AutoTest_ProceduralAnimation_PlantedReachPacesPillarCrossing : UCk_Aut
             FinishFailure(_Fixture.CompositionError);
             return;
         }
+        auto Stall = _Fixture.Get_StallReason(ck_procedural_gym::StallSeconds);
+        if (Stall.IsEmpty() == false)
+        {
+            FinishFailure(f"A walker stalled: {Stall}");
+            return;
+        }
         SampleReach();
         auto Now = float(System::GetGameTimeInSeconds());
         if (_LastTraceAt < 0.0 || Now - _LastTraceAt >= 5.0)
