@@ -239,6 +239,26 @@ namespace ck::auto_test::net
     // ----------------------------------------------------------------------------------------------------------------
 
     auto
+        Get_AllClientsHaveLocalPlayerState()
+        -> bool
+    {
+        const auto NumClients = Get_NumClientWorlds();
+        if (NumClients == 0)
+        { return false; }
+
+        for (auto ClientIdx = 0; ClientIdx < NumClients; ++ClientIdx)
+        {
+            const auto* Client = Get_ClientWorld(ClientIdx);
+            const auto* LocalController = Client != nullptr ? Client->GetFirstPlayerController() : nullptr;
+            if (LocalController == nullptr || LocalController->PlayerState == nullptr)
+            { return false; }
+        }
+        return true;
+    }
+
+    // ----------------------------------------------------------------------------------------------------------------
+
+    auto
         Get_RemoteClientPlayerController(
             UWorld* InServerWorld,
             int32 ClientIdx)
