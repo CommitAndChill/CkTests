@@ -130,7 +130,9 @@ bool FCkVoiceChatNet_ProximityRouting::RunTest(const FString& Parameters)
 
     // A client's LOCAL PlayerState arrives with the initial replication after login - it is not
     // guaranteed to exist the moment PIE-ready fires.
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool { return ck::auto_test::net::Get_AllClientsHaveLocalPlayerState(); }),
+        15.0, TEXT("every client's local PlayerState replicated")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InClient) -> void

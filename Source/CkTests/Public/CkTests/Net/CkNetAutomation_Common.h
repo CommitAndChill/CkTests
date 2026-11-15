@@ -60,6 +60,10 @@ namespace ck::auto_test::net
     // Count of client worlds (excludes server). Returns 0 if no PIE active.
     CKTESTS_API auto Get_NumClientWorlds() -> int32;
 
+    // True once every client world's local PlayerController has its replicated PlayerState. A client's own
+    // PlayerState arrives with the initial replication after login, so PIE-ready does not imply it.
+    CKTESTS_API auto Get_AllClientsHaveLocalPlayerState() -> bool;
+
     // Server-side PlayerController representing the Nth remote PIE client (the one whose world is
     // Get_ClientWorld(ClientIdx)). On a listen server the local player's PC has no UNetConnection;
     // remote clients' PCs do. Used to possess a subject Pawn with a client's PC so

@@ -207,7 +207,9 @@ bool FCkVoiceChatNet_HybridRenderMode::RunTest(const FString& Parameters)
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(3, MapPath));
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(3, 30.0f));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(30));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([]() -> bool { return ck::auto_test::net::Get_AllClientsHaveLocalPlayerState(); }),
+        15.0, TEXT("every client's local PlayerState replicated")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
         FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* InClient) -> void
