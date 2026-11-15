@@ -341,7 +341,7 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
         FCk_NetAutoTest_Assertion::CreateLambda(
             [this, Scenario]() -> bool
             {
-                const auto* Subsystem = Scenario->_Subsystem.Get();
+                auto* Subsystem = Scenario->_Subsystem.Get();
                 const auto* Data = Scenario->_Data.Get();
                 if (NOT ck::IsValid(Subsystem) || NOT ck::IsValid(Data))
                 {
@@ -366,6 +366,8 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
                     CountRendererActors(Scenario->_World.Get()), Scenario->_BaselineRendererActors);
                 TestEqual(TEXT("the live transient renderer count is back to baseline"),
                     Subsystem->Get_LiveTransientRendererCount(), Scenario->_BaselineLiveTransientRenderers);
+
+                Subsystem->Request_RecountProxyRefs();
                 return true;
             }),
         TEXT("zero proxies destroy the renderer and purge its caches on the next tick")));
@@ -418,7 +420,7 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
         FCk_NetAutoTest_Assertion::CreateLambda(
             [this, Scenario]() -> bool
             {
-                const auto* Subsystem = Scenario->_Subsystem.Get();
+                auto* Subsystem = Scenario->_Subsystem.Get();
                 const auto* Data = Scenario->_Data.Get();
                 if (NOT ck::IsValid(Subsystem) || NOT ck::IsValid(Data))
                 {
@@ -431,6 +433,8 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
                 TestTrue(TEXT("no renderer exists for the data"), Subsystem->Find_IsmRenderer(Data) == nullptr);
                 TestEqual(TEXT("the short-lived proxy released its reference"), Subsystem->Get_ProxyRefCount(Data), 0);
                 TestFalse(TEXT("nothing is pending teardown"), Subsystem->Get_IsPendingTeardown(Data));
+
+                Subsystem->Request_RecountProxyRefs();
                 return true;
             }),
         TEXT("a proxy that dies in its first frame does not leak a renderer")));
@@ -459,7 +463,7 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
         FCk_NetAutoTest_Assertion::CreateLambda(
             [this, Scenario]() -> bool
             {
-                const auto* Subsystem = Scenario->_Subsystem.Get();
+                auto* Subsystem = Scenario->_Subsystem.Get();
                 const auto* Data = Scenario->_Data.Get();
                 if (NOT ck::IsValid(Subsystem) || NOT ck::IsValid(Data))
                 {
@@ -478,12 +482,14 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
                     ck::IsValid(IsmComponent) && IsmComponent->IsRegistered());
                 TestEqual(TEXT("the respawned ISM component renders proxy C's single instance"),
                     ck::IsValid(IsmComponent) ? IsmComponent->GetNumInstances() : -1, 1);
+
+                Subsystem->Request_RecountProxyRefs();
                 return true;
             }),
         TEXT("re-acquire after teardown respawns and renders")));
 
-    // C's EndPlay is the first thing to resolve the renderer after it is destroyed from outside, so a resolving
-    // lookup there would respawn it with no proxy left to release it.
+    // C's EndPlay is the first thing to resolve the renderer after it is destroyed from outside. A resolving lookup
+    // there respawns it with no proxy left to release it, which the actor-count check below catches.
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
         FCk_NetAutoTest_ServerAction::CreateLambda(
             [Scenario](UWorld* InWorld) -> void
@@ -519,7 +525,7 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
         FCk_NetAutoTest_Assertion::CreateLambda(
             [this, Scenario]() -> bool
             {
-                const auto* Subsystem = Scenario->_Subsystem.Get();
+                auto* Subsystem = Scenario->_Subsystem.Get();
                 const auto* Data = Scenario->_Data.Get();
                 if (NOT ck::IsValid(Subsystem) || NOT ck::IsValid(Data))
                 {
@@ -531,6 +537,8 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
                     Scenario->_MaxRendererActorsDuringRemoval, Scenario->_BaselineRendererActors);
                 TestTrue(TEXT("no renderer exists for the data"), Subsystem->Find_IsmRenderer(Data) == nullptr);
                 TestEqual(TEXT("no proxy references remain"), Subsystem->Get_ProxyRefCount(Data), 0);
+
+                Subsystem->Request_RecountProxyRefs();
                 return true;
             }),
         TEXT("teardown never creates a renderer")));
