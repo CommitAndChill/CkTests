@@ -144,6 +144,15 @@ bool FCkTest_EntityScript_EditorServices::RunTest(const FString& Parameters)
         EntityScripts._EntitySpawnParams_StructsByName.FindRef(OldStructName) == SpawnParams.Get()))
     { return false; }
 
+    EntityScripts._EntitySpawnParams_StructsByName.Remove(OldStructName);
+    EntityScripts._EntitySpawnParams_Structs.Remove(SpawnParams.Get());
+    // The creation delegate is skipped in -unattended editors; this drives what it hands off to.
+    EntityScripts.DoHandle_BlueprintCreatedInProcess(Blueprint.Get());
+    if (NOT TestTrue(TEXT("an in-process Blueprint creation caches its existing SpawnParams struct"),
+        EntityScripts._EntitySpawnParams_StructsByName.FindRef(OldStructName) == SpawnParams.Get() &&
+        EntityScripts._EntitySpawnParams_Structs.Contains(SpawnParams.Get())))
+    { return false; }
+
     // The production factory creates the UDS in its package without announcing it to the
     // registry. Register the bare owned assets before the exposed-property update saves it.
     if (NOT EditorAssets.DoesAssetExist(OldBlueprintPath))
@@ -307,15 +316,16 @@ bool FCkTest_EntityScript_EditorServices::RunTest(const FString& Parameters)
         EditorAssets.DoesAssetExist(CleanupRenamedSpawnParamsPath));
     CleanupRenamedSpawnParamsPath = FinalStructPath;
 
-    // The owned Blueprint is then removed while this one delegate is disconnected. Replay of
-    // its actual AssetData must remove the generated struct after editor services return.
+    // The owned Blueprint is then removed while its in-process deletion delegate is disconnected.
+    // Replaying the removal for its actual AssetData must remove the generated struct after editor
+    // services return.
     const auto RemovedBlueprintData = FAssetData{Blueprint.Get()};
-    AssetRegistry.OnAssetRemoved().Remove(EntityScripts._OnAssetRemoved_DelegateHandle);
+    AssetRegistry.OnInMemoryAssetDeleted().Remove(EntityScripts._OnInMemoryAssetDeleted_DelegateHandle);
     {
         ON_SCOPE_EXIT
         {
-            EntityScripts._OnAssetRemoved_DelegateHandle = AssetRegistry.OnAssetRemoved().AddUObject(
-                &EntityScripts, &UCk_EntityScript_Subsystem_UE::OnAssetRemoved);
+            EntityScripts._OnInMemoryAssetDeleted_DelegateHandle = AssetRegistry.OnInMemoryAssetDeleted().AddUObject(
+                &EntityScripts, &UCk_EntityScript_Subsystem_UE::OnInMemoryAssetDeleted);
         };
         if (NOT TestTrue(TEXT("owned Blueprint asset is removed"),
             EditorAssets.DeleteAsset(FinalBlueprintPath)))
@@ -326,7 +336,7 @@ bool FCkTest_EntityScript_EditorServices::RunTest(const FString& Parameters)
     {
         ON_SCOPE_EXIT { GEditor = &Editor; };
         GEditor = nullptr;
-        EntityScripts.OnAssetRemoved(RemovedBlueprintData);
+        EntityScripts.DoQueue_SpawnParamsRemovalForBlueprint(RemovedBlueprintData);
     }
     FTSTicker::GetCoreTicker().Tick(1.0f);
     bFinalSpawnParamsRemoved = NOT FPackageName::DoesPackageExist(
@@ -378,27 +388,20 @@ bool FCkTest_EntityScript_EditorServices_ForeignAssetEvents::RunTest(const FStri
     { return false; }
 
     const auto PendingBefore = EntityScripts._PendingStructAssetOperations.Num();
-    const auto SavesBefore = EntityScripts._EntitySpawnParams_StructsToSave.Num();
 
-    EntityScripts.OnAssetAdded(BlueprintData);
     EntityScripts.OnAssetRemoved(BlueprintData);
 
     TestEqual(TEXT("a Blueprint removal this process did not make queues no SpawnParams operation"),
         EntityScripts._PendingStructAssetOperations.Num(), PendingBefore);
-    TestEqual(TEXT("a Blueprint addition this process did not make schedules no SpawnParams save"),
-        EntityScripts._EntitySpawnParams_StructsToSave.Num(), SavesBefore);
 
-    EntityScripts._LocallyPreDeletedBlueprintPaths.Add(BlueprintData.GetObjectPathString());
-    EntityScripts.OnAssetRemoved(BlueprintData);
+    EntityScripts.DoQueue_SpawnParamsRemovalForBlueprint(BlueprintData);
 
     const auto QueuedIndex = EntityScripts._PendingStructAssetOperations.IndexOfByPredicate(
         [&](const UCk_EntityScript_Subsystem_UE::FPendingStructAssetOperation& InPending)
         { return InPending.bDelete && InPending.SourcePath.Contains(Suffix); });
 
-    TestTrue(TEXT("the same removal after this process pre-deleted the Blueprint queues the SpawnParams removal"),
+    TestTrue(TEXT("the same Blueprint data does queue a SpawnParams removal on the in-process path"),
         QueuedIndex != INDEX_NONE);
-    TestFalse(TEXT("the confirmed removal consumes its pre-delete record"),
-        EntityScripts._LocallyPreDeletedBlueprintPaths.Contains(BlueprintData.GetObjectPathString()));
 
     if (QueuedIndex != INDEX_NONE)
     { EntityScripts._PendingStructAssetOperations.RemoveAt(QueuedIndex); }
@@ -449,6 +452,16 @@ bool FCkTest_EntityScript_EditorServices_DeferredDuringPie::RunTest(const FStrin
         EntityScripts.ProcessPendingStructAssetOperations();
         TestTrue(TEXT("a struct operation queued during play-in-editor waits instead of touching editor asset services"),
             IsQueued());
+
+        auto* PendingStruct = NewObject<UUserDefinedStruct>(GetTransientPackage(),
+            FName(*FString::Printf(TEXT("EntitySpawnParams_CkPieDeferSave_%s"), *Suffix)), RF_Transient);
+        EntityScripts._EntitySpawnParams_StructsToSave.Add(PendingStruct);
+        ON_SCOPE_EXIT { EntityScripts._EntitySpawnParams_StructsToSave.Remove(PendingStruct); };
+
+        TestFalse(TEXT("a struct save during play-in-editor reports not saved"),
+            EntityScripts.TrySavePendingStruct(PendingStruct));
+        TestTrue(TEXT("the struct save stays pending until play-in-editor ends"),
+            EntityScripts._EntitySpawnParams_StructsToSave.Contains(PendingStruct));
     }
 
     EntityScripts.ProcessPendingStructAssetOperations();
