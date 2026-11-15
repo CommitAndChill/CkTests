@@ -23,6 +23,13 @@ class UCk_AutoTest_ProceduralAnimation_PostsCentipedeReturns : UCk_AutoTest_Base
     private float _LastForwardAt = -1.0;
     private float _FirstBlockedSnapshotAt = -1.0;
     private int32 _BlockedSnapshots = 0;
+    private int32 _ProgressStage = -1;
+    private float _BestRouteProgress = -100000.0;
+    private float _LastRouteProgressAt = -1.0;
+
+    // A healthy route never holds still this long; the window is not calibrated against a passing run, so revisit it
+    // once the walker is fixed.
+    const float RouteStallSeconds = 30.0;
 
     UFUNCTION(BlueprintOverride)
     void DoBeginPlay(FCk_Handle InHandle)
@@ -138,6 +145,19 @@ class UCk_AutoTest_ProceduralAnimation_PostsCentipedeReturns : UCk_AutoTest_Base
             {
                 _LastForwardX = LocalX;
                 _LastForwardAt = Now;
+            }
+            auto RouteProgress = Crawler.Progress.RouteStage == 0 ? LocalX : -LocalX;
+            if (Crawler.Progress.RouteStage != _ProgressStage || RouteProgress > _BestRouteProgress + 1.0)
+            {
+                _ProgressStage = Crawler.Progress.RouteStage;
+                _BestRouteProgress = RouteProgress;
+                _LastRouteProgressAt = Now;
+            }
+            else if (Now - _LastRouteProgressAt >= RouteStallSeconds)
+            {
+                LogBlockedSnapshot(Now, "stalled");
+                FinishFailure(f"The Centipede made no route progress for {RouteStallSeconds :.0}s (stage {Crawler.Progress.RouteStage}, local x {LocalX :.1}, blocked {_BlockedSamples}) - see [POSTS-BLOCKED] stalled");
+                return;
             }
             if (_BlockedSnapshots == 0 && Now - _LastForwardAt >= 1.0)
             {
