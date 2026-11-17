@@ -140,8 +140,8 @@
     {
       "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_Crowd_AvoidanceVolume_InitialPathAvoidsExpandedObb",
       "status": "red",
-      "reason": "Avoid If Possible did not fall back through the sealed corridor: ECk_Nav_PathStatus::Partial (4). Red alone twice; passed in G2, so it oscillates under load - listed red so a pass only prints 'Now passing'.",
-      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gates G1-G3 on one build 2026-10-02 (3972 run; 30 / 29 / 28 red): gates FPF, solo RED twice",
+      "reason": "OSCILLATES - listed red on purpose, do not prune on one pass. Avoid If Possible did not fall back through the sealed corridor: ECk_Nav_PathStatus::Partial (4). Red alone twice; passed in G2, so it oscillates under load - listed red so a pass only prints 'Now passing'.",
+      "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gates G1-G3 on one build 2026-10-02 (3972 run; 30 / 29 / 28 red): gates FPF, solo RED twice. 2026-11-15/16, UE 5.8.4, ten CkPlugins full gates (toolbox v1.81-v1.87): red in the six oldest (Gate-S2-full through Gate-v185-release), green in the four newest (Gate-v186, Gate-v186-release, Gate-PinBump, Gate-v187-release); no crowd fix landed in between",
       "added": "2026-10-02"
     },
     {
