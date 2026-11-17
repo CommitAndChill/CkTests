@@ -500,7 +500,7 @@ bool FCkTest_Usf_StylizeMaskEntityStencilSync::RunTest(const FString& Parameters
     auto& Registry = EcsWorld.Get_Registry();
 
     auto Entity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Registry);
-    UCk_Utils_EntityBridge_UE::Add(Entity, Actor);
+    Entity.Add<ck::FFragment_EntityBridge>(Actor, nullptr);
 
     const auto Sync = [&Entity]() -> void
     {

@@ -5,6 +5,7 @@
 #include "GameFramework/Actor.h"
 #include "Templates/SubclassOf.h"
 
+#include "CkEcs/EntityBridge/CkEntityBridge_Fragment_Data.h"
 #include "CkTagSet/CkTagSet_Fragment_Data.h"
 #include "CkPhysics/Acceleration/CkAcceleration_Fragment_Data.h"
 
@@ -20,17 +21,14 @@ class UCk_EntityScript_WithActor_UE;
 // walks the entity's ownership chain looking for a replicated outer Actor to bind the driver
 // UObject to.
 //
-// IMPORTANT — on `BeginPlay` (authority only) the actor spawns a `UCk_EntityScript_WithActor_UE`
-// entity. This is the same pattern `ACk_ActorRelay_UE` uses, and it matters specifically because
-// `UCk_EntityScript_WithActor_UE::Construct` calls `SetupActorEntityLink`, which adds the
-// `UCk_EntityBridge_ActorComponent_UE` component to the actor. That Construct runs on both
-// server and client via the entity-script lifecycle's replication path — so the component (and
-// the `Actor → Entity` reverse lookup it backs) ends up on the client too. The bare
-// `Request_CreateEntity` + manual `OwningActor::Add` pattern (used by the SM ServerAuthReplay
-// test) does NOT establish the component on the client; that's why those tests use per-world
-// recorders instead of direct cross-world entity lookup.
+// IMPORTANT — the actor carries a `UCk_EntityBridge_ActorComponent_UE` and requests a
+// `UCk_EntityScript_WithActor_UE` entity through it on `BeginPlay`, the same pattern `ACk_ActorRelay_UE` uses.
+// On the server the bridge spawns the entity; on a client it waits for the server's replica, which links to
+// this actor through the same bridge, so the `Actor -> Entity` reverse lookup works on both machines. The bare
+// `Request_CreateEntity` + manual fragment pattern (used by the SM ServerAuthReplay test) has no bridge on the
+// client; that's why those tests use per-world recorders instead of direct cross-world entity lookup.
 //
-// The actor is otherwise minimal — no components, no Tick. The test spec spawns it on the
+// The actor is otherwise minimal — a root and the bridge, no Tick. The test spec spawns it on the
 // server, waits a few ticks for ECS construction to complete, then attaches whatever replicated
 // fragment the test exercises (e.g. a Float attribute) to the bridged entity via
 // `UCk_Utils_EntityBridge_UE::Get_Entity(Subject)`.
@@ -66,6 +64,9 @@ protected:
     // bridge contract depends on the WithActor `Construct` running on both worlds.
     UPROPERTY()
     TSubclassOf<UCk_EntityScript_WithActor_UE> _EntityScriptClass;
+
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UCk_EntityBridge_ActorComponent_UE> _EntityBridge;
 
 public:
     // Stashed by the default entity-script (UCk_AutoTest_NetSubject_EntityScript_UE) which adds a

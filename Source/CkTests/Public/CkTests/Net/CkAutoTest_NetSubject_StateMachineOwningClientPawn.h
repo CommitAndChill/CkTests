@@ -5,6 +5,7 @@
 #include "GameFramework/Pawn.h"
 #include "Templates/SubclassOf.h"
 
+#include "CkEcs/EntityBridge/CkEntityBridge_Fragment_Data.h"
 #include "CkStateMachine/StateMachine/CkStateMachine_Fragment_Data.h"
 
 #include "CkAutoTest_NetSubject_StateMachineOwningClientPawn.generated.h"
@@ -44,6 +45,9 @@ public:
 protected:
     UPROPERTY()
     TSubclassOf<UCk_EntityScript_WithActor_UE> _EntityScriptClass;
+
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UCk_EntityBridge_ActorComponent_UE> _EntityBridge;
 };
 
 // --------------------------------------------------------------------------------------------------------------------

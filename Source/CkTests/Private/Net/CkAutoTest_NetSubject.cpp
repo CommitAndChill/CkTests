@@ -27,6 +27,8 @@ ACk_AutoTest_NetSubject::
     Root->SetMobility(EComponentMobility::Movable);
     RootComponent = Root;
 
+    _EntityBridge = CreateDefaultSubobject<UCk_EntityBridge_ActorComponent_UE>(TEXT("EntityBridge"));
+
     // Default — the standard test entity script that adds a single Float attribute (no refill).
     // Subclasses set this to their own UCk_EntityScript_WithActor_UE subclass in their own ctor
     // to drive different per-test setups.
@@ -67,7 +69,7 @@ auto
     if (ck::Is_NOT_Valid(_EntityScriptClass))
     { return; }
 
-    UCk_Utils_EntityScript_WithActor_UE::Request_SpawnEntityScript_OnActor(this, _EntityScriptClass);
+    _EntityBridge->Request_SpawnEntity(_EntityScriptClass);
 }
 
 // --------------------------------------------------------------------------------------------------------------------
