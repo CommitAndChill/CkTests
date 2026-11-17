@@ -109,6 +109,6 @@ class UCk_AutoTest_NetBase : UCk_AutoTest_Base
         auto EntityWorld = utils_entity_lifetime::Get_WorldForEntity(_TestEntity);
         auto Subject = UCk_Utils_AutoTest_NetSubject_UE::Find_NetSubject(EntityWorld);
         if (Subject == nullptr) { return FCk_Handle(); }
-        return utils_owning_actor::Get_ActorEntityHandle(Subject);
+        return utils_entity_bridge::Get_Entity(Subject);
     }
 }

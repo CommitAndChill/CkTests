@@ -17,7 +17,7 @@
 #include "CkEcs/Handle/CkHandle.h"
 #include "CkEcs/Net/CkNet_Utils.h"
 #include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 
@@ -77,7 +77,7 @@ namespace
     auto M2b_ResolveAttribute(AActor* InProbe) -> FCk_Handle_FloatAttribute
     {
         if (InProbe == nullptr) { return {}; }
-        const auto OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        const auto OwnerEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
         if (ck::Is_NOT_Valid(OwnerEntity)) { return {}; }
         return UCk_Utils_FloatAttribute_UE::TryGet(OwnerEntity, FGameplayTag::RequestGameplayTag(FName{M2b_AttributeTagName}));
     }
@@ -189,7 +189,7 @@ bool FCkSnapshot_M2b_LevelReload_Gate::RunTest(const FString& Parameters)
             auto* Probe = M2b_FindProbe(Server);
             if (Probe == nullptr) { AddError(TEXT("Stage 4: probe actor was not re-spawned by the entity")); return false; }
 
-            const auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Probe);
+            const auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Probe);
             TestTrue(TEXT("actor<->entity bridge resolves (re-bridge worked)"), ck::IsValid(Entity));
             if (ck::IsValid(Entity))
             {

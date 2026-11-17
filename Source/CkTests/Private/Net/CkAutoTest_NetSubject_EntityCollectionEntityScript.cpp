@@ -5,7 +5,7 @@
 
 #include "CkEntityCollection/CkEntityCollection_Utils.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "GameplayTagContainer.h"
 
@@ -37,7 +37,7 @@ auto
     auto Params = FCk_EntityCollection_Spec{CollectionTag};
     auto Collection = UCk_Utils_EntityCollection_UE::Add(InHandle, Params, ECk_Replication::Replicates);
 
-    auto* OwningActor = UCk_Utils_OwningActor_UE::Get_EntityOwningActor(InHandle);
+    auto* OwningActor = UCk_Utils_EntityBridge_UE::Get_Actor(InHandle);
     if (auto* CollectionActor = Cast<ACk_AutoTest_NetSubject_EntityCollection_UE>(OwningActor))
     {
         CollectionActor->_TestCollection = Collection;

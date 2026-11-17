@@ -39,7 +39,7 @@
 #include "CkTests/CkTests_Fragment_Data.h" // TAG_Timer_AutoTest_Net_*
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkTests/Net/CkAutoTest_NetSubject_M2bProbe_Replicated.h"
 #include "CkTests/Snapshot/CkSnapshot_TestHarness_Common.h"
@@ -72,7 +72,7 @@ namespace
     auto Timer_ResolveEntity(AActor* InProbe) -> FCk_Handle
     {
         if (InProbe == nullptr) { return {}; }
-        return UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        return UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
     }
 
     auto Timer_ResolveByTag(AActor* InProbe, const FGameplayTag& InTimerName) -> FCk_Handle_Timer

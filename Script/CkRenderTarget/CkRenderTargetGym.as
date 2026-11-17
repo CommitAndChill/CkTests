@@ -277,7 +277,7 @@ class UCk_RenderTargetGym_Whiteboard_EntityScript : UCk_EntityScript_WithActor_U
         { return; }
 
         auto BoardActor = Cast<ACk_RenderTargetGym_WhiteboardActor>(
-            utils_owning_actor::Get_EntityOwningActor(InSelfEntity));
+            utils_entity_bridge::Get_Actor(InSelfEntity));
         if (!ck::IsValid(BoardActor))
         { return; }
 
@@ -323,7 +323,7 @@ class UCk_RenderTargetGym_Whiteboard_EntityScript : UCk_EntityScript_WithActor_U
         if (!ck::IsValid(StationActor))
         { return; }
 
-        auto StationHandle = utils_owning_actor::TryGet_ActorEntityHandle(StationActor);
+        auto StationHandle = utils_entity_bridge::TryGet_Entity(StationActor);
         if (!ck::IsValid(StationHandle))
         { return; }
 
@@ -445,7 +445,7 @@ class ACk_RenderTargetGym_PlayerController : ACk_Gym_Base_PlayerController
 
         for (auto E : utils_entity_tag::ForEach_Entity(ContextEntity, n"TAG_RenderTargetGym_Whiteboard"))
         {
-            auto Actor = Cast<ACk_RenderTargetGym_WhiteboardActor>(utils_owning_actor::Get_EntityOwningActor(E));
+            auto Actor = Cast<ACk_RenderTargetGym_WhiteboardActor>(utils_entity_bridge::Get_Actor(E));
             if (!ck::IsValid(Actor))
             { continue; }
 

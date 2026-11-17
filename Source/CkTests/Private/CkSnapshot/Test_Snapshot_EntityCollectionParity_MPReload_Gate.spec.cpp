@@ -28,7 +28,7 @@
 #include "CkEntityCollection/CkEntityCollection_Fragment_Data.h" // FCk_Handle_EntityCollection, FCk_Request_EntityCollection_AddEntities
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkSnapshot/Subsystem/CkSnapshot_Subsystem.h"
 
@@ -76,7 +76,7 @@ namespace
     auto EcParity_ResolveEntity(AActor* InProbe) -> FCk_Handle
     {
         if (InProbe == nullptr) { return {}; }
-        return UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        return UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
     }
 
     // Resolve the collection through the owner's RecordOfEntityCollections (by the known tag), NOT the actor's
@@ -109,7 +109,7 @@ namespace
         for (const auto& Member : Members)
         {
             if (ck::Is_NOT_Valid(Member)) { return false; }
-            if (UCk_Utils_OwningActor_UE::TryGet_EntityOwningActor(Member) == nullptr) { return false; }
+            if (UCk_Utils_EntityBridge_UE::TryGet_Actor(Member) == nullptr) { return false; }
         }
         return true;
     }

@@ -23,7 +23,7 @@ class UCk_EntityScript_WithActor_UE;
 // IMPORTANT — on `BeginPlay` (authority only) the actor spawns a `UCk_EntityScript_WithActor_UE`
 // entity. This is the same pattern `ACk_ActorRelay_UE` uses, and it matters specifically because
 // `UCk_EntityScript_WithActor_UE::Construct` calls `SetupActorEntityLink`, which adds the
-// `UCk_EntityOwningActor_ActorComponent_UE` component to the actor. That Construct runs on both
+// `UCk_EntityBridge_ActorComponent_UE` component to the actor. That Construct runs on both
 // server and client via the entity-script lifecycle's replication path — so the component (and
 // the `Actor → Entity` reverse lookup it backs) ends up on the client too. The bare
 // `Request_CreateEntity` + manual `OwningActor::Add` pattern (used by the SM ServerAuthReplay
@@ -33,7 +33,7 @@ class UCk_EntityScript_WithActor_UE;
 // The actor is otherwise minimal — no components, no Tick. The test spec spawns it on the
 // server, waits a few ticks for ECS construction to complete, then attaches whatever replicated
 // fragment the test exercises (e.g. a Float attribute) to the bridged entity via
-// `UCk_Utils_OwningActor_UE::Get_ActorEntityHandle(Subject)`.
+// `UCk_Utils_EntityBridge_UE::Get_Entity(Subject)`.
 //
 // --------------------------------------------------------------------------------------------------------------------
 

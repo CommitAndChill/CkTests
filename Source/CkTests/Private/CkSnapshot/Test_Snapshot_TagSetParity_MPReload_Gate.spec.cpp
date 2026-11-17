@@ -17,7 +17,7 @@
 #include "CkTagSet/CkTagSet_Utils.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkSnapshot/Subsystem/CkSnapshot_Subsystem.h"
 
@@ -57,7 +57,7 @@ namespace
     auto TagSetParity_ResolveTagSet(AActor* InProbe) -> FCk_Handle_TagSet
     {
         if (InProbe == nullptr) { return {}; }
-        auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
         if (ck::Is_NOT_Valid(Entity)) { return {}; }
         if (NOT UCk_Utils_TagSet_UE::Has(Entity)) { return {}; }
         return UCk_Utils_TagSet_UE::Cast(Entity);

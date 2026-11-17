@@ -35,7 +35,7 @@
 
 #include "CkEcs/Handle/CkHandle.h"
 #include "CkEcs/Handle/CkHandle_Utils.h"                      // ck::MakeHandle
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 #include "CkEcs/EntityScript/CkEntityScript_Utils.h"          // Request_SpawnEntity
@@ -88,7 +88,7 @@ namespace
     auto Transform_ResolveProbeEntity(AActor* InProbe) -> FCk_Handle
     {
         if (InProbe == nullptr) { return {}; }
-        return UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        return UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
     }
 
     // Resolve the pure-ECS Transform child by its RETAINED spawn recipe's script class — every RuntimeSpawned entity

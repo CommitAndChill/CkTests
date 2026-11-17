@@ -18,7 +18,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkVoiceChat/Capture/CkVoiceChat_CaptureSource.h"
 #include "CkVoiceChat/Codec/CkVoiceChat_Codec.h"
@@ -264,7 +264,7 @@ bool FCkVoiceChatNet_RoutingForwardsAndNeverStashes::RunTest(const FString& Para
 
             // Allocate the idx the dropped bundle named, with members who WOULD receive it if it
             // had been stashed anywhere.
-            auto HostEntity = UCk_Utils_OwningActor_UE::Get_ActorEntityHandle(SubjectA);
+            auto HostEntity = UCk_Utils_EntityBridge_UE::Get_Entity(SubjectA);
             auto LateChannel = UCk_Utils_VoiceChannel_UE::Add(HostEntity,
                 FCk_VoiceChannel_Spec{TAG_VoiceChat_Channel_AutoTest_NeverStash});
 

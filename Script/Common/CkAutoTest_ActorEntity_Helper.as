@@ -43,7 +43,7 @@
 //     features that touch the actor's RootComponent work.
 //   - Spawns a UCk_EntityScript_WithActor_UE on the world transient
 //     entity with _OwningActor = this. The resulting entity carries
-//     FFragment_OwningActor.
+//     FFragment_EntityBridge.
 //   - bReplicates = false. AutoTests run as authority; replication adds
 //     spurious entity creation work that complicates assertions.
 //

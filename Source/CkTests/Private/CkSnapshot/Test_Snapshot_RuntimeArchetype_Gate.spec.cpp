@@ -62,7 +62,7 @@
 #include "CkCore/Ensure/CkEnsure_Utils.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_BuildRecipe.h"
 #include "CkEcs/Persistence/CkRuntimeArchetype_Registry.h"
 #include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Utils.h"
@@ -130,7 +130,7 @@ namespace ck_runtime_archetype_gate
         if (Probe == nullptr)
         { return {}; }
 
-        auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Probe);
+        auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Probe);
         if (ck::Is_NOT_Valid(Entity))
         { return {}; }
 

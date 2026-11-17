@@ -75,7 +75,7 @@ class UCk_NetGym_TwoPlayer_Director : UCk_GenericEntityScript_UE
             // --- State (owning-client authority): trigger the owning client to advance ---
             if (Phase == StatePhase)
             {
-                auto Actor = utils_owning_actor::TryGet_EntityOwningActor(PawnEntity);
+                auto Actor = utils_entity_bridge::TryGet_Actor(PawnEntity);
                 auto NetPawn = Cast<ACk_NetGym_TwoPlayer_Pawn>(Actor);
                 if (ck::IsValid(NetPawn))
                 {

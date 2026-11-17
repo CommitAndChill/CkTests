@@ -20,7 +20,7 @@
 
 #include "CkTests/CkTests_Fragment_Data.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "GameplayTagContainer.h"
 
@@ -71,7 +71,7 @@ auto
     // resolve the replicated outer Actor for its container fragment.
     const auto Flow = Super::Construct(InHandle, InSpawnParams);
 
-    auto* OwningActor = UCk_Utils_OwningActor_UE::Get_EntityOwningActor(InHandle);
+    auto* OwningActor = UCk_Utils_EntityBridge_UE::Get_Actor(InHandle);
     const auto FeatureReplication = OwningActor != nullptr && OwningActor->GetIsReplicated()
         ? ECk_Replication::Replicates
         : ECk_Replication::DoesNotReplicate;

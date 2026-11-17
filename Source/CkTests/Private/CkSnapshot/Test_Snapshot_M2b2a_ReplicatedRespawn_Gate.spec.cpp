@@ -14,7 +14,7 @@
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Fragment.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Utils.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
@@ -74,7 +74,7 @@ namespace
     auto M2b2a_ResolveAttribute(AActor* InProbe) -> FCk_Handle_FloatAttribute
     {
         if (InProbe == nullptr) { return {}; }
-        const auto OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        const auto OwnerEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
         if (ck::Is_NOT_Valid(OwnerEntity)) { return {}; }
         return UCk_Utils_FloatAttribute_UE::TryGet(OwnerEntity, FGameplayTag::RequestGameplayTag(FName{M2b2a_AttributeTagName}));
     }
@@ -143,7 +143,7 @@ bool FCkSnapshot_M2b2a_ReplicatedRespawn_Gate::RunTest(const FString& Parameters
             TestEqual(TEXT("pre-save Final == 42.5"),
                 static_cast<float>(UCk_Utils_FloatAttribute_UE::Get_FinalValue(Attr)), M2b2a_ExpectedFinal);
 
-            auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Probe);
+            auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Probe);
             if (ck::Is_NOT_Valid(Entity)) { AddError(TEXT("Stage 2: could not resolve probe entity pre-save")); return; }
             Entity.AddOrReplace<FFragment_SaveKey>(M2b2a_SaveKey);
 
@@ -186,7 +186,7 @@ bool FCkSnapshot_M2b2a_ReplicatedRespawn_Gate::RunTest(const FString& Parameters
             auto* Probe = M2b2a_FindProbe(Server);
             if (Probe == nullptr) { AddError(TEXT("Stage 4: replicated probe was not re-spawned by the entity")); return false; }
 
-            const auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Probe);
+            const auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Probe);
             TestTrue(TEXT("actor<->entity bridge resolves (re-bridge worked)"), ck::IsValid(Entity));
 
             auto KeyedEntity = FCk_Handle{};

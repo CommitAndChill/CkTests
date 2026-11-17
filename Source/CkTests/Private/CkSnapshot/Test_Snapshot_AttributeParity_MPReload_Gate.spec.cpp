@@ -25,7 +25,7 @@
 #include "CkTests/CkTests_Fragment_Data.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 
@@ -80,7 +80,7 @@ namespace
     auto Parity_ResolveEntity(AActor* InProbe) -> FCk_Handle
     {
         if (InProbe == nullptr) { return {}; }
-        return UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        return UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
     }
 
     // Read each attribute's FinalValue via the actor<->entity bridge. OutResolved=false if the bridge or the

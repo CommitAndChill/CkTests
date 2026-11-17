@@ -35,7 +35,7 @@ class UCk_AutoTest_Net_Grid_OccupancyReplicates : UCk_AutoTest_NetBase
         if (ck::Is_NOT_Valid(Subject))
         { FinishFailure("subject not found - harness misconfigured?"); return; }
 
-        auto SubjectActor = utils_owning_actor::Get_EntityOwningActor(Subject);
+        auto SubjectActor = utils_entity_bridge::Get_Actor(Subject);
         auto GridActor = Cast<ACk_AutoTest_NetSubject_Grid_UE>(SubjectActor);
         if (GridActor == nullptr)
         { FinishFailure("subject actor isn't a grid net-subject"); return; }
@@ -72,7 +72,7 @@ class UCk_AutoTest_Net_Grid_OccupancyReplicates : UCk_AutoTest_NetBase
         _PollCount++;
 
         auto Subject = Get_SubjectEntity();
-        auto SubjectActor = utils_owning_actor::Get_EntityOwningActor(Subject);
+        auto SubjectActor = utils_entity_bridge::Get_Actor(Subject);
         auto GridActor = Cast<ACk_AutoTest_NetSubject_Grid_UE>(SubjectActor);
         if (GridActor == nullptr)
         { WaitOneFrame(n"OnPollTick"); return; }

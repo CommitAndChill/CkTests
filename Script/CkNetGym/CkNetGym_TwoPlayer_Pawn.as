@@ -6,7 +6,7 @@
 // Possessable, replicated DefaultPawn. Inherits ADefaultPawn directly (mirroring
 // ACk_Gym_Base_Pawn) rather than the gym base pawn, so that exactly ONE
 // entity-script is bridged to the pawn. A single bridged entity makes the
-// reverse lookup utils_owning_actor::TryGet_ActorEntityHandle(this) unambiguous
+// reverse lookup utils_entity_bridge::TryGet_Entity(this) unambiguous
 // on BOTH worlds.
 //
 // On authority it spawns the gym's replicated entity-script (which adds Health
@@ -45,7 +45,7 @@ class ACk_NetGym_TwoPlayer_Pawn : ADefaultPawn
     // Local broadcast of the AdvanceState message to this pawn's bridged entity (owning-client world).
     void Request_AdvanceState()
     {
-        auto Entity = utils_owning_actor::TryGet_ActorEntityHandle(this);
+        auto Entity = utils_entity_bridge::TryGet_Entity(this);
         if (ck::Is_NOT_Valid(Entity))
         { return; }
 

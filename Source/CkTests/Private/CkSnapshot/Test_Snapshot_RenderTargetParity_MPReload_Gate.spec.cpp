@@ -24,7 +24,7 @@
 #include "GameplayTagContainer.h"      // FGameplayTag::RequestGameplayTag
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkRenderTarget/RenderTarget/CkRenderTarget_Fragment.h"   // ck::FFragment_RenderTarget (resolved-guard)
 #include "CkRenderTarget/RenderTarget/CkRenderTarget_Utils.h"
@@ -71,7 +71,7 @@ namespace
         auto* Probe = RtParity_FindProbe(InWorld);
         if (Probe == nullptr) { return {}; }
 
-        auto OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Probe);
+        auto OwnerEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Probe);
         if (ck::Is_NOT_Valid(OwnerEntity)) { return {}; }
 
         const auto SyncName = FGameplayTag::RequestGameplayTag(FName{RtParity_SyncTagName});

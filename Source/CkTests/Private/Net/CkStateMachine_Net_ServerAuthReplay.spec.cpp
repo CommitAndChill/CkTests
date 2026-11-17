@@ -26,7 +26,7 @@
 #include "Engine/World.h"
 
 #include "CkEcs/Net/CkNet_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkStateMachine/StateMachine/CkStateMachine_Fragment_Data.h"
 #include "CkStateMachine/StateMachine/CkStateMachine_Utils.h"
 

@@ -13,7 +13,7 @@
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Utils.h"
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Fragment_Data.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "GameplayTagContainer.h"
 #include "UObject/SoftObjectPath.h"
@@ -40,7 +40,7 @@ auto
 
     auto SM = UCk_Utils_StateMachine_UE::Add(InHandle, Params);
 
-    auto* OwningActor = UCk_Utils_OwningActor_UE::Get_EntityOwningActor(InHandle);
+    auto* OwningActor = UCk_Utils_EntityBridge_UE::Get_Actor(InHandle);
     DoStashStateMachine(OwningActor, SM);
 
     return Flow;

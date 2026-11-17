@@ -2,7 +2,7 @@
 
 #include "CkTests/Net/CkAutoTest_NetSubject_RenderTarget.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkRenderTarget/RenderTarget/CkRenderTarget_Utils.h"
 
@@ -46,7 +46,7 @@ auto
     auto RenderTarget = UCk_Utils_RenderTarget_UE::Add(InHandle, Params);
 
     if (auto* Subject = Cast<ACk_AutoTest_NetSubject_RenderTarget_UE>(
-            UCk_Utils_OwningActor_UE::Get_EntityOwningActor(InHandle)))
+            UCk_Utils_EntityBridge_UE::Get_Actor(InHandle)))
     {
         Subject->_TestRenderTarget = RenderTarget;
     }

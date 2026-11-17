@@ -17,7 +17,7 @@
 #include "CkAnimation/AnimPlan/CkAnimPlan_Utils.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkSnapshot/Subsystem/CkSnapshot_Subsystem.h"
 
@@ -54,7 +54,7 @@ namespace
     auto AnimPlanParity_ResolvePlan(AActor* InProbe) -> FCk_Handle_AnimPlan
     {
         if (InProbe == nullptr) { return {}; }
-        auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
         if (ck::Is_NOT_Valid(Entity)) { return {}; }
         return UCk_Utils_AnimPlan_UE::TryGet_AnimPlan(Entity, TAG_AnimPlan_AutoTest_Net_Goal.GetTag());
     }

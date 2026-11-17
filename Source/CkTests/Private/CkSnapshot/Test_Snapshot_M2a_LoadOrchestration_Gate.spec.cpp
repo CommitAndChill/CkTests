@@ -13,7 +13,7 @@
 
 #include "CkEcs/Handle/CkHandle.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 
@@ -38,7 +38,7 @@ namespace
         if (InServer == nullptr) { return {}; }
         auto* Subject = ACk_AutoTest_NetSubject::Find(InServer);
         if (Subject == nullptr) { return {}; }
-        const auto OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+        const auto OwnerEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Subject);
         if (ck::Is_NOT_Valid(OwnerEntity)) { return {}; }
         return UCk_Utils_FloatAttribute_UE::TryGet(OwnerEntity, FGameplayTag::RequestGameplayTag(FName{M2a_AttributeTagName}));
     }

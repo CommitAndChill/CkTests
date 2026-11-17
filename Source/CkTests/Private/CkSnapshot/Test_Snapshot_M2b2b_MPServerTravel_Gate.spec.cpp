@@ -19,7 +19,7 @@
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Fragment.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Utils.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
@@ -69,7 +69,7 @@ namespace
     auto M2b2b_ResolveEntity(AActor* InProbe) -> FCk_Handle
     {
         if (InProbe == nullptr) { return {}; }
-        return UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        return UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
     }
 
     auto M2b2b_ResolveAttribute(AActor* InProbe) -> FCk_Handle_FloatAttribute

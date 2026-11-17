@@ -37,7 +37,7 @@
 #include "GameFramework/PlayerController.h"
 
 #include "CkEcs/Net/CkNet_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkStateMachine/StateMachine/CkStateMachine_Utils.h"
 #include "CkStateMachine/State/EntityScripts/CkSmState_EntityScript.h"
 #include "CkStateMachine/Task/CkSmTask_Fragment.h"
@@ -108,7 +108,7 @@ namespace ck_sm_subsm_gated_test
         if (InPawn == nullptr)
         { return {}; }
 
-        const auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InPawn);
+        const auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InPawn);
         if (ck::Is_NOT_Valid(Entity))
         { return {}; }
 
@@ -229,7 +229,7 @@ bool FCkStateMachineNet_OwningClientAuth_SubSm_AuthorityGatedTask::RunTest(const
             if (ClientPawn == nullptr)
             { AddError(TEXT("client-side SubSmGated pawn not found at input time")); return; }
 
-            const auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(ClientPawn);
+            const auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(ClientPawn);
             if (ck::Is_NOT_Valid(Entity))
             { AddError(TEXT("client-side pawn has no bridged entity at input time")); return; }
 

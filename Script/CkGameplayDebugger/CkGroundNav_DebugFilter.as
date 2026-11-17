@@ -69,7 +69,7 @@ class UCk_GroundNav_DebugFilter : UCk_GameplayDebugger_DebugFilter_UE
             if (ck::Is_NOT_Valid(Actor))
             { continue; }
 
-            const auto Entity = utils_owning_actor::TryGet_ActorEntityHandle(Actor);
+            const auto Entity = utils_entity_bridge::TryGet_Entity(Actor);
 
             if (ck::Is_NOT_Valid(Entity))
             { continue; }

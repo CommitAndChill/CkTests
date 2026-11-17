@@ -21,7 +21,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkRenderTarget/Net/CkRenderTargetRelay_Actor.h"
 #include "CkRenderTarget/Net/CkRenderTargetRelay_Subsystem.h"
@@ -273,7 +273,7 @@ bool FCkRenderTargetNet_ClientAuth_UploadDisallowed_RejectedServerSide::RunTest(
             if (Channel == nullptr)
             { AddError(TEXT("client0 relay channel did not resolve in time")); return; }
 
-            auto OwnerEntity = UCk_Utils_OwningActor_UE::Get_ActorEntityHandle(Subject);
+            auto OwnerEntity = UCk_Utils_EntityBridge_UE::Get_Entity(Subject);
             const auto SyncName = FGameplayTag::RequestGameplayTag(TEXT("RenderTarget.AutoTest.Net"));
 
             const auto Raw = ck_render_target_clientauth_spec::MakeFlatImage(200);

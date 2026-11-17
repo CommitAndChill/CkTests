@@ -22,7 +22,7 @@
 #include "CkEcs/EntityScript/CkGenericEntityScript.h"
 #include "CkEcs/EntityScript/CkEntityScript_Fragment.h"
 #include "CkEcs/EntityScript/CkEntityScript_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkSnapshot/Subsystem/CkSnapshot_Subsystem.h"
 
@@ -155,7 +155,7 @@ namespace ck_snapshot_as_savefields_gate
     {
         auto* Subject = ACk_AutoTest_NetSubject::Find(InWorld);
         if (Subject == nullptr) { return {}; }
-        return UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+        return UCk_Utils_EntityBridge_UE::TryGet_Entity(Subject);
     }
 
     // Walk the probe's lifetime dependents for the RuntimeSpawned fixture child; return its live script instance.

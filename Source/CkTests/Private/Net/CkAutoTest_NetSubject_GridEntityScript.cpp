@@ -8,7 +8,7 @@
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkCore/Enums/CkEnums.h"
 
@@ -90,7 +90,7 @@ auto
         OccupantEntity, FCk_2dGridObject_Spec{OccupantFootprint});
 
     // ---- Stash on this world's actor --------------------------------------------------------
-    auto* OwningActor = UCk_Utils_OwningActor_UE::Get_EntityOwningActor(InHandle);
+    auto* OwningActor = UCk_Utils_EntityBridge_UE::Get_Actor(InHandle);
     if (auto* GridActor = Cast<ACk_AutoTest_NetSubject_Grid_UE>(OwningActor))
     {
         GridActor->_TestGrid = Grid;

@@ -36,7 +36,7 @@
 #include "CkStateMachine/State/EntityScripts/CkSmState_EntityScript.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkSnapshot/Subsystem/CkSnapshot_Subsystem.h"
 
@@ -97,7 +97,7 @@ namespace
     auto SmOvr_ResolveSm(AActor* InSubject) -> FCk_Handle_StateMachine
     {
         if (InSubject == nullptr) { return {}; }
-        const auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InSubject);
+        const auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InSubject);
         if (ck::Is_NOT_Valid(Entity)) { return {}; }
         if (NOT UCk_Utils_StateMachine_UE::Has(Entity)) { return {}; }
         return UCk_Utils_StateMachine_UE::Cast(Entity);

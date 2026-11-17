@@ -1,6 +1,6 @@
 //============================================================================
 // ENTITY LIFECYCLE GYM - ACTOR BRIDGE
-// Tests: utils_owning_actor, utils_entity_bridge
+// Tests: utils_entity_bridge, utils_entity_bridge
 //============================================================================
 
 class UCk_EntityScript_EntityLifecycleGym_ActorBridge : UCk_GenericEntityScript_UE
@@ -42,7 +42,7 @@ class UCk_EntityScript_EntityLifecycleGym_ActorBridge : UCk_GenericEntityScript_
 		OwnerHandleString = utils_handle::Conv_HandleToString(OwnerHandle);
 
 		// Get owning actor from owner handle
-		auto StationActor = utils_owning_actor::Get_EntityOwningActor(OwnerHandle);
+		auto StationActor = utils_entity_bridge::Get_Actor(OwnerHandle);
 		Pass_GetEntityOwningActor = ck::IsValid(StationActor);
 		if (ck::IsValid(StationActor))
 		{
@@ -52,25 +52,25 @@ class UCk_EntityScript_EntityLifecycleGym_ActorBridge : UCk_GenericEntityScript_
 		// Roundtrip: actor -> handle -> should equal owner handle
 		if (ck::IsValid(StationActor))
 		{
-			auto RoundtripHandle = utils_owning_actor::Get_ActorEntityHandle(StationActor);
+			auto RoundtripHandle = utils_entity_bridge::Get_Entity(StationActor);
 			Pass_ActorHandleRoundtrip = utils_handle::IsEqual(RoundtripHandle, OwnerHandle);
 		}
 
 		// Recursive: from self entity script's entity, walk up to find station actor
-		auto RecursiveActor = utils_owning_actor::TryGet_EntityOwningActor_Recursive(InHandle);
+		auto RecursiveActor = utils_entity_bridge::TryGet_Actor_Recursive(InHandle);
 		Pass_TryGetRecursive = ck::IsValid(RecursiveActor);
 
 		// ECS readiness
 		if (ck::IsValid(StationActor))
 		{
-			Pass_IsActorEcsReady = utils_owning_actor::Get_IsActorEcsReady(StationActor);
+			Pass_IsActorEcsReady = utils_entity_bridge::Get_HasEntity(StationActor);
 		}
 
 		// Has owning actor component
-		Pass_HasOwningActor = utils_owning_actor::Has(OwnerHandle);
+		Pass_HasOwningActor = utils_entity_bridge::Has(OwnerHandle);
 
 		// Find owning actor entity in ownership chain
-		auto OwnerInChain = utils_owning_actor::TryGet_Entity_OwningActor_InOwnershipChain(InHandle);
+		auto OwnerInChain = utils_entity_bridge::TryGet_BridgedEntity_InOwnershipChain(InHandle);
 		Pass_OwningActorInChain = utils_handle::Get_IsValid(OwnerInChain);
 
 		// Actor replication status
@@ -96,7 +96,7 @@ class UCk_EntityScript_EntityLifecycleGym_ActorBridge : UCk_GenericEntityScript_
 
 		auto D = "";
 
-		D = f"{D}--- utils_owning_actor ---\n";
+		D = f"{D}--- utils_entity_bridge ---\n";
 		D = f"{D}" + (Pass_GetOwnerEntity ? "[+] " : "[-] ") + f"Owner handle valid: {OwnerHandleString}\n";
 		D = f"{D}" + (Pass_GetEntityOwningActor ? "[+] " : "[-] ") + f"GetEntityOwningActor: {ActorName}\n";
 		D = f"{D}" + (Pass_ActorHandleRoundtrip ? "[+] " : "[-] ") + "Actor->Handle roundtrip\n";

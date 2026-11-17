@@ -18,7 +18,7 @@
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Fragment_Data.h"
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Utils.h"
 #include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkTests/Net/CkAutoTest_NetSubject.h"
 #include "CkTests/Net/CkAutoTest_NetSubject_Utils.h"
@@ -95,7 +95,7 @@ bool FCkAttributeNet_Values_AppliedBefore_OnReplicationComplete::RunTest(const F
             if (Subject == nullptr)
             { return false; }
 
-            const auto OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+            const auto OwnerEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Subject);
             if (ck::Is_NOT_Valid(OwnerEntity))
             { return false; }
 
@@ -114,7 +114,7 @@ bool FCkAttributeNet_Values_AppliedBefore_OnReplicationComplete::RunTest(const F
                 return;
             }
 
-            auto OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+            auto OwnerEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Subject);
             if (ck::Is_NOT_Valid(OwnerEntity))
             {
                 AddError(TEXT("Stage 2: client-side actor has no bridged entity at bind time"));

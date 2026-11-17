@@ -99,7 +99,7 @@ class UCk_ReplicationGym_ReplicatedActor_EntityScript : UCk_EntityScript_WithAct
         if (!ck::IsValid(StationActor))
         { return; }
 
-        auto StationHandle = utils_owning_actor::TryGet_ActorEntityHandle(StationActor);
+        auto StationHandle = utils_entity_bridge::TryGet_Entity(StationActor);
         if (!ck::IsValid(StationHandle))
         { return; }
 

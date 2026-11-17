@@ -18,7 +18,7 @@
 #include "CkEcs/Snapshot/CkSnapshot_Context.h"
 #include "CkEcs/Snapshot/CkSnapshot_HandleWalk.h"
 #include "CkEcs/Snapshot/CkSnapshot_RestoreMarker.h"
-#include "CkEcsExt/OwningActor/CkActorSpawnIntent_Fragment.h"
+#include "CkEcsExt/EntityBridge/CkActorSpawnIntent_Fragment.h"
 
 #include "CkLabel/CkLabel_Utils.h"
 #include "CkPhysics/Velocity/CkVelocity_Utils.h"

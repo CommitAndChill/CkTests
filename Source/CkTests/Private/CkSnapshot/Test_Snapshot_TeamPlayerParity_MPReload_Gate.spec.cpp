@@ -22,7 +22,7 @@
 #include "CkRelationship/Player/CkPlayer_Utils.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkSnapshot/Subsystem/CkSnapshot_Subsystem.h"
 
@@ -60,7 +60,7 @@ namespace
     auto TeamPlayerParity_ResolveEntity(AActor* InProbe) -> FCk_Handle
     {
         if (InProbe == nullptr) { return {}; }
-        return UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        return UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
     }
 
     auto TeamPlayerParity_CurrentTeam(AActor* InProbe, bool& OutResolved) -> ECk_Team_ID

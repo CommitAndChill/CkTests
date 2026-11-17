@@ -34,8 +34,8 @@
 #include "CkCore/Macros/CkMacros.h"
 
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Fragment.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Fragment.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/World/CkEcsWorld.h"
 
 #include "Components/StaticMeshComponent.h"
@@ -500,14 +500,14 @@ bool FCkTest_Usf_StylizeMaskEntityStencilSync::RunTest(const FString& Parameters
     auto& Registry = EcsWorld.Get_Registry();
 
     auto Entity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Registry);
-    UCk_Utils_OwningActor_UE::Add(Entity, Actor);
+    UCk_Utils_EntityBridge_UE::Add(Entity, Actor);
 
     const auto Sync = [&Entity]() -> void
     {
         ck::FProcessor_Usf_StylizeMaskActor_Sync::ForEachEntity(
             ck::FProcessor_Usf_StylizeMaskActor_Sync::TimeType{}, Entity,
             Entity.Get<ck::FFragment_Usf_StylizeMaskTarget>(),
-            Entity.Get<ck::FFragment_OwningActor>());
+            Entity.Get<ck::FFragment_EntityBridge>());
     };
 
     const auto ExpectedStencil = UCk_Utils_Usf_Stylize_Settings_UE::Get_MaskStencilValue();

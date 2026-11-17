@@ -30,7 +30,7 @@
 #include "CkStateMachine/StateMachine/CkStateMachine_Fragment_Data.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkSnapshot/Subsystem/CkSnapshot_Subsystem.h"
 
@@ -65,12 +65,12 @@ namespace
         return nullptr;
     }
 
-    // Resolution goes through the entity (TryGet_ActorEntityHandle -> Has/Cast), never the actor's
+    // Resolution goes through the entity (TryGet_Entity -> Has/Cast), never the actor's
     // `_TestStateMachine` stash — restored-actor stashes are empty (Construct abstains on restore).
     auto SmParity_ResolveSm(AActor* InSubject) -> FCk_Handle_StateMachine
     {
         if (InSubject == nullptr) { return {}; }
-        auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InSubject);
+        auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InSubject);
         if (ck::Is_NOT_Valid(Entity)) { return {}; }
         if (NOT UCk_Utils_StateMachine_UE::Has(Entity)) { return {}; }
         return UCk_Utils_StateMachine_UE::Cast(Entity);

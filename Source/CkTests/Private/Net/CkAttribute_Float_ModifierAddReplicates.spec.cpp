@@ -16,7 +16,7 @@
 
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Fragment_Data.h"
 #include "CkAttribute/FloatAttribute/CkFloatAttribute_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkTests/Net/CkAutoTest_NetSubject.h"
 #include "CkTests/Net/CkNetAutomation_Common.h"
@@ -105,10 +105,10 @@ bool FCkAttributeNet_Float_ModifierAdd_Replicates::RunTest(const FString& Parame
                 return;
             }
 
-            const auto OwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+            const auto OwnerEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Subject);
             if (ck::Is_NOT_Valid(OwnerEntity))
             {
-                AddError(TEXT("Stage 2: server-side TryGet_ActorEntityHandle returned invalid"));
+                AddError(TEXT("Stage 2: server-side TryGet_Entity returned invalid"));
                 return;
             }
 
@@ -178,7 +178,7 @@ bool FCkAttributeNet_Float_ModifierAdd_Replicates::RunTest(const FString& Parame
                 return false;
             }
 
-            const auto ClientOwnerEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(ClientSubject);
+            const auto ClientOwnerEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(ClientSubject);
             if (ck::Is_NOT_Valid(ClientOwnerEntity))
             {
                 AddError(TEXT("client-side actor has no bridged entity — entity-script Construct did not run on client"));

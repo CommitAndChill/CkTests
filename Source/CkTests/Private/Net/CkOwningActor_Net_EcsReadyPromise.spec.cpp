@@ -1,4 +1,4 @@
-// Pins the unified actor-side ready promise (UCk_Utils_OwningActor_UE::Promise_OnActorEcsReady)
+// Pins the unified actor-side ready promise (UCk_Utils_EntityBridge_UE::Promise_OnActorEcsReady)
 // across server and client:
 //
 //   - Server: a ValuesReplicated promise bound immediately after SpawnActor (before the bridged
@@ -19,7 +19,7 @@
 
 #include "Engine/World.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkTests/Net/CkAutoTest_NetSubject.h"
 #include "CkTests/Net/CkAutoTest_NetSubject_Utils.h"
@@ -92,10 +92,10 @@ bool FCkOwningActorNet_EcsReady_PromisePolicies::RunTest(const FString& Paramete
 
             (*ServerCapturer)->_AttributeTag = AttributeTag();
 
-            auto Delegate = FCk_Delegate_OwningActor_OnEcsReady{};
+            auto Delegate = FCk_Delegate_EntityBridge_OnEntityReady{};
             Delegate.BindDynamic(ServerCapturer->Get(), &UCk_AutoTest_EcsReadyCapturer_UE::OnActorEcsReady);
 
-            UCk_Utils_OwningActor_UE::Promise_OnActorEcsReady(
+            UCk_Utils_EntityBridge_UE::Promise_OnActorEcsReady(
                 Subject, Delegate, ECk_ActorEcsReady_Policy::ValuesReplicated);
         })));
 
@@ -128,16 +128,16 @@ bool FCkOwningActorNet_EcsReady_PromisePolicies::RunTest(const FString& Paramete
             (*ClientCapturer_ValuesReplicated)->_AttributeTag = AttributeTag();
             (*ClientCapturer_LinkEstablished)->_AttributeTag = AttributeTag();
 
-            auto Delegate_ValuesReplicated = FCk_Delegate_OwningActor_OnEcsReady{};
+            auto Delegate_ValuesReplicated = FCk_Delegate_EntityBridge_OnEntityReady{};
             Delegate_ValuesReplicated.BindDynamic(
                 ClientCapturer_ValuesReplicated->Get(), &UCk_AutoTest_EcsReadyCapturer_UE::OnActorEcsReady);
-            UCk_Utils_OwningActor_UE::Promise_OnActorEcsReady(
+            UCk_Utils_EntityBridge_UE::Promise_OnActorEcsReady(
                 Subject, Delegate_ValuesReplicated, ECk_ActorEcsReady_Policy::ValuesReplicated);
 
-            auto Delegate_LinkEstablished = FCk_Delegate_OwningActor_OnEcsReady{};
+            auto Delegate_LinkEstablished = FCk_Delegate_EntityBridge_OnEntityReady{};
             Delegate_LinkEstablished.BindDynamic(
                 ClientCapturer_LinkEstablished->Get(), &UCk_AutoTest_EcsReadyCapturer_UE::OnActorEcsReady);
-            UCk_Utils_OwningActor_UE::Promise_OnActorEcsReady(
+            UCk_Utils_EntityBridge_UE::Promise_OnActorEcsReady(
                 Subject, Delegate_LinkEstablished, ECk_ActorEcsReady_Policy::LinkEstablished);
         })));
 
@@ -168,9 +168,9 @@ bool FCkOwningActorNet_EcsReady_PromisePolicies::RunTest(const FString& Paramete
 
             (*ClientCapturer_LateBind)->_AttributeTag = AttributeTag();
 
-            auto Delegate = FCk_Delegate_OwningActor_OnEcsReady{};
+            auto Delegate = FCk_Delegate_EntityBridge_OnEntityReady{};
             Delegate.BindDynamic(ClientCapturer_LateBind->Get(), &UCk_AutoTest_EcsReadyCapturer_UE::OnActorEcsReady);
-            UCk_Utils_OwningActor_UE::Promise_OnActorEcsReady(
+            UCk_Utils_EntityBridge_UE::Promise_OnActorEcsReady(
                 Subject, Delegate, ECk_ActorEcsReady_Policy::ValuesReplicated);
 
             if (NOT (*ClientCapturer_LateBind)->_Fired)

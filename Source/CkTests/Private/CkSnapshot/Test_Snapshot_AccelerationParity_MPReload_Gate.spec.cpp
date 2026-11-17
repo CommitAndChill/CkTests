@@ -18,7 +18,7 @@
 #include "CkPhysics/Acceleration/CkAcceleration_Utils.h"
 
 #include "CkEcs/Handle/CkHandle.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkSnapshot/Subsystem/CkSnapshot_Subsystem.h"
 
@@ -55,7 +55,7 @@ namespace
     auto AccelParity_ResolveAccel(AActor* InProbe) -> FCk_Handle_Acceleration
     {
         if (InProbe == nullptr) { return {}; }
-        auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InProbe);
+        auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InProbe);
         if (ck::Is_NOT_Valid(Entity)) { return {}; }
         if (NOT UCk_Utils_Acceleration_UE::Has(Entity)) { return {}; }
         return UCk_Utils_Acceleration_UE::Cast(Entity);

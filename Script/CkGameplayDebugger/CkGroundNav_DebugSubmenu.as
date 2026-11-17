@@ -71,7 +71,7 @@ class UCk_GroundNav_DebugSubmenu : UCk_GameplayDebugger_DebugSubmenu_UE
         FCk_Handle DebugEntity;
 
         if (ck::IsValid(DebugActor))
-        { DebugEntity = utils_owning_actor::TryGet_ActorEntityHandle(DebugActor); }
+        { DebugEntity = utils_entity_bridge::TryGet_Entity(DebugActor); }
 
         FCk_GameplayDebugger_DrawSubmenuData_Result Result;
         Result._DebugDataToDraw = Get_DebugRows(DebugEntity);

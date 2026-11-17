@@ -28,7 +28,7 @@ class UCk_AutoTest_Net_Acceleration_Replicates : UCk_AutoTest_NetBase
         if (ck::Is_NOT_Valid(Subject))
         { FinishFailure("subject entity not found"); return; }
 
-        auto SubjectActor = utils_owning_actor::Get_EntityOwningActor(Subject);
+        auto SubjectActor = utils_entity_bridge::Get_Actor(Subject);
         auto NetSubject = Cast<ACk_AutoTest_NetSubject>(SubjectActor);
         if (NetSubject == nullptr)
         { FinishFailure("actor cast to ACk_AutoTest_NetSubject failed"); return; }
@@ -57,7 +57,7 @@ class UCk_AutoTest_Net_Acceleration_Replicates : UCk_AutoTest_NetBase
         _PollCount++;
 
         auto Subject = Get_SubjectEntity();
-        auto SubjectActor = utils_owning_actor::Get_EntityOwningActor(Subject);
+        auto SubjectActor = utils_entity_bridge::Get_Actor(Subject);
         auto NetSubject = Cast<ACk_AutoTest_NetSubject>(SubjectActor);
         if (NetSubject == nullptr)
         { WaitOneFrame(n"OnPollValue"); return; }

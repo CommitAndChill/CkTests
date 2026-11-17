@@ -6,7 +6,7 @@
 #include "CkInventory/Inventory/DataOnly/CkInventory_DataOnly_Utils.h"
 #include "CkInventory/Inventory/Spatial/CkInventory_Spatial_Utils.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "GameplayTagContainer.h"
 
@@ -68,7 +68,7 @@ auto
 
     // Stash the handle on this world's actor so the AS test body can find it without needing
     // an inventory-side ownership-chain helper (which CkInventory doesn't expose).
-    auto* OwningActor = UCk_Utils_OwningActor_UE::Get_EntityOwningActor(InHandle);
+    auto* OwningActor = UCk_Utils_EntityBridge_UE::Get_Actor(InHandle);
     if (auto* InventoryActor = Cast<ACk_AutoTest_NetSubject_Inventory_UE>(OwningActor))
     {
         InventoryActor->_TestInventory = Inventory;

@@ -23,7 +23,7 @@
 
 #include "Engine/World.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Utils.h"
 
 #include "CkTests/Net/CkAutoTest_NetSubject_DependentSubtree.h"
@@ -88,7 +88,7 @@ bool FCkEntityReplicationDriverNet_DependentChildSubtreeConstructs::RunTest(cons
             if (Subject == nullptr)
             { AddError(TEXT("server-side dependent-subtree subject not found — did Stage 1 spawn happen?")); return false; }
 
-            const auto ServerParent = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+            const auto ServerParent = UCk_Utils_EntityBridge_UE::TryGet_Entity(Subject);
             if (ck::Is_NOT_Valid(ServerParent))
             { AddError(TEXT("server-side parent entity not resolved — WithActor Construct did not run (extend FramesAfterSpawn?)")); return false; }
 
@@ -119,7 +119,7 @@ bool FCkEntityReplicationDriverNet_DependentChildSubtreeConstructs::RunTest(cons
             if (Subject == nullptr)
             { return false; }
 
-            const auto ClientParent = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+            const auto ClientParent = UCk_Utils_EntityBridge_UE::TryGet_Entity(Subject);
             if (ck::Is_NOT_Valid(ClientParent))
             { return false; }
 
@@ -141,7 +141,7 @@ bool FCkEntityReplicationDriverNet_DependentChildSubtreeConstructs::RunTest(cons
             if (Subject == nullptr)
             { AddError(TEXT("client world has no dependent-subtree subject — actor failed to replicate")); return false; }
 
-            const auto ClientParent = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Subject);
+            const auto ClientParent = UCk_Utils_EntityBridge_UE::TryGet_Entity(Subject);
             if (ck::Is_NOT_Valid(ClientParent))
             { AddError(TEXT("client-side parent entity not resolved — WithActor Construct did not run on the client")); return false; }
 

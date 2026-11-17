@@ -5,7 +5,7 @@
 #include "CkActorRelay/CkActorRelay_GroupSubsystem.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcsDebugger/Inspectors/CkInspector_ActorRelay.h"
 #include "CkEcsDebugger/Inspectors/CkInspectorWidgetBuilder.h"
 #include "CkSlateLayout/SCkUiSurface.h"
@@ -65,7 +65,7 @@ namespace ck_tests_actor_relay_authored_inspector
         for (TActorIterator<ACk_ActorRelay_TestProbe_UE> It(ServerWorld); It; ++It)
         {
             auto* const Actor = *It;
-            const FCk_Handle Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Actor);
+            const FCk_Handle Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Actor);
             if (ck::IsValid(Entity) && Actor->Get_GroupSubsystem().Get() == Group)
             {
                 InScenario->_RelayActor = Actor;
@@ -107,7 +107,7 @@ bool FCkTest_ActorRelay_AuthoredInspectorComposition::RunTest(const FString&)
                 UCk_Utils_EntityLifetime_UE::Get_LifetimeDependents(Scenario->_RelayEntity).Num();
             Scenario->_Dependent = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Scenario->_RelayEntity);
             Scenario->_UnregisteredEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(InWorld);
-            UCk_Utils_OwningActor_UE::Add(
+            UCk_Utils_EntityBridge_UE::Add(
                 Scenario->_UnregisteredEntity, GetMutableDefault<ACk_ActorRelay_TestProbe_UE>());
             if (NOT TestTrue(TEXT("fixture creates a channel dependent and an unregistered relay projection"),
                 ck::IsValid(Scenario->_Dependent) && ck::IsValid(Scenario->_UnregisteredEntity)))

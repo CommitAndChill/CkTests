@@ -31,7 +31,7 @@ class UCk_AutoTest_Net_AddEntities_Replicates : UCk_AutoTest_NetBase
         if (ck::Is_NOT_Valid(Subject))
         { FinishFailure("DIAG-A: subject not found"); return; }
 
-        auto SubjectActor = utils_owning_actor::Get_EntityOwningActor(Subject);
+        auto SubjectActor = utils_entity_bridge::Get_Actor(Subject);
         auto CollectionActor = Cast<ACk_AutoTest_NetSubject_EntityCollection_UE>(SubjectActor);
         if (CollectionActor == nullptr)
         { FinishFailure("DIAG-B: actor cast failed"); return; }
@@ -61,7 +61,7 @@ class UCk_AutoTest_Net_AddEntities_Replicates : UCk_AutoTest_NetBase
         if (ck::Is_NOT_Valid(Subject))
         { WaitOneFrame(n"OnPollCount"); return; }
 
-        auto SubjectActor = utils_owning_actor::Get_EntityOwningActor(Subject);
+        auto SubjectActor = utils_entity_bridge::Get_Actor(Subject);
         auto CollectionActor = Cast<ACk_AutoTest_NetSubject_EntityCollection_UE>(SubjectActor);
         if (CollectionActor == nullptr)
         { WaitOneFrame(n"OnPollCount"); return; }

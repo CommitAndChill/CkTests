@@ -2,7 +2,7 @@
 
 #include "CkTests/Net/CkAutoTest_NetSubject_VoiceChat.h"
 
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 
 #include "CkVoiceChat/VoiceChannel/CkVoiceChannel_Utils.h"
 #include "CkVoiceChat/VoiceTalker/CkVoiceTalker_Utils.h"
@@ -33,7 +33,7 @@ auto
     auto Talker = UCk_Utils_VoiceTalker_UE::Add(InHandle, FCk_VoiceTalker_Spec{});
 
     if (auto* Subject = Cast<ACk_AutoTest_NetSubject_VoiceChat_UE>(
-            UCk_Utils_OwningActor_UE::Get_EntityOwningActor(InHandle)))
+            UCk_Utils_EntityBridge_UE::Get_Actor(InHandle)))
     {
         Subject->_TestChannel = Channel;
         Subject->_TestTalker = Talker;

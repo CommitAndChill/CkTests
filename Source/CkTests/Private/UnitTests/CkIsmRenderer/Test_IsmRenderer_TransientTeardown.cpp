@@ -8,7 +8,7 @@
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/Net/CkNet_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
 
@@ -247,7 +247,7 @@ bool FCkTest_IsmRenderer_TransientTeardown::RunTest(const FString&)
                 if (NOT TestTrue(TEXT("one renderer actor serves both owners"), Scenario->_Renderer.IsValid()))
                 { return true; }
 
-                Scenario->_RendererEntity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(Scenario->_Renderer.Get());
+                Scenario->_RendererEntity = UCk_Utils_EntityBridge_UE::TryGet_Entity(Scenario->_Renderer.Get());
 
                 TestTrue(TEXT("the renderer actor carries its EntityScript entity"), ck::IsValid(Scenario->_RendererEntity));
                 TestEqual(TEXT("exactly one renderer actor was spawned for the shared data"),

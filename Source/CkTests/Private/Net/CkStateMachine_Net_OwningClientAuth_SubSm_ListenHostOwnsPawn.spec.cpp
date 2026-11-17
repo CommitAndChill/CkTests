@@ -32,7 +32,7 @@
 #include "GameFramework/PlayerController.h"
 
 #include "CkEcs/Net/CkNet_Utils.h"
-#include "CkEcs/OwningActor/CkOwningActor_Utils.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkStateMachine/StateMachine/CkStateMachine_Utils.h"
 #include "CkStateMachine/State/EntityScripts/CkSmState_EntityScript.h"
 #include "CkStateMachine/Task/CkSmTask_Fragment.h"
@@ -97,7 +97,7 @@ namespace ck_sm_subsm_listenhost_test
         if (InPawn == nullptr)
         { return {}; }
 
-        const auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(InPawn);
+        const auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(InPawn);
         if (ck::Is_NOT_Valid(Entity))
         { return {}; }
 
@@ -217,7 +217,7 @@ bool FCkStateMachineNet_OwningClientAuth_SubSm_ListenHostOwnsPawn::RunTest(const
             if (ServerPawn == nullptr)
             { AddError(TEXT("server-side SubSmGated pawn not found at input time")); return; }
 
-            const auto Entity = UCk_Utils_OwningActor_UE::TryGet_ActorEntityHandle(ServerPawn);
+            const auto Entity = UCk_Utils_EntityBridge_UE::TryGet_Entity(ServerPawn);
             if (ck::Is_NOT_Valid(Entity))
             { AddError(TEXT("server-side pawn has no bridged entity at input time")); return; }
 

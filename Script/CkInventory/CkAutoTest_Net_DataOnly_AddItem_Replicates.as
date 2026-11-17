@@ -29,7 +29,7 @@ class UCk_AutoTest_Net_DataOnly_AddItem_Replicates : UCk_AutoTest_NetBase
         if (ck::Is_NOT_Valid(Subject))
         { FinishFailure("subject not found - harness misconfigured?"); return; }
 
-        auto SubjectActor = utils_owning_actor::Get_EntityOwningActor(Subject);
+        auto SubjectActor = utils_entity_bridge::Get_Actor(Subject);
         auto InventoryActor = Cast<ACk_AutoTest_NetSubject_Inventory_UE>(SubjectActor);
         if (InventoryActor == nullptr)
         { FinishFailure("subject actor isn't an inventory net-subject"); return; }
@@ -77,7 +77,7 @@ class UCk_AutoTest_Net_DataOnly_AddItem_Replicates : UCk_AutoTest_NetBase
         if (IsFinished()) { return; }
 
         auto Subject = Get_SubjectEntity();
-        auto SubjectActor = utils_owning_actor::Get_EntityOwningActor(Subject);
+        auto SubjectActor = utils_entity_bridge::Get_Actor(Subject);
         auto InventoryActor = Cast<ACk_AutoTest_NetSubject_Inventory_UE>(SubjectActor);
         if (InventoryActor == nullptr)
         {
