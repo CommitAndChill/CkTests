@@ -151,9 +151,11 @@ namespace assets
     TSoftObjectPtr<ACk_AutoTest_CkJolt_Probe_DefaultSignature_IgnoresStaticWorld_Actor> Ck_AutoTest_CkJolt_Probe_DefaultSignature_IgnoresStaticWorld_Actor_UAID_D843AEBAD5E2AFEE02_2103075623() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_Probe_DefaultSignature_IgnoresStaticWorld_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_Probe_DefaultSignature_IgnoresStaticWorld_Actor_UAID_D843AEBAD5E2AFEE02_2103075623")); }
     TSoftObjectPtr<ACk_AutoTest_CkJolt_Query_ChannelRaycast_HonorsBlockOverlapIgnore_Actor> Ck_AutoTest_CkJolt_Query_ChannelRaycast_HonorsBlockOverlapIgnore_Actor_UAID_D843AEBAD5E2AFEE02_2103078624() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_Query_ChannelRaycast_HonorsBlockOverlapIgnore_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_Query_ChannelRaycast_HonorsBlockOverlapIgnore_Actor_UAID_D843AEBAD5E2AFEE02_2103078624")); }
     TSoftObjectPtr<ACk_AutoTest_CkJolt_Query_SweepByChannel_MatchesChaosSweep_Actor> Ck_AutoTest_CkJolt_Query_SweepByChannel_MatchesChaosSweep_Actor_UAID_D843AEBAD5E2AFEE02_2103080625() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_Query_SweepByChannel_MatchesChaosSweep_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_Query_SweepByChannel_MatchesChaosSweep_Actor_UAID_D843AEBAD5E2AFEE02_2103080625")); }
+    TSoftObjectPtr<ACk_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor> Ck_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor_UAID_60CF84A99C2C540D03_1649744343() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor_UAID_60CF84A99C2C540D03_1649744343")); }
     TSoftObjectPtr<ACk_AutoTest_CkJolt_RestingBodySleepsAndWakeRequestReactivates_Actor> Ck_AutoTest_CkJolt_RestingBodySleepsAndWakeRequestReactivates_Actor_UAID_C87F5401E535DDEE02_1100936722() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_RestingBodySleepsAndWakeRequestReactivates_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_RestingBodySleepsAndWakeRequestReactivates_Actor_UAID_C87F5401E535DDEE02_1100936722")); }
     TSoftObjectPtr<ACk_AutoTest_CkJolt_RestitutionCombinesAsAverageNotMax_Actor> Ck_AutoTest_CkJolt_RestitutionCombinesAsAverageNotMax_Actor_UAID_60CF84A99C2C34FA02_1632881647() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_RestitutionCombinesAsAverageNotMax_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_RestitutionCombinesAsAverageNotMax_Actor_UAID_60CF84A99C2C34FA02_1632881647")); }
     TSoftObjectPtr<ACk_AutoTest_CkJolt_Rope_BuildsAndHangs_Actor> Ck_AutoTest_CkJolt_Rope_BuildsAndHangs_Actor_UAID_C87F5401E53589EF02_1729854995() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_Rope_BuildsAndHangs_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_Rope_BuildsAndHangs_Actor_UAID_C87F5401E53589EF02_1729854995")); }
+    TSoftObjectPtr<ACk_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor> Ck_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor_UAID_60CF84A99C2C540D03_1649746344() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor_UAID_60CF84A99C2C540D03_1649746344")); }
     TSoftObjectPtr<ACk_AutoTest_CkJolt_SphereRollsDownRampToBottom_Actor> Ck_AutoTest_CkJolt_SphereRollsDownRampToBottom_Actor_UAID_C87F5401E5350AEF02_2014598646() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_SphereRollsDownRampToBottom_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_SphereRollsDownRampToBottom_Actor_UAID_C87F5401E5350AEF02_2014598646")); }
     TSoftObjectPtr<ACk_AutoTest_CkJolt_StaticBake_CollisionToggle_SyncsScene_Actor> Ck_AutoTest_CkJolt_StaticBake_CollisionToggle_SyncsScene_Actor_UAID_60CF84A99C2CC0FB02_1113312343() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_StaticBake_CollisionToggle_SyncsScene_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_StaticBake_CollisionToggle_SyncsScene_Actor_UAID_60CF84A99C2CC0FB02_1113312343")); }
     TSoftObjectPtr<ACk_AutoTest_CkJolt_StaticBake_ComponentBake_AddRemoveRebake_Actor> Ck_AutoTest_CkJolt_StaticBake_ComponentBake_AddRemoveRebake_Actor_UAID_60CF84A99C2CC2F602_1796446415() { return TSoftObjectPtr<ACk_AutoTest_CkJolt_StaticBake_ComponentBake_AddRemoveRebake_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_CkJolt_StaticBake_ComponentBake_AddRemoveRebake_Actor_UAID_60CF84A99C2CC2F602_1796446415")); }
@@ -651,6 +653,7 @@ namespace assets
     TSoftObjectPtr<ACk_AutoTest_IskmRenderer_AsyncLoad_Actor> Ck_AutoTest_IskmRenderer_AsyncLoad_Actor_0() { return TSoftObjectPtr<ACk_AutoTest_IskmRenderer_AsyncLoad_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_IskmRenderer_AsyncLoad_Actor_0")); }
     TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedBake_Actor> Ck_AutoTest_IskmRenderer_BatchedBake_Actor_UAID_C87F5401E535C9E902_1703712919() { return TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedBake_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_IskmRenderer_BatchedBake_Actor_UAID_C87F5401E535C9E902_1703712919")); }
     TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedClusterLifecycle_Actor> Ck_AutoTest_IskmRenderer_BatchedClusterLifecycle_Actor_UAID_C87F5401E535CDE902_1110614623() { return TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedClusterLifecycle_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_IskmRenderer_BatchedClusterLifecycle_Actor_UAID_C87F5401E535CDE902_1110614623")); }
+    TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor> Ck_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor_UAID_D843AEBAD5E27F0B03_1821992799() { return TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor_UAID_D843AEBAD5E27F0B03_1821992799")); }
     TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedCrowdMemberFlip_Actor> Ck_AutoTest_IskmRenderer_BatchedCrowdMemberFlip_Actor_UAID_C87F5401E535E9E902_1237733551() { return TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedCrowdMemberFlip_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_IskmRenderer_BatchedCrowdMemberFlip_Actor_UAID_C87F5401E535E9E902_1237733551")); }
     TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedCrowdMovement_Actor> Ck_AutoTest_IskmRenderer_BatchedCrowdMovement_Actor_UAID_C87F5401E53531EA02_1915485223() { return TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedCrowdMovement_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_IskmRenderer_BatchedCrowdMovement_Actor_UAID_C87F5401E53531EA02_1915485223")); }
     TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedCrowdTiling_Actor> Ck_AutoTest_IskmRenderer_BatchedCrowdTiling_Actor_UAID_C87F5401E535E8E902_1526755375() { return TSoftObjectPtr<ACk_AutoTest_IskmRenderer_BatchedCrowdTiling_Actor>(FSoftObjectPath("/CkTests/AutoTests/AutoTests_CkTests_Level.AutoTests_CkTests_Level:PersistentLevel.Ck_AutoTest_IskmRenderer_BatchedCrowdTiling_Actor_UAID_C87F5401E535E8E902_1526755375")); }
@@ -1190,6 +1193,7 @@ namespace assets
     TSoftObjectPtr<UAnimSequence> MM_Jump() { return TSoftObjectPtr<UAnimSequence>(FSoftObjectPath("/CkTests/Characters/Mannequins/Anims/Unarmed/Jump/MM_Jump.MM_Jump")); }
     TSoftObjectPtr<UAnimSequence> MM_Land() { return TSoftObjectPtr<UAnimSequence>(FSoftObjectPath("/CkTests/Characters/Mannequins/Anims/Unarmed/Jump/MM_Land.MM_Land")); }
     TSoftObjectPtr<UBlendSpace> BS_Idle_Walk_Run() { return TSoftObjectPtr<UBlendSpace>(FSoftObjectPath("/CkTests/Characters/Mannequins/Anims/Unarmed/BS_Idle_Walk_Run.BS_Idle_Walk_Run")); }
+    TSoftObjectPtr<UCk_UsfGym_ShadingModelCatalog> DA_UsfGym_ShadingModels_v2() { return TSoftObjectPtr<UCk_UsfGym_ShadingModelCatalog>(FSoftObjectPath("/CkTests/CkUsf/GeneratedShadingModels/DA_UsfGym_ShadingModels_v2.DA_UsfGym_ShadingModels_v2")); }
     TSoftObjectPtr<UControlRig> CR_Mannequin_Body() { return TSoftObjectPtr<UControlRig>(FSoftObjectPath("/CkTests/Characters/Mannequins/Rigs/CR_Mannequin_Body.CR_Mannequin_Body")); }
     TSoftClassPtr<UControlRig> CR_Mannequin_Body_Class() { return TSoftClassPtr<UControlRig>(FSoftObjectPath("/CkTests/Characters/Mannequins/Rigs/CR_Mannequin_Body.CR_Mannequin_Body_C")); }
     TSoftObjectPtr<UControlRig> CR_Mannequin_FootIK() { return TSoftObjectPtr<UControlRig>(FSoftObjectPath("/CkTests/Characters/Mannequins/Rigs/CR_Mannequin_FootIK.CR_Mannequin_FootIK")); }
@@ -1229,6 +1233,7 @@ namespace assets
     TSoftObjectPtr<UStaticMesh> SM_Import_CPU() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/CkRuntimeMesh/Cooked/SM_Import_CPU.SM_Import_CPU")); }
     TSoftObjectPtr<UStaticMesh> SM_Import_NoCPU() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/CkRuntimeMesh/Cooked/SM_Import_NoCPU.SM_Import_NoCPU")); }
     TSoftObjectPtr<UStaticMesh> SM_PixelSprite_Quad() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/PixelSprite/SM_PixelSprite_Quad.SM_PixelSprite_Quad")); }
+    TSoftObjectPtr<UStaticMesh> SM_UsdShaderBall() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/CkUsf/Showcase/SM_UsdShaderBall.SM_UsdShaderBall")); }
     TSoftObjectPtr<UStaticMesh> Splitter_Curve() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/Splitter_Curve.Splitter_Curve")); }
     TSoftObjectPtr<UStaticMesh> Splitter_Wall() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/Splitter_Wall.Splitter_Wall")); }
     TSoftObjectPtr<UStaticMesh> TagBar_Middle() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/TagBar_Middle.TagBar_Middle")); }
@@ -1242,6 +1247,7 @@ namespace assets
     TSoftObjectPtr<UStaticMesh> Tile_InnerCurveEdge2() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/Tile_InnerCurveEdge2.Tile_InnerCurveEdge2")); }
     TSoftObjectPtr<UStaticMesh> TrimFeature_MetalTrim_Bend() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/TrimFeature_MetalTrim_Bend.TrimFeature_MetalTrim_Bend")); }
     TSoftObjectPtr<UStaticMesh> TrimFeature_MetalTrim_Straight() { return TSoftObjectPtr<UStaticMesh>(FSoftObjectPath("/CkTests/Common/DemoRoom/Meshes/TrimFeature_MetalTrim_Straight.TrimFeature_MetalTrim_Straight")); }
+    TSoftObjectPtr<USubsurfaceProfile> SP_Comparison() { return TSoftObjectPtr<USubsurfaceProfile>(FSoftObjectPath("/CkTests/CkUsf/GeneratedShadingModels/Batch_892A04CC42D97C70F726D597C1B41117/SP_Comparison.SP_Comparison")); }
     TSoftObjectPtr<UTexture2D> T_Manny_01_BN() { return TSoftObjectPtr<UTexture2D>(FSoftObjectPath("/CkTests/Characters/Mannequins/Textures/Manny/T_Manny_01_BN.T_Manny_01_BN")); }
     TSoftObjectPtr<UTexture2D> T_Manny_01_D() { return TSoftObjectPtr<UTexture2D>(FSoftObjectPath("/CkTests/Characters/Mannequins/Textures/Manny/T_Manny_01_D.T_Manny_01_D")); }
     TSoftObjectPtr<UTexture2D> T_Manny_01_MRA() { return TSoftObjectPtr<UTexture2D>(FSoftObjectPath("/CkTests/Characters/Mannequins/Textures/Manny/T_Manny_01_MRA.T_Manny_01_MRA")); }
@@ -2576,6 +2582,15 @@ namespace assets::load
         }
         return System::LoadAsset_Blocking(assets::Ck_AutoTest_CkJolt_Query_SweepByChannel_MatchesChaosSweep_Actor_UAID_D843AEBAD5E2AFEE02_2103080625());
     }
+    ACk_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor Ck_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor_UAID_60CF84A99C2C540D03_1649744343()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::Ck_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor_UAID_60CF84A99C2C540D03_1649744343() called before engine init. Use assets::Ck_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor_UAID_60CF84A99C2C540D03_1649744343() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::Ck_AutoTest_CkJolt_QueryOnlyContactsDoNotPushDynamicBodies_Actor_UAID_60CF84A99C2C540D03_1649744343());
+    }
     ACk_AutoTest_CkJolt_RestingBodySleepsAndWakeRequestReactivates_Actor Ck_AutoTest_CkJolt_RestingBodySleepsAndWakeRequestReactivates_Actor_UAID_C87F5401E535DDEE02_1100936722()
     {
         if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
@@ -2602,6 +2617,15 @@ namespace assets::load
             return nullptr;
         }
         return System::LoadAsset_Blocking(assets::Ck_AutoTest_CkJolt_Rope_BuildsAndHangs_Actor_UAID_C87F5401E53589EF02_1729854995());
+    }
+    ACk_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor Ck_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor_UAID_60CF84A99C2C540D03_1649746344()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::Ck_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor_UAID_60CF84A99C2C540D03_1649746344() called before engine init. Use assets::Ck_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor_UAID_60CF84A99C2C540D03_1649746344() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::Ck_AutoTest_CkJolt_RuntimeProfileChangesPhysicalContactResponse_Actor_UAID_60CF84A99C2C540D03_1649746344());
     }
     ACk_AutoTest_CkJolt_SphereRollsDownRampToBottom_Actor Ck_AutoTest_CkJolt_SphereRollsDownRampToBottom_Actor_UAID_C87F5401E5350AEF02_2014598646()
     {
@@ -7075,6 +7099,15 @@ namespace assets::load
             return nullptr;
         }
         return System::LoadAsset_Blocking(assets::Ck_AutoTest_IskmRenderer_BatchedClusterLifecycle_Actor_UAID_C87F5401E535CDE902_1110614623());
+    }
+    ACk_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor Ck_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor_UAID_D843AEBAD5E27F0B03_1821992799()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::Ck_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor_UAID_D843AEBAD5E27F0B03_1821992799() called before engine init. Use assets::Ck_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor_UAID_D843AEBAD5E27F0B03_1821992799() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::Ck_AutoTest_IskmRenderer_BatchedCrowdElevation_Actor_UAID_D843AEBAD5E27F0B03_1821992799());
     }
     ACk_AutoTest_IskmRenderer_BatchedCrowdMemberFlip_Actor Ck_AutoTest_IskmRenderer_BatchedCrowdMemberFlip_Actor_UAID_C87F5401E535E9E902_1237733551()
     {
@@ -11927,6 +11960,15 @@ namespace assets::load
         }
         return System::LoadAsset_Blocking(assets::BS_Idle_Walk_Run());
     }
+    UCk_UsfGym_ShadingModelCatalog DA_UsfGym_ShadingModels_v2()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::DA_UsfGym_ShadingModels_v2() called before engine init. Use assets::DA_UsfGym_ShadingModels_v2() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::DA_UsfGym_ShadingModels_v2());
+    }
     UControlRig CR_Mannequin_Body()
     {
         if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
@@ -12278,6 +12320,15 @@ namespace assets::load
         }
         return System::LoadAsset_Blocking(assets::SM_PixelSprite_Quad());
     }
+    UStaticMesh SM_UsdShaderBall()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::SM_UsdShaderBall() called before engine init. Use assets::SM_UsdShaderBall() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::SM_UsdShaderBall());
+    }
     UStaticMesh Splitter_Curve()
     {
         if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
@@ -12394,6 +12445,15 @@ namespace assets::load
             return nullptr;
         }
         return System::LoadAsset_Blocking(assets::TrimFeature_MetalTrim_Straight());
+    }
+    USubsurfaceProfile SP_Comparison()
+    {
+        if (UCk_Utils_IO_UE::IsEngineSafeForBlockingLoads() == false)
+        {
+            ck::EnsureIfNot_PrematureAssetLoad(UCk_Utils_IO_UE::Get_IsRunningCommandlet(), "assets::load::SP_Comparison() called before engine init. Use assets::SP_Comparison() (soft ref) with UCk_DeferredConfig_UE instead.");
+            return nullptr;
+        }
+        return System::LoadAsset_Blocking(assets::SP_Comparison());
     }
     UTexture2D T_Manny_01_BN()
     {
