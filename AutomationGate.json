@@ -304,6 +304,13 @@
       "reason": "OSCILLATES - listed red, not flaky, so a pass reports 'Now passing' instead of a failing solo re-run failing the gate: green alone 1/3. Follow-up: make the walker tests frame-rate/load independent, then remove this entry. Ck_AutoTest_ProceduralAnimation_PlantedReachPacesPillarCrossing: FinishTest TestResult=Failed. Failed: step 1/4 'the tentacled walker crosses the pillar field and returns': condition 'Check_Traversal' did not hold within the declared 50.00s bound. On the 2026-11-04 UE 5.8 walker exclusion list.",
       "evidence": "UE 5.8 (ue58_engine 417f32a755), CkTests 05fea466. CkPlugins_58gate full gate on UnrealToolbox v1.75 red; BusterBlock_58 Gate58-MergedMainCk red, Gate58-UiProofFixes green (2026-11-06); BusterBlock_58 solo runs 1 pass / 2 fail (Solo58M-PlantedReach*.log).",
       "added": "2026-11-06"
+    },
+    {
+      "test": "Project.Functional Tests.CkTests.AutoTests.AutoTests_CkTests_Level.Ck_AutoTest_ProceduralAnimation_SpiderCourseTraversal",
+      "status": "red",
+      "reason": "OSCILLATES - listed red, not flaky, so a pass reports 'Now passing' instead of a failing solo re-run failing the gate: red alone twice and green alone once. Step 2/4 'verify two complete traversals and intact coverage': Ledge completed two route traversals with every leg replanted (1 traversals, 8/8 legs). Red in all three hosts, so it moves here from CkPlugins' and BusterBlock's lists. Follow-up: make the walker tests frame-rate/load independent, then remove this entry. Defined in Script/CkProceduralAnimation/CkAutoTest_ProceduralAnimation_SpiderCourseTraversal.as.",
+      "evidence": "UE 5.8.4, UnrealToolbox v1.81-v1.88, 2026-11-11 to 2026-11-17: 23 red / 58 green over 81 full and benchmark gate logs on one machine (CkPlugins_gatespeed 3/12, CkPlugins 1/10, BusterBlock_58 15/43, Mars_58port 4/16; Mars lists it nowhere, so each red there counted NEW). Green alone: Mars_58port Alone-20261112-Ck_AutoTest_ProceduralAnimation_SpiderCourseTraversal.log. Red alone twice: CkPlugins Test-Alone-7.log and Test-Alone-7b.log (2026-10-08, the CkPlugins entry this replaces).",
+      "added": "2026-11-18"
     }
   ]
 }
