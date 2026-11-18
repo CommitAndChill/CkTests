@@ -135,13 +135,13 @@ bool FCkEntityBridgeAdmission_SecondRequestRefused::RunTest(const FString& Param
             auto* Bridge = Subject->Get_EntityBridge().Get();
 
             const auto EnsuresBeforeFirst = UCk_Utils_Ensure_UE::Get_EnsureCount();
-            Bridge->Request_SpawnEntity(ScriptClass);
+            Bridge->Request_SpawnLinkedEntity(ScriptClass);
             const auto EnsuresAfterFirst = UCk_Utils_Ensure_UE::Get_EnsureCount();
-            Bridge->Request_SpawnEntity(ScriptClass);
+            Bridge->Request_SpawnLinkedEntity(ScriptClass);
             const auto EnsuresAfterSecond = UCk_Utils_Ensure_UE::Get_EnsureCount();
 
-            TestEqual(TEXT("the first Request_SpawnEntity did not ensure"), EnsuresAfterFirst - EnsuresBeforeFirst, 0);
-            TestEqual(TEXT("the second Request_SpawnEntity ensured once"), EnsuresAfterSecond - EnsuresAfterFirst, 1);
+            TestEqual(TEXT("the first Request_SpawnLinkedEntity did not ensure"), EnsuresAfterFirst - EnsuresBeforeFirst, 0);
+            TestEqual(TEXT("the second Request_SpawnLinkedEntity ensured once"), EnsuresAfterSecond - EnsuresAfterFirst, 1);
         })));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
@@ -177,7 +177,7 @@ bool FCkEntityBridgeAdmission_SecondRequestRefused::RunTest(const FString& Param
 
             return true;
         }),
-        TEXT("a second Request_SpawnEntity is refused and the first one's entity stands")));
+        TEXT("a second Request_SpawnLinkedEntity is refused and the first one's entity stands")));
 
     Do_EndPIE(*this);
 
@@ -212,7 +212,7 @@ bool FCkEntityBridgeAdmission_PlainScriptThroughBridgeRefused::RunTest(const FSt
             { return; }
 
             const auto EnsuresBefore = UCk_Utils_Ensure_UE::Get_EnsureCount();
-            Subject->Get_EntityBridge()->Request_SpawnEntity(PlainScriptClass);
+            Subject->Get_EntityBridge()->Request_SpawnLinkedEntity(PlainScriptClass);
             const auto EnsuresAfter = UCk_Utils_Ensure_UE::Get_EnsureCount();
 
             TestEqual(TEXT("passing a non-actor-bound script to the bridge ensured once"), EnsuresAfter - EnsuresBefore, 1);
@@ -323,7 +323,7 @@ bool FCkEntityBridgeAdmission_ForgottenRequestEnsuresNextTick::RunTest(const FSt
     using namespace ck_entity_bridge_admission;
 
     // Occurrences < 0: every matching line is tolerated, including none when the log line was already consumed.
-    AddExpectedError(TEXT("did not call Request_SpawnEntity during BeginPlay"), EAutomationExpectedErrorFlags::Contains, -1);
+    AddExpectedError(TEXT("did not call Request_SpawnLinkedEntity during BeginPlay"), EAutomationExpectedErrorFlags::Contains, -1);
 
     // The check fires from a timer, so the window spans frames; counting only the bridge's own source files keeps
     // unrelated ensures in those frames out of it.

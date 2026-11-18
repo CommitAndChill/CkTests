@@ -19,6 +19,7 @@
 
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/EntityBridge/CkEntityBridge_Fragment.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Fragment_Data.h"
 #include "CkEcs/Registry/CkRegistry.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
 #include "CkEcs/Snapshot/CkSaveKey_Fragment.h"
@@ -354,7 +355,7 @@ bool FCkSnapshot_LevelActorBridgeOrigin::RunTest(const FString& Parameters)
     if (NOT LevelActorInjected)
     { return false; }
 
-    LevelEntity.Add<ck::FFragment_EntityBridge>(LevelActor, nullptr);
+    LevelEntity.Add<ck::FFragment_EntityBridge>(NewObject<UCk_EntityBridge_ActorComponent_UE>(LevelActor, NAME_None, RF_Transient));
     const auto LevelSpawnParams = FInstancedStruct::Make<FCk_EntityScript_WithActor_SpawnParams>(LevelActor);
     const auto LevelFlow = LevelScript->Construct(LevelEntity, LevelSpawnParams);
     TestEqual(TEXT("level ActorBridge construction finishes"),
@@ -382,7 +383,7 @@ bool FCkSnapshot_LevelActorBridgeOrigin::RunTest(const FString& Parameters)
     if (NOT RuntimeActorInjected)
     { return false; }
 
-    RuntimeEntity.Add<ck::FFragment_EntityBridge>(RuntimeActor, nullptr);
+    RuntimeEntity.Add<ck::FFragment_EntityBridge>(NewObject<UCk_EntityBridge_ActorComponent_UE>(RuntimeActor, NAME_None, RF_Transient));
     const auto RuntimeSpawnParams = FInstancedStruct::Make<FCk_EntityScript_WithActor_SpawnParams>(RuntimeActor);
     const auto RuntimeFlow = RuntimeScript->Construct(RuntimeEntity, RuntimeSpawnParams);
     TestEqual(TEXT("runtime ActorBridge construction finishes"),

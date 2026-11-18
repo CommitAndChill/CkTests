@@ -35,6 +35,7 @@
 
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/EntityBridge/CkEntityBridge_Fragment.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Fragment_Data.h"
 #include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/World/CkEcsWorld.h"
 
@@ -500,7 +501,7 @@ bool FCkTest_Usf_StylizeMaskEntityStencilSync::RunTest(const FString& Parameters
     auto& Registry = EcsWorld.Get_Registry();
 
     auto Entity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Registry);
-    Entity.Add<ck::FFragment_EntityBridge>(Actor, nullptr);
+    Entity.Add<ck::FFragment_EntityBridge>(NewObject<UCk_EntityBridge_ActorComponent_UE>(Actor, NAME_None, RF_Transient));
 
     const auto Sync = [&Entity]() -> void
     {

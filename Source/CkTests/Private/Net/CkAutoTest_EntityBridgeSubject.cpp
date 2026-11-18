@@ -221,7 +221,7 @@ auto
     DoRequest_Entity()
     -> void
 {
-    _EntityBridge->Request_SpawnEntity_WithParams(_EntityScriptClass,
+    _EntityBridge->Request_SpawnLinkedEntity_WithParams(_EntityScriptClass,
         FInstancedStruct::Make(FCk_AutoTest_EntityBridge_SpawnParams{_ParamValue}));
 }
 

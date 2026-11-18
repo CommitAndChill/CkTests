@@ -78,7 +78,7 @@ auto
     // The SM is OwningClientAuthoritative, but the entity-script (which creates the SM) still spawns on
     // authority and replicates to the client; authority for *transitions* is the owning client, resolved
     // lazily per NetContext call once this pawn is possessed by that client's PC.
-    _EntityBridge->Request_SpawnEntity(_EntityScriptClass);
+    _EntityBridge->Request_SpawnLinkedEntity(_EntityScriptClass);
 }
 
 // --------------------------------------------------------------------------------------------------------------------

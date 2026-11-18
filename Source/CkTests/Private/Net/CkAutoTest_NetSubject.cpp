@@ -69,7 +69,7 @@ auto
     if (ck::Is_NOT_Valid(_EntityScriptClass))
     { return; }
 
-    _EntityBridge->Request_SpawnEntity(_EntityScriptClass);
+    _EntityBridge->Request_SpawnLinkedEntity(_EntityScriptClass);
 }
 
 // --------------------------------------------------------------------------------------------------------------------

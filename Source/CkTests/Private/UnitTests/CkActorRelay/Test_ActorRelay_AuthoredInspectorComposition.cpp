@@ -4,6 +4,7 @@
 
 #include "CkActorRelay/CkActorRelay_GroupSubsystem.h"
 #include "CkEcs/EntityBridge/CkEntityBridge_Fragment.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Fragment_Data.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Fragment.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
@@ -108,7 +109,7 @@ bool FCkTest_ActorRelay_AuthoredInspectorComposition::RunTest(const FString&)
                 UCk_Utils_EntityLifetime_UE::Get_LifetimeDependents(Scenario->_RelayEntity).Num();
             Scenario->_Dependent = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(Scenario->_RelayEntity);
             Scenario->_UnregisteredEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(InWorld);
-            Scenario->_UnregisteredEntity.Add<ck::FFragment_EntityBridge>(GetMutableDefault<ACk_ActorRelay_TestProbe_UE>(), nullptr);
+            Scenario->_UnregisteredEntity.Add<ck::FFragment_EntityBridge>(NewObject<UCk_EntityBridge_ActorComponent_UE>(GetMutableDefault<ACk_ActorRelay_TestProbe_UE>(), NAME_None, RF_Transient));
             if (NOT TestTrue(TEXT("fixture creates a channel dependent and an unregistered relay projection"),
                 ck::IsValid(Scenario->_Dependent) && ck::IsValid(Scenario->_UnregisteredEntity)))
             { return; }

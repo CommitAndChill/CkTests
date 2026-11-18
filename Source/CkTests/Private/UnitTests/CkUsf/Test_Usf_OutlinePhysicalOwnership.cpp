@@ -1,6 +1,7 @@
 #include "Misc/AutomationTest.h"
 
 #include "CkEcs/EntityBridge/CkEntityBridge_Fragment.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Fragment_Data.h"
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/World/CkEcsWorld.h"
@@ -118,7 +119,7 @@ bool FCkTest_Usf_OutlinePhysicalOwnership::RunTest(const FString& Parameters)
 
     // Actor consumption reconciles its primitive set every frame so a component created after the claim
     // begins joins the same ownership contract without requiring the claim to be toggled.
-    ActorOwner.Add<ck::FFragment_EntityBridge>(Actor, nullptr);
+    ActorOwner.Add<ck::FFragment_EntityBridge>(NewObject<UCk_EntityBridge_ActorComponent_UE>(Actor, NAME_None, RF_Transient));
     ActorOwner.AddOrGet<ck::FFragment_Usf_OutlineResolved>() = ActorResolved;
     const auto SyncActor = [&ActorOwner]()
     {

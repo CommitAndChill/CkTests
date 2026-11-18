@@ -5,7 +5,7 @@
 //   - Ready (Promise_OnEntityReady, delegate and C++ callback): fires once the script has begun play and, on a client,
 //     replicated values have been applied.
 //
-// "Before" is bound from the subject's own BeginPlay, ahead of its Request_SpawnEntity, on every machine, so it is
+// "Before" is bound from the subject's own BeginPlay, ahead of its Request_SpawnLinkedEntity, on every machine, so it is
 // before the link by construction. "After" is bound by the test once the bridge is Ready, and must fire at bind time.
 //
 // Surface in Session Frontend: Ck.EntityBridge.Net.Promises
