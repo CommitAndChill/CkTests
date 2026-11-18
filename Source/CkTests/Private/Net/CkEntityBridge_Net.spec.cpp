@@ -203,7 +203,6 @@ namespace ck_entity_bridge_net
         using namespace ck::auto_test::entity_bridge;
 
         const auto Expected = TArray<FName>{
-            FName{EventName_Constructed},
             FName{EventName_ScriptBeginPlay},
             FName{EventName_Ready}};
 
@@ -217,7 +216,7 @@ namespace ck_entity_bridge_net
         for (const auto& Event : Events)
         { Observed.Add(Event.ToString()); }
 
-        InTest.AddError(ck::Format_UE(TEXT("[{}] event list is [{}], expected [Constructed, ScriptBeginPlay, Ready]"),
+        InTest.AddError(ck::Format_UE(TEXT("[{}] event list is [{}], expected [ScriptBeginPlay, Ready]"),
             InMachine, FString::Join(Observed, TEXT(", "))));
     }
 }
@@ -427,7 +426,7 @@ bool FCkEntityBridgeNet_PromisesOncePerMachineInOrder::RunTest(const FString& Pa
 
             return true;
         }),
-        TEXT("Constructed, ScriptBeginPlay, Ready, once each per machine")));
+        TEXT("ScriptBeginPlay, then Ready, once each per machine")));
 
     Do_EndPIE(*this);
 
@@ -903,7 +902,7 @@ bool FCkEntityBridgeNet_ContinueWithoutFinishIsNeverReady::RunTest(const FString
 
                 const auto& Events = Subject->Get_Events();
 
-                TestEqual(*ck::Format_UE(TEXT("[{}] neither promise fired and the script never began play"), InMachine),
+                TestEqual(*ck::Format_UE(TEXT("[{}] Ready never fired and the script never began play"), InMachine),
                     Events.Num(), 0);
             };
 
@@ -912,7 +911,7 @@ bool FCkEntityBridgeNet_ContinueWithoutFinishIsNeverReady::RunTest(const FString
 
             return true;
         }),
-        TEXT("a script that never finishes construction is never Constructed nor Ready")));
+        TEXT("a script that never finishes construction is never Ready")));
 
     Do_EndPIE(*this);
 

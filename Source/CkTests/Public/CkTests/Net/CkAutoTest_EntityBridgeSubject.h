@@ -18,8 +18,8 @@ class UWorld;
 //
 // Subjects for the Ck Entity Bridge tests (Ck.EntityBridge.*).
 //
-// ACk_AutoTest_EntityBridgeSubject carries a UCk_EntityBridge_ActorComponent_UE. Its BeginPlay binds both of the
-// bridge's promises, each appending to a per-instance event list ("Constructed", "Ready"), then requests its Entity
+// ACk_AutoTest_EntityBridgeSubject carries a UCk_EntityBridge_ActorComponent_UE. Its BeginPlay binds the bridge's
+// Ready promise, which appends "Ready" to a per-instance event list, then requests its Entity
 // with FCk_AutoTest_EntityBridge_SpawnParams. The param value is 1 on the authority and 2 elsewhere, so a test can
 // tell whose params the script instance received. The script's BeginPlay appends "ScriptBeginPlay" to the same list.
 //
@@ -31,7 +31,6 @@ class UWorld;
 
 namespace ck::auto_test::entity_bridge
 {
-    constexpr auto EventName_Constructed = TEXT("Constructed");
     constexpr auto EventName_ScriptBeginPlay = TEXT("ScriptBeginPlay");
     constexpr auto EventName_Ready = TEXT("Ready");
 
@@ -205,11 +204,6 @@ protected:
 private:
     UFUNCTION()
     void
-    OnEntityConstructed(
-        FCk_Handle_EntityScript InEntity);
-
-    UFUNCTION()
-    void
     OnEntityReady(
         AActor* InActor,
         FCk_Handle InEntity);
@@ -376,11 +370,6 @@ class CKTESTS_API UCk_AutoTest_EntityBridge_Capturer_UE : public UObject
 public:
     UFUNCTION()
     void
-    OnEntityConstructed(
-        FCk_Handle_EntityScript InEntity);
-
-    UFUNCTION()
-    void
     OnEntityReady(
         AActor* InActor,
         FCk_Handle InEntity);
@@ -392,9 +381,6 @@ public:
         ECk_Request_OperationResult InResult);
 
 public:
-    int32 _ConstructedCount = 0;
-    FCk_Handle _ConstructedEntity;
-
     int32 _ReadyCount = 0;
     FCk_Handle _ReadyEntity;
     TWeakObjectPtr<AActor> _ReadyActor;

@@ -218,10 +218,6 @@ auto
     DoBind_Promises()
     -> void
 {
-    auto ConstructedDelegate = FCk_Delegate_EntityScript_Constructed{};
-    ConstructedDelegate.BindDynamic(this, &ACk_AutoTest_EntityBridgeSubject::OnEntityConstructed);
-    _EntityBridge->Promise_OnEntityConstructed(ConstructedDelegate);
-
     auto ReadyDelegate = FCk_Delegate_EntityBridge_OnEntityReady{};
     ReadyDelegate.BindDynamic(this, &ACk_AutoTest_EntityBridgeSubject::OnEntityReady);
     _EntityBridge->Promise_OnEntityReady(ReadyDelegate);
@@ -234,14 +230,6 @@ auto
 {
     _EntityBridge->Request_SpawnLinkedEntity_WithParams(_EntityScriptClass,
         FInstancedStruct::Make(FCk_AutoTest_EntityBridge_SpawnParams{_ParamValue}));
-}
-
-void
-    ACk_AutoTest_EntityBridgeSubject::
-    OnEntityConstructed(
-        FCk_Handle_EntityScript InEntity)
-{
-    _Events.Add(FName{ck::auto_test::entity_bridge::EventName_Constructed});
 }
 
 void
@@ -332,15 +320,6 @@ auto
 }
 
 // --------------------------------------------------------------------------------------------------------------------
-
-void
-    UCk_AutoTest_EntityBridge_Capturer_UE::
-    OnEntityConstructed(
-        FCk_Handle_EntityScript InEntity)
-{
-    ++_ConstructedCount;
-    _ConstructedEntity = InEntity;
-}
 
 void
     UCk_AutoTest_EntityBridge_Capturer_UE::

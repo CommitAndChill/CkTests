@@ -1,7 +1,6 @@
-// Pins the three moments of the Ck Entity Bridge on the server and on a client, each bound before and after the fact:
+// Pins the two moments of the Ck Entity Bridge on the server and on a client, each bound before and after the fact:
 //
 //   - Linked (C++ Promise_OnEntityLinked): fires when the Actor and Entity are linked, before the script constructs.
-//   - Constructed (Promise_OnEntityConstructed): fires once the script has finished construction, before it begins play.
 //   - Ready (Promise_OnEntityReady, delegate and C++ callback): fires once the script has begun play and, on a client,
 //     replicated values have been applied.
 //
@@ -103,13 +102,6 @@ namespace ck_entity_bridge_net_promises
         InTest.TestEqual(*ck::Format_UE(TEXT("[{}] Linked bound after the link fires at bind time"), InMachine),
             InLate->_LinkedCount, 1);
 
-        auto ConstructedDelegate = FCk_Delegate_EntityScript_Constructed{};
-        ConstructedDelegate.BindDynamic(&InCapturer, &UCk_AutoTest_EntityBridge_Capturer_UE::OnEntityConstructed);
-        Bridge->Promise_OnEntityConstructed(ConstructedDelegate);
-
-        InTest.TestEqual(*ck::Format_UE(TEXT("[{}] Constructed bound after the fact fires at bind time"), InMachine),
-            InCapturer._ConstructedCount, 1);
-
         auto ReadyDelegate = FCk_Delegate_EntityBridge_OnEntityReady{};
         ReadyDelegate.BindDynamic(&InCapturer, &UCk_AutoTest_EntityBridge_Capturer_UE::OnEntityReady);
         Bridge->Promise_OnEntityReady(ReadyDelegate);
@@ -166,20 +158,15 @@ namespace ck_entity_bridge_net_promises
                 Probe->Get_StateAtLinked()),
             Probe->Get_StateAtLinked() == ECk_EntityBridge_State::Linked);
 
-        // Bound before: Constructed and Ready, recorded in the probe's event list around the script's BeginPlay.
+        // Bound before: Ready, recorded in the probe's event list after the script's BeginPlay.
         const auto& Events = Probe->Get_Events();
-        const auto ConstructedIndex = Events.IndexOfByKey(FName{EventName_Constructed});
         const auto BeginPlayIndex = Events.IndexOfByKey(FName{EventName_ScriptBeginPlay});
         const auto ReadyIndex = Events.IndexOfByKey(FName{EventName_Ready});
 
-        InTest.TestEqual(*ck::Format_UE(TEXT("[{}] Constructed bound before fired once"), InMachine),
-            Get_EventCount(Events, EventName_Constructed), 1);
         InTest.TestEqual(*ck::Format_UE(TEXT("[{}] the script began play once"), InMachine),
             Get_EventCount(Events, EventName_ScriptBeginPlay), 1);
         InTest.TestEqual(*ck::Format_UE(TEXT("[{}] Ready bound before fired once"), InMachine),
             Get_EventCount(Events, EventName_Ready), 1);
-        InTest.TestTrue(*ck::Format_UE(TEXT("[{}] Constructed fired before the script began play"), InMachine),
-            ConstructedIndex != INDEX_NONE && BeginPlayIndex != INDEX_NONE && ConstructedIndex < BeginPlayIndex);
         InTest.TestTrue(*ck::Format_UE(TEXT("[{}] Ready fired after the script began play"), InMachine),
             BeginPlayIndex != INDEX_NONE && ReadyIndex != INDEX_NONE && BeginPlayIndex < ReadyIndex);
 
@@ -188,10 +175,6 @@ namespace ck_entity_bridge_net_promises
             InLate._LinkedCount, 1);
         InTest.TestTrue(*ck::Format_UE(TEXT("[{}] Linked bound after fired with the bridge's entity"), InMachine),
             InLate._LinkedEntity == Entity);
-        InTest.TestEqual(*ck::Format_UE(TEXT("[{}] Constructed bound after fired once in total"), InMachine),
-            InCapturer._ConstructedCount, 1);
-        InTest.TestTrue(*ck::Format_UE(TEXT("[{}] Constructed bound after fired with the bridge's entity"), InMachine),
-            InCapturer._ConstructedEntity == Entity);
         InTest.TestEqual(*ck::Format_UE(TEXT("[{}] Ready (delegate) bound after fired once in total"), InMachine),
             InCapturer._ReadyCount, 1);
         InTest.TestTrue(*ck::Format_UE(TEXT("[{}] Ready (delegate) bound after fired with the bridge's entity and Actor"), InMachine),
@@ -317,7 +300,7 @@ bool FCkEntityBridgeNet_Promises::RunTest(const FString& Parameters)
 
             return true;
         }),
-        TEXT("Linked, Constructed and Ready hold on server and client, bound before and after the fact")));
+        TEXT("Linked and Ready hold on server and client, bound before and after the fact")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
 

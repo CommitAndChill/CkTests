@@ -515,6 +515,7 @@ bool FCkEntityBridgeAdmission_ScriptCreationFailureReleasesTheRequest::RunTest(c
 
             Observations->_EnsuresBefore = UCk_Utils_Ensure_UE::Get_EnsureCount();
             Subject->Get_EntityBridge()->Request_SpawnLinkedEntity(FailingScriptClass);
+            Do_TestState(*this, *Subject, ECk_EntityBridge_State::AwaitingSpawn, TEXT("right after the request"));
         })));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesAfterRefusal));
