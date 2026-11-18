@@ -261,6 +261,61 @@ bool
 
 // --------------------------------------------------------------------------------------------------------------------
 
+// A shared-rendezvous member keeps its row (its subtree needs the owner) but persists no payload of its own: the rows
+// of its group rendezvous onto one live representative, so a payload restored there would make a save taken after a
+// load differ from the save that built the world. An ordinary keyed entity with the same payload is the control.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCk_Snapshot_V3_CaptureSharedRendezvousPersistsRowOnly_Test,
+    "Ck.Snapshot.V3.CaptureSharedRendezvousPersistsRowOnly",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool
+    FCk_Snapshot_V3_CaptureSharedRendezvousPersistsRowOnly_Test::
+    RunTest(
+        const FString& /*InParameters*/)
+{
+    auto EcsWorld = ck::FEcsWorld{};
+    auto& CkRegistry = EcsWorld.Get_Registry();
+    const auto RegistryHandle = CkRegistry.Get_RegistryHandle();
+
+    auto* RawRegistry = ck::registry_table::TryResolve(RegistryHandle);
+    if (NOT TestNotNull(TEXT("Resolved raw entt registry"), RawRegistry))
+    { return false; }
+
+    auto SharedMember = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(CkRegistry);
+    ck::save_key::AssignSharedRendezvousGroup(SharedMember, TEXT("Ck.Spec.V3.SharedRendezvousGroup"));
+    UCk_Utils_Velocity_UE::Add(SharedMember,
+        FCk_Velocity_Spec{ECk_LocalWorld::World, FVector{1.0, 0.0, 0.0}},
+        ECk_Replication::DoesNotReplicate);
+
+    auto KeyedEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(CkRegistry);
+    ck::save_key::Assign(KeyedEntity, TEXT("Ck.Spec.V3.UniqueIdentity"));
+    UCk_Utils_Velocity_UE::Add(KeyedEntity,
+        FCk_Velocity_Spec{ECk_LocalWorld::World, FVector{2.0, 0.0, 0.0}},
+        ECk_Replication::DoesNotReplicate);
+
+    // The dropped payload is reported through the audit, whose probe CaptureAuditMode gates.
+    auto* SnapshotSettings = GetMutableDefault<UCk_Snapshot_Settings>();
+    const auto RestoreAuditMode = SnapshotSettings->Get_CaptureAuditMode();
+    SnapshotSettings->TestOnly_Set_CaptureAuditMode(ECk_Snapshot_CaptureAuditMode::Summary);
+    ON_SCOPE_EXIT { SnapshotSettings->TestOnly_Set_CaptureAuditMode(RestoreAuditMode); };
+    AddExpectedErrorPlain(TEXT("[1] shared-rendezvous member"), EAutomationExpectedErrorFlags::Contains, 1);
+
+    auto ByteWriter = FBufferArchive{};
+    auto Header = FCk_Snapshot_HeaderV3{};
+    auto SaveReport = FCk_Snapshot_SaveReport{};
+    const auto Result = ck::snapshot::Run_CaptureV3_Registry(*RawRegistry, RegistryHandle, /*World=*/nullptr,
+        ByteWriter, Header, SaveReport);
+
+    TestEqual(TEXT("v3 capture succeeded"), static_cast<int32>(Result), static_cast<int32>(ECk_SnapshotResult::Success));
+    TestEqual(TEXT("both keyed entities keep their rows"), Header.Get_EntityCount(), 2);
+    TestEqual(TEXT("only the uniquely keyed entity persists its payload"), Header.Get_PayloadCount(), 1);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
     FCk_Snapshot_V3_RecipeParamsHandleRemap_Test,
     "Ck.Snapshot.V3.RecipeParamsHandleRemap",
