@@ -163,8 +163,8 @@ namespace ck_test_inventory_sync
         if (NOT InTest.TestTrue(TEXT("NetApply owner is a live production-composed entity"), ck::IsValid(Owner)))
         { return false; }
         const auto* PayloadType = InState._Case._Spatial
-            ? FCk_RepData_Inventory_Spatial_Items::StaticStruct()
-            : FCk_RepData_Inventory_DataOnly_Items::StaticStruct();
+            ? FCk_RepData_Inventory_Spatial_NamedItems::StaticStruct()
+            : FCk_RepData_Inventory_DataOnly_NamedItems::StaticStruct();
         const auto* Handler = FCk_PersistenceHandlerRegistry::Find(PayloadType);
         if (NOT InTest.TestTrue(TEXT("Registered production net handler exists"), Handler != nullptr && static_cast<bool>(Handler->NetApply)))
         { return false; }
@@ -172,7 +172,10 @@ namespace ck_test_inventory_sync
         {
             if (InState._Case._Spatial)
             {
-                auto Data = FCk_RepData_Inventory_Spatial_Items{};
+                auto Data = FCk_RepData_Inventory_Spatial_NamedItems{};
+                auto Snapshot = FCk_Inventory_Spatial_ReplicatedSnapshot{};
+                const auto Inventory = InDelta._Endpoint == EEndpoint::Target ? InState._Target : InState._Source;
+                Snapshot.InventoryName = Inventory.Get<ck::FFragment_Inventory_Params>().Get_Name();
                 for (const auto& Item : InItems)
                 {
                     auto Entry = FCk_InventoryItem_Spatial_ReplicatedEntry{Item};
@@ -180,13 +183,18 @@ namespace ck_test_inventory_sync
                     Entry.Set_Coordinate(InDelta._Endpoint == EEndpoint::Target ? TargetCoordinate : SourceCell);
                     Entry.Set_Rotation(InDelta._Endpoint == EEndpoint::Target
                         ? ECk_CardinalRotation::Quarter : ECk_CardinalRotation::None);
-                    Data.Items.Add(Entry);
+                    Snapshot.Items.Add(Entry);
                 }
+                Data.Inventories.Add(MoveTemp(Snapshot));
                 return FInstancedStruct::Make(Data);
             }
-            auto Data = FCk_RepData_Inventory_DataOnly_Items{};
+            auto Data = FCk_RepData_Inventory_DataOnly_NamedItems{};
+            auto Snapshot = FCk_Inventory_DataOnly_ReplicatedSnapshot{};
+            const auto Inventory = InDelta._Endpoint == EEndpoint::Target ? InState._Target : InState._Source;
+            Snapshot.InventoryName = Inventory.Get<ck::FFragment_Inventory_Params>().Get_Name();
             for (const auto& Item : InItems)
-            { Data.Items.Emplace(Item); }
+            { Snapshot.Items.Emplace(Item); }
+            Data.Inventories.Add(MoveTemp(Snapshot));
             return FInstancedStruct::Make(Data);
         };
         const auto NewData = MakePayload(InDelta._Current);
@@ -236,6 +244,169 @@ namespace ck_test_inventory_sync
             InAdded ? Delta._Added == TArray<FCk_Handle_Item>{InItem} && Delta._Removed.IsEmpty()
                 : Delta._Removed == TArray<FCk_Handle_Item>{InItem} && Delta._Added.IsEmpty());
     }
+}
+
+namespace ck_test_inventory_sync
+{
+    auto MakeNamedBatch(const FState& State, const TArray<FCk_Handle_Item>& SourceItems,
+        const TArray<FCk_Handle_Item>& TargetItems, bool DuplicateNames = false) -> FInstancedStruct
+    {
+        const auto SourceName = State._Source.Get<ck::FFragment_Inventory_Params>().Get_Name();
+        const auto TargetName = DuplicateNames ? SourceName : State._Target.Get<ck::FFragment_Inventory_Params>().Get_Name();
+        if (State._Case._Spatial)
+        {
+            auto Data = FCk_RepData_Inventory_Spatial_NamedItems{};
+            for (auto Index = 0; Index < 2; ++Index)
+            {
+                auto Row = FCk_Inventory_Spatial_ReplicatedSnapshot{};
+                Row.InventoryName = Index == 0 ? SourceName : TargetName;
+                const auto& Items = Index == 0 ? SourceItems : TargetItems;
+                for (const auto& Item : Items)
+                {
+                    auto Entry = FCk_InventoryItem_Spatial_ReplicatedEntry{Item};
+                    Entry.Set_Coordinate(Index == 0 ? FIntPoint{0, 0}
+                        : Item == State._SecondaryItem ? FIntPoint{3, 2} : FIntPoint{2, 2});
+                    Row.Items.Add(Entry);
+                }
+                Data.Inventories.Add(MoveTemp(Row));
+            }
+            return FInstancedStruct::Make(Data);
+        }
+        auto Data = FCk_RepData_Inventory_DataOnly_NamedItems{};
+        auto Source = FCk_Inventory_DataOnly_ReplicatedSnapshot{};
+        Source.InventoryName = SourceName;
+        for (const auto& Item : SourceItems) { Source.Items.Emplace(Item); }
+        auto Target = FCk_Inventory_DataOnly_ReplicatedSnapshot{};
+        Target.InventoryName = TargetName;
+        for (const auto& Item : TargetItems) { Target.Items.Emplace(Item); }
+        Data.Inventories = {MoveTemp(Source), MoveTemp(Target)};
+        return FInstancedStruct::Make(Data);
+    }
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkInventoryNamedSnapshotAdmissionTest,
+    "Ck.Inventory.Net.NamedSiblingSnapshots.AdmissionAndQueuedReplacement",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+auto FCkInventoryNamedSnapshotAdmissionTest::RunTest(const FString&) -> bool
+{
+    using namespace ck_test_inventory_sync;
+    // Each of the two shape cases emits both the native ensure and the
+    // editor message-log diagnostic from this latent action's editor context.
+    AddExpectedError(TEXT("Inventory named snapshot repeats an item identity"), EAutomationExpectedErrorFlags::Contains, 4);
+    AddExpectedError(TEXT("Inventory named snapshot has an invalid or repeated inventory name"), EAutomationExpectedErrorFlags::Contains, 4);
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.0f));
+    for (const auto Spatial : {false, true})
+    {
+        const auto State = MakeShared<FState>();
+        State->_Case._Spatial = Spatial;
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld* World)
+            {
+                State->_Root = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(World);
+                UCk_Utils_Net_UE::Add(State->_Root, FCk_Net_ConnectionSettings{
+                    ECk_Replication::DoesNotReplicate, ECk_Net_NetModeType::Client, ECk_Net_EntityNetRole::Proxy});
+                State->_SourceOwner = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->_Root);
+                State->_TargetOwner = State->_SourceOwner;
+                const auto MakeInventory = [State, World](FGameplayTag Name) -> FCk_Handle_Inventory
+                {
+                    if (State->_Case._Spatial)
+                    {
+                        return UCk_Utils_Inventory_Spatial_UE::Add(State->_SourceOwner,
+                            FCk_Inventory_Spatial_Spec{Name, FIntPoint{4, 4}}, ECk_Replication::DoesNotReplicate, World);
+                    }
+                    return UCk_Utils_Inventory_DataOnly_UE::Add(State->_SourceOwner,
+                        UCk_Utils_Inventory_DataOnly_UE::Make_Params(Name, {}, {}), ECk_Replication::DoesNotReplicate, World);
+                };
+                State->_Source = MakeInventory(TAG_Inventory_AutoTest_Net.GetTag());
+                State->_Target = MakeInventory(TAG_Inventory_AutoTest_Net_Spatial.GetTag());
+                auto* Dimensions = NewObject<UCk_ItemTrait_Dimensions>(GetTransientPackage());
+                State->_Definition.Reset(UCk_Utils_Item_UE::GetOrCreate_TransientItemDefinition(GetTransientPackage(),
+                    FName{*FGuid::NewGuid().ToString(EGuidFormats::Digits)},
+                    FCk_InventoryItem_CoreInfo{FText::FromString(TEXT("Named snapshot fixture"))}, {Dimensions}));
+                auto First = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->_Root);
+                auto Second = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(State->_Root);
+                State->_Item = UCk_Utils_Item_UE::Add(First, State->_Definition.Get());
+                State->_SecondaryItem = UCk_Utils_Item_UE::Add(Second, State->_Definition.Get());
+                State->_SourceListener.Reset(NewObject<UCk_InventorySyncReplication_Listener_UE>());
+                State->_TargetListener.Reset(NewObject<UCk_InventorySyncReplication_Listener_UE>());
+                BindDelta(State->_Source, State->_SourceListener);
+                BindDelta(State->_Target, State->_TargetListener);
+            })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([State]
+            {
+                return ck::IsValid(State->_Source) && ck::IsValid(State->_Target)
+                    && ck::IsValid(State->_Item) && ck::IsValid(State->_SecondaryItem)
+                    && UCk_Utils_2dGridSystem_UE::Has(State->_Item)
+                    && UCk_Utils_2dGridSystem_UE::Has(State->_SecondaryItem);
+            }), WaitSeconds, TEXT("Named sibling production composition finishes")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld*)
+            {
+                const auto* Type = State->_Case._Spatial ? FCk_RepData_Inventory_Spatial_NamedItems::StaticStruct()
+                    : FCk_RepData_Inventory_DataOnly_NamedItems::StaticStruct();
+                const auto* Handler = FCk_PersistenceHandlerRegistry::Find(Type);
+                if (NOT TestTrue(TEXT("Named wire handler exists"), Handler && Handler->NetApply)) { return; }
+                const auto Initial = MakeNamedBatch(*State, {State->_Item}, {State->_SecondaryItem});
+                TestEqual(TEXT("Initial named snapshot stages"), Handler->NetApply(State->_SourceOwner, Initial, {}), ECk_Persistence_ApplyResult::Applied);
+                const auto Latest = MakeNamedBatch(*State, {}, {State->_Item, State->_SecondaryItem});
+                TestEqual(TEXT("Newer snapshot replaces pending target before consumption"),
+                    Handler->NetApply(State->_SourceOwner, Latest, TOptional<FInstancedStruct>{Initial}), ECk_Persistence_ApplyResult::Applied);
+                const auto Unresolved = MakeNamedBatch(*State, {State->_Item}, {FCk_Handle_Item{}});
+                TestEqual(TEXT("Unresolved sibling rejects whole batch without replacing existing queues"),
+                    Handler->NetApply(State->_SourceOwner, Unresolved, {}), ECk_Persistence_ApplyResult::NotReady);
+                const auto DuplicateItem = MakeNamedBatch(*State, {State->_Item}, {State->_Item});
+                TestEqual(TEXT("Duplicate cross-sibling item identity rejects whole batch"),
+                    Handler->NetApply(State->_SourceOwner, DuplicateItem, {}), ECk_Persistence_ApplyResult::Rejected);
+                const auto DuplicateName = MakeNamedBatch(*State, {State->_Item}, {State->_SecondaryItem}, true);
+                TestEqual(TEXT("Duplicate sibling name rejects whole batch"),
+                    Handler->NetApply(State->_SourceOwner, DuplicateName, {}), ECk_Persistence_ApplyResult::Rejected);
+                TestTrue(TEXT("Admission and rejected batches do not mutate either record"),
+                    UCk_Utils_Inventory_UE::Get_Items(State->_Source).IsEmpty()
+                    && UCk_Utils_Inventory_UE::Get_Items(State->_Target).IsEmpty());
+                TestTrue(TEXT("Admission publishes no partial downstream deltas"),
+                    State->_SourceListener->_Deltas.IsEmpty() && State->_TargetListener->_Deltas.IsEmpty());
+                if (State->_Case._Spatial)
+                {
+                    const auto& Source = State->_Source.Get<ck::FFragment_Inventory_Spatial_SyncReplication>();
+                    const auto& Target = State->_Target.Get<ck::FFragment_Inventory_Spatial_SyncReplication>();
+                    TestTrue(TEXT("Rejected batches preserve newest current and earliest empty previous"),
+                        Source.Get_ItemsToReplicate().IsEmpty() && Source.Get_ItemsToReplicate_Previous().IsEmpty()
+                        && Target.Get_ItemsToReplicate().Num() == 2 && Target.Get_ItemsToReplicate_Previous().IsEmpty());
+                }
+                else
+                {
+                    const auto& Source = State->_Source.Get<ck::FFragment_Inventory_DataOnly_SyncReplication>();
+                    const auto& Target = State->_Target.Get<ck::FFragment_Inventory_DataOnly_SyncReplication>();
+                    TestTrue(TEXT("Rejected batches preserve newest current and earliest empty previous"),
+                        Source.Get_ItemsToReplicate().IsEmpty() && Source.Get_ItemsToReplicate_Previous().IsEmpty()
+                        && Target.Get_ItemsToReplicate().Num() == 2 && Target.Get_ItemsToReplicate_Previous().IsEmpty());
+                }
+            })));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+            FCk_NetAutoTest_Condition::CreateLambda([State]
+            {
+                return NOT HasPendingSync(*State, State->_Source) && NOT HasPendingSync(*State, State->_Target)
+                    && UCk_Utils_Inventory_UE::Get_NumItems(State->_Source) == 0
+                    && UCk_Utils_Inventory_UE::Get_NumItems(State->_Target) == 2;
+            }), WaitSeconds, TEXT("Only newest named target is consumed into exact sibling memberships")));
+        ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnClient(0,
+            FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld*)
+            {
+                TestTrue(TEXT("Both item parents point only at the destination sibling"),
+                    UCk_Utils_Item_UE::Get_ParentInventory(State->_Item) == State->_Target
+                    && UCk_Utils_Item_UE::Get_ParentInventory(State->_SecondaryItem) == State->_Target);
+                if (State->_Case._Spatial)
+                {
+                    TestTrue(TEXT("Spatial destination cells contain both exact identities"),
+                        GridContainsIdentity(State->_Target, State->_Item) && GridContainsIdentity(State->_Target, State->_SecondaryItem));
+                }
+            })));
+    }
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkInventorySyncReplicationLifecycleTest,
@@ -428,6 +599,20 @@ auto
                 if (State->_Case._Order == EOrder::DuplicateRemovalProjection)
                 {
                     PreviousItems.Add(State->_Item);
+                    // The wire cache is not the consumed baseline anymore. Inject
+                    // the malformed duplicate at the actual local sync boundary.
+                    if (State->_Case._Spatial)
+                    {
+                        auto& Applied = State->_Source.Get<ck::TFragment_Inventory_AppliedReplication<FCk_InventoryItem_Spatial_ReplicatedEntry>>().Items;
+                        const auto Duplicate = Applied[0];
+                        Applied.Add(Duplicate);
+                    }
+                    else
+                    {
+                        auto& Applied = State->_Source.Get<ck::TFragment_Inventory_AppliedReplication<FCk_InventoryItem_DataOnly_ReplicatedEntry>>().Items;
+                        const auto Duplicate = Applied[0];
+                        Applied.Add(Duplicate);
+                    }
                     TestTrue(TEXT("Duplicate old projection starts from one accepted live membership"),
                         State->_SourceItems.Num() == 1 && RawContains(State->_Source, State->_Item)
                             && UCk_Utils_Item_UE::Get_ParentInventory(State->_Item) == State->_Source);
