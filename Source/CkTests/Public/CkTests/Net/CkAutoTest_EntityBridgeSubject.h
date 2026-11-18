@@ -143,6 +143,21 @@ public:
 
 // --------------------------------------------------------------------------------------------------------------------
 
+// Poolable, and its pool returns null instead of creating an instance, so no spawn of it ever gets a script object.
+UCLASS()
+class CKTESTS_API UCk_AutoTest_EntityBridge_PoolExhaustedEntityScript_UE : public UCk_AutoTest_EntityBridge_EntityScript_UE
+{
+    GENERATED_BODY()
+
+public:
+    CK_GENERATED_BODY(UCk_AutoTest_EntityBridge_PoolExhaustedEntityScript_UE);
+
+public:
+    UCk_AutoTest_EntityBridge_PoolExhaustedEntityScript_UE();
+};
+
+// --------------------------------------------------------------------------------------------------------------------
+
 // Not actor-bound: the bridge must refuse it.
 UCLASS()
 class CKTESTS_API UCk_AutoTest_EntityBridge_PlainEntityScript_UE : public UCk_GenericEntityScript_UE
@@ -270,6 +285,30 @@ public:
 protected:
     auto
     DoRequest_Entity() -> void override;
+};
+
+// --------------------------------------------------------------------------------------------------------------------
+
+// A second Ck Entity Bridge on the same Actor; BeginPlay never requests.
+UCLASS()
+class CKTESTS_API ACk_AutoTest_EntityBridgeSubject_TwoBridges : public ACk_AutoTest_EntityBridgeSubject_NeverRequests
+{
+    GENERATED_BODY()
+
+public:
+    CK_GENERATED_BODY(ACk_AutoTest_EntityBridgeSubject_TwoBridges);
+
+public:
+    ACk_AutoTest_EntityBridgeSubject_TwoBridges();
+
+private:
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
+              Category = "Ck|AutoTest",
+              meta = (AllowPrivateAccess = true))
+    TObjectPtr<UCk_EntityBridge_ActorComponent_UE> _SecondEntityBridge;
+
+public:
+    CK_PROPERTY_GET(_SecondEntityBridge);
 };
 
 // --------------------------------------------------------------------------------------------------------------------

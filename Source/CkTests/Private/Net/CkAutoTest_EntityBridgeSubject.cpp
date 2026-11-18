@@ -127,6 +127,17 @@ UCk_AutoTest_EntityBridge_LocalEntityScript_UE::
 
 // --------------------------------------------------------------------------------------------------------------------
 
+UCk_AutoTest_EntityBridge_PoolExhaustedEntityScript_UE::
+    UCk_AutoTest_EntityBridge_PoolExhaustedEntityScript_UE()
+{
+    _InstancingPolicy = ECk_EntityScript_InstancingPolicy::InstancedPerEntity_Poolable;
+    _PoolParams = FCk_ObjectPooling_PoolParams{}
+        .Set_PrewarmCount(0)
+        .Set_ExhaustionPolicy(ECk_ObjectPooling_ExhaustionPolicy::Fail);
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
 auto
     UCk_AutoTest_EntityBridge_NeverFinishesEntityScript_UE::
     Construct(
@@ -269,6 +280,14 @@ auto
     DoRequest_Entity()
     -> void
 {
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+ACk_AutoTest_EntityBridgeSubject_TwoBridges::
+    ACk_AutoTest_EntityBridgeSubject_TwoBridges()
+{
+    _SecondEntityBridge = CreateDefaultSubobject<UCk_EntityBridge_ActorComponent_UE>(TEXT("SecondEntityBridge"));
 }
 
 // --------------------------------------------------------------------------------------------------------------------
