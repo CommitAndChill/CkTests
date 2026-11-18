@@ -32,8 +32,7 @@ class UCk_AutoTest_CameraShake_Add_CreatesEntry : UCk_AutoTest_Base
             return;
         }
 
-        utils_pending_entity_script::Promise_OnConstructed(
-            _Helper.PendingEntity,
+        _Helper.EntityBridge.Promise_OnEntityConstructed(
             FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
     }
 

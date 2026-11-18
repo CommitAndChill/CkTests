@@ -20,13 +20,13 @@
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcs/EntityBridge/CkEntityBridge_Fragment.h"
 #include "CkEcs/EntityBridge/CkEntityBridge_Fragment_Data.h"
+#include "CkEcs/EntityBridge/CkEntityBridge_Utils.h"
 #include "CkEcs/Registry/CkRegistry.h"
 #include "CkEcs/Registry/CkRegistry_SlotTable.h"
 #include "CkEcs/Snapshot/CkSaveKey_Fragment.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
 
 #include "CkEcsExt/EntityScript/CkEntityScript_WithActor.h"
-#include "CkEcsExt/EntityScript/CkEntityScript_WithActor_Data.h"
 
 #include "CkEntitySpawner/CkEntitySpawner_Actor.h"
 
@@ -60,19 +60,6 @@ namespace ck_test_snapshot_level_root_removal_contract
         int32 NumInjectedWorlds = 0;
         FString Failure;
     };
-
-    auto Inject_OwningActor(
-        UCk_EntityScript_WithActor_UE& InScript,
-        AActor& InActor) -> bool
-    {
-        auto* OwningActorProperty = FindFProperty<FObjectPropertyBase>(
-            InScript.GetClass(), TEXT("_OwningActor"));
-        if (OwningActorProperty == nullptr)
-        { return false; }
-
-        OwningActorProperty->SetObjectPropertyValue_InContainer(&InScript, &InActor);
-        return true;
-    }
 
     auto Get_SnapshotSubsystem(UWorld* InWorld) -> UCk_Snapshot_Subsystem_UE*
     {
@@ -350,14 +337,11 @@ bool FCkSnapshot_LevelActorBridgeOrigin::RunTest(const FString& Parameters)
     TestNotNull(TEXT("level ActorBridge script is valid"), LevelScript);
     if (LevelScript == nullptr)
     { return false; }
-    const auto LevelActorInjected = Inject_OwningActor(*LevelScript, *LevelActor);
-    TestTrue(TEXT("level ActorBridge test injects its production owning-actor field"), LevelActorInjected);
-    if (NOT LevelActorInjected)
-    { return false; }
 
     LevelEntity.Add<ck::FFragment_EntityBridge>(NewObject<UCk_EntityBridge_ActorComponent_UE>(LevelActor, NAME_None, RF_Transient));
-    const auto LevelSpawnParams = FInstancedStruct::Make<FCk_EntityScript_WithActor_SpawnParams>(LevelActor);
-    const auto LevelFlow = LevelScript->Construct(LevelEntity, LevelSpawnParams);
+    TestTrue(TEXT("level ActorBridge link supplies its actor"),
+        UCk_Utils_EntityBridge_UE::TryGet_Actor(LevelEntity) == LevelActor);
+    const auto LevelFlow = LevelScript->Construct(LevelEntity, FInstancedStruct{});
     TestEqual(TEXT("level ActorBridge construction finishes"),
         LevelFlow, ECk_EntityScript_ConstructionFlow::Finished);
     TestTrue(TEXT("level ActorBridge receives a deterministic SaveKey"),
@@ -378,14 +362,11 @@ bool FCkSnapshot_LevelActorBridgeOrigin::RunTest(const FString& Parameters)
     TestNotNull(TEXT("runtime ActorBridge script is valid"), RuntimeScript);
     if (RuntimeScript == nullptr)
     { return false; }
-    const auto RuntimeActorInjected = Inject_OwningActor(*RuntimeScript, *RuntimeActor);
-    TestTrue(TEXT("runtime ActorBridge test injects its production owning-actor field"), RuntimeActorInjected);
-    if (NOT RuntimeActorInjected)
-    { return false; }
 
     RuntimeEntity.Add<ck::FFragment_EntityBridge>(NewObject<UCk_EntityBridge_ActorComponent_UE>(RuntimeActor, NAME_None, RF_Transient));
-    const auto RuntimeSpawnParams = FInstancedStruct::Make<FCk_EntityScript_WithActor_SpawnParams>(RuntimeActor);
-    const auto RuntimeFlow = RuntimeScript->Construct(RuntimeEntity, RuntimeSpawnParams);
+    TestTrue(TEXT("runtime ActorBridge link supplies its actor"),
+        UCk_Utils_EntityBridge_UE::TryGet_Actor(RuntimeEntity) == RuntimeActor);
+    const auto RuntimeFlow = RuntimeScript->Construct(RuntimeEntity, FInstancedStruct{});
     TestEqual(TEXT("runtime ActorBridge construction finishes"),
         RuntimeFlow, ECk_EntityScript_ConstructionFlow::Finished);
     TestFalse(TEXT("runtime ActorBridge is never marked as a level-authored root"),

@@ -30,6 +30,9 @@ class ACk_SceneNodeGym_Cube : AActor
 	default TextRenderer.WorldSize = 40.0f;
 	default TextRenderer.TextRenderColor = FColor::Orange;
 
+	UPROPERTY(DefaultComponent)
+	UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
 	UPROPERTY(ExposeOnSpawn)
 	ECk_SceneNodeGym_Behavior Behavior = ECk_SceneNodeGym_Behavior::ParentChild;
 
@@ -94,12 +97,8 @@ class ACk_SceneNodeGym_Cube : AActor
 
 		if (HasAuthority())
 		{
-			auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-			SpawnParams._OwningActor = this;
-			auto PendingEntity = utils_entity_script::Request_SpawnEntity(
-				ck::TransientEntity(), UCk_EntityScript_WithActor_UE, SpawnParams);
-			utils_pending_entity_script::Promise_OnConstructed(
-				PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+			EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+			EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
 		}
 	}
 

@@ -38,6 +38,12 @@
 // latter is simpler and avoids any state-leak interaction between Pass A
 // and Pass B contaminating the assertion.
 
+// Pass B's entity: an ordinary script entity owned by the pass-A entity (an Actor has one entity).
+class UCk_SmTest_DivergenceTimed_PassB_EntityScript : UCk_GenericEntityScript_UE
+{
+    default _Replication = ECk_Replication::Replicates;
+}
+
 UCLASS(Blueprintable)
 class ACk_SmTest_DivergenceTimed_GymActor : AActor
 {
@@ -71,6 +77,9 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
     default DetailText.SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
     default DetailText.WorldSize = 14.0f;
     default DetailText.TextRenderColor = FColor::White;
+
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
 
     // ========================================================================
     // CONFIGURATION
@@ -181,15 +190,8 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
         PaymentChoice = ECk_SmTest_DivergenceTimed_PaymentChoice::Left;
         Reset_Counters();
 
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
-        auto Pending = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            SpawnParams);
-        utils_pending_entity_script::Promise_OnConstructed(
-            Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnPassAConstructed"));
+        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnPassAConstructed"));
+        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
 
         System::SetTimer(this, n"VerifyPassA", PerPassSettleSeconds, false);
     }
@@ -227,12 +229,10 @@ class ACk_SmTest_DivergenceTimed_GymActor : AActor
         PaymentChoice = ECk_SmTest_DivergenceTimed_PaymentChoice::Right;
         Reset_Counters();
 
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
         auto Pending = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            SpawnParams);
+            PassAEntity,
+            UCk_SmTest_DivergenceTimed_PassB_EntityScript,
+            FInstancedStruct());
         utils_pending_entity_script::Promise_OnConstructed(
             Pending,
             FCk_Delegate_EntityScript_Constructed(this, n"OnPassBConstructed"));

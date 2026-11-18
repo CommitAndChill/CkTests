@@ -11,7 +11,8 @@ class ACk_GaitGym_Walker : ACharacter
     UPROPERTY(DefaultComponent)
     UStaticMeshComponent Body;
 
-    FCk_Handle_PendingEntityScript PendingEntity;
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
 
     private float _ScriptSeconds = 0.0f;
     private int32 _AppliedCommand = -1;
@@ -34,7 +35,7 @@ class ACk_GaitGym_Walker : ACharacter
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(this, UCkAutoTest_ActorEntity_EntityScript);
+        EntityBridge.Request_SpawnLinkedEntity(UCkAutoTest_ActorEntity_EntityScript);
     }
 
     // Motion script (no input): fly +X at 420 cm/s for 3 s, -X for 3 s, repeat; every 7 s a 0.5 s hop (falling at 500 cm/s),
@@ -82,7 +83,7 @@ struct FCkGaitGym_Fixture
     TArray<FCk_Handle_Bob> Bobs;
     FVector Origin;
 
-    // Spawns the walker; the caller promises OnConstructed on Walker.PendingEntity and then calls Compose.
+    // Spawns the walker; the caller promises OnEntityConstructed on Walker.EntityBridge and then calls Compose.
     bool Spawn(FVector InOrigin)
     {
         Origin = InOrigin;

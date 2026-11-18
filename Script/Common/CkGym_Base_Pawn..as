@@ -20,6 +20,9 @@ class ACk_Gym_Base_Pawn : ADefaultPawn
     default Replicates = true;
     default bAddDefaultMovementBindings = false;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     private FCk_Handle _LayerOwner;
     private FCk_Handle_InputLayer _MoveLayer;
 
@@ -39,13 +42,12 @@ class ACk_Gym_Base_Pawn : ADefaultPawn
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        auto PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-            this, UCk_EntityScript_WithActor_UE);
-        if (utils_pending_entity_script::Get_IsValid(PendingEntity))
+        if (HasAuthority())
         {
-            utils_pending_entity_script::Promise_OnConstructed(
-                PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
         }
+
+        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
     }
 
     UFUNCTION(BlueprintOverride)

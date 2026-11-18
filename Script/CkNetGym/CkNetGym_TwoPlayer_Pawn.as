@@ -24,12 +24,14 @@ class ACk_NetGym_TwoPlayer_Pawn : ADefaultPawn
 {
     default Replicates = true;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-            this, UCk_NetGym_TwoPlayer_EntityScript);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_NetGym_TwoPlayer_EntityScript);
     }
 
     // Owning-client SM path. The server-only cadence director calls this Client RPC on the

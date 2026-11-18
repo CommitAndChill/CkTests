@@ -2,6 +2,9 @@ class ACk_Gym_Base_PlayerController : ACk_PlayerController_UE
 {
     default Replicates = false;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     // Z offset applied to every station's default grid placement. Override
     // in subclasses whose world floor isn't at Z=0 - the GymStation's alcove
     // floor sits at Z=FloorThickness/2 above the station origin, so without
@@ -14,12 +17,8 @@ class ACk_Gym_Base_PlayerController : ACk_PlayerController_UE
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
-        auto PendingEntity = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(), UCk_EntityScript_WithActor_UE, SpawnParams);
-        utils_pending_entity_script::Promise_OnConstructed(
-            PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
     }
 
     private int32 _PendingStationCount = 0;

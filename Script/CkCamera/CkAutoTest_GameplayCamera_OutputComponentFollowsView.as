@@ -27,8 +27,7 @@ class UCk_AutoTest_GameplayCamera_OutputComponentFollowsView : UCk_AutoTest_Base
         if (ck::Is_NOT_Valid(_Helper))
         { FinishFailure("Failed to spawn GameplayCamera FollowView helper"); return; }
 
-        utils_pending_entity_script::Promise_OnConstructed(
-            _Helper.PendingEntity,
+        _Helper.EntityBridge.Promise_OnEntityConstructed(
             FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
     }
 

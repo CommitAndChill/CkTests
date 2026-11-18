@@ -4,7 +4,6 @@
 
 #include "CkEcs/EntityScript/CkEntityScript_Utils.h"
 #include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
-#include "CkEcsExt/EntityScript/CkEntityScript_WithActor_Data.h"
 
 #include "Components/SceneComponent.h"
 #include "Engine/World.h"

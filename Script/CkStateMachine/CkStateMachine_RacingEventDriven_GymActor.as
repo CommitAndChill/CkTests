@@ -50,6 +50,9 @@ class ACk_SmTest_RacingEventDriven_GymActor : AActor
     default DetailText.WorldSize = 14.0f;
     default DetailText.TextRenderColor = FColor::White;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     // ========================================================================
     // CONFIGURATION
     // ========================================================================
@@ -100,14 +103,8 @@ class ACk_SmTest_RacingEventDriven_GymActor : AActor
         // Spawn a fresh sub-entity to host the SM, then add the SM. The
         // states' conditions read SlowDelaySeconds/FastDelaySeconds from
         // this actor when they DoEnterCondition.
-        auto Pending = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            FCk_EntityScript_WithActor_SpawnParams(this));
-
-        utils_pending_entity_script::Promise_OnConstructed(
-            Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
 
         System::SetTimer(this, n"OnSettled", SettleSeconds, false);
     }

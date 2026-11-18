@@ -2,8 +2,6 @@
 
 #include "CkTests/Net/CkAutoTest_NetSubject_EntityScript.h"
 
-#include "CkEcsExt/EntityScript/CkEntityScript_WithActor_Utils.h"
-
 #include "Components/SceneComponent.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"

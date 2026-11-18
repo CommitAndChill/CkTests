@@ -22,8 +22,7 @@
 //           if (ck::Is_NOT_Valid(_Helper))
 //           { FinishFailure("Failed to spawn ActorEntity helper"); return; }
 //
-//           utils_pending_entity_script::Promise_OnConstructed(
-//               _Helper.PendingEntity,
+//           _Helper.EntityBridge.Promise_OnEntityConstructed(
 //               FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
 //       }
 //
@@ -41,9 +40,9 @@
 // The helper actor:
 //   - Has a USceneComponent root (Movable) so SceneNode/Transform-driven
 //     features that touch the actor's RootComponent work.
-//   - Spawns a UCk_EntityScript_WithActor_UE on the world transient
-//     entity with _OwningActor = this. The resulting entity carries
-//     FFragment_EntityBridge.
+//   - Requests its entity (a UCk_EntityScript_WithActor_UE subclass)
+//     through its UCk_EntityBridge_ActorComponent_UE. The resulting
+//     entity carries FFragment_EntityBridge.
 //   - bReplicates = false. AutoTests run as authority; replication adds
 //     spurious entity creation work that complicates assertions.
 //
@@ -72,13 +71,13 @@ class ACkAutoTest_ActorEntity_Helper : AActor
 
     default SceneRoot.Mobility = EComponentMobility::Movable;
 
-    FCk_Handle_PendingEntityScript PendingEntity;
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-            this, UCkAutoTest_ActorEntity_EntityScript);
+        EntityBridge.Request_SpawnLinkedEntity(UCkAutoTest_ActorEntity_EntityScript);
     }
 }

@@ -7,13 +7,14 @@ class ACk_GaitAutoTest_Character : ACharacter
     default bReplicates = false;
     default CharacterMovement.MaxFlySpeed = 2000.0f;
 
-    FCk_Handle_PendingEntityScript PendingEntity;
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(this, UCkAutoTest_ActorEntity_EntityScript);
+        EntityBridge.Request_SpawnLinkedEntity(UCkAutoTest_ActorEntity_EntityScript);
     }
 
     void Fly(FVector InVelocity)
@@ -47,7 +48,7 @@ struct FCk_GaitAutoTestFixture
     FCk_Handle_Bob Bob;
     FVector Origin;
 
-    // Spawns the character at InOrigin; the caller promises OnConstructed on Character.PendingEntity and then calls Ready.
+    // Spawns the character at InOrigin; the caller promises OnEntityConstructed on Character.EntityBridge and then calls Ready.
     void Spawn(UCk_AutoTest_Base InTest, FVector InOrigin = FVector(0.0, 0.0, -40000.0))
     {
         Origin = InOrigin;

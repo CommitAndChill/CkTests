@@ -18,6 +18,9 @@ class ACk_TweenTest_GymActor : AActor
     default TextRenderer.WorldSize = 40.0f;
     default TextRenderer.TextRenderColor = FColor::Orange;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     UPROPERTY(ExposeOnSpawn, ReplicatedUsing=OnTextUpdated)
     ECk_TweenEasing TweenEasingMethod = ECk_TweenEasing::Linear;
 
@@ -30,13 +33,12 @@ class ACk_TweenTest_GymActor : AActor
         auto _CkPerfScope = ck::ScopedStat();
         TextRenderer.SetText(ck::Text(f"{TweenEasingMethod}"));
 
-        auto PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-            this, UCk_EntityScript_WithActor_UE);
-        if (utils_pending_entity_script::Get_IsValid(PendingEntity))
+        if (HasAuthority())
         {
-            utils_pending_entity_script::Promise_OnConstructed(
-                PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
         }
+
+        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
     }
 
     UFUNCTION()

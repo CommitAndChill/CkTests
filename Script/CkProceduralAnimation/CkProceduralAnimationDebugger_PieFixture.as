@@ -7,6 +7,9 @@ class ACk_ProceduralAnimationDebugger_PieFixture : AActor
     UPROPERTY(DefaultComponent, RootComponent)
     USceneComponent SceneRoot;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     private FCk_Handle _Owner;
     private TArray<FCkProceduralAnimationGym_Fixture> _Courses;
     private bool _Ended = false;
@@ -15,10 +18,8 @@ class ACk_ProceduralAnimationDebugger_PieFixture : AActor
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
-        auto Pending = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-            this, UCk_ProceduralAnimationDebugger_PieFixture_EntityScript);
-        utils_pending_entity_script::Promise_OnConstructed(Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnConstructed"));
+        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnConstructed"));
+        EntityBridge.Request_SpawnLinkedEntity(UCk_ProceduralAnimationDebugger_PieFixture_EntityScript);
     }
 
     UFUNCTION()

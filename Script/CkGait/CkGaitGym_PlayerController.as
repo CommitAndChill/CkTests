@@ -70,7 +70,7 @@ class ACk_GaitGym_PlayerController : ACk_Gym_Base_PlayerController
             return;
         }
 
-        utils_pending_entity_script::Promise_OnConstructed(_Fixture.Walker.PendingEntity,
+        _Fixture.Walker.EntityBridge.Promise_OnEntityConstructed(
             FCk_Delegate_EntityScript_Constructed(this, n"OnWalkerReady"));
         Request_Frame();
     }

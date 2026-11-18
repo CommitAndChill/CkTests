@@ -42,8 +42,7 @@ class UCk_AutoTest_Actor_AddActorComponent_IsUniqueFalse_AllowsDuplicate : UCk_A
             return;
         }
 
-        utils_pending_entity_script::Promise_OnConstructed(
-            _Helper.PendingEntity,
+        _Helper.EntityBridge.Promise_OnEntityConstructed(
             FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
     }
 

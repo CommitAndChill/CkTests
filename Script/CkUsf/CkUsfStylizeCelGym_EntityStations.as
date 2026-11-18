@@ -27,6 +27,9 @@ class ACk_UsfGym_StylizeCelEntitySubject : AActor
     UPROPERTY(DefaultComponent, Attach = Root)
     UStaticMeshComponent Mesh;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     // Which pattern this subject asks for. The default is the first entry, so a subject dropped in a
     // level without configuration still exercises the path rather than doing nothing.
     UPROPERTY()
@@ -58,18 +61,12 @@ class ACk_UsfGym_StylizeCelEntitySubject : AActor
             }
         }
 
-        // Request_SpawnEntityScript_OnActor, not the raw Request_SpawnEntity: the raw path derives the
-        // entity's NetParams from the EntityScript CDO, whose OwningActor is still null, so it reads
-        // Replicates and Construct then tries to build an EntityReplicationDriver for a purely cosmetic
-        // local actor that has no remote authority anywhere in its ownership chain. On a listen server
-        // that is an ensure at every spawn. This helper seeds the NetParams from the ACTOR instead.
-        auto PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-            this, UCk_EntityScript_WithActor_UE);
-
-        if (utils_pending_entity_script::Get_IsValid(PendingEntity))
+        // The bridge derives the entity's replication from the Actor, so this purely cosmetic local actor
+        // gets a local entity (no EntityReplicationDriver).
+        if (HasAuthority())
         {
-            utils_pending_entity_script::Promise_OnConstructed(
-                PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+            EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
         }
     }
 

@@ -12,7 +12,7 @@ class UCk_ReplicationGym_ReplicatedActor_EntityScript : UCk_EntityScript_WithAct
 {
     default _Replication = ECk_Replication::Replicates;
 
-    // Hardcoded to keep the spawn params a plain FCk_EntityScript_WithActor_SpawnParams.
+    // Hardcoded so the script needs no spawn params.
     const int32 StartingValue = 100;
 
     // Cache so DisplayTick can read it without repeated TryGet lookups.

@@ -83,16 +83,14 @@ class ACk_AutoTest_SceneNode_AttachedActor_Helper : AActor
 
     default RootComponent.Mobility = EComponentMobility::Movable;
 
-    FCk_Handle_PendingEntityScript PendingEntity;
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
-        PendingEntity = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(), UCk_AutoTest_SceneNode_AttachedActor_EntityScript, SpawnParams);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_AutoTest_SceneNode_AttachedActor_EntityScript);
     }
 }
 
@@ -132,8 +130,7 @@ class UCk_AutoTest_SceneNode_ActorAttachedToActor : UCk_AutoTest_Base
             return;
         }
 
-        utils_pending_entity_script::Promise_OnConstructed(
-            ActorA.PendingEntity,
+        ActorA.EntityBridge.Promise_OnEntityConstructed(
             FCk_Delegate_EntityScript_Constructed(this, n"OnActorAEntityReady"));
     }
 
@@ -176,8 +173,7 @@ class UCk_AutoTest_SceneNode_ActorAttachedToActor : UCk_AutoTest_Base
             return;
         }
 
-        utils_pending_entity_script::Promise_OnConstructed(
-            ActorB.PendingEntity,
+        ActorB.EntityBridge.Promise_OnEntityConstructed(
             FCk_Delegate_EntityScript_Constructed(this, n"OnActorBEntityReady"));
     }
 

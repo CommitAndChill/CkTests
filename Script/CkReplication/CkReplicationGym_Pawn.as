@@ -2,9 +2,9 @@
 // REPLICATION GYM - PAWN (Scenario B driver)
 //============================================================================
 // Extends the gym base pawn. After the base pawn's own WithActor entity has
-// been constructed, we attach a SECOND WithActor entity script using
-// ck::TransientEntity() as the lifetime owner - mirroring the
-// BB_PlayerCharacter shape where the ensure was hit after re-ordering.
+// been constructed, we spawn a SECOND (non-actor) entity script owned by the
+// pawn's entity - mirroring the BB_PlayerCharacter shape where the ensure was
+// hit after re-ordering.
 //============================================================================
 
 class ACk_ReplicationGym_Pawn : ACk_Gym_Base_Pawn
@@ -14,12 +14,11 @@ class ACk_ReplicationGym_Pawn : ACk_Gym_Base_Pawn
         if (!HasAuthority())
         { return; }
 
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
+        auto PawnEntity = EntityBridge.Get_Entity();
         auto PendingEntity = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
+            PawnEntity,
             UCk_ReplicationGym_PawnExtra_EntityScript,
-            SpawnParams);
+            FInstancedStruct());
         utils_pending_entity_script::Promise_OnConstructed(
             PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnPawnExtraConstructed"));
     }

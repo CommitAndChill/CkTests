@@ -29,7 +29,7 @@ class UCk_AutoTest_Gait_FlyingVelocityRaisesAmountAndAdvancesPhase : UCk_AutoTes
             return;
         }
 
-        utils_pending_entity_script::Promise_OnConstructed(_F.Character.PendingEntity,
+        _F.Character.EntityBridge.Promise_OnEntityConstructed(
             FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
     }
 

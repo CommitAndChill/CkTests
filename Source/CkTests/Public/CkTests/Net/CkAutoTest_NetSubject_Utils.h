@@ -105,7 +105,7 @@ public:
 
 // --------------------------------------------------------------------------------------------------------------------
 //
-// UObject helper for specs that assert on state INSIDE a Promise_OnActorEcsReady callback.
+// UObject helper for specs that assert on state INSIDE a Promise_OnEntityReady callback.
 // FCk_Delegate_EntityBridge_OnEntityReady is a dynamic delegate, so latent commands bind this
 // capturer's UFUNCTION and inspect the snapshot it records at fire time. One instance per
 // bound promise — the spec owns each via TStrongObjectPtr shared across its latent commands.
@@ -118,7 +118,7 @@ class CKTESTS_API UCk_AutoTest_EcsReadyCapturer_UE : public UObject
     GENERATED_BODY()
 
 public:
-    // Bound via UCk_Utils_EntityBridge_UE::Promise_OnActorEcsReady. Snapshots the firing
+    // Bound via UCk_Utils_EntityBridge_UE::Promise_OnEntityReady. Snapshots the firing
     // entity's replication-completion state and (when _AttributeTag is set) the Float
     // attribute the harness entity-script bakes during Construct.
     UFUNCTION()

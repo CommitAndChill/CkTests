@@ -30,6 +30,9 @@ class ACk_TransformGym_Cube : AActor
 	default TextRenderer.WorldSize = 40.0f;
 	default TextRenderer.TextRenderColor = FColor::Orange;
 
+	UPROPERTY(DefaultComponent)
+	UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
 	UPROPERTY(ExposeOnSpawn)
 	ECk_TransformGym_Behavior Behavior = ECk_TransformGym_Behavior::SetLocation;
 
@@ -69,13 +72,12 @@ class ACk_TransformGym_Cube : AActor
 			RotationSpeed = 20.0f;
 		}
 
-		auto PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-			this, UCk_EntityScript_WithActor_UE);
-		if (utils_pending_entity_script::Get_IsValid(PendingEntity))
+		if (HasAuthority())
 		{
-			utils_pending_entity_script::Promise_OnConstructed(
-				PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+			EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
 		}
+
+		EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
 	}
 
 	UFUNCTION()

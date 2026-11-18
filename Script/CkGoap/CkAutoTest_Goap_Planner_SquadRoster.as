@@ -101,6 +101,9 @@ class ACk_Goap_Planner_SquadRosterPieFixture : AActor
 
     default SceneRoot.Mobility = EComponentMobility::Movable;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     private FCk_Handle _FixtureEntity;
     private bool _HasEndedPlay = false;
     private int32 _QueuedReplanPulseSerial = 0;
@@ -109,10 +112,8 @@ class ACk_Goap_Planner_SquadRosterPieFixture : AActor
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        auto Pending = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-            this, UCk_Goap_Planner_SquadRosterPieFixture_EntityScript);
-        utils_pending_entity_script::Promise_OnConstructed(Pending,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnFixtureConstructed"));
+        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnFixtureConstructed"));
+        EntityBridge.Request_SpawnLinkedEntity(UCk_Goap_Planner_SquadRosterPieFixture_EntityScript);
     }
 
     UFUNCTION()

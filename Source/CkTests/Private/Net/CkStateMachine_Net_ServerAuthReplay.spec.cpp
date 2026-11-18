@@ -64,8 +64,8 @@ bool FCkStateMachineNet_ServerAuth_ABC_Replay::RunTest(const FString& Parameters
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(ExpectedTotalWorlds, ReadyTimeoutSeconds));
 
     // ---- Spawn the SM-flavoured NetSubject on the server ---------------------------------------------------
-    // The actor's BeginPlay kicks off the entity-script spawn (Request_SpawnEntity with
-    // FCk_EntityScript_WithActor_SpawnParams), and the entity-script's Construct runs on both
+    // The actor's BeginPlay kicks off the entity-script spawn (its EntityBridge's
+    // Request_SpawnLinkedEntity), and the entity-script's Construct runs on both
     // worlds independently — each adding a Replicates/ServerAuth/WithHistory SM with initial
     // state A and stashing the handle in `_TestStateMachine` on its own world's actor.
 

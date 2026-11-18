@@ -63,6 +63,9 @@ class ACk_RenderTargetGym_WhiteboardActor : AActor
     UPROPERTY(DefaultComponent, RootComponent)
     USceneComponent SceneRoot;
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     // Board surface: engine plane stood upright like a banner - the actor spawns
     // above the station's back wall (the header), the mesh floats above it with
     // its normal facing local +X (the alcove opening, i.e. toward the player).
@@ -143,12 +146,7 @@ class ACk_RenderTargetGym_WhiteboardActor : AActor
         if (!HasAuthority())
         { return; }
 
-        auto SpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SpawnParams._OwningActor = this;
-        utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_RenderTargetGym_Whiteboard_EntityScript,
-            SpawnParams);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_RenderTargetGym_Whiteboard_EntityScript);
     }
 }
 

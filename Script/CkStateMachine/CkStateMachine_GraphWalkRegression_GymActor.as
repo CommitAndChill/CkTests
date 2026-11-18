@@ -17,6 +17,12 @@
 // Any deviation indicates the CkFoundation graph-walk ghost-entity
 // short-circuit (PR #643) has regressed for that code path.
 
+// The Sub SM's entity: an ordinary script entity owned by the Top entity (an Actor has one entity).
+class UCk_SmTest_GraphWalkRegression_Sub_EntityScript : UCk_GenericEntityScript_UE
+{
+    default _Replication = ECk_Replication::Replicates;
+}
+
 UCLASS(Blueprintable)
 class ACk_SmTest_GraphWalkRegression_GymActor : AActor
 {
@@ -48,6 +54,9 @@ class ACk_SmTest_GraphWalkRegression_GymActor : AActor
     default DetailText.SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
     default DetailText.WorldSize = 14.0f;
     default DetailText.TextRenderColor = FColor::White;
+
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
 
     // ========================================================================
     // CONFIGURATION
@@ -176,25 +185,8 @@ class ACk_SmTest_GraphWalkRegression_GymActor : AActor
         // very signal we're trying to observe.
         Reset_Counters();
 
-        auto TopSpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        TopSpawnParams._OwningActor = this;
-        auto PendingTop = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            TopSpawnParams);
-        utils_pending_entity_script::Promise_OnConstructed(
-            PendingTop,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnTopEntityConstructed"));
-
-        auto SubSpawnParams = FCk_EntityScript_WithActor_SpawnParams();
-        SubSpawnParams._OwningActor = this;
-        auto PendingSub = utils_entity_script::Request_SpawnEntity(
-            ck::TransientEntity(),
-            UCk_EntityScript_WithActor_UE,
-            SubSpawnParams);
-        utils_pending_entity_script::Promise_OnConstructed(
-            PendingSub,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnSubEntityConstructed"));
+        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnTopEntityConstructed"));
+        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
 
         DetailText.SetText(ck::Text(f"Verifying at +{FirstVerifyDelay}s, +{SecondVerifyDelay}s..."));
 
@@ -218,6 +210,14 @@ class ACk_SmTest_GraphWalkRegression_GymActor : AActor
         TopSmHandle = UCk_Utils_StateMachine_UE::Add(
             TopEntity,
             FCk_StateMachine_Spec(UCk_SmTest_GraphWalk_Top_State_A));
+
+        auto PendingSub = utils_entity_script::Request_SpawnEntity(
+            TopEntity,
+            UCk_SmTest_GraphWalkRegression_Sub_EntityScript,
+            FInstancedStruct());
+        utils_pending_entity_script::Promise_OnConstructed(
+            PendingSub,
+            FCk_Delegate_EntityScript_Constructed(this, n"OnSubEntityConstructed"));
     }
 
     UFUNCTION()

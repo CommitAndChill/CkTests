@@ -42,6 +42,9 @@ class ACk_UsfGym_OutlineShowcase : AActor
     default Mesh.Mobility = EComponentMobility::Movable;
     default Mesh.RelativeScale3D = FVector(2.0, 2.0, 2.0);
 
+    UPROPERTY(DefaultComponent)
+    UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
     UPROPERTY(meta = (Categories = "Outline"))
     FGameplayTag OutlineTag;
 
@@ -72,12 +75,10 @@ class ACk_UsfGym_OutlineShowcase : AActor
         if (OutlineTag.IsValid() == false)
         { OutlineTag = UCk_Utils_Usf_Outline_Settings_UE::Get_GameplayInteractionOutlineTag(); }
 
-        auto PendingEntity = utils_entity_script_with_actor::Request_SpawnEntityScript_OnActor(
-            this, UCk_EntityScript_UsfOutlineShowcaseActor);
-        if (utils_pending_entity_script::Get_IsValid(PendingEntity))
+        if (HasAuthority())
         {
-            utils_pending_entity_script::Promise_OnConstructed(
-                PendingEntity, FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+            EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_UsfOutlineShowcaseActor);
         }
     }
 

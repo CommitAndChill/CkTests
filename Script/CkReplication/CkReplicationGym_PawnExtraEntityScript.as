@@ -1,12 +1,12 @@
 //============================================================================
 // REPLICATION GYM - PAWN EXTRA ENTITY SCRIPT (Scenario B)
 //============================================================================
-// A second UCk_EntityScript_WithActor_UE attached to the replicated pawn,
-// with ck::TransientEntity() as the lifetime owner. Mirrors the shape that
-// caused ensures on BB_PlayerCharacter after re-ordering attribute setup.
+// A second entity script on the replicated pawn, owned by the pawn's own
+// entity. Mirrors the shape that caused ensures on BB_PlayerCharacter after
+// re-ordering attribute setup.
 //============================================================================
 
-class UCk_ReplicationGym_PawnExtra_EntityScript : UCk_EntityScript_WithActor_UE
+class UCk_ReplicationGym_PawnExtra_EntityScript : UCk_GenericEntityScript_UE
 {
     default _Replication = ECk_Replication::Replicates;
 
@@ -72,8 +72,8 @@ class UCk_ReplicationGym_PawnExtra_EntityScript : UCk_EntityScript_WithActor_UE
         auto Title = "REPLICATION - PAWN TRANSIENT-ENTITY CHILD (" + NetworkRole + ")";
 
         FString Body;
-        Body = Body + "Scenario B: replicated pawn + second WithActor script\n";
-        Body = Body + "             (lifetime owner = TransientEntity)\n";
+        Body = Body + "Scenario B: replicated pawn + second entity script\n";
+        Body = Body + "             (lifetime owner = pawn entity)\n";
         Body = Body + "  Pawn Replicates:   true\n";
         Body = Body + "  EntityScript Rep:  Replicates\n";
         Body = Body + f"  Attribute present: {PresenceStr}\n";
