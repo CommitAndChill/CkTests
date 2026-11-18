@@ -22,6 +22,7 @@
 #include <Kismet2/KismetEditorUtilities.h>
 #include <Kismet2/StructureEditorUtils.h>
 #include <Misc/Guid.h>
+#include <Misc/Paths.h>
 #include <Misc/ScopeExit.h>
 #include <Subsystems/EditorAssetSubsystem.h>
 #include <UObject/Package.h>
@@ -125,6 +126,18 @@ bool FCkTest_EntityScript_EditorServices::RunTest(const FString& Parameters)
                 FPackageName::ObjectPathToPackageName(OwnedObjectPath), TEXT(".ckexport"));
             IFileManager::Get().Delete(*SidecarFilename, false, true, true);
         }
+        if (NOT CleanupSpawnParamsPath.IsEmpty())
+        {
+            const auto SpawnParamsDirectory = FPaths::GetPath(FPackageName::LongPackageNameToFilename(
+                FPackageName::ObjectPathToPackageName(CleanupSpawnParamsPath)));
+            auto OwnedSpawnParamsFiles = TArray<FString>{};
+            IFileManager::Get().FindFiles(OwnedSpawnParamsFiles, *(SpawnParamsDirectory / FString::Printf(
+                TEXT("EntitySpawnParams_CkEntityScriptEditorServices_%s_*"), *Suffix)), true, false);
+            for (const auto& OwnedFile : OwnedSpawnParamsFiles)
+            { IFileManager::Get().Delete(*(SpawnParamsDirectory / OwnedFile), false, true, true); }
+        }
+        IAssetRegistry::GetChecked().RemovePath(AssetRoot);
+        IFileManager::Get().DeleteDirectory(*FPackageName::LongPackageNameToFilename(AssetRoot + TEXT("/")), false, true);
     };
 
     FKismetEditorUtilities::CompileBlueprint(Blueprint.Get());
