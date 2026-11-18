@@ -22,10 +22,12 @@
 #include <HAL/IConsoleManager.h>
 #include <Interfaces/IPluginManager.h>
 #include <ISourceControlModule.h>
+#include <Misc/ScopeExit.h>
 #include <Misc/App.h>
 #include <Misc/PackageName.h>
 #include <Misc/Paths.h>
 #include <PackageSourceControlHelper.h>
+#include <PackageTools.h>
 #include <SourceControlHelpers.h>
 #include <UObject/MetaData.h>
 #include <UObject/Package.h>
@@ -617,9 +619,9 @@ auto
     // editor world, we operate on it live (path A). Otherwise we load the package
     // off-disk and edit the unloaded UWorld in place (path B). Either way, the
     // downstream sync logic is identical.
-    auto bWasLoadedFresh = false;
+    auto TargetWorldSource = ECk_AutoTestTargetWorldSource::ActiveEditorWorld;
     auto LoadSkipReason = FString{};
-    auto* CurrentWorld = Find_OrLoad_TargetWorld(InConfig, bWasLoadedFresh, LoadSkipReason);
+    auto* CurrentWorld = Find_OrLoad_TargetWorld(InConfig, TargetWorldSource, LoadSkipReason);
     if (NOT ck::IsValid(CurrentWorld, ck::IsValid_Policy_NullptrOnly{}))
     {
         Result.bSkipped = true;
@@ -634,6 +636,14 @@ auto
         Result.SkipReason = TEXT("World has no package");
         return Result;
     }
+
+    ON_SCOPE_EXIT
+    {
+        if (TargetWorldSource == ECk_AutoTestTargetWorldSource::LoadedByThisPass)
+        { DoUnload_TargetPackage(InConfig, Package); }
+    };
+
+    const auto bWasLoadedFresh = TargetWorldSource != ECk_AutoTestTargetWorldSource::ActiveEditorWorld;
 
     // Snapshot dirty state BEFORE we make changes.
     //
@@ -1977,11 +1987,11 @@ auto
     UCkAutoTestMapPopulator::
     Find_OrLoad_TargetWorld(
         UCkAutoTestMapConfig* InConfig,
-        bool& OutWasLoadedFresh,
+        ECk_AutoTestTargetWorldSource& OutSource,
         FString& OutSkipReason) const
     -> UWorld*
 {
-    OutWasLoadedFresh = false;
+    OutSource = ECk_AutoTestTargetWorldSource::ActiveEditorWorld;
     OutSkipReason.Reset();
 
     if (NOT ck::IsValid(InConfig, ck::IsValid_Policy_NullptrOnly{}))
@@ -2049,16 +2059,17 @@ auto
                 ck::tests_editor::VeryVerbose(
                     TEXT("[CkAutoTest Populator] [{}] Path A — target map is the active editor world."),
                     InConfig->Get_DisplayName());
-                OutWasLoadedFresh = false;
+                OutSource = ECk_AutoTestTargetWorldSource::ActiveEditorWorld;
                 return EditorWorld;
             }
         }
     }
 
     // ---- Path B: load the unopened target package off-disk -------------------------
-    // The package may already be in memory from a previous sync (we don't unload it
-    // after first use, by design); LoadPackage returns the existing UPackage in that
-    // case and is essentially free.
+    // The package may already be in memory (someone else loaded it); LoadPackage then
+    // returns the resident UPackage, and that owner keeps it. A package this call loads
+    // is the pass's to unload (DoUnload_TargetPackage).
+    const auto WasResident = FindPackage(nullptr, *TargetWorldPath) != nullptr;
     auto* Package = LoadPackage(nullptr, *TargetWorldPath, LOAD_None);
     if (NOT ck::IsValid(Package, ck::IsValid_Policy_NullptrOnly{}))
     {
@@ -2089,8 +2100,47 @@ auto
         TEXT("[CkAutoTest Populator] [{}] Path B — loaded target map off-disk: '{}'."),
         InConfig->Get_DisplayName(), TargetWorldPath);
 
-    OutWasLoadedFresh = true;
+    OutSource = WasResident
+        ? ECk_AutoTestTargetWorldSource::ResidentPackage
+        : ECk_AutoTestTargetWorldSource::LoadedByThisPass;
     return World;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+auto
+    UCkAutoTestMapPopulator::
+    DoUnload_TargetPackage(
+        const UCkAutoTestMapConfig* InConfig,
+        UPackage* InPackage)
+    -> void
+{
+    // Loading a map package makes the editor initialize its world as an Inactive world
+    // (UEditorEngine::OnAssetLoaded). Left resident, only a garbage collection that ignores
+    // RF_Standalone can reclaim it, and that collection cannot deinitialize the world's
+    // subsystems: they are already unreachable, so FSubsystemCollectionBase::Deinitialize
+    // skips them and a tickable one (WorldPartitionSubsystem) ensures as it is destroyed.
+    // UnloadPackages cleans the world up while its subsystems are still reachable. A
+    // resident target package would also send every later pass past the asset-registry
+    // pre-check into a full load-and-sync.
+    if (InPackage->IsDirty())
+    {
+        ck::tests_editor::Warning(
+            TEXT("[CkAutoTest Populator] [{}] Keeping '{}' loaded: it has unsaved changes. Save or discard them; ")
+            TEXT("until then every pass syncs against the loaded copy."),
+            InConfig->Get_DisplayName(), InPackage->GetName());
+        return;
+    }
+
+    auto Unload = UPackageTools::FUnloadPackageParams{TArray<UPackage*>{InPackage}};
+    Unload.bResetTransBuffer = false;
+
+    if (NOT UPackageTools::UnloadPackages(Unload))
+    {
+        ck::tests_editor::Warning(
+            TEXT("[CkAutoTest Populator] [{}] Could not unload '{}' after the pass: {}"),
+            InConfig->Get_DisplayName(), InPackage->GetName(), Unload.OutErrorMessage.ToString());
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------

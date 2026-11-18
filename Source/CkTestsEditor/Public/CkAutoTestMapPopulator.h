@@ -115,6 +115,21 @@ enum class ECk_AutoTestWipeFloorDecision : uint8
 
 // --------------------------------------------------------------------------------------------------------------------
 
+// Where Find_OrLoad_TargetWorld found the world it returned, which decides who tears it down.
+enum class ECk_AutoTestTargetWorldSource : uint8
+{
+    // The open editor world (path A). The editor owns it.
+    ActiveEditorWorld,
+
+    // A package that was already in memory before this pass (path B). Whoever loaded it owns it.
+    ResidentPackage,
+
+    // Loaded off disk by this pass (path B). The pass unloads it before it returns.
+    LoadedByThisPass,
+};
+
+// --------------------------------------------------------------------------------------------------------------------
+
 // --------------------------------------------------------------------------------------------------------------------
 
 // Everything the destructive half needs that the half above it computed. A struct rather than
@@ -262,6 +277,13 @@ public:
     Get_WouldWipeUnrecognizedWrappers(
         int32 InNumWantedClasses,
         int32 InNumAssociatedWrappers) -> bool;
+
+    // Unloads a target package a pass loaded off disk. Kept, with a warning, when it has unsaved
+    // changes. Public so its teardown can be tested without a map on disk.
+    static auto
+    DoUnload_TargetPackage(
+        const UCkAutoTestMapConfig* InConfig,
+        UPackage* InPackage) -> void;
 
     // The wipe authorisation, in ONE place.
     //
@@ -471,16 +493,15 @@ private:
 
     // Resolves the UWorld to sync against for the given config. Two paths:
     //   1. If the config's TargetMap IS the currently-active editor world, returns
-    //      that live world (OutWasLoadedFresh = false). Edits become user-visible
+    //      that live world (ActiveEditorWorld). Edits become user-visible
     //      immediately and the existing dirty-state guard applies.
     //   2. Otherwise, loads the target package via LoadPackage, locates the world
-    //      inside (OutWasLoadedFresh = true). The package was clean before our load,
-    //      so post-edit auto-save is unconditionally safe.
+    //      inside (LoadedByThisPass, or ResidentPackage when it was already in memory).
     // Returns nullptr (and a populated SkipReason via OutSkipReason) on any failure.
     auto
     Find_OrLoad_TargetWorld(
         UCkAutoTestMapConfig* InConfig,
-        bool& OutWasLoadedFresh,
+        ECk_AutoTestTargetWorldSource& OutSource,
         FString& OutSkipReason) const -> UWorld*;
 
     auto
