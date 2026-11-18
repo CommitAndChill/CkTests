@@ -264,21 +264,6 @@ ACk_AutoTest_EntityBridgeSubject_NotReplicated::
 
 // --------------------------------------------------------------------------------------------------------------------
 
-ACk_AutoTest_EntityBridgeSubject_Deferred::
-    ACk_AutoTest_EntityBridgeSubject_Deferred()
-{
-    _EntityBridge->Set_RequestTiming(ECk_EntityBridge_RequestTiming::Deferred);
-}
-
-auto
-    ACk_AutoTest_EntityBridgeSubject_Deferred::
-    DoRequest_Entity()
-    -> void
-{
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-
 auto
     ACk_AutoTest_EntityBridgeSubject_NeverRequests::
     DoRequest_Entity()

@@ -258,26 +258,7 @@ public:
 
 // --------------------------------------------------------------------------------------------------------------------
 
-// Request Timing is Deferred and the Actor never requests: tests drive the bridge themselves.
-UCLASS()
-class CKTESTS_API ACk_AutoTest_EntityBridgeSubject_Deferred : public ACk_AutoTest_EntityBridgeSubject
-{
-    GENERATED_BODY()
-
-public:
-    CK_GENERATED_BODY(ACk_AutoTest_EntityBridgeSubject_Deferred);
-
-public:
-    ACk_AutoTest_EntityBridgeSubject_Deferred();
-
-protected:
-    auto
-    DoRequest_Entity() -> void override;
-};
-
-// --------------------------------------------------------------------------------------------------------------------
-
-// Default Request Timing, but BeginPlay never requests.
+// BeginPlay never requests: tests drive the bridge themselves, or leave it unrequested.
 UCLASS()
 class CKTESTS_API ACk_AutoTest_EntityBridgeSubject_NeverRequests : public ACk_AutoTest_EntityBridgeSubject
 {

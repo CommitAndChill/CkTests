@@ -36,7 +36,7 @@ namespace ck_entity_bridge_admission
     constexpr auto PIEReadyTimeoutSeconds = 30.0f;
     constexpr auto BridgeReadyTimeoutSeconds = 15.0;
     constexpr auto FramesAfterRefusal = 5;
-    constexpr auto FramesForNextTickCheck = 2;
+    constexpr auto FramesBeforeLateRequest = 30;
 
     constexpr auto BridgeSourceFileFragment = TEXT("CkEntityBridge");
 
@@ -119,7 +119,7 @@ bool FCkEntityBridgeAdmission_SecondRequestRefused::RunTest(const FString& Param
     // Occurrences < 0: every matching line is tolerated, including none when the log line was already consumed.
     AddExpectedError(TEXT("called more than once"), EAutomationExpectedErrorFlags::Contains, -1);
 
-    const auto SubjectClass = SubjectClassType{ACk_AutoTest_EntityBridgeSubject_Deferred::StaticClass()};
+    const auto SubjectClass = SubjectClassType{ACk_AutoTest_EntityBridgeSubject_NeverRequests::StaticClass()};
     const auto ScriptClass = UCk_AutoTest_EntityBridge_EntityScript_UE::StaticClass();
 
     Do_StartPIE();
@@ -198,7 +198,7 @@ bool FCkEntityBridgeAdmission_PlainScriptThroughBridgeRefused::RunTest(const FSt
     // Occurrences < 0: every matching line is tolerated, including none when the log line was already consumed.
     AddExpectedError(TEXT("is not an actor-bound EntityScript"), EAutomationExpectedErrorFlags::Contains, -1);
 
-    const auto SubjectClass = SubjectClassType{ACk_AutoTest_EntityBridgeSubject_Deferred::StaticClass()};
+    const auto SubjectClass = SubjectClassType{ACk_AutoTest_EntityBridgeSubject_NeverRequests::StaticClass()};
     const auto PlainScriptClass = UCk_AutoTest_EntityBridge_PlainEntityScript_UE::StaticClass();
 
     Do_StartPIE();
@@ -314,78 +314,97 @@ bool FCkEntityBridgeAdmission_ActorBoundThroughRawSpawnRefused::RunTest(const FS
 // --------------------------------------------------------------------------------------------------------------------
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-    FCkEntityBridgeAdmission_ForgottenRequestEnsuresNextTick,
-    "Ck.EntityBridge.Admission.ForgottenRequestEnsuresNextTick",
+    FCkEntityBridgeAdmission_LateRequestIsAccepted,
+    "Ck.EntityBridge.Admission.LateRequestIsAccepted",
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
-bool FCkEntityBridgeAdmission_ForgottenRequestEnsuresNextTick::RunTest(const FString& Parameters)
+bool FCkEntityBridgeAdmission_LateRequestIsAccepted::RunTest(const FString& Parameters)
 {
     using namespace ck_entity_bridge_admission;
 
-    // Occurrences < 0: every matching line is tolerated, including none when the log line was already consumed.
-    AddExpectedError(TEXT("did not call Request_SpawnLinkedEntity during BeginPlay"), EAutomationExpectedErrorFlags::Contains, -1);
+    const auto SubjectClass = SubjectClassType{ACk_AutoTest_EntityBridgeSubject_NeverRequests::StaticClass()};
+    const auto ScriptClass = UCk_AutoTest_EntityBridge_EntityScript_UE::StaticClass();
 
-    // The check fires from a timer, so the window spans frames; counting only the bridge's own source files keeps
-    // unrelated ensures in those frames out of it.
     struct FObservations
     {
-        int64 _BridgeEnsuresBefore_DefaultTiming = 0;
-        int64 _BridgeEnsuresBefore_Deferred = 0;
+        int64 _BridgeEnsuresBefore = 0;
     };
 
     auto Observations = MakeShared<FObservations>();
 
     Do_StartPIE();
 
-    // ---- Default timing, BeginPlay does not request: ensures within two ticks. ---------------------------------------
-
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this, Observations](UWorld* InServer) -> void
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, Observations, SubjectClass](UWorld* InServer) -> void
         {
-            Observations->_BridgeEnsuresBefore_DefaultTiming =
-                ck::auto_test::entity_bridge::Get_EnsureCount_FromFiles(BridgeSourceFileFragment);
-
-            std::ignore = Do_Spawn(*this, InServer, ACk_AutoTest_EntityBridgeSubject_NeverRequests::StaticClass());
+            Observations->_BridgeEnsuresBefore = ck::auto_test::entity_bridge::Get_EnsureCount_FromFiles(BridgeSourceFileFragment);
+            std::ignore = Do_Spawn(*this, InServer, SubjectClass);
         })));
 
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesForNextTickCheck));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesBeforeLateRequest));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
-        FCk_NetAutoTest_Assertion::CreateLambda([this, Observations]() -> bool
+        FCk_NetAutoTest_Assertion::CreateLambda([this, Observations, SubjectClass]() -> bool
         {
-            TestEqual(TEXT("a default-timing bridge whose Actor never requested ensured once within two ticks"),
-                ck::auto_test::entity_bridge::Get_EnsureCount_FromFiles(BridgeSourceFileFragment) -
-                    Observations->_BridgeEnsuresBefore_DefaultTiming,
-                int64{1});
+            auto* Subject = ACk_AutoTest_EntityBridgeSubject::Find(ck::auto_test::net::Get_ServerWorld(), SubjectClass);
 
-            return true;
-        }),
-        TEXT("the forgotten request is reported on the next tick")));
+            if (ck::Is_NOT_Valid(Subject))
+            {
+                AddError(TEXT("the subject is missing"));
+                return false;
+            }
 
-    // ---- Deferred timing, never requests: no ensure. -----------------------------------------------------------------
-
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
-        FCk_NetAutoTest_ServerAction::CreateLambda([this, Observations](UWorld* InServer) -> void
-        {
-            Observations->_BridgeEnsuresBefore_Deferred =
-                ck::auto_test::entity_bridge::Get_EnsureCount_FromFiles(BridgeSourceFileFragment);
-
-            std::ignore = Do_Spawn(*this, InServer, ACk_AutoTest_EntityBridgeSubject_Deferred::StaticClass());
-        })));
-
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(FramesForNextTickCheck));
-
-    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
-        FCk_NetAutoTest_Assertion::CreateLambda([this, Observations]() -> bool
-        {
-            TestEqual(TEXT("a Deferred bridge whose Actor never requested did not ensure"),
-                ck::auto_test::entity_bridge::Get_EnsureCount_FromFiles(BridgeSourceFileFragment) -
-                    Observations->_BridgeEnsuresBefore_Deferred,
+            Do_TestState(*this, *Subject, ECk_EntityBridge_State::NotRequested, TEXT("before the late request"));
+            TestEqual(TEXT("a bridge whose Actor has not requested yet did not ensure"),
+                ck::auto_test::entity_bridge::Get_EnsureCount_FromFiles(BridgeSourceFileFragment) - Observations->_BridgeEnsuresBefore,
                 int64{0});
 
             return true;
         }),
-        TEXT("a Deferred bridge is not checked")));
+        TEXT("an unrequested bridge stays quiet")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([SubjectClass, ScriptClass](UWorld* InServer) -> void
+        {
+            auto* Subject = ACk_AutoTest_EntityBridgeSubject::Find(InServer, SubjectClass);
+
+            if (ck::Is_NOT_Valid(Subject))
+            { return; }
+
+            Subject->Get_EntityBridge()->Request_SpawnLinkedEntity(ScriptClass);
+        })));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([SubjectClass]() -> bool
+        {
+            const auto* Subject = ACk_AutoTest_EntityBridgeSubject::Find(ck::auto_test::net::Get_ServerWorld(), SubjectClass);
+
+            if (ck::Is_NOT_Valid(Subject))
+            { return false; }
+
+            return Subject->Get_EntityBridge()->Get_State() == ECk_EntityBridge_State::Ready;
+        }),
+        BridgeReadyTimeoutSeconds,
+        TEXT("the late request's entity is Ready")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([this, SubjectClass]() -> bool
+        {
+            auto* Server = ck::auto_test::net::Get_ServerWorld();
+            const auto* Subject = ACk_AutoTest_EntityBridgeSubject::Find(Server, SubjectClass);
+
+            if (ck::Is_NOT_Valid(Subject))
+            {
+                AddError(TEXT("the subject is missing"));
+                return false;
+            }
+
+            TestEqual(TEXT("exactly one entity is linked to the subject after the late request"),
+                ck::auto_test::entity_bridge::Get_LinkedEntityCount(Server, Subject), 1);
+
+            return true;
+        }),
+        TEXT("a request made long after BeginPlay builds the Actor's entity")));
 
     Do_EndPIE(*this);
 
