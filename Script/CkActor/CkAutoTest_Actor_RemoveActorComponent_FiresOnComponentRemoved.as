@@ -43,16 +43,16 @@ class UCk_AutoTest_Actor_RemoveActorComponent_FiresOnComponentRemoved : UCk_Auto
             return;
         }
 
-        _Helper.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _Helper.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        _OwnedEntity = FCk_Handle(InEntityScriptHandle);
+        _OwnedEntity = InEntity;
 
         auto ComponentParams = FCk_AddActorComponent_Params(_Helper.SceneRoot);
         ComponentParams.Set_AttachmentType(ECk_ActorComponent_AttachmentPolicy::DoNotAttach);

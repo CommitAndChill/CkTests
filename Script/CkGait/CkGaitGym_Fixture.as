@@ -1,5 +1,70 @@
 // Language=angelscript
 
+// Composes the walker's gait, its two bobs, the rigid twin and their cubes.
+class UCk_GaitGym_Walker_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    default _Replication = ECk_Replication::DoesNotReplicate;
+
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Actor = Cast<ACk_GaitGym_Walker>(DoGet_Actor());
+        auto GaitSpec = FCk_Gait_Spec();
+        GaitSpec.Set_MovementComponent(Actor.CharacterMovement);
+        Actor.Gait = utils_gait::Add(InHandle, GaitSpec);
+        if (ck::Is_NOT_Valid(Actor.Gait))
+        {
+            return ECk_EntityScript_ConstructionFlow::Finished;
+        }
+
+        auto WalkerTransform = InHandle.As_Transform();
+        auto Raw = utils_bob::Create(WalkerTransform, FTransform(FVector(0.0, -40.0, 80.0)), Make_DemoSpec(Actor.Gait));
+        auto Lagged = Make_DemoSpec(Actor.Gait);
+        Lagged.Set_LagRate(14.0f);
+        auto Smoothed = utils_bob::Create(WalkerTransform, FTransform(FVector(0.0, 0.0, 110.0)), Lagged);
+        if (ck::Is_NOT_Valid(Raw) || ck::Is_NOT_Valid(Smoothed))
+        {
+            return ECk_EntityScript_ConstructionFlow::Finished;
+        }
+
+        Add_Cube(Actor, Raw.As_Transform());
+        Add_Cube(Actor, Smoothed.As_Transform());
+        // The rigid twin: same height, 80 cm across from the raw bob, directly on the walker, so the bob reads against it.
+        auto Twin = utils_scene_node::Create(WalkerTransform, FTransform(FVector(0.0, 40.0, 80.0)));
+        Add_Cube(Actor, Twin.As_Transform());
+        Actor.Composed = true;
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+
+    // Demonstration tune: larger than a gameplay head bob so it reads at gym distance. Not a recommended gameplay tune.
+    FCk_Bob_Spec Make_DemoSpec(FCk_Handle_Gait InGait) const
+    {
+        auto Stride = FCk_Bob_StrideParams(6.0f, 4.0f);
+        Stride.Set_RollDeg(6.0f);
+        Stride.Set_PitchDeg(4.0f);
+        auto Air = FCk_Bob_AirParams();
+        Air.Set_Spring(FCk_Bob_SpringResponse(3.0f, 0.35f));
+
+        auto Spec = FCk_Bob_Spec();
+        Spec.Set_Gait(InGait);
+        Spec.Set_Stride(Stride);
+        Spec.Set_Air(Air);
+        Spec.Set_LagRate(0.0f);
+        return Spec;
+    }
+
+    // The walker receives the cube mesh components as they are added and dresses them.
+    void Add_Cube(ACk_GaitGym_Walker InWalker, FCk_Handle_Transform InAttachTo)
+    {
+        auto Node = utils_scene_node::Create(InAttachTo, FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(0.25, 0.25, 0.25)));
+        const auto ComponentParams = utils_unreal_component::Make_Params(UStaticMeshComponent,
+            ECk_UnrealComponent_TickPolicy::DoNotTick, n"GaitGym_Cube");
+        auto ComponentHandle = utils_unreal_component::Add(FCk_Handle(Node), ComponentParams);
+        utils_unreal_component::BindTo_OnAdded(ComponentHandle,
+            FCk_Delegate_UnrealComponent_OnAdded(InWalker, n"OnGaitGymCubeAdded"));
+    }
+}
+
 // The gym's walking character. It has no controller, so its movement component runs no physics: the scripted velocity
 // is reported to the gait exactly as set and the body stays on its station (a treadmill), which keeps the bobs framed.
 class ACk_GaitGym_Walker : ACharacter
@@ -13,6 +78,10 @@ class ACk_GaitGym_Walker : ACharacter
 
     UPROPERTY(DefaultComponent)
     UCk_EntityBridge_ActorComponent_UE EntityBridge;
+
+    // Written by UCk_GaitGym_Walker_EntityScript; Composed is false when any part failed to compose.
+    FCk_Handle_Gait Gait;
+    bool Composed = false;
 
     private float _ScriptSeconds = 0.0f;
     private int32 _AppliedCommand = -1;
@@ -35,7 +104,20 @@ class ACk_GaitGym_Walker : ACharacter
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        EntityBridge.Request_SpawnLinkedEntity(UCkAutoTest_ActorEntity_EntityScript);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_GaitGym_Walker_EntityScript);
+    }
+
+    UFUNCTION()
+    void OnGaitGymCubeAdded(FCk_Handle_UnrealComponent InHandle)
+    {
+        auto MeshComponent = Cast<UStaticMeshComponent>(utils_unreal_component::Get_Component(InHandle));
+        if (ck::Is_NOT_Valid(MeshComponent))
+        {
+            return;
+        }
+
+        MeshComponent.SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        MeshComponent.SetStaticMesh(Cast<UStaticMesh>(LoadObject(this, "/Engine/BasicShapes/Cube.Cube")));
     }
 
     // Motion script (no input): fly +X at 420 cm/s for 3 s, -X for 3 s, repeat; every 7 s a 0.5 s hop (falling at 500 cm/s),
@@ -80,76 +162,14 @@ struct FCkGaitGym_Fixture
 {
     ACk_GaitGym_Walker Walker;
     FCk_Handle_Gait Gait;
-    TArray<FCk_Handle_Bob> Bobs;
     FVector Origin;
 
-    // Spawns the walker; the caller promises OnEntityConstructed on Walker.EntityBridge and then calls Compose.
+    // Spawns the walker; its script composes the station, and the caller promises OnEntityReady on Walker.EntityBridge.
     bool Spawn(FVector InOrigin)
     {
         Origin = InOrigin;
-        Bobs.Reset();
         Walker = Cast<ACk_GaitGym_Walker>(SpawnActor(ACk_GaitGym_Walker, InOrigin, FRotator::ZeroRotator));
         return ck::IsValid(Walker);
-    }
-
-    // InMeshListener receives the cube mesh components as they are added (FCk_Delegate_UnrealComponent_OnAdded needs a UObject).
-    bool Compose(UObject InMeshListener, FCk_Handle_EntityScript InEntityScript)
-    {
-        auto Entity = FCk_Handle(InEntityScript);
-        auto GaitSpec = FCk_Gait_Spec();
-        GaitSpec.Set_MovementComponent(Walker.CharacterMovement);
-        Gait = utils_gait::Add(Entity, GaitSpec);
-        if (ck::Is_NOT_Valid(Gait))
-        {
-            return false;
-        }
-
-        auto WalkerTransform = Entity.As_Transform();
-        auto Raw = utils_bob::Create(WalkerTransform, FTransform(FVector(0.0, -40.0, 80.0)), Make_DemoSpec());
-        auto Lagged = Make_DemoSpec();
-        Lagged.Set_LagRate(14.0f);
-        auto Smoothed = utils_bob::Create(WalkerTransform, FTransform(FVector(0.0, 0.0, 110.0)), Lagged);
-        if (ck::Is_NOT_Valid(Raw) || ck::Is_NOT_Valid(Smoothed))
-        {
-            return false;
-        }
-
-        Bobs.Add(Raw);
-        Bobs.Add(Smoothed);
-
-        Add_Cube(InMeshListener, Raw.As_Transform());
-        Add_Cube(InMeshListener, Smoothed.As_Transform());
-        // The rigid twin: same height, 80 cm across from the raw bob, directly on the walker, so the bob reads against it.
-        auto Twin = utils_scene_node::Create(WalkerTransform, FTransform(FVector(0.0, 40.0, 80.0)));
-        Add_Cube(InMeshListener, Twin.As_Transform());
-        return true;
-    }
-
-    // Demonstration tune: larger than a gameplay head bob so it reads at gym distance. Not a recommended gameplay tune.
-    FCk_Bob_Spec Make_DemoSpec() const
-    {
-        auto Stride = FCk_Bob_StrideParams(6.0f, 4.0f);
-        Stride.Set_RollDeg(6.0f);
-        Stride.Set_PitchDeg(4.0f);
-        auto Air = FCk_Bob_AirParams();
-        Air.Set_Spring(FCk_Bob_SpringResponse(3.0f, 0.35f));
-
-        auto Spec = FCk_Bob_Spec();
-        Spec.Set_Gait(Gait);
-        Spec.Set_Stride(Stride);
-        Spec.Set_Air(Air);
-        Spec.Set_LagRate(0.0f);
-        return Spec;
-    }
-
-    void Add_Cube(UObject InMeshListener, FCk_Handle_Transform InAttachTo)
-    {
-        auto Node = utils_scene_node::Create(InAttachTo, FTransform(FRotator::ZeroRotator, FVector::ZeroVector, FVector(0.25, 0.25, 0.25)));
-        const auto ComponentParams = utils_unreal_component::Make_Params(UStaticMeshComponent,
-            ECk_UnrealComponent_TickPolicy::DoNotTick, n"GaitGym_Cube");
-        auto ComponentHandle = utils_unreal_component::Add(FCk_Handle(Node), ComponentParams);
-        utils_unreal_component::BindTo_OnAdded(ComponentHandle,
-            FCk_Delegate_UnrealComponent_OnAdded(InMeshListener, n"OnGaitGymCubeAdded"));
     }
 
     void Request_Destroy()

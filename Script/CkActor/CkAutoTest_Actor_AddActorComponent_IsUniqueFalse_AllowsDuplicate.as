@@ -42,15 +42,15 @@ class UCk_AutoTest_Actor_AddActorComponent_IsUniqueFalse_AllowsDuplicate : UCk_A
             return;
         }
 
-        _Helper.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _Helper.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
-        _OwnedEntity = FCk_Handle(InEntityScriptHandle);
+        _OwnedEntity = InEntity;
 
         // Dispatch both adds upfront, each binding its own request-fulfilled
         // signal. Dispatching the second from inside the first delegate

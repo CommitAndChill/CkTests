@@ -1,7 +1,8 @@
 //============================================================================
 // CkUnrealComponent Gym - Driver Actor
 //
-// Each station spawns one ACk_UnrealComponentGym_Driver. The driver:
+// Each station spawns one ACk_UnrealComponentGym_Driver. The driver (steps 1-3
+// in its entity script's DoConstruct):
 //   1. Spawns an ECS entity with Transform fragment.
 //   2. Calls UCk_Utils_UnrealComponent_UE::Add() to attach a UActorComponent
 //      of the chosen ComponentType to the entity. The component is created
@@ -69,35 +70,7 @@ class ACk_UnrealComponentGym_Driver : AActor
 		if (HasAuthority() == false)
 		{ return; }
 
-		EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-		EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
-	}
-
-	UFUNCTION()
-	private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-	{
-		if (System::IsServer() == false)
-		{ return; }
-
-		auto InEntity = FCk_Handle(InEntityScriptHandle);
-		InEntity.Set_DebugName(FName(f"UnrealComponent_{ComponentType}"));
-		EcsEntity = InEntity;
-
-		// UCk_EntityScript_WithActor_UE already adds the Transform fragment
-		// (linked to the owning actor's RootComponent) - do not re-add.
-
-		auto ComponentClass = Get_ComponentClass();
-		if (ck::IsValid(ComponentClass) == false)
-		{ return; }
-
-		const auto Params = utils_unreal_component::Make_Params(ComponentClass, ECk_UnrealComponent_TickPolicy::DoNotTick, n"UnrealComponentGym");
-		ComponentHandle = utils_unreal_component::Add(InEntity, Params);
-
-		utils_unreal_component::BindTo_OnAdded(
-			ComponentHandle,
-			FCk_Delegate_UnrealComponent_OnAdded(this, n"OnComponentAdded"));
-
-		utils_timer::Create_Tick(InEntity, FCk_Delegate_Timer(this, n"OnFrameTick"));
+		EntityBridge.Request_SpawnLinkedEntity(UCk_UnrealComponentGym_Driver_EntityScript);
 	}
 
 	UFUNCTION()
@@ -254,5 +227,43 @@ class ACk_UnrealComponentGym_Driver : AActor
 		if (ComponentType == ECk_UnrealComponentGym_Type::Sphere)     { return USphereComponent; }
 		if (ComponentType == ECk_UnrealComponentGym_Type::Capsule)    { return UCapsuleComponent; }
 		return nullptr;
+	}
+}
+
+// Composes the driver's entity on the server: the Unreal component of the driver's ComponentType (its OnAdded bound
+// to the driver) and the per-frame tick.
+class UCk_UnrealComponentGym_Driver_EntityScript : UCk_EntityScript_WithActor_UE
+{
+	UFUNCTION(BlueprintOverride)
+	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+	{
+		auto Actor = Cast<ACk_UnrealComponentGym_Driver>(DoGet_Actor());
+		if (!Actor.HasAuthority())
+		{ return ECk_EntityScript_ConstructionFlow::Finished; }
+
+		if (System::IsServer() == false)
+		{ return ECk_EntityScript_ConstructionFlow::Finished; }
+
+		InHandle.Set_DebugName(FName(f"UnrealComponent_{Actor.ComponentType}"));
+		// Stored here rather than at Ready: the tick composed below reads it.
+		Actor.EcsEntity = InHandle;
+
+		// UCk_EntityScript_WithActor_UE already adds the Transform fragment
+		// (linked to the owning actor's RootComponent) - do not re-add.
+
+		auto ComponentClass = Actor.Get_ComponentClass();
+		if (ck::IsValid(ComponentClass) == false)
+		{ return ECk_EntityScript_ConstructionFlow::Finished; }
+
+		const auto Params = utils_unreal_component::Make_Params(ComponentClass, ECk_UnrealComponent_TickPolicy::DoNotTick, n"UnrealComponentGym");
+		Actor.ComponentHandle = utils_unreal_component::Add(InHandle, Params);
+
+		utils_unreal_component::BindTo_OnAdded(
+			Actor.ComponentHandle,
+			FCk_Delegate_UnrealComponent_OnAdded(Actor, n"OnComponentAdded"));
+
+		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(Actor, n"OnFrameTick"));
+
+		return ECk_EntityScript_ConstructionFlow::Finished;
 	}
 }

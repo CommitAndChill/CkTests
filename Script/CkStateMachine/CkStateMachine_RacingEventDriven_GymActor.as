@@ -18,6 +18,24 @@
 // FAIL = Counter_DestA == 1, Counter_DestB == 0 (state evaluator Break'd on
 //        ToDestA's Undetermined and never inspected ToDestB).
 
+// Composes the actor's state machine, on the server only.
+class UCk_SmTest_RacingEventDriven_GymActor_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        if (System::IsServer() == false)
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        auto Actor = Cast<ACk_SmTest_RacingEventDriven_GymActor>(DoGet_Actor());
+        InHandle.Set_DebugName(n"RacingSmEntity");
+        Actor.SmEntity = InHandle;
+        Actor.SmHandle = UCk_Utils_StateMachine_UE::Add(InHandle, FCk_StateMachine_Spec(UCk_SmTest_Racing_State_Idle));
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+}
+
 UCLASS(Blueprintable)
 class ACk_SmTest_RacingEventDriven_GymActor : AActor
 {
@@ -100,24 +118,12 @@ class ACk_SmTest_RacingEventDriven_GymActor : AActor
         if (HasAuthority() == false)
         { return; }
 
-        // Spawn a fresh sub-entity to host the SM, then add the SM. The
+        // Spawn the actor's entity; its script adds the SM. The
         // states' conditions read SlowDelaySeconds/FastDelaySeconds from
         // this actor when they DoEnterCondition.
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_SmTest_RacingEventDriven_GymActor_EntityScript);
 
         System::SetTimer(this, n"OnSettled", SettleSeconds, false);
-    }
-
-    UFUNCTION()
-    private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-    {
-        if (System::IsServer() == false)
-        { return; }
-
-        SmEntity = FCk_Handle(InEntityScriptHandle);
-        SmEntity.Set_DebugName(n"RacingSmEntity");
-        SmHandle = UCk_Utils_StateMachine_UE::Add(SmEntity, FCk_StateMachine_Spec(UCk_SmTest_Racing_State_Idle));
     }
 
     UFUNCTION()

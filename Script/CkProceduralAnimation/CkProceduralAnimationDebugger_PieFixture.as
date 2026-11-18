@@ -18,14 +18,14 @@ class ACk_ProceduralAnimationDebugger_PieFixture : AActor
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnConstructed"));
+        EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
         EntityBridge.Request_SpawnLinkedEntity(UCk_ProceduralAnimationDebugger_PieFixture_EntityScript);
     }
 
     UFUNCTION()
-    private void OnConstructed(FCk_Handle_EntityScript InEntityScript)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
-        auto Handle = FCk_Handle(InEntityScript);
+        auto Handle = InEntity;
         if (_Ended)
         {
             utils_entity_lifetime::Request_DestroyEntity(Handle);

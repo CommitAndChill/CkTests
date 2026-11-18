@@ -10,6 +10,31 @@
 // When EnablePauseResume is true, the SM pauses after PauseAfterTransitions
 // transitions and resumes after PauseDuration seconds.
 
+// Composes the actor's state machine and binds its signals, on the server only.
+class UCk_SmTest_GymActor_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        if (System::IsServer() == false)
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        auto Actor = Cast<ACk_SmTest_GymActor>(DoGet_Actor());
+        InHandle.Set_DebugName(n"StateMachine");
+        auto StateClass = Actor.InitialStateClass.IsValid()
+            ? Actor.InitialStateClass
+            : TSubclassOf<UCk_SmState_EntityScript>(UCk_SmTest_State_Idle);
+        Actor.SmHandle = UCk_Utils_StateMachine_UE::Add(
+            InHandle,
+            FCk_StateMachine_Spec(StateClass));
+
+        // Bound right after the Add so OnStarted and the first OnStateChanged cannot fire unobserved.
+        Actor.BindSignals();
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+}
+
 UCLASS(Blueprintable)
 class ACk_SmTest_GymActor : AActor
 {
@@ -90,38 +115,15 @@ class ACk_SmTest_GymActor : AActor
 
         if (HasAuthority())
         {
-            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-            EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+            EntityBridge.Request_SpawnLinkedEntity(UCk_SmTest_GymActor_EntityScript);
         }
     }
 
     // ========================================================================
-    // ECS SETUP
+    // SIGNAL BINDING (called by UCk_SmTest_GymActor_EntityScript)
     // ========================================================================
 
-    UFUNCTION()
-    private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-    {
-        if (System::IsServer() == false)
-        { return; }
-
-        auto OwnerHandle = FCk_Handle(InEntityScriptHandle);
-        OwnerHandle.Set_DebugName(n"StateMachine");
-        auto StateClass = InitialStateClass.IsValid()
-            ? InitialStateClass
-            : TSubclassOf<UCk_SmState_EntityScript>(UCk_SmTest_State_Idle);
-        SmHandle = UCk_Utils_StateMachine_UE::Add(
-            OwnerHandle,
-            FCk_StateMachine_Spec(StateClass));
-
-        BindSignals();
-    }
-
-    // ========================================================================
-    // SIGNAL BINDING
-    // ========================================================================
-
-    private void BindSignals()
+    void BindSignals()
     {
         FCk_Delegate_Sm_OnStateChanged OnStateChangedDelegate;
         OnStateChangedDelegate.BindUFunction(this, n"OnSmStateChanged");

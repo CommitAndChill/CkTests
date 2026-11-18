@@ -36,46 +36,7 @@ class ACkAudioGym_Advanced_StationSpawner : AActor
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
-    }
-
-    UFUNCTION()
-    void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-    {
-        auto InEntity = FCk_Handle(InEntityScriptHandle);
-        InEntity.Set_DebugName(n"StationSpawner");
-        SpawnStation();
-    }
-
-    void SpawnStation()
-    {
-        if (StationEntityScriptClass == nullptr)
-        {
-            Print("[FAIL] No station class selected in StationSpawner", 5.0f);
-            return;
-        }
-
-        // Use actor's transform or override
-        auto SpawnTransform = bOverrideStationTransform ? StationTransform : GetActorTransform();
-
-        // Create spawn params
-        auto SpawnParams = FCkAudioGym_Advanced_Station_SpawnParams();
-        SpawnParams.Transform = SpawnTransform;
-
-        // Spawn the station entity script
-        auto StationEntity = utils_entity_script::Request_SpawnEntity(ck::ToEntity(this),
-            StationEntityScriptClass, SpawnParams);
-
-        if (ck::IsValid(StationEntity))
-        {
-            Print("[OK] Station spawned successfully", 3.0f);
-            Print("* Position: Transform applied", 2.0f);
-        }
-        else
-        {
-            Print("[FAIL] Failed to spawn station", 3.0f);
-        }
+        EntityBridge.Request_SpawnLinkedEntity(UCkAudioGym_Advanced_StationSpawner_EntityScript);
     }
 
         void SetupTextRender()
@@ -122,5 +83,45 @@ class ACkAudioGym_Advanced_StationSpawner : AActor
         _FullName = FullName.Replace(" }", "");
 
         return _FullName;
+    }
+}
+
+// Composes the spawner's entity: the chosen station, spawned as a child of it.
+class UCkAudioGym_Advanced_StationSpawner_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Actor = Cast<ACkAudioGym_Advanced_StationSpawner>(DoGet_Actor());
+        InHandle.Set_DebugName(n"StationSpawner");
+
+        if (Actor.StationEntityScriptClass == nullptr)
+        {
+            Print("[FAIL] No station class selected in StationSpawner", 5.0f);
+            return ECk_EntityScript_ConstructionFlow::Finished;
+        }
+
+        // Use actor's transform or override
+        auto SpawnTransform = Actor.bOverrideStationTransform ? Actor.StationTransform : Actor.GetActorTransform();
+
+        // Create spawn params
+        auto SpawnParams = FCkAudioGym_Advanced_Station_SpawnParams();
+        SpawnParams.Transform = SpawnTransform;
+
+        // Spawn the station entity script
+        auto StationEntity = utils_entity_script::Request_SpawnEntity(InHandle,
+            Actor.StationEntityScriptClass, SpawnParams);
+
+        if (ck::IsValid(StationEntity))
+        {
+            Print("[OK] Station spawned successfully", 3.0f);
+            Print("* Position: Transform applied", 2.0f);
+        }
+        else
+        {
+            Print("[FAIL] Failed to spawn station", 3.0f);
+        }
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
     }
 }

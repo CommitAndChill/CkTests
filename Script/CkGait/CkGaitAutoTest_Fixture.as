@@ -48,7 +48,7 @@ struct FCk_GaitAutoTestFixture
     FCk_Handle_Bob Bob;
     FVector Origin;
 
-    // Spawns the character at InOrigin; the caller promises OnEntityConstructed on Character.EntityBridge and then calls Ready.
+    // Spawns the character at InOrigin; the caller promises OnEntityReady on Character.EntityBridge and then calls Ready.
     void Spawn(UCk_AutoTest_Base InTest, FVector InOrigin = FVector(0.0, 0.0, -40000.0))
     {
         Origin = InOrigin;
@@ -63,9 +63,9 @@ struct FCk_GaitAutoTestFixture
         Character.Fly(FVector::ZeroVector);
     }
 
-    void Ready(FCk_Handle InOwner, FCk_Handle_EntityScript InEntityScript)
+    void Ready(FCk_Handle InOwner, FCk_Handle InEntity)
     {
-        Entity = FCk_Handle(InEntityScript);
+        Entity = InEntity;
         Root = utils_transform::Create(InOwner, FTransform(Origin), ECk_Replication::DoesNotReplicate);
     }
 

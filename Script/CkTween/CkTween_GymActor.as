@@ -33,12 +33,7 @@ class ACk_TweenTest_GymActor : AActor
         auto _CkPerfScope = ck::ScopedStat();
         TextRenderer.SetText(ck::Text(f"{TweenEasingMethod}"));
 
-        if (HasAuthority())
-        {
-            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-        }
-
-        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_TweenTest_GymActor_EntityScript);
     }
 
     UFUNCTION()
@@ -55,23 +50,27 @@ class ACk_TweenTest_GymActor : AActor
 
     UPROPERTY()
     FCk_Handle_Tween TweenHandle;
+};
 
-	UFUNCTION()
-	private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-	{
-		if (System::IsServer() == false)
-		{ return; }
-
-        auto InEntity = FCk_Handle(InEntityScriptHandle);
-        InEntity.Set_DebugName(n"TweenCube");
-        StartLocation = GetActorLocation();
-        EndLocation = StartLocation + FVector(0.0f, 0.0f, 200.0f);
-        TweenToLocation(InEntity.As_Transform());
-	}
-
-    UFUNCTION()
-    private void TweenToLocation(FCk_Handle_Transform InEntity)
+// Composes the actor's entity on the server: a yoyo location tween 200 units up from where the actor stands.
+class UCk_TweenTest_GymActor_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
     {
-        TweenHandle = utils_tween::Create_TweenEntityLocation(InEntity, EndLocation, TweenDuration, TweenEasingMethod, ECk_TweenLoopType::Yoyo, -1, 0.0f);
-	}
+        auto Actor = Cast<ACk_TweenTest_GymActor>(DoGet_Actor());
+        if (!Actor.HasAuthority())
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        if (System::IsServer() == false)
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        InHandle.Set_DebugName(n"TweenCube");
+        Actor.StartLocation = Actor.GetActorLocation();
+        Actor.EndLocation = Actor.StartLocation + FVector(0.0f, 0.0f, 200.0f);
+        Actor.TweenHandle = utils_tween::Create_TweenEntityLocation(InHandle.As_Transform(), Actor.EndLocation, Actor.TweenDuration,
+            Actor.TweenEasingMethod, ECk_TweenLoopType::Yoyo, -1, 0.0f);
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
 };

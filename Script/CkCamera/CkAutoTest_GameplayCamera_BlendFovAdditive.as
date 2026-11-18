@@ -29,16 +29,16 @@ class UCk_AutoTest_GameplayCamera_BlendFovAdditive : UCk_AutoTest_Base
         if (ck::Is_NOT_Valid(_Helper))
         { FinishFailure("Failed to spawn GameplayCamera helper"); return; }
 
-        _Helper.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _Helper.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        auto OwnedEntity = FCk_Handle(InEntityScriptHandle);
+        auto OwnedEntity = InEntity;
         auto OwnedTransform = OwnedEntity.As_Transform();
         _Camera = utils_camera::Add(OwnedTransform, FCk_Camera_Spec(_Helper.CameraComponent));
 

@@ -35,16 +35,16 @@ class UCk_AutoTest_Actor_AddActorComponent_Tags_PropagateToComponent : UCk_AutoT
             return;
         }
 
-        _Helper.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _Helper.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        auto OwnedEntity = FCk_Handle(InEntityScriptHandle);
+        auto OwnedEntity = InEntity;
 
         auto Tags = TArray<FName>();
         Tags.Add(n"AutoTest.Tag.Alpha");

@@ -9,7 +9,7 @@
 //   UCk_Utils_Usf_CelPattern_UE::Request_ClearCelPattern(Handle)
 //
 // The actor path is the one CkUsf itself implements: each subject spawns a
-// UCk_EntityScript_WithActor_UE bound to itself, so the entity carries an
+// UCk_EntityScript_WithActor_UE subclass bound to itself, so the entity carries an
 // owning actor and FProcessor_Usf_CelPatternActor_Sync writes the stencil onto
 // its primitives. ISM / ISKM proxies are not covered - the same distribution
 // entity outlines have, one sync processor per renderer module.
@@ -36,7 +36,7 @@ class ACk_UsfGym_StylizeCelEntitySubject : AActor
     ECk_Usf_CelPattern Pattern = ECk_Usf_CelPattern::Bayer;
 
     private FCk_Handle _Entity;
-    private bool _PatternApplied = false;
+    bool _PatternApplied = false; // first set by the entity script's initial pattern
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
@@ -65,17 +65,17 @@ class ACk_UsfGym_StylizeCelEntitySubject : AActor
         // gets a local entity (no EntityReplicationDriver).
         if (HasAuthority())
         {
-            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-            EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+            EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
+            EntityBridge.Request_SpawnLinkedEntity(UCk_UsfGym_StylizeCelEntitySubject_EntityScript);
         }
     }
 
+    // The initial pattern is composed by UCk_UsfGym_StylizeCelEntitySubject_EntityScript; toggles go through the
+    // Request_ functions below.
     UFUNCTION()
-    void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
-        _Entity = FCk_Handle(InEntityScriptHandle);
-        _Entity.Set_DebugName(n"UsfCelPatternSubject");
-        Request_ApplyPattern();
+        _Entity = InEntity;
     }
 
     void Request_ApplyPattern()
@@ -105,5 +105,25 @@ class ACk_UsfGym_StylizeCelEntitySubject : AActor
         { Request_ClearPattern(); }
         else
         { Request_ApplyPattern(); }
+    }
+}
+
+// Composes the subject's entity: the subject's Pattern, applied once at construction.
+class UCk_UsfGym_StylizeCelEntitySubject_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Actor = Cast<ACk_UsfGym_StylizeCelEntitySubject>(DoGet_Actor());
+        if (!Actor.HasAuthority())
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        InHandle.Set_DebugName(n"UsfCelPatternSubject");
+
+        UCk_Utils_Usf_CelPattern_UE::Request_SetCelPattern(
+            InHandle, Actor.Pattern, ECk_Usf_OutlineScope::EntityOnly);
+        Actor._PatternApplied = true;
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
     }
 }

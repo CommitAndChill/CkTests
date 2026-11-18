@@ -1,8 +1,8 @@
 //============================================================================
 // REPLICATION GYM - PAWN (Scenario B driver)
 //============================================================================
-// Extends the gym base pawn. After the base pawn's own WithActor entity has
-// been constructed, we spawn a SECOND (non-actor) entity script owned by the
+// Extends the gym base pawn. While the base pawn's own WithActor entity is
+// constructing, we spawn a SECOND (non-actor) entity script owned by the
 // pawn's entity - mirroring the BB_PlayerCharacter shape where the ensure was
 // hit after re-ordering.
 //============================================================================

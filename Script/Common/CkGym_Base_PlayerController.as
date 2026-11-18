@@ -1,3 +1,15 @@
+// Composes the PC's entity through the PC's OnEntityConstructed hook.
+class UCk_Gym_Base_PlayerController_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Actor = Cast<ACk_Gym_Base_PlayerController>(DoGet_Actor());
+        Actor.Request_ComposeEntity(InHandle.As_EntityScript());
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+}
+
 class ACk_Gym_Base_PlayerController : ACk_PlayerController_UE
 {
     default Replicates = false;
@@ -17,8 +29,8 @@ class ACk_Gym_Base_PlayerController : ACk_PlayerController_UE
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+        EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnGymBaseEntityReady"));
+        EntityBridge.Request_SpawnLinkedEntity(UCk_Gym_Base_PlayerController_EntityScript);
     }
 
     private int32 _PendingStationCount = 0;
@@ -27,10 +39,22 @@ class ACk_Gym_Base_PlayerController : ACk_PlayerController_UE
     // the deferred-wait timer used by WaitOneFrame.
     private FCk_Handle _SelfEntity;
 
-    UFUNCTION()
+    // Called by UCk_Gym_Base_PlayerController_EntityScript::DoConstruct.
+    void Request_ComposeEntity(FCk_Handle_EntityScript InEntityScriptHandle)
+    {
+        OnEntityConstructed(InEntityScriptHandle);
+    }
+
+    // Runs while the entity script constructs the entity, on every machine that has the PC (its entity is local).
+    // Override to compose features onto the PC's entity; the base composes nothing.
     void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
-        _SelfEntity = FCk_Handle(InEntityScriptHandle);
+    }
+
+    UFUNCTION()
+    private void OnGymBaseEntityReady(AActor InActor, FCk_Handle InEntity)
+    {
+        _SelfEntity = InEntity;
         Request_EnsureStationsExist();
     }
 

@@ -72,37 +72,7 @@ class ACk_TransformGym_Cube : AActor
 			RotationSpeed = 20.0f;
 		}
 
-		if (HasAuthority())
-		{
-			EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-		}
-
-		EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
-	}
-
-	UFUNCTION()
-	private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-	{
-		if (System::IsServer() == false)
-		{ return; }
-
-		auto InEntity = FCk_Handle(InEntityScriptHandle);
-		InEntity.Set_DebugName(FName(f"Cube_{Behavior}"));
-		EcsEntity = InEntity;
-
-		// Set up timers based on behavior
-		if (Behavior == ECk_TransformGym_Behavior::SetLocation || Behavior == ECk_TransformGym_Behavior::SetRotation)
-		{
-			// Step timer: cycle every 1.5 seconds
-			auto StepParams = FCk_Timer_Spec(FCk_Time(1.5f));
-			StepParams.Set_StartingState(ECk_Timer_State::Running);
-			StepParams.Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
-			auto StepTimer = utils_timer::Add(InEntity, StepParams);
-			StepTimer.BindTo_OnDone(FCk_Delegate_Timer(this, n"OnStepTimer"));
-		}
-
-		// Per-frame tick for continuous behaviors
-		utils_timer::Create_Tick(InEntity, FCk_Delegate_Timer(this, n"OnFrameTick"));
+		EntityBridge.Request_SpawnLinkedEntity(UCk_TransformGym_Cube_EntityScript);
 	}
 
 	//------------------------------------------------------------------------
@@ -224,5 +194,41 @@ class ACk_TransformGym_Cube : AActor
 		utils_debug_draw::DrawDebugString(Origin + ForwardVec * VectorDrawLength, "FWD", RedColor, 0.0f);
 		utils_debug_draw::DrawDebugString(Origin + RightVec * VectorDrawLength, "RIGHT", GreenColor, 0.0f);
 		utils_debug_draw::DrawDebugString(Origin + UpVec * VectorDrawLength, "UP", BlueColor, 0.0f);
+	}
+}
+
+// Composes the cube's entity on the server: the step timer (SetLocation / SetRotation) and the per-frame tick, both
+// calling back into the cube.
+class UCk_TransformGym_Cube_EntityScript : UCk_EntityScript_WithActor_UE
+{
+	UFUNCTION(BlueprintOverride)
+	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+	{
+		auto Actor = Cast<ACk_TransformGym_Cube>(DoGet_Actor());
+		if (!Actor.HasAuthority())
+		{ return ECk_EntityScript_ConstructionFlow::Finished; }
+
+		if (System::IsServer() == false)
+		{ return ECk_EntityScript_ConstructionFlow::Finished; }
+
+		InHandle.Set_DebugName(FName(f"Cube_{Actor.Behavior}"));
+		// Stored here rather than at Ready: the timers composed below read it.
+		Actor.EcsEntity = InHandle;
+
+		// Set up timers based on behavior
+		if (Actor.Behavior == ECk_TransformGym_Behavior::SetLocation || Actor.Behavior == ECk_TransformGym_Behavior::SetRotation)
+		{
+			// Step timer: cycle every 1.5 seconds
+			auto StepParams = FCk_Timer_Spec(FCk_Time(1.5f));
+			StepParams.Set_StartingState(ECk_Timer_State::Running);
+			StepParams.Set_Behavior(ECk_Timer_Behavior::ResetOnDone);
+			auto StepTimer = utils_timer::Add(InHandle, StepParams);
+			StepTimer.BindTo_OnDone(FCk_Delegate_Timer(Actor, n"OnStepTimer"));
+		}
+
+		// Per-frame tick for continuous behaviors
+		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(Actor, n"OnFrameTick"));
+
+		return ECk_EntityScript_ConstructionFlow::Finished;
 	}
 }

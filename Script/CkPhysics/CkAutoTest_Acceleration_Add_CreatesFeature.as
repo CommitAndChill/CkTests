@@ -34,16 +34,16 @@ class UCk_AutoTest_Acceleration_Add_CreatesFeature : UCk_AutoTest_Base
             return;
         }
 
-        _Helper.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _Helper.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        auto OwnedEntity = FCk_Handle(InEntityScriptHandle);
+        auto OwnedEntity = InEntity;
         auto Params = FCk_Acceleration_Spec(ECk_LocalWorld::World, StartingAcceleration);
         auto Acceleration = utils_acceleration::Add(OwnedEntity, Params, ECk_Replication::DoesNotReplicate);
 

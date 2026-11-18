@@ -7,6 +7,18 @@
 // ensures.
 //============================================================================
 
+// The Actor's script: the shared Scenario A script plus the Actor's debug name.
+class UCk_ReplicationGym_ReplicatedActor_LinkedEntityScript : UCk_ReplicationGym_ReplicatedActor_EntityScript
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Flow = Super::DoConstruct(InHandle);
+        InHandle.Set_DebugName(n"ReplicatedActor");
+        return Flow;
+    }
+}
+
 class ACk_ReplicationGym_ReplicatedActor : AActor
 {
     default bReplicateMovement = false;
@@ -23,14 +35,6 @@ class ACk_ReplicationGym_ReplicatedActor : AActor
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-        EntityBridge.Request_SpawnLinkedEntity(UCk_ReplicationGym_ReplicatedActor_EntityScript);
-    }
-
-    UFUNCTION()
-    private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-    {
-        auto InEntity = FCk_Handle(InEntityScriptHandle);
-        InEntity.Set_DebugName(n"ReplicatedActor");
+        EntityBridge.Request_SpawnLinkedEntity(UCk_ReplicationGym_ReplicatedActor_LinkedEntityScript);
     }
 }

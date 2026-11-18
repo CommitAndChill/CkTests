@@ -112,14 +112,14 @@ class ACk_Goap_Planner_SquadRosterPieFixture : AActor
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnFixtureConstructed"));
+        EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnFixtureReady"));
         EntityBridge.Request_SpawnLinkedEntity(UCk_Goap_Planner_SquadRosterPieFixture_EntityScript);
     }
 
     UFUNCTION()
-    private void OnFixtureConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnFixtureReady(AActor InActor, FCk_Handle InEntity)
     {
-        auto FixtureEntity = FCk_Handle(InEntityScriptHandle);
+        auto FixtureEntity = InEntity;
         if (ck::Is_NOT_Valid(FixtureEntity)) { return; }
         if (_HasEndedPlay)
         {

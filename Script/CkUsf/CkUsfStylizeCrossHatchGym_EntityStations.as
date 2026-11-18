@@ -9,7 +9,7 @@
 //   UCk_Utils_Usf_StylizeMask_UE::Request_RemoveFromStylizeMask(Handle)
 //
 // The actor path is the one CkUsf itself implements: each subject spawns a
-// UCk_EntityScript_WithActor_UE bound to itself, so the entity carries an
+// UCk_EntityScript_WithActor_UE subclass bound to itself, so the entity carries an
 // owning actor and FProcessor_Usf_StylizeMaskActor_Sync writes the project's
 // mask stencil value onto its primitives. ISM / ISKM proxies have their own
 // sync processors, one per renderer module.
@@ -31,7 +31,7 @@ class ACk_UsfGym_StylizeCrossHatchMaskSubject : AActor
     UCk_EntityBridge_ActorComponent_UE EntityBridge;
 
     private FCk_Handle _Entity;
-    private bool _MaskApplied = false;
+    bool _MaskApplied = false; // first set by the entity script's initial mask
 
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
@@ -60,17 +60,17 @@ class ACk_UsfGym_StylizeCrossHatchMaskSubject : AActor
         // gets a local entity (no EntityReplicationDriver).
         if (HasAuthority())
         {
-            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-            EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+            EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
+            EntityBridge.Request_SpawnLinkedEntity(UCk_UsfGym_StylizeCrossHatchMaskSubject_EntityScript);
         }
     }
 
+    // The initial mask is composed by UCk_UsfGym_StylizeCrossHatchMaskSubject_EntityScript; toggles go through the
+    // Request_ functions below.
     UFUNCTION()
-    void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
-        _Entity = FCk_Handle(InEntityScriptHandle);
-        _Entity.Set_DebugName(n"UsfStylizeMaskSubject");
-        Request_ApplyMask();
+        _Entity = InEntity;
     }
 
     void Request_ApplyMask()
@@ -100,5 +100,25 @@ class ACk_UsfGym_StylizeCrossHatchMaskSubject : AActor
         { Request_ClearMask(); }
         else
         { Request_ApplyMask(); }
+    }
+}
+
+// Composes the subject's entity: membership in the stylize effect mask, applied once at construction.
+class UCk_UsfGym_StylizeCrossHatchMaskSubject_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Actor = Cast<ACk_UsfGym_StylizeCrossHatchMaskSubject>(DoGet_Actor());
+        if (!Actor.HasAuthority())
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        InHandle.Set_DebugName(n"UsfStylizeMaskSubject");
+
+        UCk_Utils_Usf_StylizeMask_UE::Request_AddToStylizeMask(
+            InHandle, ECk_Usf_OutlineScope::EntityOnly);
+        Actor._MaskApplied = true;
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
     }
 }

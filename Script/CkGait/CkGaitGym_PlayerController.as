@@ -70,34 +70,22 @@ class ACk_GaitGym_PlayerController : ACk_Gym_Base_PlayerController
             return;
         }
 
-        _Fixture.Walker.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnWalkerReady"));
+        _Fixture.Walker.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnWalkerReady"));
         Request_Frame();
     }
 
     UFUNCTION()
-    private void OnWalkerReady(FCk_Handle_EntityScript InEntityScript)
+    private void OnWalkerReady(AActor InActor, FCk_Handle InEntity)
     {
-        if (_Fixture.Compose(this, InEntityScript) == false)
+        _Fixture.Gait = _Fixture.Walker.Gait;
+        if (_Fixture.Walker.Composed == false)
         {
             _CreateError = "The station failed composition; inspect the ensure log.";
             return;
         }
 
         _Composed = true;
-    }
-
-    UFUNCTION()
-    private void OnGaitGymCubeAdded(FCk_Handle_UnrealComponent InHandle)
-    {
-        auto MeshComponent = Cast<UStaticMeshComponent>(utils_unreal_component::Get_Component(InHandle));
-        if (ck::Is_NOT_Valid(MeshComponent))
-        {
-            return;
-        }
-
-        MeshComponent.SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        MeshComponent.SetStaticMesh(Cast<UStaticMesh>(LoadObject(this, "/Engine/BasicShapes/Cube.Cube")));
     }
 
     TArray<FCkGym_ControlRow> Get_ControlRows() override

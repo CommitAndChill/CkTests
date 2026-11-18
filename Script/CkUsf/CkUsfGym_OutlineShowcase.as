@@ -30,6 +30,26 @@ class ACk_UsfGym_OutlineOccluder : AActor
 class UCk_EntityScript_UsfOutlineShowcaseActor : UCk_EntityScript_WithActor_UE
 {
     default _Replication = ECk_Replication::DoesNotReplicate;
+
+    // Composes the showcase's entity: the outline claim for the Actor's OutlineTag.
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Actor = Cast<ACk_UsfGym_OutlineShowcase>(DoGet_Actor());
+        if (!Actor.HasAuthority())
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        InHandle.Set_DebugName(n"UsfOutlineShowcase");
+
+        if (Actor.OutlineTag.IsValid() == false)
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        UCk_Utils_Usf_Outline_UE::Set_OutlineClaim(
+            InHandle, InHandle, Actor.OutlineTag, ECk_Usf_OutlineScope::EntityOnly);
+        Actor._AppliedOutlineTag = Actor.OutlineTag;
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
 }
 
 class ACk_UsfGym_OutlineShowcase : AActor
@@ -49,7 +69,7 @@ class ACk_UsfGym_OutlineShowcase : AActor
     FGameplayTag OutlineTag;
 
     private FCk_Handle _Entity;
-    private FGameplayTag _AppliedOutlineTag;
+    FGameplayTag _AppliedOutlineTag; // written by the entity script's first claim
     private AActor _Occluder;
 
     // The gym PlayerController calls this right after spawn to pick which semantic claim this station demonstrates.
@@ -77,17 +97,16 @@ class ACk_UsfGym_OutlineShowcase : AActor
 
         if (HasAuthority())
         {
-            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
+            EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
             EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_UsfOutlineShowcaseActor);
         }
     }
 
+    // The first claim is composed by UCk_EntityScript_UsfOutlineShowcaseActor; later tag changes go through Apply_Outline.
     UFUNCTION()
-    private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
-        _Entity = FCk_Handle(InEntityScriptHandle);
-        _Entity.Set_DebugName(n"UsfOutlineShowcase");
-        Apply_Outline();
+        _Entity = InEntity;
     }
 
     private void Apply_Outline()

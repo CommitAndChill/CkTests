@@ -23,6 +23,39 @@ class UCk_SmTest_GraphWalkRegression_Sub_EntityScript : UCk_GenericEntityScript_
     default _Replication = ECk_Replication::Replicates;
 }
 
+// The Top entity: composes the top-level SM and spawns the Sub entity, on the server only.
+class UCk_SmTest_GraphWalkRegression_GymActor_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        if (System::IsServer() == false)
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        auto Actor = Cast<ACk_SmTest_GraphWalkRegression_GymActor>(DoGet_Actor());
+        InHandle.Set_DebugName(n"TopEntity");
+        Actor.TopEntity = InHandle;
+
+        // Top-level linear SM - exercises the non-hierarchical graph-walk
+        // path. The walk runs synchronously inside Add() and instantiates
+        // temp entities for every reachable state/condition/task before
+        // this call returns.
+        Actor.TopSmHandle = UCk_Utils_StateMachine_UE::Add(
+            InHandle,
+            FCk_StateMachine_Spec(UCk_SmTest_GraphWalk_Top_State_A));
+
+        auto PendingSub = utils_entity_script::Request_SpawnEntity(
+            InHandle,
+            UCk_SmTest_GraphWalkRegression_Sub_EntityScript,
+            FInstancedStruct());
+        utils_pending_entity_script::Promise_OnConstructed(
+            PendingSub,
+            FCk_Delegate_EntityScript_Constructed(Actor, n"OnSubEntityConstructed"));
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+}
+
 UCLASS(Blueprintable)
 class ACk_SmTest_GraphWalkRegression_GymActor : AActor
 {
@@ -185,8 +218,7 @@ class ACk_SmTest_GraphWalkRegression_GymActor : AActor
         // very signal we're trying to observe.
         Reset_Counters();
 
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnTopEntityConstructed"));
-        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_SmTest_GraphWalkRegression_GymActor_EntityScript);
 
         DetailText.SetText(ck::Text(f"Verifying at +{FirstVerifyDelay}s, +{SecondVerifyDelay}s..."));
 
@@ -194,34 +226,9 @@ class ACk_SmTest_GraphWalkRegression_GymActor : AActor
         System::SetTimer(this, n"Verify_SecondPass", SecondVerifyDelay, false);
     }
 
+    // Bound by UCk_SmTest_GraphWalkRegression_GymActor_EntityScript on the Sub entity's spawn.
     UFUNCTION()
-    private void OnTopEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-    {
-        if (System::IsServer() == false)
-        { return; }
-
-        TopEntity = FCk_Handle(InEntityScriptHandle);
-        TopEntity.Set_DebugName(n"TopEntity");
-
-        // Top-level linear SM - exercises the non-hierarchical graph-walk
-        // path. The walk runs synchronously inside Add() and instantiates
-        // temp entities for every reachable state/condition/task before
-        // this call returns.
-        TopSmHandle = UCk_Utils_StateMachine_UE::Add(
-            TopEntity,
-            FCk_StateMachine_Spec(UCk_SmTest_GraphWalk_Top_State_A));
-
-        auto PendingSub = utils_entity_script::Request_SpawnEntity(
-            TopEntity,
-            UCk_SmTest_GraphWalkRegression_Sub_EntityScript,
-            FInstancedStruct());
-        utils_pending_entity_script::Promise_OnConstructed(
-            PendingSub,
-            FCk_Delegate_EntityScript_Constructed(this, n"OnSubEntityConstructed"));
-    }
-
-    UFUNCTION()
-    private void OnSubEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    void OnSubEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
         if (System::IsServer() == false)
         { return; }

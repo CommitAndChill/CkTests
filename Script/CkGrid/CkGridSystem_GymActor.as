@@ -39,6 +39,26 @@ class UTestEntt : UCk_GenericEntityScript_UE
     }
 };
 
+// Composes the gym actor's entity: on the server, one UTestEntt child.
+class UCk_GridSystem_GymActor_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Actor = Cast<ACk_GridSystem_GymActor>(DoGet_Actor());
+        if (!Actor.HasAuthority())
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        if (System::IsServer())
+        {
+            auto EnttHandle = utils_entity_script::Request_SpawnEntity(InHandle, UTestEntt, FTestEnttParams());
+            utils_pending_entity_script::Promise_OnConstructed(EnttHandle, FCk_Delegate_EntityScript_Constructed(Actor, n"OnEnttConstructed"));
+        }
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+};
+
 UCLASS(Blueprintable)
 class ACk_GridSystem_GymActor : AActor
 {
@@ -66,23 +86,17 @@ class ACk_GridSystem_GymActor : AActor
         auto _CkPerfScope = ck::ScopedStat();
         if (HasAuthority())
         {
-            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-            EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+            EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
+            EntityBridge.Request_SpawnLinkedEntity(UCk_GridSystem_GymActor_EntityScript);
         }
     }
 
+	// The test grids live on their own transient-owned entities, not on this Actor's entity.
 	UFUNCTION()
-	void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+	void OnEntityReady(AActor InActor, FCk_Handle InEntity)
 	{
-        auto InEntity = FCk_Handle(InEntityScriptHandle);
-
 		if (System::IsServer())
-		{
-            auto EnttHandle = utils_entity_script::Request_SpawnEntity(InEntity, UTestEntt, FTestEnttParams());
-            utils_pending_entity_script::Promise_OnConstructed(EnttHandle, FCk_Delegate_EntityScript_Constructed(this, n"OnEnttConstructed"));
-
-			return;
-		}
+		{ return; }
 
 		GridA = CreateTestGrid(InEntity, _RenderData, FIntPoint(10, 10), FTransform(FVector(1000, 1000, 0)));
 		GridB = CreateTestGrid(InEntity, _RenderData, FIntPoint(4, 2), FTransform(FRotator(0, 0, 0)));

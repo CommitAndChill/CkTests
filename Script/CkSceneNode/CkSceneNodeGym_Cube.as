@@ -97,21 +97,18 @@ class ACk_SceneNodeGym_Cube : AActor
 
 		if (HasAuthority())
 		{
-			EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-			EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+			EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
+			EntityBridge.Request_SpawnLinkedEntity(UCk_SceneNodeGym_Cube_EntityScript);
 		}
 	}
 
+	// The scene nodes and the per-frame tick are composed by UCk_SceneNodeGym_Cube_EntityScript; this spawns the
+	// child cubes that show them.
 	UFUNCTION()
-	private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+	private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
 	{
 		if (System::IsServer() == false)
 		{ return; }
-
-		auto InEntity = FCk_Handle(InEntityScriptHandle);
-		InEntity.Set_DebugName(FName(f"Cube_{Behavior}"));
-		EcsEntity = InEntity;
-		ParentTransform = InEntity.As_Transform();
 
 		if (Behavior == ECk_SceneNodeGym_Behavior::ParentChild)
 		{
@@ -137,9 +134,6 @@ class ACk_SceneNodeGym_Cube : AActor
 		{
 			Setup_AnchorOffset();
 		}
-
-		// Per-frame tick
-		utils_timer::Create_Tick(InEntity, FCk_Delegate_Timer(this, n"OnFrameTick"));
 	}
 
 	//------------------------------------------------------------------------
@@ -175,77 +169,41 @@ class ACk_SceneNodeGym_Cube : AActor
 	}
 
 	//------------------------------------------------------------------------
-	// SETUP FUNCTIONS
+	// SETUP FUNCTIONS (child cubes; the nodes they show are composed by the entity script)
 	//------------------------------------------------------------------------
 
 	private void Setup_ParentChild()
 	{
-		auto ChildLocalTransform = FTransform(FRotator(), FVector(OrbitRadius, 0.0f, 0.0f), FVector(0.5f, 0.5f, 0.5f));
-		ChildNode = utils_scene_node::Create(ParentTransform, ChildLocalTransform);
 		ChildCubeActor = SpawnChildCube("Child");
 	}
 
 	private void Setup_OffsetUpdates()
 	{
-		auto ChildLocalTransform = FTransform(FRotator(), FVector(100.0f, 0.0f, 50.0f), FVector(0.5f, 0.5f, 0.5f));
-		OffsetNode = utils_scene_node::Create(ParentTransform, ChildLocalTransform);
 		OffsetCubeActor = SpawnChildCube("Offset");
 	}
 
 	private void Setup_MultipleChildren()
 	{
-		auto Offsets = TArray<FVector>();
-		Offsets.Add(FVector(120.0f, 0.0f, 0.0f));
-		Offsets.Add(FVector(0.0f, 120.0f, 0.0f));
-		Offsets.Add(FVector(-120.0f, 0.0f, 0.0f));
-		Offsets.Add(FVector(0.0f, -120.0f, 0.0f));
-
 		for (int32 Index = 0; Index < 4; ++Index)
 		{
-			auto ChildLocalTransform = FTransform(FRotator(), Offsets[Index], FVector(0.4f, 0.4f, 0.4f));
-			auto Node = utils_scene_node::Create(ParentTransform, ChildLocalTransform);
-			ChildNodes.Add(Node);
 			ChildCubeActors.Add(SpawnChildCube(f"Child {Index + 1}"));
 		}
 	}
 
 	private void Setup_Hierarchy()
 	{
-		// Root -> Child
-		auto ChildLocalTransform = FTransform(FRotator(), FVector(120.0f, 0.0f, 0.0f), FVector(0.7f, 0.7f, 0.7f));
-		HierarchyChild = utils_scene_node::Create(ParentTransform, ChildLocalTransform);
 		HierarchyChildCube = SpawnChildCube("Child");
-
-		// Child -> Grandchild (parented to child's transform, not root)
-		auto ChildTransformHandle = HierarchyChild.As_Transform();
-		auto GrandchildLocalTransform = FTransform(FRotator(), FVector(100.0f, 0.0f, 0.0f), FVector(0.6f, 0.6f, 0.6f));
-		HierarchyGrandchild = utils_scene_node::Create(ChildTransformHandle, GrandchildLocalTransform);
 		HierarchyGrandchildCube = SpawnChildCube("Grandchild");
 	}
 
 	private void Setup_PropagateOnly()
 	{
-		// Sun (root) is the rotating parent this actor is attached to. The
-		// planet and moon have static local offsets and NO per-frame updates
-		// of their own - purely relying on scene-node transform propagation
-		// to inherit the root's rotation.
-		auto PlanetLocalTransform = FTransform(FRotator(), FVector(PropagatePlanetOrbitRadius, 0.0f, 0.0f), FVector(0.6f, 0.6f, 0.6f));
-		PropagatePlanet = utils_scene_node::Create(ParentTransform, PlanetLocalTransform);
 		PropagatePlanetCube = SpawnChildCube("Planet");
-
-		auto PlanetTransformHandle = PropagatePlanet.As_Transform();
-		auto MoonLocalTransform = FTransform(FRotator(), FVector(PropagateMoonOrbitRadius, 0.0f, 0.0f), FVector(0.4f, 0.4f, 0.4f));
-		PropagateMoon = utils_scene_node::Create(PlanetTransformHandle, MoonLocalTransform);
 		PropagateMoonCube = SpawnChildCube("Moon");
 	}
 
 	private void Setup_AnchorOffset()
 	{
-		// Attach a SceneNode to this actor's Mesh component (a foreign USceneComponent)
-		// at a fixed relative offset. The node follows the mesh's world at that offset
-		// it never drives the mesh back (read-only follower).
-		auto Offset = FTransform(FRotator(), AnchorBaseOffset, FVector(0.5f, 0.5f, 0.5f));
-		AnchorNode = utils_scene_node::CreateAndAttachToUnrealComponent(ParentTransform, Mesh, Offset);
 		AnchorCubeActor = SpawnChildCube("Anchored");
 	}
 
@@ -322,7 +280,8 @@ class ACk_SceneNodeGym_Cube : AActor
 		// Rotate the parent - children follow automatically
 		utils_transform::Request_AddRotationOffset(EcsEntity, FRotator(0.0f, ParentRotationSpeed * DeltaSeconds, 0.0f), ECk_LocalWorld::World);
 
-		for (int32 Index = 0; Index < ChildNodes.Num(); ++Index)
+		// Bounded by the cubes: the nodes are composed before the cubes are spawned at Ready.
+		for (int32 Index = 0; Index < ChildCubeActors.Num(); ++Index)
 		{
 			SyncChildCube(ChildCubeActors[Index], ChildNodes[Index]);
 		}
@@ -381,5 +340,118 @@ class ACk_SceneNodeGym_Cube : AActor
 		auto NodeWorld = utils_transform::Get_EntityCurrentTransform(AnchorNode.As_Transform());
 		AnchorCubeActor.SetActorLocationAndRotation(NodeWorld.GetLocation(), NodeWorld.GetRotation().Rotator());
 		AnchorCubeActor.SetActorScale3D(NodeWorld.GetScale3D());
+	}
+}
+
+// Composes the cube's entity on the server: the scene nodes for its Behavior and the per-frame tick.
+class UCk_SceneNodeGym_Cube_EntityScript : UCk_EntityScript_WithActor_UE
+{
+	UFUNCTION(BlueprintOverride)
+	ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+	{
+		auto Actor = Cast<ACk_SceneNodeGym_Cube>(DoGet_Actor());
+		if (!Actor.HasAuthority())
+		{ return ECk_EntityScript_ConstructionFlow::Finished; }
+
+		if (System::IsServer() == false)
+		{ return ECk_EntityScript_ConstructionFlow::Finished; }
+
+		InHandle.Set_DebugName(FName(f"Cube_{Actor.Behavior}"));
+		// Stored here rather than at Ready: the tick composed below reads it.
+		Actor.EcsEntity = InHandle;
+		Actor.ParentTransform = InHandle.As_Transform();
+
+		if (Actor.Behavior == ECk_SceneNodeGym_Behavior::ParentChild)
+		{
+			Compose_ParentChild(Actor);
+		}
+		else if (Actor.Behavior == ECk_SceneNodeGym_Behavior::OffsetUpdates)
+		{
+			Compose_OffsetUpdates(Actor);
+		}
+		else if (Actor.Behavior == ECk_SceneNodeGym_Behavior::MultipleChildren)
+		{
+			Compose_MultipleChildren(Actor);
+		}
+		else if (Actor.Behavior == ECk_SceneNodeGym_Behavior::Hierarchy)
+		{
+			Compose_Hierarchy(Actor);
+		}
+		else if (Actor.Behavior == ECk_SceneNodeGym_Behavior::PropagateOnly)
+		{
+			Compose_PropagateOnly(Actor);
+		}
+		else if (Actor.Behavior == ECk_SceneNodeGym_Behavior::AnchorOffset)
+		{
+			Compose_AnchorOffset(Actor);
+		}
+
+		// Per-frame tick
+		utils_timer::Create_Tick(InHandle, FCk_Delegate_Timer(Actor, n"OnFrameTick"));
+
+		return ECk_EntityScript_ConstructionFlow::Finished;
+	}
+
+	private void Compose_ParentChild(ACk_SceneNodeGym_Cube InActor)
+	{
+		auto ChildLocalTransform = FTransform(FRotator(), FVector(InActor.OrbitRadius, 0.0f, 0.0f), FVector(0.5f, 0.5f, 0.5f));
+		InActor.ChildNode = utils_scene_node::Create(InActor.ParentTransform, ChildLocalTransform);
+	}
+
+	private void Compose_OffsetUpdates(ACk_SceneNodeGym_Cube InActor)
+	{
+		auto ChildLocalTransform = FTransform(FRotator(), FVector(100.0f, 0.0f, 50.0f), FVector(0.5f, 0.5f, 0.5f));
+		InActor.OffsetNode = utils_scene_node::Create(InActor.ParentTransform, ChildLocalTransform);
+	}
+
+	private void Compose_MultipleChildren(ACk_SceneNodeGym_Cube InActor)
+	{
+		auto Offsets = TArray<FVector>();
+		Offsets.Add(FVector(120.0f, 0.0f, 0.0f));
+		Offsets.Add(FVector(0.0f, 120.0f, 0.0f));
+		Offsets.Add(FVector(-120.0f, 0.0f, 0.0f));
+		Offsets.Add(FVector(0.0f, -120.0f, 0.0f));
+
+		for (int32 Index = 0; Index < 4; ++Index)
+		{
+			auto ChildLocalTransform = FTransform(FRotator(), Offsets[Index], FVector(0.4f, 0.4f, 0.4f));
+			auto Node = utils_scene_node::Create(InActor.ParentTransform, ChildLocalTransform);
+			InActor.ChildNodes.Add(Node);
+		}
+	}
+
+	private void Compose_Hierarchy(ACk_SceneNodeGym_Cube InActor)
+	{
+		// Root -> Child
+		auto ChildLocalTransform = FTransform(FRotator(), FVector(120.0f, 0.0f, 0.0f), FVector(0.7f, 0.7f, 0.7f));
+		InActor.HierarchyChild = utils_scene_node::Create(InActor.ParentTransform, ChildLocalTransform);
+
+		// Child -> Grandchild (parented to child's transform, not root)
+		auto ChildTransformHandle = InActor.HierarchyChild.As_Transform();
+		auto GrandchildLocalTransform = FTransform(FRotator(), FVector(100.0f, 0.0f, 0.0f), FVector(0.6f, 0.6f, 0.6f));
+		InActor.HierarchyGrandchild = utils_scene_node::Create(ChildTransformHandle, GrandchildLocalTransform);
+	}
+
+	private void Compose_PropagateOnly(ACk_SceneNodeGym_Cube InActor)
+	{
+		// Sun (root) is the rotating parent this actor is attached to. The
+		// planet and moon have static local offsets and NO per-frame updates
+		// of their own - purely relying on scene-node transform propagation
+		// to inherit the root's rotation.
+		auto PlanetLocalTransform = FTransform(FRotator(), FVector(InActor.PropagatePlanetOrbitRadius, 0.0f, 0.0f), FVector(0.6f, 0.6f, 0.6f));
+		InActor.PropagatePlanet = utils_scene_node::Create(InActor.ParentTransform, PlanetLocalTransform);
+
+		auto PlanetTransformHandle = InActor.PropagatePlanet.As_Transform();
+		auto MoonLocalTransform = FTransform(FRotator(), FVector(InActor.PropagateMoonOrbitRadius, 0.0f, 0.0f), FVector(0.4f, 0.4f, 0.4f));
+		InActor.PropagateMoon = utils_scene_node::Create(PlanetTransformHandle, MoonLocalTransform);
+	}
+
+	private void Compose_AnchorOffset(ACk_SceneNodeGym_Cube InActor)
+	{
+		// Attach a SceneNode to the actor's Mesh component (a foreign USceneComponent)
+		// at a fixed relative offset. The node follows the mesh's world at that offset
+		// it never drives the mesh back (read-only follower).
+		auto Offset = FTransform(FRotator(), InActor.AnchorBaseOffset, FVector(0.5f, 0.5f, 0.5f));
+		InActor.AnchorNode = utils_scene_node::CreateAndAttachToUnrealComponent(InActor.ParentTransform, InActor.Mesh, Offset);
 	}
 }

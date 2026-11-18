@@ -41,16 +41,16 @@ class UCk_AutoTest_Actor_AddActorComponent_FiresOnComponentAdded : UCk_AutoTest_
             return;
         }
 
-        _Helper.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _Helper.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        auto OwnedEntity = FCk_Handle(InEntityScriptHandle);
+        auto OwnedEntity = InEntity;
 
         // The processor's Request_AddActorComponent path ensures on a valid
         // ComponentParent regardless of AttachmentType - it dereferences

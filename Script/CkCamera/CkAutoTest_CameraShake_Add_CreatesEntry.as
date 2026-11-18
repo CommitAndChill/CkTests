@@ -32,16 +32,16 @@ class UCk_AutoTest_CameraShake_Add_CreatesEntry : UCk_AutoTest_Base
             return;
         }
 
-        _Helper.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _Helper.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        auto OwnedEntity = FCk_Handle(InEntityScriptHandle);
+        auto OwnedEntity = InEntity;
 
         auto Params = FCk_CameraShake_Spec(
             utils_gameplay_tag::ResolveGameplayTag(n"AutoTest.CameraShake.Seed"),

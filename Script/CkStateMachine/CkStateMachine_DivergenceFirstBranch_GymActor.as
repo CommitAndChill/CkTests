@@ -25,6 +25,26 @@ class UCk_SmTest_DivergenceFirstBranch_PassB_EntityScript : UCk_GenericEntityScr
     default _Replication = ECk_Replication::Replicates;
 }
 
+// Pass A: composes the parent SM onto the actor's entity, on the server only.
+class UCk_SmTest_DivergenceFirstBranch_GymActor_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        if (System::IsServer() == false)
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        auto Actor = Cast<ACk_SmTest_DivergenceFirstBranch_GymActor>(DoGet_Actor());
+        InHandle.Set_DebugName(n"PassA");
+        Actor.PassAEntity = InHandle;
+        Actor.PassASmHandle = UCk_Utils_StateMachine_UE::Add(
+            InHandle,
+            FCk_StateMachine_Spec(UCk_SmTest_Divergence_ParentState));
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+}
+
 UCLASS(Blueprintable)
 class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
 {
@@ -199,25 +219,19 @@ class ACk_SmTest_DivergenceFirstBranch_GymActor : AActor
         PaymentChoice = ECk_SmTest_DivergenceFirstBranch_PaymentChoice::Left;
         Reset_Counters();
 
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnPassAConstructed"));
-        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+        EntityBridge.Promise_OnEntityReady(FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnPassAReady"));
+        EntityBridge.Request_SpawnLinkedEntity(UCk_SmTest_DivergenceFirstBranch_GymActor_EntityScript);
 
-        // Settle timer is started in OnPassAConstructed - after the SM is actually
+        // Settle timer is started in OnPassAReady - after the SM is actually
         // added - so PerPassSettleSeconds measures the SM-chain duration only, not
         // the async entity-spawn overhead (~250ms under PIE load).
     }
 
     UFUNCTION()
-    private void OnPassAConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnPassAReady(AActor InActor, FCk_Handle InEntity)
     {
         if (System::IsServer() == false)
         { return; }
-
-        PassAEntity = FCk_Handle(InEntityScriptHandle);
-        PassAEntity.Set_DebugName(n"PassA");
-        PassASmHandle = UCk_Utils_StateMachine_UE::Add(
-            PassAEntity,
-            FCk_StateMachine_Spec(UCk_SmTest_Divergence_ParentState));
 
         System::SetTimer(this, n"VerifyPassA", PerPassSettleSeconds, false);
     }

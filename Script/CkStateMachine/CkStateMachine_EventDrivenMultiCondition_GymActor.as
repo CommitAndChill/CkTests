@@ -12,6 +12,25 @@
 //        Reset cycle, so when SlowEvent fired the transition still saw a
 //        Fail and never resolved).
 
+// Composes the actor's state machine, on the server only.
+class UCk_SmTest_EventDrivenMultiCondition_GymActor_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        if (System::IsServer() == false)
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        auto Actor = Cast<ACk_SmTest_EventDrivenMultiCondition_GymActor>(DoGet_Actor());
+        InHandle.Set_DebugName(n"StateMachine");
+        Actor.SmEntity = InHandle;
+        Actor.SmHandle = UCk_Utils_StateMachine_UE::Add(
+            InHandle, FCk_StateMachine_Spec(UCk_SmTest_EventDrivenMultiCondition_State_Idle));
+
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+}
+
 UCLASS(Blueprintable)
 class ACk_SmTest_EventDrivenMultiCondition_GymActor : AActor
 {
@@ -95,22 +114,9 @@ class ACk_SmTest_EventDrivenMultiCondition_GymActor : AActor
         if (HasAuthority() == false)
         { return; }
 
-        EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_SmTest_EventDrivenMultiCondition_GymActor_EntityScript);
 
         System::SetTimer(this, n"OnSettled", SettleSeconds, false);
-    }
-
-    UFUNCTION()
-    private void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
-    {
-        if (System::IsServer() == false)
-        { return; }
-
-        SmEntity = FCk_Handle(InEntityScriptHandle);
-        SmEntity.Set_DebugName(n"StateMachine");
-        SmHandle = UCk_Utils_StateMachine_UE::Add(
-            SmEntity, FCk_StateMachine_Spec(UCk_SmTest_EventDrivenMultiCondition_State_Idle));
     }
 
     UFUNCTION()

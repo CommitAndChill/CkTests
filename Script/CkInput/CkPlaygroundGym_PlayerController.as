@@ -28,9 +28,9 @@ class ACk_PlaygroundGym_PlayerController : ACk_Gym_Base_PlayerController
         bShowMouseCursor = true;
     }
 
-    // The base spawns the PC's own WithActor entity and starts the gym from here;
-    // the playground additionally keeps the handle, because the source-composition
-    // tick needs an entity to hang off.
+    // Runs while the PC's entity script constructs the entity (the base starts the gym once it is Ready); the
+    // playground keeps the handle and composes its tick here, because the source-composition tick needs an entity
+    // to hang off.
     void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle) override
     {
         Super::OnEntityConstructed(InEntityScriptHandle);

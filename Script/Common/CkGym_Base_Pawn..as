@@ -15,6 +15,21 @@
 // overrides Tick without it.
 //--------------------------------------------------------------------------------------------------------------------------
 
+// Composes the pawn's entity through the pawn's OnEntityConstructed hook, on the authority only.
+class UCk_Gym_Base_Pawn_EntityScript : UCk_EntityScript_WithActor_UE
+{
+    UFUNCTION(BlueprintOverride)
+    ECk_EntityScript_ConstructionFlow DoConstruct(FCk_Handle& InHandle)
+    {
+        auto Actor = Cast<ACk_Gym_Base_Pawn>(DoGet_Actor());
+        if (!Actor.HasAuthority())
+        { return ECk_EntityScript_ConstructionFlow::Finished; }
+
+        Actor.Request_ComposeEntity(InHandle.As_EntityScript());
+        return ECk_EntityScript_ConstructionFlow::Finished;
+    }
+}
+
 class ACk_Gym_Base_Pawn : ADefaultPawn
 {
     default Replicates = true;
@@ -42,12 +57,7 @@ class ACk_Gym_Base_Pawn : ADefaultPawn
     void BeginPlay()
     {
         auto _CkPerfScope = ck::ScopedStat();
-        if (HasAuthority())
-        {
-            EntityBridge.Promise_OnEntityConstructed(FCk_Delegate_EntityScript_Constructed(this, n"OnEntityConstructed"));
-        }
-
-        EntityBridge.Request_SpawnLinkedEntity(UCk_EntityScript_WithActor_UE);
+        EntityBridge.Request_SpawnLinkedEntity(UCk_Gym_Base_Pawn_EntityScript);
     }
 
     UFUNCTION(BlueprintOverride)
@@ -61,14 +71,20 @@ class ACk_Gym_Base_Pawn : ADefaultPawn
         }
     }
 
-    UFUNCTION()
+    // Called by UCk_Gym_Base_Pawn_EntityScript::DoConstruct.
+    void Request_ComposeEntity(FCk_Handle_EntityScript InEntityScriptHandle)
+    {
+        OnEntityConstructed(InEntityScriptHandle);
+    }
+
+    // Runs while the entity script constructs the entity, on the authority only (the machine that composes it).
     void OnEntityConstructed(FCk_Handle_EntityScript InEntityScriptHandle)
     {
         ck::Trace("Gym pawn entity setup complete");
         Request_OnPawnReady();
     }
 
-    // Override this in derived gym classes if custom pawn behavior is needed
+    // Override this in derived gym classes if custom pawn behavior is needed; runs from OnEntityConstructed.
     void Request_OnPawnReady()
     {
         // Base implementation does nothing - gyms typically handle logic in PlayerController

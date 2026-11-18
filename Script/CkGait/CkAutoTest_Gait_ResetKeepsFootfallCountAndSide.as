@@ -40,19 +40,19 @@ class UCk_AutoTest_Gait_ResetKeepsFootfallCountAndSide : UCk_AutoTest_Base
             return;
         }
 
-        _F.Character.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _F.Character.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScript)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished())
         {
             return;
         }
 
-        _F.Ready(_Owner, InEntityScript);
+        _F.Ready(_Owner, InEntity);
     }
 
     UFUNCTION()

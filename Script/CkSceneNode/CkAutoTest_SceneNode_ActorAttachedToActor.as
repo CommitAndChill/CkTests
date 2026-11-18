@@ -130,16 +130,16 @@ class UCk_AutoTest_SceneNode_ActorAttachedToActor : UCk_AutoTest_Base
             return;
         }
 
-        ActorA.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnActorAEntityReady"));
+        ActorA.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnActorAEntityReady"));
     }
 
     UFUNCTION()
-    private void OnActorAEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnActorAEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        auto EntityA = FCk_Handle(InEntityScriptHandle);
+        auto EntityA = InEntity;
 
         // The helper actor anchors its entity to ck::TransientEntity(), which is OUTSIDE the
         // runner's teardown subtree - untracked, both actors' entity graphs survive into every
@@ -173,16 +173,16 @@ class UCk_AutoTest_SceneNode_ActorAttachedToActor : UCk_AutoTest_Base
             return;
         }
 
-        ActorB.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnActorBEntityReady"));
+        ActorB.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnActorBEntityReady"));
     }
 
     UFUNCTION()
-    private void OnActorBEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnActorBEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        auto EntityB = FCk_Handle(InEntityScriptHandle);
+        auto EntityB = InEntity;
 
         // The helper actor anchors its entity to ck::TransientEntity(), which is OUTSIDE the
         // runner's teardown subtree - untracked, both actors' entity graphs survive into every

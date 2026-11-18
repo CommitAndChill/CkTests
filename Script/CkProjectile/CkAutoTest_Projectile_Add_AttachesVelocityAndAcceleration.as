@@ -33,16 +33,16 @@ class UCk_AutoTest_Projectile_Add_AttachesVelocityAndAcceleration : UCk_AutoTest
             return;
         }
 
-        _Helper.EntityBridge.Promise_OnEntityConstructed(
-            FCk_Delegate_EntityScript_Constructed(this, n"OnEntityReady"));
+        _Helper.EntityBridge.Promise_OnEntityReady(
+            FCk_Delegate_EntityBridge_OnEntityReady(this, n"OnEntityReady"));
     }
 
     UFUNCTION()
-    private void OnEntityReady(FCk_Handle_EntityScript InEntityScriptHandle)
+    private void OnEntityReady(AActor InActor, FCk_Handle InEntity)
     {
         if (IsFinished()) { return; }
 
-        auto OwnedEntity = FCk_Handle(InEntityScriptHandle);
+        auto OwnedEntity = InEntity;
 
         auto VelocityParams = FCk_Velocity_Spec(ECk_LocalWorld::World, FVector(50.0f, 0.0f, 0.0f));
         auto AccelerationParams = FCk_Acceleration_Spec(ECk_LocalWorld::World, FVector(0.0f, 0.0f, -980.0f));
