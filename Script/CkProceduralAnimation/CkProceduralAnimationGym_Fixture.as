@@ -210,6 +210,10 @@ namespace ck_procedural_gym
     const float RootRayStartInsideFraction = 0.0001;
 
     const float TravelSpeed = 180.0;
+    // A walking body covers this in well under a second; a body that has not, for a whole stall window, is stuck.
+    const float StallMoveDistance = 25.0;
+    // Not calibrated against passing runs: a healthy route never holds still this long.
+    const float StallSeconds = 30.0;
     // A 2.6 m body cannot pivot at the other species' rate on four phase groups that step one after another.
     const float CentipedeSurfaceTurnRate = 90.0;
     const FVector BodyHalfExtents = FVector(42.0, 30.0, 18.0);
@@ -879,6 +883,10 @@ struct FCkProceduralAnimationGym_CrawlerProgress
     UPROPERTY()
     float FurthestDistance = 0.0;
     UPROPERTY()
+    FVector MoveAnchor = FVector::ZeroVector;
+    UPROPERTY()
+    float LastMovedAt = -1.0;
+    UPROPERTY()
     int32 PlantedCount = 0;
     UPROPERTY()
     int32 TrustedCount = 0;
@@ -1265,6 +1273,13 @@ struct FCkProceduralAnimationGym_Crawler
         auto Position = Transform.GetLocation();
         auto Local = Position - Layout.Origin;
         Progress.FurthestDistance = Math::Max(Progress.FurthestDistance, (Position - Layout.Start).Size());
+        auto Now = float(System::GetGameTimeInSeconds());
+        if (InRun == false || Progress.LastMovedAt < 0.0 ||
+            (Position - Progress.MoveAnchor).Size() > ck_procedural_gym::StallMoveDistance)
+        {
+            Progress.MoveAnchor = Position;
+            Progress.LastMovedAt = Now;
+        }
         Evidence.InvalidOutput = Evidence.InvalidOutput || Position.ContainsNaN();
         DoUpdate_SupportEvidence(Position);
         // A band sample catches contact-frame flip-flop that a single 'saw a wall' sample would miss.
@@ -2398,6 +2413,24 @@ struct FCkProceduralAnimationGym_Fixture
             }
         }
         return true;
+    }
+
+    // Empty while every ready, unfinished walker has moved within the window; otherwise names the first that has not.
+    FString Get_StallReason(float InStallSeconds) const
+    {
+        auto Now = float(System::GetGameTimeInSeconds());
+        for (auto Index = 0; Index < Crawlers.Num(); Index++)
+        {
+            auto Crawler = Crawlers[Index];
+            if (Crawler.Progress.LastMovedAt < 0.0 || Crawler.Get_HasCompletedCourse() ||
+                Now - Crawler.Progress.LastMovedAt < InStallSeconds)
+            {
+                continue;
+            }
+            auto Local = utils_transform::Get_EntityCurrentLocation(Crawler.Handles.Root) - Crawler.Layout.Origin;
+            return f"walker {Index} ({ck_procedural_gym::Get_SpeciesName(Crawler.Layout.Species)}) moved less than {ck_procedural_gym::StallMoveDistance :.0} uu in {InStallSeconds :.0} s (stage {Crawler.Progress.RouteStage}, traversals {Crawler.Progress.Traversals}, local ({Local.X :.1}, {Local.Y :.1}, {Local.Z :.1}), pace {utils_surface_motion::Get_ReachPaceScale(Crawler.Handles.Motion) :.2}/{int32(utils_surface_motion::Get_ReachPaceState(Crawler.Handles.Motion))})";
+        }
+        return "";
     }
 
     bool Get_HasObservedWalking() const
