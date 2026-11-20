@@ -32,6 +32,7 @@
 
 #include "CkTests/Net/CkNetAutomation_Common.h"
 #include "CkTests/Snapshot/CkAutoTest_Snapshot_StagedConstruction.h"
+#include "CkEntityTag/CkEntityTag_Fragment_Data.h"
 #include "CkTests/Snapshot/CkSnapshot_TestHarness_Common.h"
 
 namespace ck_test_staged_adoption
@@ -188,6 +189,22 @@ bool FCk_Snapshot_StagedConstructionAdoption_Gate::RunTest(const FString& /*Para
             AllGood &= TestTrue(
                 FString::Printf(TEXT("child slot %d ADOPTED (label resolves on the restored parent)"), SlotIndex),
                 ck::IsValid(Child));
+
+            if (ck::IsValid(Child) && Child.Has<ck::FFragment_AutoTest_StagedDisposition>())
+            {
+                const auto& Witness = Child.Get<ck::FFragment_AutoTest_StagedDisposition>();
+                using EDisposition = ck::persistence::EInitializationDisposition;
+                const auto Pending = Witness.DuringEscalation.Get_Disposition();
+                AllGood &= TestTrue(TEXT("Real escalated construction setup observed a gated child"),
+                    Witness.DuringEscalation.Get_Epoch() != 0 &&
+                    (Pending == EDisposition::IdentityUnresolved || Pending == EDisposition::BaselineExpected));
+                AllGood &= TestTrue(TEXT("Ordinary spawn during the real escalated pump produced no entity"),
+                    Witness.AttemptedSpawn && Witness.OrdinarySpawnSuppressed);
+                AllGood &= TestTrue(TEXT("Adopted child reached coherent release after escalation"),
+                    ck::persistence::Query(Child, FCk_SaveData_EntityTags::StaticStruct()).Get_Disposition() == EDisposition::Released);
+            }
+            else
+            { AllGood &= TestTrue(TEXT("Restored child has a staged disposition observer"), false); }
 
             const auto Attribute = StagedAdoption_TryGet_ChildAttribute(Child);
             AllGood &= TestTrue(

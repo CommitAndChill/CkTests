@@ -5,6 +5,7 @@
 #include "CkEcs/EntityScript/CkEntityScript.h"
 #include "CkEcs/EntityScript/CkEntityScript_Fragment_Data.h"
 #include "CkEcs/Handle/CkHandle.h"
+#include "CkEcs/Persistence/CkPersistenceInitialization.h"
 #include "CkEcs/Processor/CkProcessor.h"
 #include "CkEcs/Scheduler/CkProcessorGroups.h"
 #include "CkEcs/Tag/CkTag.h"
@@ -35,6 +36,13 @@ class UCk_AutoTest_Snapshot_StagedChild_EntityScript_UE;
 
 namespace ck
 {
+    struct FFragment_AutoTest_StagedDisposition
+    {
+        persistence::FInitializationStatus DuringEscalation;
+        bool AttemptedSpawn = false;
+        bool OrdinarySpawnSuppressed = false;
+    };
+
     CK_DEFINE_ECS_TAG(FTag_AutoTest_StagedConstruction_NeedsSetup);
     CK_DEFINE_ECS_TAG(FTag_AutoTest_StagedConstruction_KeeperOwner);
     CK_DEFINE_ECS_TAG(FTag_AutoTest_StagedConstruction_KeeperSpawnLatched);

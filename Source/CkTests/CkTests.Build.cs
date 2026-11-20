@@ -7,6 +7,7 @@ public class CkTests : CkModuleRules
     {
         // The matched navigation harness emits raw, provider-labelled evidence records.
         PrivateDependencyModuleNames.Add("Json");
+        PrivateDependencyModuleNames.Add("CoreOnline");
         // Bend-side admission tests inspect the actual two-bone and FABRIK solver joint results.
         PrivateDependencyModuleNames.Add("AnimationCore");
         // GOAP admission tests directly access A* fragments through EnTT storage.

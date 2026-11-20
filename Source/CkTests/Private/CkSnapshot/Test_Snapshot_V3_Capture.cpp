@@ -24,6 +24,7 @@
 #include "CkPhysics/Velocity/CkVelocity_Utils.h"
 
 #include "Test_Snapshot_DynamicFragment_Fixtures.h" // FCk_Test_DynFrag_WithHandle (params struct with a handle)
+#include "Test_Snapshot_Inspection_Fixtures.h"
 
 #include "CkCore/Macros/CkMacros.h"
 
@@ -282,8 +283,11 @@ bool
     if (NOT TestNotNull(TEXT("Resolved raw entt registry"), RawRegistry))
     { return false; }
 
+    const auto GroupName = TEXT("Ck.Spec.V3.SharedRendezvousGroup");
     auto SharedMember = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(CkRegistry);
-    ck::save_key::AssignSharedRendezvousGroup(SharedMember, TEXT("Ck.Spec.V3.SharedRendezvousGroup"));
+    ck::save_key::AssignSharedRendezvousGroup(SharedMember, GroupName);
+    auto SecondMember = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(CkRegistry);
+    ck::save_key::AssignSharedRendezvousGroup(SecondMember, GroupName);
     UCk_Utils_Velocity_UE::Add(SharedMember,
         FCk_Velocity_Spec{ECk_LocalWorld::World, FVector{1.0, 0.0, 0.0}},
         ECk_Replication::DoesNotReplicate);
@@ -294,6 +298,11 @@ bool
         FCk_Velocity_Spec{ECk_LocalWorld::World, FVector{2.0, 0.0, 0.0}},
         ECk_Replication::DoesNotReplicate);
 
+    // An ordinary entity has accidentally reused the pool key. All three rows are EngineOwned
+    // with no persisted payload. Two genuine members cannot authorize the third row to share.
+    auto OrdinaryCollider = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(CkRegistry);
+    ck::save_key::Assign(OrdinaryCollider, GroupName);
+
     // The dropped payload is reported through the audit, whose probe CaptureAuditMode gates.
     auto* SnapshotSettings = GetMutableDefault<UCk_Snapshot_Settings>();
     const auto RestoreAuditMode = SnapshotSettings->Get_CaptureAuditMode();
@@ -303,13 +312,31 @@ bool
 
     auto ByteWriter = FBufferArchive{};
     auto Header = FCk_Snapshot_HeaderV3{};
+    auto StaleClaim = FCk_Snapshot_SharedRendezvousClaim{};
+    StaleClaim.Set_SavedId(99u).Set_SaveKey(FGuid{1, 2, 3, 4});
+    Header.Set_SharedRendezvousClaims({StaleClaim});
     auto SaveReport = FCk_Snapshot_SaveReport{};
     const auto Result = ck::snapshot::Run_CaptureV3_Registry(*RawRegistry, RegistryHandle, /*World=*/nullptr,
         ByteWriter, Header, SaveReport);
 
     TestEqual(TEXT("v3 capture succeeded"), static_cast<int32>(Result), static_cast<int32>(ECk_SnapshotResult::Success));
-    TestEqual(TEXT("both keyed entities keep their rows"), Header.Get_EntityCount(), 2);
+    TestEqual(TEXT("all four keyed entities keep their rows"), Header.Get_EntityCount(), 4);
     TestEqual(TEXT("only the uniquely keyed entity persists its payload"), Header.Get_PayloadCount(), 1);
+    TestTrue(TEXT("Capture clears stale claims and does not attest mixed membership"),
+        Header.Get_SharedRendezvousClaims().IsEmpty());
+
+    const auto Document = ck::snapshot::Inspect_SaveGameObject(
+        ck_test_snapshot_inspection::Make_SaveGame(Header, ByteWriter), TEXT("mixed rendezvous and ordinary key"));
+    const auto* Error = ck_test_snapshot_inspection::TryGet_Diagnostic(
+        Document, ECk_SnapshotInspection_DiagnosticCode::DuplicateSaveKey);
+    if (NOT TestNotNull(TEXT("The ordinary member colliding with a shared member is diagnosed"), Error))
+    { return false; }
+    const auto& Ids = Error->Get_RelatedSavedIds();
+    TestTrue(TEXT("The error identifies the exact mixed-policy rows"),
+        Error->Get_Severity() == ECk_SnapshotInspection_Severity::Error && Ids.Num() == 3 &&
+        Ids.Contains(static_cast<uint32>(SharedMember.Get_Entity().Get_ID())) &&
+        Ids.Contains(static_cast<uint32>(SecondMember.Get_Entity().Get_ID())) &&
+        Ids.Contains(static_cast<uint32>(OrdinaryCollider.Get_Entity().Get_ID())));
 
     return true;
 }

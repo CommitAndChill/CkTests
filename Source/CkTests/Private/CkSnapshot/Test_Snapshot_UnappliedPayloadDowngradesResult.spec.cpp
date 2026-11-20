@@ -14,6 +14,9 @@
 
 #include "Engine/World.h"
 #include "HAL/IConsoleManager.h"       // net.AllowPIESeamlessTravel
+#include "Kismet/GameplayStatics.h"
+#include "Serialization/MemoryReader.h"
+#include "Test_Snapshot_Inspection_Fixtures.h"
 
 #include "CkEcs/EntityScript/CkEntityScript_Utils.h"
 #include "CkEcs/Handle/CkHandle.h"
@@ -215,6 +218,37 @@ bool FCk_Snapshot_NoHandlerPayloadIsCountedAndNamed_Gate::RunTest(const FString&
     Spec.SubjectReady = FCk_NetAutoTest_Assertion::CreateLambda([]() -> bool
     {
         return ck::IsValid(ResolveNoHandlerProbe(ck::auto_test::snapshot::Get_PostTravelServerWorld()));
+    });
+
+    Spec.PostSave = FCk_NetAutoTest_ServerAction::CreateLambda([this](UWorld* InServer)
+    {
+        // Simulate a writer that knew the orphan schema. The current registry keys the row by the
+        // producer's registered type, even though this test producer already emitted the orphan's bytes.
+        const auto Probe = ResolveNoHandlerProbe(InServer);
+        if (!TestTrue(TEXT("Original no-handler probe is available"), ck::IsValid(Probe))) { return; }
+        auto* Save = Cast<UCk_Snapshot_SaveGame>(
+            ck::snapshot::TryLoad_SlotSaveGame_Guarded(NoHandler_SlotName.ToString(), 0));
+        if (!TestNotNull(TEXT("Private slot contains a CK snapshot"), Save)) { return; }
+
+        auto Tables = FCk_Snapshot_V3_Tables{};
+        auto Reader = FMemoryReader{Save->_SnapshotBytesV3, true};
+        FCk_Snapshot_V3_Tables::StaticStruct()->SerializeItem(Reader, &Tables, nullptr);
+        if (!TestTrue(TEXT("Captured payload table decoded completely"), !Reader.IsError() && Reader.AtEnd())) { return; }
+        const auto OwnerId = static_cast<uint32>(Probe.Get_Entity().Get_ID());
+        const auto RegisteredType = FCk_SaveData_AutoTest_NoHandler_Registered::StaticStruct()->GetPathName();
+        auto* Entry = Tables.Get_Payloads().FindByPredicate([&](const auto& Row)
+        { return Row.Get_OwnerSavedId() == OwnerId && Row.Get_TypePath() == RegisteredType; });
+        if (!TestNotNull(TEXT("Original producer row belongs to the probe"), Entry)) { return; }
+
+        auto Expected = FCk_SaveData_AutoTest_NoHandler_Orphan{};
+        Expected.Set_Value(5150);
+        if (!TestTrue(TEXT("Captured bytes encode the orphan schema and its seeded marker"),
+            Entry->Get_PayloadBytes() == ck_test_snapshot_inspection::SerializeBlob_Save(FInstancedStruct::Make(Expected))))
+        { return; }
+        Entry->Set_TypePath(FCk_SaveData_AutoTest_NoHandler_Orphan::StaticStruct()->GetPathName());
+        Save->_SnapshotBytesV3 = ck_test_snapshot_inspection::Get_TablesBytes(Tables);
+        TestTrue(TEXT("Historical orphan row written to the private slot"),
+            UGameplayStatics::SaveGameToSlot(Save, NoHandler_SlotName.ToString(), 0));
     });
 
     Spec.Assert = FCk_NetAutoTest_Assertion::CreateLambda([this]() -> bool

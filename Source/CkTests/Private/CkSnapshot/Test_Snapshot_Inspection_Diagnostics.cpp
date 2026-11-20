@@ -13,6 +13,7 @@
 #include "CkCore/Macros/CkMacros.h"
 
 #include "GameFramework/SaveGame.h"
+#include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
 
 #include <StructUtils/InstancedStruct.h>
@@ -377,6 +378,66 @@ bool
         Document, ECk_SnapshotInspection_DiagnosticCode::DuplicateSaveKey), 1);
     TestEqual(TEXT("The group names both keyed rows"), Diagnostic->Get_RelatedSavedIds().Num(), 2);
     TestFalse(TEXT("The unkeyed row is untouched"), Document.Get_Entities()[2].Get_HasProblems());
+
+    using FClaim = FCk_Snapshot_SharedRendezvousClaim;
+    using ECode = ECk_SnapshotInspection_DiagnosticCode;
+    auto Claim10 = FClaim{};
+    Claim10.Set_SavedId(10u).Set_SaveKey(SharedKey);
+    auto Claim20 = FClaim{};
+    Claim20.Set_SavedId(20u).Set_SaveKey(SharedKey);
+
+    auto Header = ck_test_snapshot_inspection::Get_HeaderFor(Tables);
+    Header.Set_SharedRendezvousClaims({Claim10, Claim20});
+    auto* Save = ck_test_snapshot_inspection::Make_SaveGame(Header, ck_test_snapshot_inspection::Get_TablesBytes(Tables));
+    auto Bytes = TArray<uint8>{};
+    if (NOT TestTrue(TEXT("Serialized complete shared membership"), UGameplayStatics::SaveGameToMemory(Save, Bytes)))
+    { return false; }
+    const auto Marked = ck::snapshot::Inspect_SaveBytes(Bytes, TEXT("marked pool"));
+    TestTrue(TEXT("Marked pool tables decoded"), Marked.Get_TableParseSucceeded());
+    TestEqual(TEXT("Fully evidenced payload-free engine-owned pool is clean"), Marked.Get_ErrorCount(), 0);
+
+    // Hide only the optional property tag. The table bytes are identical, and the tagged reader skips
+    // the unknown property, as it does when reading a header without a recognized membership field.
+    if (NOT TestTrue(TEXT("Located the serialized membership field"), ck_test_snapshot_inspection::DoPatch_StringOnce(
+        Bytes, TEXT("_SharedRendezvousClaims"), TEXT("_UnusedRendezvousClaims"))))
+    { return false; }
+    const auto Unmarked = ck::snapshot::Inspect_SaveBytes(Bytes, TEXT("unmarked pool"));
+    TestTrue(TEXT("Table bytes remain readable with unknown header field"), Unmarked.Get_TableParseSucceeded());
+    TestEqual(TEXT("Missing membership retains the ordinary collision error"), ck_test_snapshot_inspection::Get_DiagnosticCount(
+        Unmarked, ECode::DuplicateSaveKey), 1);
+
+    const auto CheckInvalid = [&](const TCHAR* Case, const FCk_Snapshot_V3_Tables& Rows, TArray<FClaim> Claims)
+    {
+        auto InvalidHeader = ck_test_snapshot_inspection::Get_HeaderFor(Rows);
+        InvalidHeader.Set_SharedRendezvousClaims(MoveTemp(Claims));
+        const auto Invalid = ck::snapshot::Inspect_SaveGameObject(ck_test_snapshot_inspection::Make_SaveGame(
+            InvalidHeader, ck_test_snapshot_inspection::Get_TablesBytes(Rows)), Case);
+        TestTrue(FString::Printf(TEXT("%s: evidence is rejected"), Case),
+            Invalid.Get_Diagnostics().ContainsByPredicate([](const auto& Item)
+            {
+                return Item.Get_Code() == ECode::InvalidSharedRendezvousClaim &&
+                    Item.Get_Severity() == ECk_SnapshotInspection_Severity::Error;
+            }));
+        const auto* Collision = ck_test_snapshot_inspection::TryGet_Diagnostic(Invalid, ECode::DuplicateSaveKey);
+        TestTrue(FString::Printf(TEXT("%s: both colliding rows remain visible"), Case),
+            Collision && Collision->Get_RelatedSavedIds().Num() == 2 &&
+            Collision->Get_RelatedSavedIds().Contains(10u) && Collision->Get_RelatedSavedIds().Contains(20u));
+    };
+    CheckInvalid(TEXT("Partial group"), Tables, {Claim10});
+    CheckInvalid(TEXT("Duplicate claim"), Tables, {Claim10, Claim20, Claim20});
+    auto WrongKey = Claim20;
+    WrongKey.Set_SaveKey(FGuid{1, 2, 3, 4});
+    CheckInvalid(TEXT("Mismatched key"), Tables, {Claim10, WrongKey});
+    auto Dangling = Claim20;
+    Dangling.Set_SavedId(99u);
+    CheckInvalid(TEXT("Extra nonexistent row"), Tables, {Claim10, Claim20, Dangling});
+    auto WrongProvenance = Tables;
+    WrongProvenance.Get_Entities()[1].Set_Provenance(ECk_Snapshot_V3_Provenance::RuntimeSpawned);
+    CheckInvalid(TEXT("Runtime-spawned member"), WrongProvenance, {Claim10, Claim20});
+    auto WithPayload = Tables;
+    WithPayload.Get_Payloads().Add(ck_test_snapshot_inspection::Make_Payload(20u,
+        ck_test_snapshot_inspection_diagnostics::Get_PureDataPath(), ck_test_snapshot_inspection_diagnostics::Get_PureDataBlob()));
+    CheckInvalid(TEXT("Payload-bearing member"), WithPayload, {Claim10, Claim20});
 
     return true;
 }

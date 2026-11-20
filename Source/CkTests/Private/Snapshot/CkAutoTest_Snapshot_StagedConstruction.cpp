@@ -12,6 +12,11 @@
 #include "CkEcs/Scheduler/CkProcessorRegistration.h"
 
 #include "CkLabel/CkLabel_Utils.h"
+#include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
+#include "CkEcs/Subsystem/CkEcsWorld_Subsystem.h"
+#include "CkEntityTag/CkEntityTag_Fragment_Data.h"
+#include "CkEntityTag/CkEntityTag_Utils.h"
+#include "Engine/World.h"
 
 #include <NativeGameplayTags.h>
 
@@ -105,6 +110,18 @@ namespace ck
             TEXT("StagedConstruction NeedsSetup tag on entity [{}] whose script is not a StagedChild"), InHandle)
         { return; }
 
+        const auto* World = UCk_Utils_EntityLifetime_UE::Get_WorldForEntity(InHandle);
+        const auto* Ecs = World ? World->GetSubsystem<UCk_EcsWorld_Subsystem_UE>() : nullptr;
+        if (Ecs && Ecs->Get_IsLoadGateEscalated())
+        {
+            auto& Witness = InHandle.Get<FFragment_AutoTest_StagedDisposition>();
+            Witness.DuringEscalation = persistence::Query(InHandle, FCk_SaveData_EntityTags::StaticStruct());
+            auto Transient = UCk_Utils_EntityLifetime_UE::Get_TransientEntity(InHandle);
+            const auto Attempt = UCk_Utils_EntityScript_UE::Request_SpawnEntity(
+                Transient, UCk_AutoTest_Snapshot_PopulationKeeper_EntityScript_UE::StaticClass(), FInstancedStruct{}, {});
+            Witness.AttemptedSpawn = true;
+            Witness.OrdinarySpawnSuppressed = ck::Is_NOT_Valid(Attempt.Get_EntityUnderConstruction());
+        }
         Script->FinishStagedConstruction();
     }
 
@@ -181,6 +198,16 @@ auto
         const FInstancedStruct& InSpawnParams)
     -> ECk_EntityScript_ConstructionFlow
 {
+    InHandle.Add<ck::FFragment_AutoTest_StagedDisposition>();
+    if (const auto* Label = InSpawnParams.GetPtr<FGameplayTag>())
+    {
+        auto Identity = ck::persistence::FInitializationIdentity{};
+        Identity._Kind = ck::persistence::EInitializationIdentity::OwnedLabel;
+        Identity._Label = Label->ToString();
+        Identity._Owner = UCk_Utils_EntityLifetime_UE::Get_LifetimeOwner(InHandle);
+        ck::persistence::RequestInitialization(InHandle, FCk_SaveData_EntityTags::StaticStruct(), Identity);
+        UCk_Utils_EntityTag_UE::Add(InHandle, FName{TEXT("StagedConstruction.RestoreSeed")});
+    }
     constexpr auto BaseValue = 1.0f;
     auto Params = FCk_FloatAttribute_Spec{
         ck_autotest_staged_construction::Get_ValueAttributeName(), BaseValue};
@@ -237,7 +264,8 @@ auto
     for (auto SlotIndex = 0; SlotIndex < ck_autotest_staged_construction::NumSlots; ++SlotIndex)
     {
         auto Pending = UCk_Utils_EntityScript_UE::Request_SpawnEntity(
-            InHandle, UCk_AutoTest_Snapshot_StagedChild_EntityScript_UE::StaticClass(), FInstancedStruct{}, {});
+            InHandle, UCk_AutoTest_Snapshot_StagedChild_EntityScript_UE::StaticClass(),
+            FInstancedStruct::Make(ck_autotest_staged_construction::Get_SlotLabel(SlotIndex)), {});
 
         _PendingSlots.Add(Pending.Get_EntityUnderConstruction(), SlotIndex);
 
