@@ -5,13 +5,6 @@
   ],
   "knownReds": [
     {
-      "test": "Ck.AggroDebugger.Authored.PIE",
-      "status": "red",
-      "reason": "Expected 'Engaged-only control follows a public active-target request' to be true.",
-      "evidence": "CkPlugins feature/automation-gate-known-reds (CkFoundation 5c5a61d33, CkTests 096ccb07, CkGameplayDebugger 243c0cd4 = their dev tips), UnrealToolbox v1.51, 2 full raw gates on one build 2026-10-01 (G1 3966 run/47 red, G2 3966/49) + a solo fresh-boot run: gates FF, solo RED",
-      "added": "2026-10-01"
-    },
-    {
       "test": "Ck.DialogDebugger.Authored.PIE",
       "status": "red",
       "reason": "Expected 'Native Dialog active-only checkbox routes through its real binding' to be true.",
