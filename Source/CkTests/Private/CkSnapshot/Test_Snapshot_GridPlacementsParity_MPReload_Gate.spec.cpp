@@ -25,6 +25,11 @@
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
+#include "CkAutoTest_Utils.h"
+#include "Interfaces/IPluginManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
@@ -277,6 +282,53 @@ bool FCkSnapshot_GridPlacementsParity_MPReload_Gate::RunTest(const FString& Para
         TEXT("2dGridPlacements parity: grid occupancy survives save -> seamless reload -> client convergence")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkHexNet_PreHexSquareSave, "Ck.HexGrid.Net.PreHexSquareSave",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkHexNet_PreHexSquareSave::RunTest(const FString&)
+{
+    const auto Plugin = IPluginManager::Get().FindPlugin(TEXT("CkTests"));
+    TArray<uint8> Bytes;
+    const auto Slot = FString::Printf(TEXT("CkTests_PreHexSquare_%s"), *FGuid::NewGuid().ToString());
+    if (!TestTrue(TEXT("Archived pre-hex square save installed in an isolated slot"), Plugin &&
+        FFileHelper::LoadFileToArray(Bytes, *FPaths::Combine(Plugin->GetBaseDir(), TEXT("TestData/CkGrid/PreHexSquare.sav"))) &&
+        UGameplayStatics::SaveDataToSlot(Bytes, Slot, 0))) { return false; }
+    const FName TravelFlag{TEXT("net.AllowPIESeamlessTravel")};
+    UCk_Utils_AutoTest_UE::Request_PushCVarOverride(TravelFlag, TEXT("1"));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, FString{GridParity_MapPath}));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda([this, Slot](UWorld* Server)
+    {
+        auto* Sub = GridParity_Subsystem(Server);
+        if (!TestNotNull(TEXT("Snapshot subsystem accepts the archived bytes"), Sub)) { return; }
+        Sub->Request_Load(FName(*Slot), {});
+        TestTrue(TEXT("Archived pre-hex load begins travel"), Sub->Get_IsLoadInProgress());
+    })));
+    const auto Restored = FCk_NetAutoTest_Assertion::CreateLambda([]()
+    {
+        auto* Server = ck::auto_test::net::Get_ServerWorld();
+        auto* Client = ck::auto_test::net::Get_ClientWorld(0);
+        auto* Sub = GridParity_Subsystem(Server);
+        auto* Probe = GridParity_FindProbe(Server);
+        if (!Sub || Sub->Get_IsLoadInProgress() || !Probe || !GridParity_CellOccupied(Server) ||
+            !GridParity_CellOccupied(Client)) { return false; }
+        const auto& Report = Sub->Get_LastLoadReport();
+        const auto Occupant = UCk_Utils_2dGridOccupancy_UE::Get_OccupantAt(GridParity_ResolveGrid(Probe), GridParity_Coordinate);
+        return ck::IsValid(Occupant) && Occupant == Probe->_TestOccupant &&
+            Report.Get_Result() == ECk_SnapshotResult::Success && Report.Get_PayloadLosses().IsEmpty();
+    });
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(Restored, 60.f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this, Restored,
+        TEXT("Archived save recreates the authority occupant at (2,2) and delivers occupied cell to the client")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this, FCk_NetAutoTest_Assertion::CreateLambda([TravelFlag, Slot]()
+    {
+        UCk_Utils_AutoTest_UE::Request_PopCVarOverride(TravelFlag);
+        return UGameplayStatics::DeleteGameInSlot(Slot, 0);
+    }), TEXT("Restore travel configuration and remove the isolated test slot")));
     return true;
 }
 

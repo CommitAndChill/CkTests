@@ -16,6 +16,11 @@
 
 #if WITH_EDITOR && WITH_DEV_AUTOMATION_TESTS
 
+#include "CkAutoTest_Utils.h"
+#include "Interfaces/IPluginManager.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
@@ -300,6 +305,67 @@ bool FCkSnapshot_InventorySpatialParity_MPReload_Gate::RunTest(const FString& Pa
         TEXT("Inventory(Spatial) parity: item + placement survive save -> seamless reload -> client convergence")));
 
     ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkHexRelease_PreHexInventorySave, "Ck.HexGrid.Release.PreHexInventorySave",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkHexRelease_PreHexInventorySave::RunTest(const FString&)
+{
+    const auto Plugin = IPluginManager::Get().FindPlugin(TEXT("CkTests"));
+    const auto Slot = FString::Printf(TEXT("CkTests_PreHexInventory_%s"), *FGuid::NewGuid().ToString());
+    TArray<uint8> Bytes;
+    if (!TestTrue(TEXT("Archived pre-hex inventory donor copied into an isolated slot"), Plugin &&
+        FFileHelper::LoadFileToArray(Bytes, *FPaths::Combine(Plugin->GetBaseDir(), TEXT("TestData/CkGrid/PreHexInventory.sav"))) &&
+        UGameplayStatics::SaveDataToSlot(Bytes, Slot, 0))) { return false; }
+
+    const FName TravelFlag{TEXT("net.AllowPIESeamlessTravel")};
+    UCk_Utils_AutoTest_UE::Request_PushCVarOverride(TravelFlag, TEXT("1"));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(2, FString{InvSpParity_MapPath}));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(2, 30.f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(FCk_NetAutoTest_ServerAction::CreateLambda(
+        [this, Slot](UWorld* World)
+        {
+            auto* Subsystem = InvSpParity_Subsystem(World);
+            if (!TestNotNull(TEXT("Authority snapshot subsystem available"), Subsystem)) { return; }
+            Subsystem->Request_Load(FName(*Slot), {});
+            TestTrue(TEXT("Inventory donor starts real seamless load"), Subsystem->Get_IsLoadInProgress());
+        })));
+    const auto MatchesDonor = [](UWorld* World)
+    {
+        if (!InvSpParity_PlacementMatches(World)) { return false; }
+        auto* Probe = InvSpParity_FindProbe(World);
+        if (!InvSpParity_AllItemsHaveRestoredParentInventory(Probe)) { return false; }
+        const auto Inventory = InvSpParity_ResolveSpatialInventory(Probe);
+        const auto Sword = InvSpParity_ResolveSoleItem(Inventory);
+        const auto* Definition = UCk_Utils_Item_UE::Get_Definition(Sword);
+        if (!IsValid(Definition) || Definition->GetFName() != FName{InvSpParity_SwordDefName}) { return false; }
+        for (int32 Y = 2; Y <= 4; ++Y)
+        {
+            if (UCk_Utils_Inventory_Spatial_UE::Get_ItemAtCoordinate(Inventory, FIntPoint{1, Y}) != Sword)
+            { return false; }
+        }
+        return true;
+    };
+    const auto Restored = FCk_NetAutoTest_Assertion::CreateLambda([MatchesDonor]()
+    {
+        auto* Server = ck::auto_test::net::Get_ServerWorld();
+        auto* Subsystem = InvSpParity_Subsystem(Server);
+        if (!Subsystem || Subsystem->Get_IsLoadInProgress()) { return false; }
+        const auto& Report = Subsystem->Get_LastLoadReport();
+        return Report.Get_Result() == ECk_SnapshotResult::Success && Report.Get_PayloadLosses().IsEmpty() &&
+            MatchesDonor(Server) && MatchesDonor(ck::auto_test::net::Get_ClientWorld(0));
+    });
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForCondition(Restored, 60.f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this, Restored,
+        TEXT("Old inventory donor restores a single Sword at (1,2), Quarter, occupying (1,2)..(1,4) on server and client")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this, FCk_NetAutoTest_Assertion::CreateLambda([Slot, TravelFlag]()
+    {
+        UCk_Utils_AutoTest_UE::Request_PopCVarOverride(TravelFlag);
+        return UGameplayStatics::DeleteGameInSlot(Slot, 0);
+    }), TEXT("Remove the isolated inventory slot and restore PIE settings")));
     return true;
 }
 
