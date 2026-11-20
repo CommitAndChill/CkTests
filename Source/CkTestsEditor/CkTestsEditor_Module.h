@@ -19,6 +19,7 @@ private:
 
     FDelegateHandle _TestStartHandle;
     FDelegateHandle _TestEndHandle;
+    FDelegateHandle _HexAcceptanceCookHandle;
     FVector2D _CursorAtTestStart = FVector2D::ZeroVector;
     bool _CursorCaptured = false;
 };

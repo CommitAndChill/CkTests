@@ -60,6 +60,9 @@ namespace ck_repdata_coverage_test
             TEXT("StateMachine_WithHistory"),
             TEXT("Inventory_Spatial_Items"),
             TEXT("2dGridPlacements"),
+            // Ck.HexGrid.Net.MixedSquareHex_MPReload verifies both restored payloads on a fresh remote world.
+            TEXT("HexGridState"),
+            TEXT("HexGridObjectIdentity"),
             TEXT("RenderTarget"),
             TEXT("EntityCollections"),
         };

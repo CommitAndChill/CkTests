@@ -65,6 +65,11 @@
 			"Enabled": true
 		},
 		{
+			"Name": "AssetManagerEditor",
+			"Enabled": true,
+			"TargetAllowList": [ "Editor" ]
+		},
+		{
 			"Name": "CkDebugger",
 			"Enabled": true,
 			"TargetAllowList": [

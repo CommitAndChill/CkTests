@@ -15,7 +15,7 @@
 //
 // Two halves, and both matter:
 //   (i)  every wall-time read is on the list, and no file gains reads. A ratchet.
-//   (ii) the four watchdogs the design MOVED to wall time still read it. Without this the fence is one-way: a
+//   (ii) the watchdogs the design MOVED to wall time still read it. Without this the fence is one-way: a
 //        watchdog quietly moved back to game time would lower a count, which a ratchet reads as an improvement,
 //        while in fact it re-creates the bug that made the timeout unable to expire inside the window it bounds.
 //
@@ -43,6 +43,10 @@ namespace ck_test_walltime_fence
             // ---- The load's own watchdogs. PERMANENT: a watchdog measured in game time cannot expire inside the
             // window it exists to bound, because that window is exactly when game time does not advance. -------
             {TEXT("CkEcs/Public/CkEcs/Persistence/CkPersistenceHydration_Processor.cpp"), 1},
+            // A receiving board bounds a missing initial baseline even while snapshot travel holds game time.
+            // StartNetBaselineDeadline arms once. The replication processor checks the same elapsed clock.
+            {TEXT("CkGrid/Public/CkGrid/HexGridSystem/Grid/CkHexGrid_Readiness.cpp"), 1},
+            {TEXT("CkGrid/Public/CkGrid/HexGridSystem/Grid/CkHexGrid_Processor.cpp"), 1},
             {TEXT("CkEcs/Public/CkEcs/Net/ReplicatedFragmentContainer/CkReplicatedFragmentContainer_Processor.cpp"), 1},
             {TEXT("CkEcs/Public/CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Processor.cpp"), 1},
             // The kernel's replication-retry backoff. A retry watchdog that freezes with the world it is retrying
@@ -163,15 +167,20 @@ namespace ck_test_walltime_fence
     //
     // 113 -> 114 (2026-10-23): failed physical-storage flushes retain pending settings and restart the
     // existing two-second retry debounce. Its new GameSettings stamp measures process I/O delay, not game time.
-    constexpr auto WallTimeCeiling = 114;
+    // Two reads implement the receiving hex board deadline: arm and expiry.
+    constexpr auto WallTimeCeiling = 116;
 
-    // (ii) The four watchdogs the C6 design MOVED onto the wall clock, with the minimum each must keep. This is
+    // (ii) The watchdogs the C6 design MOVED onto the wall clock, with the minimum each must keep. This is
     // the half a ratchet cannot express: silently reverting one of these LOWERS a count.
     auto Get_RequiredWallTimeWatchdogs() -> const TMap<FString, int32>&
     {
         static const TMap<FString, int32> Required =
         {
             {TEXT("CkEcs/Public/CkEcs/Persistence/CkPersistenceHydration_Processor.cpp"), 1},
+            // A receiving board bounds a missing initial baseline even while snapshot travel holds game time.
+            // StartNetBaselineDeadline arms once. The replication processor checks the same elapsed clock.
+            {TEXT("CkGrid/Public/CkGrid/HexGridSystem/Grid/CkHexGrid_Readiness.cpp"), 1},
+            {TEXT("CkGrid/Public/CkGrid/HexGridSystem/Grid/CkHexGrid_Processor.cpp"), 1},
             {TEXT("CkEcs/Public/CkEcs/Net/ReplicatedFragmentContainer/CkReplicatedFragmentContainer_Processor.cpp"), 1},
             {TEXT("CkEcs/Public/CkEcs/Net/EntityReplicationDriver/CkEntityReplicationDriver_Processor.cpp"), 1},
             {TEXT("CkEcs/Public/CkEcs/EntityScript/CkEntityScript_Processor.cpp"), 2},

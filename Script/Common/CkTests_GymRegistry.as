@@ -45,6 +45,12 @@ namespace CkTests_Gyms
         CkGym_Cycler::RegisterProjectGym("Entity Script",      ACk_EntityScriptGym_Spawn_GameMode,      "", "CkEcs");
         CkGym_Cycler::RegisterProjectGym("EQS",                ACk_EqsGym_GameMode,                     "", "CkEqs");
         CkGym_Cycler::RegisterProjectGym("Game Settings",      ACk_GameSettingsGym_GameMode,            "", "CkSettings");
+        CkGym_Cycler::RegisterProjectGym("Hex Grid Geometry",  ACk_HexGridGeometryGym_GameMode,         "", "CkGrid");
+        CkGym_Cycler::RegisterProjectGym("Hex Board",          ACk_HexBoardGym_GameMode,                "", "CkGrid");
+        CkGym_Cycler::RegisterProjectGym("Hex Footprints and Blockers", ACk_HexRulesGym_GameMode,      "", "CkGrid");
+        CkGym_Cycler::RegisterProjectGym("Hex Placement",      ACk_HexPlacementGym_GameMode,           "", "CkGrid");
+        CkGym_Cycler::RegisterProjectGym("Hex Persistence",    ACk_HexPersistenceGym_GameMode,         "/CkTests/CkGrid/HexGrid/HexPersistenceGym", "CkGrid");
+        CkGym_Cycler::RegisterProjectGym("Hex Replication",    ACk_HexNetGym_GameMode,                 "", "CkGrid");
         CkGym_Cycler::RegisterProjectGym("Input Key Binding",  ACk_InputGym_KeyBinding_GameMode,        "", "CkInput");
         CkGym_Cycler::RegisterProjectGym("Input Playground",   ACk_PlaygroundGym_GameMode,              "", "CkInput");
         CkGym_Cycler::RegisterProjectGym("Interaction",        ACk_InteractionGym_GameMode,             "", "CkInteraction");

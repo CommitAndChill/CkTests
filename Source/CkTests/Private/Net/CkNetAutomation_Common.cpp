@@ -6,6 +6,7 @@
 #include "Editor/UnrealEdEngine.h"
 #include "Engine/Engine.h"
 #include "Engine/NetConnection.h"
+#include "Engine/NetDriver.h"
 #include "Engine/World.h"
 #include "FileHelpers.h"
 #include "GameFramework/PlayerController.h"
@@ -384,6 +385,98 @@ bool
 }
 
 // --------------------------------------------------------------------------------------------------------------------
+
+bool FCk_Latent_RequestLateJoin::Update()
+{
+    using namespace ck::auto_test::net;
+    using EStatus = ECk_NetAutoTest_LateJoinStatus;
+
+    const auto Now = FPlatformTime::Seconds();
+    if (_StartTime < 0.0) { _StartTime = Now; }
+    if (Now - _StartTime >= _TimeoutSeconds)
+    {
+        _Result->Status = EStatus::TimedOut;
+        return true;
+    }
+
+    auto* Server = Get_ServerWorld();
+    const bool Requested = !_OriginalWorlds.IsEmpty();
+    if (Requested && (!IsValid(Server) || _Server.Get() != Server))
+    {
+        _Result->Status = EStatus::SessionEnded;
+        return true;
+    }
+    if (!GEditor || !GEditor->IsPlayingSessionInEditor() || GEditor->IsSimulatingInEditor() ||
+        !IsValid(Server) || Server->GetNetMode() != NM_ListenServer)
+    { return false; }
+
+    const auto* Driver = Server->GetNetDriver();
+    const auto Worlds = Get_AllPIEWorlds();
+    if (!Driver || Driver->ClientConnections.IsEmpty() || Worlds.Num() != Driver->ClientConnections.Num() + 1)
+    { return false; }
+    if (!Requested)
+    {
+        for (auto* World : Worlds)
+        {
+            if (World == Server) { continue; }
+            const auto* PC = World->GetFirstPlayerController();
+            const auto* ClientDriver = World->GetNetDriver();
+            if (World->GetNetMode() != NM_Client || !PC || !PC->PlayerState || !ClientDriver ||
+                !ClientDriver->ServerConnection || ClientDriver->ServerConnection->GetConnectionState() != USOCK_Open)
+            { return false; }
+        }
+        for (const auto& Connection : Driver->ClientConnections)
+        {
+            if (!Connection || Connection->GetConnectionState() != USOCK_Open ||
+                !Connection->PlayerController || !Connection->PlayerController->PlayerState)
+            { return false; }
+        }
+        for (auto* World : Worlds) { _OriginalWorlds.Emplace(World); }
+        for (const auto& Connection : Driver->ClientConnections) { _OriginalConnections.Emplace(Connection.Get()); }
+        _Server = Server;
+        GEditor->RequestLateJoin();
+        return false;
+    }
+
+    if (Worlds.Num() != _OriginalWorlds.Num() + 1) { return false; }
+    for (const auto& World : _OriginalWorlds)
+    {
+        if (!World.IsValid() || !Worlds.Contains(World.Get())) { _Result->Status = EStatus::SessionEnded; return true; }
+    }
+    for (const auto& Connection : _OriginalConnections)
+    {
+        if (!Connection.IsValid() || !Driver->ClientConnections.Contains(Connection.Get()))
+        { _Result->Status = EStatus::SessionEnded; return true; }
+    }
+    auto* const* JoinedWorld = Worlds.FindByPredicate([this](UWorld* World) { return !_OriginalWorlds.Contains(World); });
+    const auto* NewConnection = Driver->ClientConnections.FindByPredicate([this](const auto& Connection)
+    { return !_OriginalConnections.Contains(Connection.Get()); });
+    if (!JoinedWorld || !NewConnection || !NewConnection->Get()) { return false; }
+    auto* Client = *JoinedWorld;
+    auto* Connection = NewConnection->Get();
+    const auto* ClientDriver = Client->GetNetDriver();
+    const auto* ClientPC = Client->GetFirstPlayerController();
+    const auto* ServerPC = Connection->PlayerController.Get();
+    if (Client->GetNetMode() != NM_Client || !ClientDriver || !ClientDriver->ServerConnection ||
+        ClientDriver->ServerConnection->GetConnectionState() != USOCK_Open || Connection->GetConnectionState() != USOCK_Open ||
+        !ClientPC || !ClientPC->PlayerState || !ServerPC || !ServerPC->PlayerState || ServerPC->GetNetConnection() != Connection)
+    { return false; }
+
+    const auto& LocalId = ClientPC->PlayerState->GetUniqueId();
+    const auto& RemoteId = ServerPC->PlayerState->GetUniqueId();
+    if (LocalId.IsValid() && RemoteId.IsValid())
+    {
+        if (LocalId != RemoteId) { return false; }
+    }
+    else if (ClientPC->PlayerState->GetPlayerId() == INDEX_NONE ||
+        ClientPC->PlayerState->GetPlayerId() != ServerPC->PlayerState->GetPlayerId())
+    { return false; }
+
+    _Result->ClientWorld = Client;
+    _Result->ServerConnection = Connection;
+    _Result->Status = EStatus::Joined;
+    return true;
+}
 
 bool
     FCk_Latent_WaitForPIEReady::

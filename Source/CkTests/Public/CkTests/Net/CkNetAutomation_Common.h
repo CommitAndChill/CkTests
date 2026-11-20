@@ -9,6 +9,8 @@
 
 #include "CkTests/Net/CkAutoTest_NetSubject_Utils.h"
 
+class UNetConnection;
+
 // --------------------------------------------------------------------------------------------------------------------
 //
 // Multi-client AutoTest harness for CkStateMachine replication tests (spec §13). UE 5.5/5.6 ships
@@ -96,6 +98,40 @@ public:
 private:
     int32 _NumClients = 1;
     FString _MapPath;
+};
+
+enum class ECk_NetAutoTest_LateJoinStatus : uint8
+{
+    Pending,
+    Joined,
+    TimedOut,
+    SessionEnded
+};
+
+struct FCk_NetAutoTest_LateJoinResult
+{
+    ECk_NetAutoTest_LateJoinStatus Status = ECk_NetAutoTest_LateJoinStatus::Pending;
+    TWeakObjectPtr<UWorld> ClientWorld;
+    TWeakObjectPtr<UNetConnection> ServerConnection;
+};
+
+// Enqueue after initial authority mutations. The result identifies the new client by its world and
+// matching server-side connection. Callers assert Joined before observing the replicated subject.
+class CKTESTS_API FCk_Latent_RequestLateJoin : public IAutomationLatentCommand
+{
+public:
+    FCk_Latent_RequestLateJoin(TSharedRef<FCk_NetAutoTest_LateJoinResult> InResult, double InTimeoutSeconds)
+        : _Result(MoveTemp(InResult)), _TimeoutSeconds(InTimeoutSeconds) {}
+
+    bool Update() override;
+
+private:
+    TSharedRef<FCk_NetAutoTest_LateJoinResult> _Result;
+    double _TimeoutSeconds;
+    double _StartTime = -1.0;
+    TWeakObjectPtr<UWorld> _Server;
+    TArray<TWeakObjectPtr<UWorld>> _OriginalWorlds;
+    TArray<TWeakObjectPtr<UNetConnection>> _OriginalConnections;
 };
 
 class CKTESTS_API FCk_Latent_WaitForPIEReady : public IAutomationLatentCommand
