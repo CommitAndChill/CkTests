@@ -53,6 +53,14 @@ CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_Inventory_AutoTest_Net_Spatial, "Inventor
 
 // --------------------------------------------------------------------------------------------------------------------
 
+CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_Inventory_AutoTest_Net_SharedOwner_DataOnly_A, "Inventory.AutoTest_Net_SharedOwner_DataOnly_A");
+CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_Inventory_AutoTest_Net_SharedOwner_DataOnly_B, "Inventory.AutoTest_Net_SharedOwner_DataOnly_B");
+CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_Inventory_AutoTest_Net_SharedOwner_Spatial_A, "Inventory.AutoTest_Net_SharedOwner_Spatial_A");
+CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_Inventory_AutoTest_Net_SharedOwner_Spatial_B, "Inventory.AutoTest_Net_SharedOwner_Spatial_B");
+CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_Inventory_AutoTest_Net_ItemHost, "Inventory.AutoTest_Net_ItemHost");
+
+// --------------------------------------------------------------------------------------------------------------------
+
 CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_AnimPlan_AutoTest_Net_Goal, "AnimPlan.Goal.AutoTest_Net");
 CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_AnimPlan_AutoTest_Net_Cluster, "AnimPlan.Cluster.AutoTest_Net");
 CKTESTS_API UE_DEFINE_GAMEPLAY_TAG(TAG_AnimPlan_AutoTest_Net_State_A, "AnimPlan.State.AutoTest_Net_A");
