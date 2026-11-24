@@ -6,8 +6,10 @@
 #include "CkEcs/EntityLifetime/CkEntityLifetime_Utils.h"
 #include "CkEcsExt/Transform/CkTransform_Fragment.h"
 #include "CkEcsExt/Transform/CkTransform_Utils.h"
+#include "CkEcsExt/Transform/CkTransform_Processor.h"
 #include "CkUnrealComponent/CkUnrealComponent_Fragment.h"
 #include "CkUnrealComponent/CkUnrealComponent_Utils.h"
+#include "CkUnrealComponent/CkUnrealComponent_Processor.h"
 #include "CkProfile/Stats/CkCpuWork.h"
 
 #include "CkTests/Net/CkNetAutomation_Common.h"
@@ -411,6 +413,95 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FCkUnrealComponent_CpuWork_ComponentPropagationOn::RunTest(const FString& Parameters)
 {
     ck_tests_unreal_component_transform::QueueTransformPropagation(this, 1);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkUnrealComponent_TransformPropagation_LateRequestProjection,
+    "Ck.UnrealComponent.TransformPropagation.LateRequestProjection",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkUnrealComponent_TransformPropagation_LateRequestProjection::RunTest(const FString& Parameters)
+{
+    using namespace ck_tests_unreal_component_transform;
+    auto State = MakeShared<FTestState>();
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* World)
+        {
+            auto Owner = UCk_Utils_EntityLifetime_UE::Request_CreateEntity_TransientOwner(World);
+            State->OwnerTransform = UCk_Utils_Transform_UE::Add(Owner, State->DesiredTransform, ECk_Replication::DoesNotReplicate);
+            const auto Params = UCk_Utils_UnrealComponent_UE::Make_Params(
+                USceneComponent::StaticClass(), ECk_UnrealComponent_TickPolicy::DoNotTick, TEXT("LateProjection"));
+            State->ComponentHandle = UCk_Utils_UnrealComponent_UE::Add(Owner, Params);
+            State->PendingComponentHandle = UCk_Utils_UnrealComponent_UE::Add(Owner, Params);
+            UCk_Utils_UnrealComponent_UE::Request_DisableTransformPush(State->PendingComponentHandle, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(3));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld*)
+        {
+            auto* Component = Cast<USceneComponent>(UCk_Utils_UnrealComponent_UE::Get_Component(State->ComponentHandle));
+            auto* Disabled = Cast<USceneComponent>(UCk_Utils_UnrealComponent_UE::Get_Component(State->PendingComponentHandle));
+            if (NOT TestNotNull(TEXT("late projection component was set up"), Component)
+                || NOT TestNotNull(TEXT("disabled sibling was set up"), Disabled))
+            { return; }
+            State->SceneComponent = Component;
+            Disabled->SetWorldTransform(State->ExternalDrift);
+            TestTrue(TEXT("initial setup projected the owner pose"), Component->GetComponentTransform().Equals(State->DesiredTransform));
+
+            // Reproduce deferred net apply's ordering: normal projection has finished;
+            // the real request handler now drains the write in a tail pump.
+            UCk_Utils_Transform_UE::Request_SetTransform(State->OwnerTransform,
+                FCk_Request_Transform_SetTransform{State->MovedTransform}, {});
+            const auto Registry = *State->OwnerTransform;
+            auto Requests = ck::FProcessor_Transform_HandleRequests{Registry};
+            Requests.Pump();
+            TestTrue(TEXT("tail request changed the stored owner"),
+                UCk_Utils_Transform_UE::Get_EntityCurrentTransform(State->OwnerTransform).Equals(State->MovedTransform));
+            TestTrue(TEXT("component is still at the old pose before the next projection pass"),
+                Component->GetComponentTransform().Equals(State->DesiredTransform));
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(2));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld*)
+        {
+            auto* Component = State->SceneComponent.Get();
+            if (NOT TestNotNull(TEXT("late component survives"), Component))
+            { return; }
+            TestTrue(TEXT("late owner pose projects before its update tag is discarded"),
+                Component->GetComponentTransform().Equals(State->MovedTransform));
+            auto* Disabled = Cast<USceneComponent>(UCk_Utils_UnrealComponent_UE::Get_Component(State->PendingComponentHandle));
+            if (TestNotNull(TEXT("disabled sibling survives"), Disabled))
+            { TestTrue(TEXT("late projection preserves opt-out"), Disabled->GetComponentTransform().Equals(State->ExternalDrift)); }
+
+            Component->SetWorldTransform(State->ExternalDrift);
+            ck::FProcessor_UnrealComponent_PushLateTransform::ForEachEntity(FCk_Time{0.0f}, State->OwnerTransform,
+                State->OwnerTransform.Get<ck::FFragment_Transform>(), State->OwnerTransform.Get<ck::FFragment_RecordOfUnrealComponents>());
+            TestTrue(TEXT("early pass skips an owner pose already projected without walking its components"),
+                Component->GetComponentTransform().Equals(State->ExternalDrift));
+            UCk_Utils_Transform_UE::Request_ForceRefresh(State->OwnerTransform, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(2));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld*)
+        {
+            const auto* Component = State->SceneComponent.Get();
+            if (TestNotNull(TEXT("force-refresh component survives"), Component))
+            { TestTrue(TEXT("normal dirty pass still honors explicit force-refresh of an unchanged owner"), Component->GetComponentTransform().Equals(State->MovedTransform)); }
+            UCk_Utils_Transform_UE::Request_SetTransform(State->OwnerTransform,
+                FCk_Request_Transform_SetTransform{State->FollowupTransform}, {});
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_TickWorlds(2));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([this, State](UWorld*)
+        {
+            const auto* Component = State->SceneComponent.Get();
+            if (TestNotNull(TEXT("normal-motion component survives"), Component))
+            { TestTrue(TEXT("normal motion still projects in its regular frame"), Component->GetComponentTransform().Equals(State->FollowupTransform)); }
+        })));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_EndPIE());
     return true;
 }
 
