@@ -32,12 +32,18 @@ Reference exemplar: `Script/CkAttribute/CkAutoTest_Attribute_IntegerBasic.as`.
    `WaitUntil(n"Check_Fn", n"ContinueFn", InFrameBudget = 0)` instead of a step list.
    `ContinueFn` takes the `FCk_Delegate_Timer` signature and may start the next `WaitUntil`.
    `WaitFrames(N, n"ContinueFn")` is the frame-counted twin — use it ONLY when there is no
-   observable condition, i.e. when asserting that something does **not** happen.
+   observable condition, i.e. when asserting that something does **not** happen, and only when
+   the absent thing would land within N processor passes. When a clock would drive it (a cadence,
+   a settle timer, a day-cycle pulse), the window is a duration: `WaitSeconds(S, n"ContinueFn")`
+   (spec section 7, "A SETTLE THAT PROVES AN ABSENCE"); a frame count there passes vacuously on a
+   fast machine.
    **Never convert a settle that guards a NEGATIVE into a condition.** If the test asserts that
    something does *not* happen, or that a value *survives* some event, the naive predicate is
    already true when first evaluated — the wait returns before the event under test occurs and the
    test passes vacuously, which is worse than the flake it replaced. Ask: *if the system did nothing
-   at all, would my predicate still be true?* If yes, use `WaitFrames`. In-tree cases deliberately
+   at all, would my predicate still be true?* If yes, keep a settle in the unit that would drive
+   the absent thing. A test about time itself may stay load-sensitive: tag it `// LOAD-SENSITIVE:`
+   and follow the spec's "WHEN THERE IS NO ALTERNATIVE" block (section 6). In-tree cases deliberately
    left on frame settles: `ObjectPooling_PinnedSurvivesGCThenUnpins` (asserts survival of a GC),
    `EntityTag_RequestTryRemoveAbsentFailed`. Before settling for frames, look for a positive
    observable hiding in the test's own assertions — `Fog_StartsUnexplored` was on this list until
