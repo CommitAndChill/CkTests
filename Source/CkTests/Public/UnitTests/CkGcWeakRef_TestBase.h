@@ -15,6 +15,11 @@
 // whichever test triggered the collect, so without this a GC test flakes against unrelated map
 // teardown — passing alone, failing in combination.
 //
+// Collect with GARBAGE_COLLECTION_KEEPFLAGS, never RF_NoFlags: the probed objects are transient, and
+// RF_NoFlags also evicts unreferenced standalone assets. A later test that loads a map using one then
+// finds it still compiling, its mesh components not nav relevant, and its navmesh empty
+// (Ck.GroundNav.Benchmark.MapContract).
+//
 // Suppression is limited to CAPTURED LOG output: SuppressLogErrors is consulted only by the
 // automation output device, never by AddError, so TestTrue/TestNull failures still fail the test.
 class FCkTest_GcWeakRefBase : public FAutomationTestBase

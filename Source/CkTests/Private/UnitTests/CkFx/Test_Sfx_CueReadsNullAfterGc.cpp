@@ -44,7 +44,7 @@ bool FCkTest_Sfx_CueReadsNullAfterGc::RunTest(const FString& Parameters)
     Entity.Add<ck::FFragment_Sfx_Params>(FCk_Sfx_Spec{FGameplayTag{}, Cue});
 
     Cue = nullptr;
-    CollectGarbage(RF_NoFlags, true);
+    CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
 
     TestFalse(TEXT("a cue reachable only through an Sfx fragment is NOT kept alive by that fragment"),
         WeakCue.IsValid());

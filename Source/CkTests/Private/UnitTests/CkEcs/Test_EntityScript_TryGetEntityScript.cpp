@@ -125,7 +125,7 @@ bool FCkTest_TryGetEntityScript_ScriptGoneBeforeEndPlay::RunTest(const FString& 
     Entity.Add<ck::FFragment_EntityScript>(Script);
 
     Script = nullptr;
-    CollectGarbage(RF_NoFlags, true);
+    CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
 
     if (NOT TestFalse(TEXT("a script held only by the fragment is collected"), WeakScript.IsValid()))
     { return false; }
