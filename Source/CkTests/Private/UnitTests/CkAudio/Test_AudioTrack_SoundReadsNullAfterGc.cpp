@@ -44,7 +44,7 @@ bool FCkTest_AudioTrack_SoundReadsNullAfterGc::RunTest(const FString& Parameters
     auto Track    = UCk_Utils_AudioTrack_UE::Create(Director, FCk_AudioTrack_Spec{Sound});
 
     Sound = nullptr;
-    CollectGarbage(RF_NoFlags, true);
+    CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
 
     TestFalse(TEXT("a sound reachable only through an AudioTrack fragment is NOT kept alive by that fragment"),
         WeakSound.IsValid());

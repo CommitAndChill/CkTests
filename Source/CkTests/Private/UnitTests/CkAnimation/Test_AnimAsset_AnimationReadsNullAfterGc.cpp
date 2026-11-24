@@ -46,7 +46,7 @@ bool FCkTest_AnimAsset_AnimationReadsNullAfterGc::RunTest(const FString& Paramet
         FCk_AnimAsset_Spec{FCk_AnimAsset_Animation{FGameplayTag{}, Animation}});
 
     Animation = nullptr;
-    CollectGarbage(RF_NoFlags, true);
+    CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
 
     TestFalse(TEXT("an animation reachable only through an AnimAsset fragment is NOT kept alive by that fragment"),
         WeakAnimation.IsValid());
