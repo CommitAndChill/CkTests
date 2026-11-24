@@ -228,6 +228,13 @@ A settle you cannot justify is not a defect to be fixed - converting it is how y
 wait. When you keep one, record the reason in the file so the next pass does not "finish the
 migration" and reintroduce the flake.
 
+Write a test so load cannot decide it. A test about time itself (a promised cadence, a "not yet"
+absence, a real-time network window, a throughput budget) may stay load-sensitive: tag the wait
+`// LOAD-SENSITIVE: <why>; reds under load as <symptom>`, make it pass on a quiet machine with
+nothing re-run, and move benchmarks to the plugin's `deferred` list. A gate runner's load retry
+only keeps a starved gate from blaming such a test; never write one that needs it. Spec section 6,
+"WHEN THERE IS NO ALTERNATIVE".
+
 ### The spec documents and their trust levels (audited 2026-07-02)
 
 | Doc (`Script/Common/`) | Trust |

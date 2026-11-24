@@ -623,6 +623,40 @@ class U<Prefix>_AutoTest_<Feature>_<Scenario> : UCk_AutoTest_Base
 //
 // Converting all 799 is a campaign, not a drive-by. Convert the ones you touch, and
 // never add a new one.
+//
+// WRITE THE TEST SO LOAD CANNOT DECIDE IT. That is the default:
+//
+//   - something must HAPPEN: wait on a named condition (WaitUntil) or on the
+//     signal itself (PATTERN C), never on a number of seconds;
+//   - something must NEVER happen: first gate a positive on a condition (proof
+//     the machinery ran), then settle in the unit that would drive the absent
+//     thing: WaitFrames(N) when it would land within N processor passes (say
+//     what N counts), WaitSeconds when a clock would drive it (section 7,
+//     "A SETTLE THAT PROVES AN ABSENCE"). Load cannot red such a test. If the
+//     thing is only NOT DUE YET ("does not fire before T", "survives until
+//     expiry"), one long frame can cross both deadlines: that is a test about
+//     time, below.
+//
+// WHEN THERE IS NO ALTERNATIVE. Some tests are about time itself: a promised
+// cadence or deadline (InMaxSeconds against the production constant, section 7,
+// "ASSERTING A CADENCE"), a not-yet absence, a real-time network window, a
+// frame-rate or throughput budget. A starved machine can red them however they
+// are written. They are allowed, on three conditions:
+//
+//   1. Tag the wait, so a later pass does not "fix" it and whoever triages a red
+//      knows what a starved one looks like:
+//        // LOAD-SENSITIVE: <why there is nothing to wait on>; reds under load as <symptom>
+//   2. It passes on a quiet machine, alone and in its lane, with nothing re-run.
+//      If it fails at its normal speed it is flaky, not load-sensitive: fix it.
+//   3. A benchmark (it measures rather than asserts behaviour) leaves the merge
+//      gate: list its exact path under "deferred" in the plugin's
+//      AutomationGate.json.
+//
+// A host's gate runner may re-run a red it can show ran starved (UnrealToolbox
+// v1.91+; the rules are in the build-test skill of the CkAuto release that
+// vendors it). That only stops a starved gate from blaming the test. It does not
+// run in Session Frontend, on a live-editor run, or for a test with no
+// frame-rate history yet, so never write a test that needs it to pass.
 
 //============================================================================
 // 7. COMMON PATTERNS
@@ -1101,6 +1135,11 @@ class U<Prefix>_AutoTest_<Feature>_<Scenario> : UCk_AutoTest_Base
 //      out of polls. Tell-tale: "condition never became true within N polls"
 //      with a wall time near the budget. Re-run the test alone AND re-run it
 //      under a full suite before deciding; do not just raise the budget.
+//      A `FORGIVEN (starved)` row from the host's gate runner (UnrealToolbox
+//      v1.91+) is evidence for this mechanism in that run. Forgiven repeatedly
+//      means flaky or load-sensitive: run it alone on a quiet machine to tell
+//      which, then fix it, or tag it LOAD-SENSITIVE if it is about time itself
+//      (section 6, "WHEN THERE IS NO ALTERNATIVE").
 //   3. CAPTURED-LOG NOISE — an Error from any subsystem fails whatever test is
 //      running (GOTCHA 13), and which test that is depends on timing. A stale
 //      external-actor package is the usual source. Symptom: a failure with zero
