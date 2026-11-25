@@ -33,6 +33,13 @@
       "added": "2026-10-01"
     },
     {
+      "test": "Ck.GoapDebugger.AgentColumn.Authored.PIE",
+      "status": "flaky",
+      "reason": "FLAKY: green alone and on the gate's fresh-editor re-run. In the renderer pass: 'Physical mounted Replan action produces a real planner attempt: targeted=0 down=0 up=0 ... cached=X=12.000 Y=490.000..X=230.000 Y=511.000 arranged=X=12.000 Y=664.000..' - the click lands on the control's cached geometry while it is arranged 174 px lower. Same routed-click class as Ck.ProceduralAnimation.Action.Editor.MountedToolkit.TwoTabsModesAndCapture (here) and Ck.UiAuthoring.IntentDebugger.InputHudControls (CkGameplayDebugger), which fail only after this test in the same editor. Follow-up: fix the routed-click / cached-geometry state in the shared renderer editor (suspect the CkTests virtual cursor), then drop all three entries.",
+      "evidence": "CkPlugins2 (a CkPlugins worktree): CkTests e7218414 (superproject pin), CkFoundation light-theme #25/#27 tips, CkGameplayDebugger #8 df834721, engine feature/light-theme-ink; on 2026-11-21 the same group failed identically with CkFoundation and CkGameplayDebugger at origin/dev. UnrealToolbox v1.88 (Gate-Overnight 2026-11-21) and v1.91 (Gate-Rebase1124, Gate-ModuleMove1124, Gate-ShouldFix1124, 2026-11-24), full gates F F F F, load: clean; v1.91 NEW re-run in one fresh editor: AgentColumn P, TwoTabsModesAndCapture F, InputHudControls F (both ran after AgentColumn); TwoTabsModesAndCapture + InputHudControls alone without AgentColumn: P P (Pair-NoPie-1124, Pair-NoPie-ShouldFix1124)",
+      "added": "2026-11-24"
+    },
+    {
       "test": "Ck.Jolt.Body.Lifecycle.ChurnThousandReturnsToBaseline",
       "status": "flaky",
       "reason": "FLAKY: green alone. Editor died mid-test in 2 of 3 gates (G1, G3) - in flight when a lane editor died, no error text; suspect the D.6 lane-death class, or a long churn tripping the 180 s idle watchdog.",
@@ -45,6 +52,13 @@
       "reason": "OSCILLATES across hosts - listed red, not flaky, so a pass reports 'Now passing' instead of a failing solo re-run failing the gate. In CkPlugins it is load-sensitive: green alone, and in the suite the 3 s WaitUntil 'A swing lifting onto a block top touches down' timed out (0 touchdowns in 60 samples) right after a 600 s particle-system compile timeout in the same lane. In Mars it is red every time, alone included: the same WaitUntil times out (208 samples, 0 touchdowns). Follow-up: find why the swing never lands in Mars and fix the test.",
       "evidence": "CkPlugins at the cleaned Ck dev tips (CkFoundation 3a52cf6bc, CkTests cfabadb0, CkGameplayDebugger 4ffcc3ba), UnrealToolbox v1.52, judged full gate G1 2026-10-02 (3972 run/30 red) + a solo fresh-boot run: gate F, solo GREEN. Mars dev f4d3c25 (CkFoundation 9366c2a34, CkTests 771c2a98, CkGameplayDebugger 5af581da), UnrealToolbox v1.52, 3 full gates on one build 2026-10-03 + 3 solo fresh-boot runs: gates RED RED RED, solo RED RED RED",
       "added": "2026-10-02"
+    },
+    {
+      "test": "Ck.ProceduralAnimation.Action.Editor.MountedToolkit.TwoTabsModesAndCapture",
+      "status": "flaky",
+      "reason": "FLAKY (order-coupled): 'LimbNod slot selection receives routed click' (Test_ProceduralAction_MountedToolkit.cpp:809) fails only when it runs after Ck.GoapDebugger.AgentColumn.Authored.PIE in the same renderer editor; green alone and with InputHudControls when AgentColumn does not run first. Routed-click class; follow-up in the AgentColumn entry.",
+      "evidence": "CkPlugins2 (a CkPlugins worktree): CkTests e7218414 (superproject pin), CkFoundation light-theme #25/#27 tips, CkGameplayDebugger #8 df834721, engine feature/light-theme-ink; on 2026-11-21 the same group failed identically with CkFoundation and CkGameplayDebugger at origin/dev. UnrealToolbox v1.88 (Gate-Overnight 2026-11-21) and v1.91 (Gate-Rebase1124, Gate-ModuleMove1124, Gate-ShouldFix1124, 2026-11-24), full gates F F F F, load: clean; v1.91 NEW re-run in one fresh editor: AgentColumn P, TwoTabsModesAndCapture F, InputHudControls F (both ran after AgentColumn); TwoTabsModesAndCapture + InputHudControls alone without AgentColumn: P P (Pair-NoPie-1124, Pair-NoPie-ShouldFix1124)",
+      "added": "2026-11-24"
     },
     {
       "test": "Ck.ResourceInspector.Activity.History",
