@@ -7,7 +7,10 @@
 //   SilentTransmit_ReportsOnceOnlyWhenNothingWasEncoded: a transmit whose level never reaches the voice gate logs
 //     exactly one line that it encoded nothing (naming the talker and its peak level against the threshold),
 //     however long it runs; a self-muted talker fed the same audio stays quiet; a talker that speaks and then
-//     goes silent for longer than the report window stays quiet.
+//     goes silent for longer than the report window (a channel member, so its frames are sent) stays
+//     quiet.
+//   EncodedButUnsent_ReportsWhyAndSentStaysQuiet: a talker that encodes but is a member of no channel logs exactly
+//     one line naming that stage; a member fed the same audio, whose frames are sent, logs nothing.
 //   EachTransmitStartsWithTheGateClosed: a transmit stopped while the gate is open does not hand that open gate to
 //     the next transmit - silence at the start of the next one encodes nothing.
 //   ScriptToneHook_DrivesTheRealPipeline: the script-callable tone hook (UCk_Utils_AutoTest_VoiceChat_UE) feeds the
@@ -15,7 +18,7 @@
 //
 // Surface in Session Frontend: Ck.VoiceChat.Net.CaptureUnavailable_ReportedWithoutEnsure,
 // Ck.VoiceChat.Pipeline.SilentTransmit_ReportsOnceOnlyWhenNothingWasEncoded /
-// .EachTransmitStartsWithTheGateClosed /
+// .EncodedButUnsent_ReportsWhyAndSentStaysQuiet / .EachTransmitStartsWithTheGateClosed /
 // .ScriptToneHook_DrivesTheRealPipeline
 
 #include "Misc/AutomationTest.h"
@@ -32,12 +35,19 @@
 #include "CkTests/VoiceChat/CkAutoTest_VoiceChat_Utils.h"
 
 #include "CkVoiceChat/Capture/CkVoiceChat_CaptureSource.h"
+#include "CkVoiceChat/VoiceChannel/CkVoiceChannel_Utils.h"
 #include "CkVoiceChat/VoiceTalker/CkVoiceTalker_Utils.h"
 
 #include "Engine/World.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Modules/ModuleManager.h"
 #include "VoiceModule.h"
+
+#include <NativeGameplayTags.h>
+
+// --------------------------------------------------------------------------------------------------------------------
+
+UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_VoiceChat_Channel_AutoTest_Outcomes, TEXT("VoiceChat.Channel.AutoTest.Outcomes"));
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -94,6 +104,21 @@ namespace ck_voice_transmit_outcomes_spec
         auto TalkerEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(TransientEntity);
 
         return UCk_Utils_VoiceTalker_UE::Add(TalkerEntity, InSpec);
+    }
+
+    // A Global2D channel on its own host entity, registered on this (authority) world.
+    auto Add_RegisteredChannel(UWorld* InServer) -> FCk_Handle_VoiceChannel
+    {
+        auto TransientEntity = UCk_Utils_EcsWorld_Subsystem_UE::Get_TransientEntity(InServer);
+        auto Host = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(TransientEntity);
+
+        return UCk_Utils_VoiceChannel_UE::Add(Host, FCk_VoiceChannel_Spec{TAG_VoiceChat_Channel_AutoTest_Outcomes}
+            .Set_SpatializationPolicy(ECk_VoiceChat_SpatializationPolicy::Global2D));
+    }
+
+    auto Join(FCk_Handle_VoiceChannel InChannel, const FCk_Handle_VoiceTalker& InTalker) -> void
+    {
+        UCk_Utils_VoiceChannel_UE::Request_Join(InChannel, FCk_Request_VoiceChannel_Join{InTalker}, {});
     }
 
     auto Make_OpenMicSpec() -> FCk_VoiceTalker_Spec
@@ -311,12 +336,14 @@ bool FCkVoiceChatPipeline_SilentTransmit_ReportsOnceOnlyWhenNothingWasEncoded::R
             UCk_Utils_VoiceTalker_UE::Request_SetSelfMute(State->OtherTalker, ECk_EnableDisable::Enable, {});
             UCk_Utils_VoiceTalker_UE::Request_StartTransmit(State->OtherTalker, {}, {});
 
-            // Speaks, then goes quiet for more than two windows: silence after speech is not a stall.
+            // Speaks into a channel (its frames are sent), then goes quiet for more than two windows: silence
+            // after speech is not a stall.
             State->ThirdTalker = Add_Talker(InServer, Make_OpenMicSpec());
             State->ThirdSource = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
             State->ThirdSource->Enqueue_Sine(FCk_Time{1.0f}, 0.4f, 300.0f);
             State->ThirdSource->Enqueue_Silence(FCk_Time{20.0f});
             UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(State->ThirdTalker, State->ThirdSource);
+            Join(Add_RegisteredChannel(InServer), State->ThirdTalker);
             UCk_Utils_VoiceTalker_UE::Request_StartTransmit(State->ThirdTalker, {}, {});
         })));
 
@@ -356,7 +383,7 @@ bool FCkVoiceChatPipeline_SilentTransmit_ReportsOnceOnlyWhenNothingWasEncoded::R
             TestEqual(TEXT("the self-muted talker fed the same audio for as long reported nothing"),
                 Get_LinesNaming(State->OtherTalker).Num(), 0);
 
-            TestTrue(TEXT("the talker that spoke did encode (the control for 'went quiet afterwards')"),
+            TestTrue(TEXT("the member that spoke did encode (the control for 'went quiet afterwards')"),
                 State->ThirdTalker.Get<ck::FFragment_VoiceTalker_Capture>().Get_Seq() > 0);
             TestEqual(TEXT("and its two windows of silence after speaking reported nothing"),
                 Get_LinesNaming(State->ThirdTalker).Num(), 0);
@@ -520,6 +547,94 @@ bool FCkVoiceChatPipeline_ScriptToneHook_DrivesTheRealPipeline::RunTest(const FS
 
             return true;
         }), TEXT("script tone hook drives the real pipeline")));
+
+    Add_Teardown(this, State);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkVoiceChatPipeline_EncodedButUnsent_ReportsWhyAndSentStaysQuiet,
+    "Ck.VoiceChat.Pipeline.EncodedButUnsent_ReportsWhyAndSentStaysQuiet",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkVoiceChatPipeline_EncodedButUnsent_ReportsWhyAndSentStaysQuiet::RunTest(const FString& Parameters)
+{
+    using namespace ck_voice_transmit_outcomes_spec;
+
+    bSuppressLogErrors = true;
+    bSuppressLogWarnings = true;
+
+    const auto MapPath = FString{TEXT("/Engine/Maps/Entry")};
+    const auto State = MakeShared<FOutcomesSpecState, ESPMode::ThreadSafe>();
+
+    constexpr auto MoreThanTwoWindowsOfSamples = static_cast<uint64>(SampleRate * 11.5);
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, MapPath));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InServer) -> void
+        {
+            EnableEngineVoice(*State);
+            GLog->AddOutputDevice(&Get_NoProgressWatch());
+            Get_NoProgressWatch().Reset();
+
+            const auto Channel = Add_RegisteredChannel(InServer);
+
+            // Loud enough to encode, but a member of no channel: its frames have nowhere to go.
+            State->Talker = Add_Talker(InServer, Make_OpenMicSpec());
+            State->Source = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
+            State->Source->Enqueue_Sine(FCk_Time{20.0f}, 0.4f, 300.0f);
+            UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(State->Talker, State->Source);
+            UCk_Utils_VoiceTalker_UE::Request_StartTransmit(State->Talker, {}, {});
+
+            // The same audio from a member: its frames go into the host's routing inbox.
+            State->OtherTalker = Add_Talker(InServer, Make_OpenMicSpec());
+            State->OtherSource = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
+            State->OtherSource->Enqueue_Sine(FCk_Time{20.0f}, 0.4f, 300.0f);
+            UCk_Utils_VoiceTalker_UE::Debug_InjectCaptureSource(State->OtherTalker, State->OtherSource);
+            Join(Channel, State->OtherTalker);
+            UCk_Utils_VoiceTalker_UE::Request_StartTransmit(State->OtherTalker, {}, {});
+        })));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+        {
+            return ck::IsValid(State->Talker) && NOT Get_LinesNaming(State->Talker).IsEmpty();
+        }), WaitSeconds, TEXT("the encoding non-member reported that it sent nothing")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State, MoreThanTwoWindowsOfSamples]() -> bool
+        {
+            return State->Source->Get_SamplesEmitted() >= MoreThanTwoWindowsOfSamples &&
+                State->OtherSource->Get_SamplesEmitted() >= MoreThanTwoWindowsOfSamples;
+        }), WaitSeconds, TEXT("both transmits have run for more than two report windows")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([this, State]() -> bool
+        {
+            const auto Lines = Get_LinesNaming(State->Talker);
+
+            if (NOT TestEqual(TEXT("the non-member reported exactly once, however long it ran"), Lines.Num(), 1))
+            { return true; }
+
+            AddInfo(FString::Printf(TEXT("report: %s"), *Lines[0]));
+
+            TestTrue(TEXT("the line says frames were encoded but none was sent"), Lines[0].Contains(TEXT("but sent none")));
+            TestTrue(TEXT("the line names the stage: not a CanTalk member of the registered channel(s)"),
+                Lines[0].Contains(TEXT("not a CanTalk member of any of the [1] channel(s) registered here")));
+
+            // The member encoded for more than two windows and never said "sent none", so its frames left: had any
+            // stage held them, the same detector that just reported the non-member would have reported it.
+            TestTrue(TEXT("control: the member encoded frames"),
+                State->OtherTalker.Get<ck::FFragment_VoiceTalker_Capture>().Get_Seq() > 0);
+            TestEqual(TEXT("the member whose frames are sent reported nothing"), Get_LinesNaming(State->OtherTalker).Num(), 0);
+
+            return true;
+        }), TEXT("encoded but unsent names its stage; sent stays quiet")));
 
     Add_Teardown(this, State);
 
