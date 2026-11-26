@@ -18,8 +18,16 @@
 //   PushToTalk_BypassesTheVoiceGate: a tone under the Spec threshold is encoded from its first frame in PushToTalk and
 //     not at all in OpenMic.
 //
+// The gate's tunables, same bare talkers:
+//   SetVadThreshold_ChangesWhatTheGatePasses: in OpenMic a quiet tone under the threshold encodes nothing; lowering
+//     the threshold under its level mid-transmit lets it through, with no restart.
+//   PushToTalk_GateAppliesWhenEnabled: with _GateInPushToTalk enabled, PushToTalk cuts the quiet tone and passes a loud
+//     one (the switch-off half is PushToTalk_BypassesTheVoiceGate).
+//   SetGateInPushToTalk_EnablingMidTransmitStartsTheGateClosed: a gate left open when the switch was turned off does
+//     not carry over when it is turned back on: the quiet tone is cut from the first frame after.
+//
 // Surface in Session Frontend: Ck.VoiceChat.Net.OpenMic_* / Ck.VoiceChat.Pipeline.LeavingOpenMic_ClosesTheTransmit /
-// Ck.VoiceChat.Pipeline.PushToTalk_BypassesTheVoiceGate
+// Ck.VoiceChat.Pipeline.PushToTalk_* / Ck.VoiceChat.Pipeline.SetVadThreshold_* / Ck.VoiceChat.Pipeline.SetGateInPushToTalk_*
 
 #include "Misc/AutomationTest.h"
 
@@ -832,6 +840,309 @@ bool FCkVoiceChatPipeline_PushToTalk_BypassesTheVoiceGate::RunTest(const FString
 
             return true;
         }), TEXT("push-to-talk bypasses the voice gate")));
+
+    Add_Teardown(this, State);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+namespace ck_voice_transmit_mode_spec
+{
+    // RMS of a 0.02-amplitude sine at gain 1.0 is ~0.014: under the Spec's 0.07 threshold, over 0.005.
+    constexpr auto QuietToneAmplitude = 0.02f;
+    constexpr auto LoudToneAmplitude = 0.4f;
+    constexpr auto ThresholdUnderTheQuietTone = 0.005f;
+
+    // Half a second is 25 times the gate's 20 ms attack and 2.5 times its 200 ms release: a gate that could open (or
+    // stay open) on what it was fed would have.
+    constexpr auto HalfASecondOfTone = static_cast<uint64>(SampleRate / 2);
+
+    auto Add_GatedTalker(
+        UWorld* InWorld,
+        ECk_VoiceChat_TransmitMode InMode,
+        ECk_EnableDisable InGateInPushToTalk) -> FCk_Handle_VoiceTalker
+    {
+        auto TransientEntity = UCk_Utils_EcsWorld_Subsystem_UE::Get_TransientEntity(InWorld);
+        auto TalkerEntity = UCk_Utils_EntityLifetime_UE::Request_CreateEntity(TransientEntity);
+
+        auto Spec = FCk_VoiceTalker_Spec{};
+        Spec.Set_TransmitMode(InMode);
+        Spec.Set_InputGain(1.0f);
+        Spec.Set_VadThreshold(0.07f);
+        Spec.Set_GateInPushToTalk(InGateInPushToTalk);
+
+        return UCk_Utils_VoiceTalker_UE::Add(TalkerEntity, Spec);
+    }
+
+    auto Make_Tone(float InAmplitude) -> TSharedPtr<FCk_VoiceChat_CaptureSource_Fake>
+    {
+        auto Source = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
+        Source->Enqueue_Sine(FCk_Time{10.0f}, InAmplitude, 300.0f);
+        return Source;
+    }
+
+    auto Get_EncodedFrames(const FCk_Handle_VoiceTalker& InTalker) -> int32
+    {
+        return static_cast<int32>(InTalker.Get<ck::FFragment_VoiceTalker_Capture>().Get_Seq());
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkVoiceChatPipeline_SetVadThreshold_ChangesWhatTheGatePasses,
+    "Ck.VoiceChat.Pipeline.SetVadThreshold_ChangesWhatTheGatePasses",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkVoiceChatPipeline_SetVadThreshold_ChangesWhatTheGatePasses::RunTest(const FString& Parameters)
+{
+    using namespace ck_voice_transmit_mode_spec;
+
+    bSuppressLogErrors = true;
+    bSuppressLogWarnings = true;
+
+    const auto State = MakeShared<FTransmitModeSpecState, ESPMode::ThreadSafe>();
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InServer) -> void
+        {
+            EnableEngineVoice(*State);
+            State->VoiceEnsuresBefore = Get_VoiceEnsureCount();
+
+            State->Talker = Add_GatedTalker(InServer, ECk_VoiceChat_TransmitMode::OpenMic, ECk_EnableDisable::Disable);
+            State->Source = Make_Tone(QuietToneAmplitude);
+            Start_WithSource(State->Talker, State->Source);
+
+            // Not transmitting: only the clamp is read off it.
+            State->OtherTalker = Add_GatedTalker(InServer, ECk_VoiceChat_TransmitMode::OpenMic, ECk_EnableDisable::Disable);
+            UCk_Utils_VoiceTalker_UE::Request_SetVadThreshold(State->OtherTalker, 5.0f, {});
+        })));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+        {
+            return ck::IsValid(State->Talker) && UCk_Utils_VoiceTalker_UE::Get_IsTransmitting(State->Talker) &&
+                State->Source->Get_SamplesEmitted() >= HalfASecondOfTone;
+        }), WaitSeconds, TEXT("the OpenMic talker transmits and captured half a second of the quiet tone")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([this, State]() -> bool
+        {
+            TestEqual(TEXT("the threshold is the Spec's"), UCk_Utils_VoiceTalker_UE::Get_VadThreshold(State->Talker), 0.07f);
+            TestEqual(TEXT("over the threshold: the quiet tone encoded nothing"), Get_EncodedFrames(State->Talker), 0);
+            TestFalse(TEXT("and the talker is not speaking"), UCk_Utils_VoiceTalker_UE::Get_IsSpeaking(State->Talker));
+
+            TestEqual(TEXT("a threshold above 1 is clamped to 1"),
+                UCk_Utils_VoiceTalker_UE::Get_VadThreshold(State->OtherTalker), 1.0f);
+
+            return true;
+        }), TEXT("the gate cuts the quiet tone at the Spec's threshold")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InServer) -> void
+        {
+            UCk_Utils_VoiceTalker_UE::Request_SetVadThreshold(State->Talker, ThresholdUnderTheQuietTone, {});
+        })));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+        {
+            return Get_EncodedFrames(State->Talker) > 0;
+        }), WaitSeconds, TEXT("the lowered threshold let the quiet tone through")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([this, State]() -> bool
+        {
+            TestEqual(TEXT("the threshold is the requested one"),
+                UCk_Utils_VoiceTalker_UE::Get_VadThreshold(State->Talker), ThresholdUnderTheQuietTone);
+            TestTrue(TEXT("the gate opened: the talker is speaking"), UCk_Utils_VoiceTalker_UE::Get_IsSpeaking(State->Talker));
+            TestTrue(TEXT("in the same transmit"), UCk_Utils_VoiceTalker_UE::Get_IsTransmitting(State->Talker));
+            TestEqual(TEXT("with no restart: the source was opened once"), State->Source->Get_StartCount(), 1);
+            TestEqual(TEXT("no CkVoiceChat ensure fired"), Get_VoiceEnsureCount(), State->VoiceEnsuresBefore);
+
+            return true;
+        }), TEXT("a new threshold changes what the gate passes, mid-transmit")));
+
+    Add_Teardown(this, State);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkVoiceChatPipeline_PushToTalk_GateAppliesWhenEnabled,
+    "Ck.VoiceChat.Pipeline.PushToTalk_GateAppliesWhenEnabled",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkVoiceChatPipeline_PushToTalk_GateAppliesWhenEnabled::RunTest(const FString& Parameters)
+{
+    using namespace ck_voice_transmit_mode_spec;
+
+    bSuppressLogErrors = true;
+    bSuppressLogWarnings = true;
+
+    const auto State = MakeShared<FTransmitModeSpecState, ESPMode::ThreadSafe>();
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([State](UWorld* InServer) -> void
+        {
+            EnableEngineVoice(*State);
+            State->VoiceEnsuresBefore = Get_VoiceEnsureCount();
+
+            State->Talker = Add_GatedTalker(InServer, ECk_VoiceChat_TransmitMode::PushToTalk, ECk_EnableDisable::Enable);
+            State->Source = Make_Tone(QuietToneAmplitude);
+            Start_WithSource(State->Talker, State->Source);
+
+            // Control: the gated push-to-talk path still passes speech, so the quiet tone's silence is the gate's.
+            State->OtherTalker = Add_GatedTalker(InServer, ECk_VoiceChat_TransmitMode::PushToTalk, ECk_EnableDisable::Enable);
+            State->OtherSource = Make_Tone(LoudToneAmplitude);
+            Start_WithSource(State->OtherTalker, State->OtherSource);
+        })));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+        {
+            return ck::IsValid(State->Talker) && ck::IsValid(State->OtherTalker) &&
+                Get_EncodedFrames(State->OtherTalker) > 0 &&
+                State->Source->Get_SamplesEmitted() >= HalfASecondOfTone &&
+                State->OtherSource->Get_SamplesEmitted() >= HalfASecondOfTone;
+        }), WaitSeconds, TEXT("the loud talker encoded and both captured half a second of their tone")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([this, State]() -> bool
+        {
+            TestTrue(TEXT("the Spec's switch seeded the tunable"),
+                UCk_Utils_VoiceTalker_UE::Get_GateInPushToTalk(State->Talker) == ECk_EnableDisable::Enable);
+
+            TestEqual(TEXT("gated push-to-talk: the quiet tone encoded nothing"), Get_EncodedFrames(State->Talker), 0);
+            TestFalse(TEXT("and the talker is not speaking"), UCk_Utils_VoiceTalker_UE::Get_IsSpeaking(State->Talker));
+            TestTrue(TEXT("although it is transmitting"), UCk_Utils_VoiceTalker_UE::Get_IsTransmitting(State->Talker));
+
+            TestTrue(TEXT("control: the loud tone opened the gate"), UCk_Utils_VoiceTalker_UE::Get_IsSpeaking(State->OtherTalker));
+            TestEqual(TEXT("no CkVoiceChat ensure fired"), Get_VoiceEnsureCount(), State->VoiceEnsuresBefore);
+
+            return true;
+        }), TEXT("push-to-talk runs the voice gate when the switch is enabled")));
+
+    Add_Teardown(this, State);
+
+    return true;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+    FCkVoiceChatPipeline_SetGateInPushToTalk_EnablingMidTransmitStartsTheGateClosed,
+    "Ck.VoiceChat.Pipeline.SetGateInPushToTalk_EnablingMidTransmitStartsTheGateClosed",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+
+bool FCkVoiceChatPipeline_SetGateInPushToTalk_EnablingMidTransmitStartsTheGateClosed::RunTest(const FString& Parameters)
+{
+    using namespace ck_voice_transmit_mode_spec;
+
+    bSuppressLogErrors = true;
+    bSuppressLogWarnings = true;
+
+    // Loud for two seconds, then quiet: the gate opens on the loud part, the switch goes off while it is open (so the
+    // gate state freezes open), and comes back on during the quiet part. A gate that kept its frozen state would pass
+    // the quiet tone for its 200 ms release (about ten frames); one that starts closed passes nothing.
+    constexpr auto LoudSeconds = 2.0f;
+    constexpr auto LoudSamples = static_cast<uint64>(SampleRate * LoudSeconds);
+
+    struct FMidTransmit
+    {
+        uint64 SamplesAtSwitchOff = 0;
+        uint64 SamplesAtSwitchOn = 0;
+        int32 FramesAtSwitchOn = 0;
+    };
+    const auto MidTransmit = MakeShared<FMidTransmit, ESPMode::ThreadSafe>();
+
+    const auto State = MakeShared<FTransmitModeSpecState, ESPMode::ThreadSafe>();
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_StartPIEMultiClient(1, TEXT("/Engine/Maps/Entry")));
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitForPIEReady(1, 30.0f));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([State, LoudSeconds](UWorld* InServer) -> void
+        {
+            EnableEngineVoice(*State);
+            State->VoiceEnsuresBefore = Get_VoiceEnsureCount();
+
+            State->Talker = Add_GatedTalker(InServer, ECk_VoiceChat_TransmitMode::PushToTalk, ECk_EnableDisable::Enable);
+            State->Source = MakeShared<FCk_VoiceChat_CaptureSource_Fake>(SampleRate);
+            State->Source->Enqueue_Sine(FCk_Time{LoudSeconds}, LoudToneAmplitude, 300.0f);
+            State->Source->Enqueue_Sine(FCk_Time{10.0f}, QuietToneAmplitude, 300.0f);
+            Start_WithSource(State->Talker, State->Source);
+        })));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State]() -> bool
+        {
+            return ck::IsValid(State->Talker) && UCk_Utils_VoiceTalker_UE::Get_IsSpeaking(State->Talker);
+        }), WaitSeconds, TEXT("the loud tone opened the gated push-to-talk")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([State, MidTransmit](UWorld* InServer) -> void
+        {
+            MidTransmit->SamplesAtSwitchOff = State->Source->Get_SamplesEmitted();
+            UCk_Utils_VoiceTalker_UE::Request_SetGateInPushToTalk(State->Talker, ECk_EnableDisable::Disable, {});
+        })));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State, LoudSamples]() -> bool
+        {
+            return State->Source->Get_SamplesEmitted() >= LoudSamples + HalfASecondOfTone;
+        }), WaitSeconds, TEXT("half a second of the quiet tone went through with the switch off")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([this, State, MidTransmit, LoudSamples]() -> bool
+        {
+            // The precondition that makes the last step mean something: the gate froze open, not closed.
+            TestTrue(TEXT("the switch went off during the loud tone, with the gate open"),
+                MidTransmit->SamplesAtSwitchOff + static_cast<uint64>(SampleRate / 5) < LoudSamples);
+            TestTrue(TEXT("switch off: the quiet tone is passed (speaking)"),
+                UCk_Utils_VoiceTalker_UE::Get_IsSpeaking(State->Talker));
+
+            return true;
+        }), TEXT("switch off: the gate is bypassed")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_RunOnServer(
+        FCk_NetAutoTest_ServerAction::CreateLambda([State, MidTransmit](UWorld* InServer) -> void
+        {
+            // Read here, between ticks: the request is handled next tick before that tick's capture pass, so no frame
+            // can be encoded between this read and the switch taking effect.
+            MidTransmit->SamplesAtSwitchOn = State->Source->Get_SamplesEmitted();
+            MidTransmit->FramesAtSwitchOn = Get_EncodedFrames(State->Talker);
+            UCk_Utils_VoiceTalker_UE::Request_SetGateInPushToTalk(State->Talker, ECk_EnableDisable::Enable, {});
+        })));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_WaitUntil(this,
+        FCk_NetAutoTest_Condition::CreateLambda([State, MidTransmit]() -> bool
+        {
+            return State->Source->Get_SamplesEmitted() >= MidTransmit->SamplesAtSwitchOn + HalfASecondOfTone;
+        }), WaitSeconds, TEXT("half a second of the quiet tone was captured with the switch back on")));
+
+    ADD_LATENT_AUTOMATION_COMMAND(FCk_Latent_AssertCondition(this,
+        FCk_NetAutoTest_Assertion::CreateLambda([this, State, MidTransmit]() -> bool
+        {
+            TestEqual(TEXT("switch on again: not one quiet frame encoded (the gate started closed)"),
+                Get_EncodedFrames(State->Talker), MidTransmit->FramesAtSwitchOn);
+            TestFalse(TEXT("and the talker stopped speaking"), UCk_Utils_VoiceTalker_UE::Get_IsSpeaking(State->Talker));
+            TestTrue(TEXT("in the same transmit"), UCk_Utils_VoiceTalker_UE::Get_IsTransmitting(State->Talker));
+            TestEqual(TEXT("with no restart: the source was opened once"), State->Source->Get_StartCount(), 1);
+            TestEqual(TEXT("no CkVoiceChat ensure fired"), Get_VoiceEnsureCount(), State->VoiceEnsuresBefore);
+
+            return true;
+        }), TEXT("enabling the push-to-talk gate mid-transmit starts it closed")));
 
     Add_Teardown(this, State);
 
