@@ -72,6 +72,12 @@ class UCk_AutoTest_ProceduralAnimation_PillarsEngageSteppedTops : UCk_AutoTest_B
     private void Check_Traversal(FCk_Handle InHandle, FCk_SharedBool OutResult, FInstancedStruct InPayload)
     {
         _Fixture.Update();
+        auto Stall = _Fixture.Get_StallReason(ck_procedural_gym::StallSeconds);
+        if (Stall.IsEmpty() == false)
+        {
+            FinishFailure(f"A walker stalled: {Stall}");
+            return;
+        }
         auto Complete = _Fixture.Get_AllReady();
         auto Columns = ck_procedural_gym::PillarColumnCount;
         for (auto Walker = 0; Walker < _Fixture.Crawlers.Num(); Walker++)

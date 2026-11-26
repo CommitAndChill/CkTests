@@ -44,6 +44,12 @@ class UCk_AutoTest_ProceduralAnimation_TraversesRampAndWall : UCk_AutoTest_Base
     {
         _TraversalPolls++;
         _Fixture.Update();
+        auto Stall = _Fixture.Get_StallReason(ck_procedural_gym::StallSeconds);
+        if (Stall.IsEmpty() == false)
+        {
+            FinishFailure(f"A walker stalled: {Stall}");
+            return;
+        }
         auto Now = float(System::GetGameTimeInSeconds());
         if (_FirstRoutePollAt < 0.0)
         {
