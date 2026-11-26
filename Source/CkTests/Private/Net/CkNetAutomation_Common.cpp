@@ -57,12 +57,19 @@ namespace ck_net_automation_common
     // We snapshot the user's values before overriding and put them back on FEditorDelegates::EndPIE, which
     // the engine broadcasts BEFORE that save — so the file written at teardown holds the user's values and
     // no extra SaveConfig of our own is needed.
+    //
+    // Network emulation is part of the same CDO and the engine applies it to every in-process PIE world
+    // (UGameInstance::StartPlayInEditorGameInstance appends its packet settings to the server and client
+    // URLs). A developer who plays with emulated latency would otherwise hand that latency to every net
+    // test on their machine, so a test's link conditions would depend on whose editor ran it. A net test
+    // session always starts with emulation off; a test that is about latency sets its own.
     struct FPlaySettings_Snapshot
     {
-        int32        _NumClients           = 1;
-        EPlayNetMode _NetMode              = EPlayNetMode::PIE_Standalone;
-        bool         _RunUnderOneProcess   = true;
-        bool         _LaunchSeparateServer = false;
+        int32        _NumClients              = 1;
+        EPlayNetMode _NetMode                 = EPlayNetMode::PIE_Standalone;
+        bool         _RunUnderOneProcess      = true;
+        bool         _LaunchSeparateServer    = false;
+        bool         _NetworkEmulationEnabled = false;
     };
 
     TOptional<FPlaySettings_Snapshot> GPlaySettings_Snapshot;
@@ -92,9 +99,11 @@ namespace ck_net_automation_common
         Settings->SetPlayNetMode(Snapshot._NetMode);
         Settings->SetRunUnderOneProcess(Snapshot._RunUnderOneProcess);
         Settings->bLaunchSeparateServer = Snapshot._LaunchSeparateServer;
+        Settings->NetworkEmulationSettings.bIsNetworkEmulationEnabled = Snapshot._NetworkEmulationEnabled;
 
-        Log_Display(TEXT("Restored the editor's Play settings after PIE — number of clients back to [{}]"),
-            Snapshot._NumClients);
+        Log_Display(TEXT("Restored the editor's Play settings after PIE — number of clients back to [{}], "
+            "network emulation back to [{}]"),
+            Snapshot._NumClients, Snapshot._NetworkEmulationEnabled);
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -124,8 +133,15 @@ namespace ck_net_automation_common
             InSettings->GetPlayNetMode(Snapshot._NetMode);
             InSettings->GetRunUnderOneProcess(Snapshot._RunUnderOneProcess);
             Snapshot._LaunchSeparateServer = InSettings->bLaunchSeparateServer;
+            Snapshot._NetworkEmulationEnabled = InSettings->NetworkEmulationSettings.bIsNetworkEmulationEnabled;
 
             GPlaySettings_Snapshot = Snapshot;
+
+            if (Snapshot._NetworkEmulationEnabled)
+            {
+                Log_Display(TEXT("The editor's Play settings have network emulation enabled; it is switched off "
+                    "for this net test session and restored when PIE ends"));
+            }
         }
 
         if (NOT GPlaySettings_RestoreHandle.IsValid())
@@ -135,6 +151,7 @@ namespace ck_net_automation_common
         InSettings->SetPlayNetMode(EPlayNetMode::PIE_ListenServer);
         InSettings->SetRunUnderOneProcess(true);
         InSettings->bLaunchSeparateServer = false;
+        InSettings->NetworkEmulationSettings.bIsNetworkEmulationEnabled = false;
     }
 }
 
