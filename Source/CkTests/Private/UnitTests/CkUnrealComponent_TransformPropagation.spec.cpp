@@ -477,7 +477,7 @@ bool FCkUnrealComponent_TransformPropagation_LateRequestProjection::RunTest(cons
             { TestTrue(TEXT("late projection preserves opt-out"), Disabled->GetComponentTransform().Equals(State->ExternalDrift)); }
 
             Component->SetWorldTransform(State->ExternalDrift);
-            ck::FProcessor_UnrealComponent_PushLateTransform::ForEachEntity(FCk_Time{0.0f}, State->OwnerTransform,
+            ck::FProcessor_UnrealComponent_PushTransform_BeforeCleanup::ForEachEntity(FCk_Time{0.0f}, State->OwnerTransform,
                 State->OwnerTransform.Get<ck::FFragment_Transform>(), State->OwnerTransform.Get<ck::FFragment_RecordOfUnrealComponents>());
             TestTrue(TEXT("early pass skips an owner pose already projected without walking its components"),
                 Component->GetComponentTransform().Equals(State->ExternalDrift));
