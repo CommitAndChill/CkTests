@@ -1,0 +1,815 @@
+{
+  "authored_utility_license": "Original project-authored procedural radius-profile data; no external asset content in utility maps",
+  "evidence": [
+    {
+      "path": "Evidence/Batch1Textures-Manifest.json",
+      "sha256": "a053cd1337de383faeb1b2fa0ed71e2cff8e78d3a060a6ce887a55f85915e429"
+    },
+    {
+      "path": "Evidence/Batch1Textures-PolyHaven-license.html",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623"
+    },
+    {
+      "path": "Evidence/silk-crepe_satin_info.json",
+      "sha256": "68372ea9ce7760bf0f6655a3da4d2f71631763cd803fb0c583971e9e288b19dd"
+    },
+    {
+      "path": "Evidence/Batch7Textures-Manifest.json",
+      "sha256": "5acce9f35ebf48b5a45a9abf116f831f50692a2c3f1346ef22ac4315f0655c60"
+    },
+    {
+      "path": "Evidence/Batch7Textures-ambientcg.html",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c"
+    },
+    {
+      "path": "Evidence/paint_surface-Plastic010.json",
+      "sha256": "f1b78b15d047771b9a14dff9b03f3f3d2e276a980726995081b36715b7d36886"
+    },
+    {
+      "path": "Evidence/paint_metal-Metal057A.json",
+      "sha256": "406084f78366dcfa3066824ff3491fd2af72e33e349e3ff404ca4805f26d88fb"
+    }
+  ],
+  "generator_sha256": "1d63367289cabb55bd8f4fe6e380fb09b41d2952cfca474601fa17d9a64ec138",
+  "generator_source": "Tools/UsfMaterials/derive_adaptive_bsdf_sources.py",
+  "limits": "Independent authored slub reinterpretation on licensed crepe-satin backing; not a slub scan or Zorah source recreation. Paint microfinish reuses plastic/copper maps under authored dyed medium and neutral conductor; no scanned candy paint or metallic flake claim. All reused sources remain unchanged. Silk NPOT originals require recorded1024square runtime policy.",
+  "materials": {
+    "paint_metal": {
+      "asset_id": "Metal057A",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "identity_notes": "Actual clean copper source with fine finish marks; no tarnish, oxidation or wear overlay. Conductor reflectance/finish remain authored rather than certified optical calibration.",
+      "license": "CC0-1.0",
+      "manifest_sha256": "5acce9f35ebf48b5a45a9abf116f831f50692a2c3f1346ef22ac4315f0655c60",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Metal057A_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 487356,
+          "channel_mean": [
+            0.9829541860878733,
+            0.8198684991702555,
+            0.7571681639783795
+          ],
+          "channel_stddev": [
+            0.0059320975876346275,
+            0.007369632596238596,
+            0.007369116432561658
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.0035213538871478873,
+            "y": 0.0033635293478747
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "copper/Maps/BaseColor.png",
+          "range": [
+            0.7333333333333333,
+            1.0
+          ],
+          "runtime_name": "T_LibraryCopper_BaseColor",
+          "sha256": "312c45de8141e0beb8ab7f954e78accae6cf51e6f01c153c1fc5865ea384a7a1",
+          "source_mode": "P",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/copper/Maps/BaseColor.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.004627502042483664,
+            "y": 0.0034645629084967284
+          }
+        },
+        "Height": {
+          "archive_member": "Metal057A_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 684852,
+          "channel_mean": [
+            0.4989275967455423
+          ],
+          "channel_stddev": [
+            0.0003036935691007573
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 6.565116270148355e-05,
+            "y": 4.633903594528841e-05
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "copper/Maps/Height.png",
+          "range": [
+            0.4975967040512703,
+            0.5000076295109483
+          ],
+          "runtime_name": "T_LibraryCopper_Height",
+          "sha256": "ffecfc3d5281829dea0e148a437ad1513d58eec6a9c0903b6926dc6262474867",
+          "source_mode": "I;16",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/copper/Maps/Height.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 6.784602216372906e-05,
+            "y": 4.589627679865704e-05
+          }
+        },
+        "Normal": {
+          "archive_member": "Metal057A_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 1819149,
+          "channel_mean": [
+            0.4999605216232089,
+            0.4998841827991227,
+            1.0
+          ],
+          "channel_stddev": [
+            0.0019603868451633405,
+            0.001957360850964654,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            1.0000153785822494,
+            1.0000153785822494,
+            1.0000153785822494
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0010413447209284459,
+            "y": 0.0008649621311949317
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "copper/Maps/Normal.png",
+          "range": [
+            0.4980392156862745,
+            1.0
+          ],
+          "runtime_name": "T_LibraryCopper_Normal",
+          "sha256": "58605c476f0b7746790851358f1bc0d974def680e80eae006adfc33707e4c7ba",
+          "source_mode": "RGB",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/copper/Maps/Normal.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0012688929738562046,
+            "y": 0.0010352839052287545
+          }
+        },
+        "Roughness": {
+          "archive_member": "Metal057A_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 325351,
+          "channel_mean": [
+            0.05248784831925935
+          ],
+          "channel_stddev": [
+            0.006278334160108003
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0031762043465968985,
+            "y": 0.003087755370354398
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "copper/Maps/Roughness.png",
+          "range": [
+            0.03137254901960784,
+            0.08627450980392157
+          ],
+          "runtime_name": "T_LibraryCopper_Roughness",
+          "sha256": "2ea35c8c2b88aba7679251af4da388a8a4011975a7ca35a09ea034a0c0052d0a",
+          "source_mode": "L",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/copper/Maps/Roughness.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.003561580882352941,
+            "y": 0.0026769301470588236
+          }
+        }
+      },
+      "source_batch": "Batch7Textures",
+      "source_key": "copper",
+      "source_url": "https://ambientcg.com/a/Metal057A"
+    },
+    "paint_surface": {
+      "asset_id": "Plastic010",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "identity_notes": "Actual clean smooth plastic microfinish reused beneath independently authored glossy molded-style response. Same licensed finish identity as earlier Plastic010 uses; molding process and polymer are unverified. Reject scratched Plastic005/fingerprinted Plastic015A candidates, retained unchanged.",
+      "license": "CC0-1.0",
+      "manifest_sha256": "5acce9f35ebf48b5a45a9abf116f831f50692a2c3f1346ef22ac4315f0655c60",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Plastic010_1K-PNG_Color.png",
+          "bit_depth": 4,
+          "bytes": 209792,
+          "channel_mean": [
+            0.6405463835790367,
+            0.6548457201769885,
+            0.6714479109770032
+          ],
+          "channel_stddev": [
+            0.0018661884170024688,
+            0.0010354696359009938,
+            0.0016301720481060173
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.0006995107223404326,
+            "y": 0.000639905838109124
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "glossy_plastic_finish/Maps/BaseColor.png",
+          "range": [
+            0.6352941176470588,
+            0.6784313725490196
+          ],
+          "runtime_name": "T_LibraryGlossyPlastic_BaseColor",
+          "sha256": "94271afa4b50f03aed37a46c0be05b97cff724f979a9aac0154f69f6b2c8f15e",
+          "source_mode": "P",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/glossy_plastic_finish/Maps/BaseColor.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0010110294117647268,
+            "y": 0.0008859272875817176
+          }
+        },
+        "Height": {
+          "archive_member": "Plastic010_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1808297,
+          "channel_mean": [
+            0.9657505537158084
+          ],
+          "channel_stddev": [
+            0.03006184319699803
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.01720662280774617,
+            "y": 0.015493207006685002
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "glossy_plastic_finish/Maps/Height.png",
+          "range": [
+            0.4762035553521019,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGlossyPlastic_Height",
+          "sha256": "b4cb72b8fdc8a165690a4d65ce6e1148b43c5322c72cbf93614f3f8195447730",
+          "source_mode": "I;16",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/glossy_plastic_finish/Maps/Height.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.01926388928625926,
+            "y": 0.013710991144998862
+          }
+        },
+        "Normal": {
+          "archive_member": "Plastic010_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 4308958,
+          "channel_mean": [
+            0.4999971090578572,
+            0.5000015557981002,
+            0.9996876510920021
+          ],
+          "channel_stddev": [
+            0.0036639658978382785,
+            0.0033178221454711293,
+            0.0015965851733140738
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.984454329462462,
+            1.0000153785822494,
+            1.0003843936332626
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.002391845948015889,
+            "y": 0.0022106354200608167
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "glossy_plastic_finish/Maps/Normal.png",
+          "range": [
+            0.45098039215686275,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGlossyPlastic_Normal",
+          "sha256": "69a11a3c31203aaae9789d0c5e4949bbf841536660de1a2d9e49ab649d19d5f5",
+          "source_mode": "RGB",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/glossy_plastic_finish/Maps/Normal.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0026513991013071823,
+            "y": 0.0020309946895424777
+          }
+        },
+        "Roughness": {
+          "archive_member": "Plastic010_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 466660,
+          "channel_mean": [
+            0.36349682901419844
+          ],
+          "channel_stddev": [
+            0.032140103906112355
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.010147149417562723,
+            "y": 0.009140926730540701
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "glossy_plastic_finish/Maps/Roughness.png",
+          "range": [
+            0.24313725490196078,
+            0.42745098039215684
+          ],
+          "runtime_name": "T_LibraryGlossyPlastic_Roughness",
+          "sha256": "928a1d1a5311676ad128f9646e36bbe5a599cb5b38571c41dea19ebb40576e3b",
+          "source_mode": "L",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/glossy_plastic_finish/Maps/Roughness.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.012419577205882352,
+            "y": 0.010106464460784314
+          }
+        }
+      },
+      "source_batch": "Batch7Textures",
+      "source_key": "glossy_plastic",
+      "source_url": "https://ambientcg.com/a/Plastic010"
+    },
+    "silk": {
+      "asset_id": "crepe_satin",
+      "author": {
+        "Rico Cilliers": "Processing",
+        "colormass": "Photography"
+      },
+      "identity_notes": "Free gold crepe-satin PBR fabric: soft, silky crepe texture with satin glossy sheen and fine grain - ideal for garments, fashion renders, and luxury interiors.",
+      "license": "CC0-1.0",
+      "manifest_sha256": "a053cd1337de383faeb1b2fa0ed71e2cff8e78d3a060a6ce887a55f85915e429",
+      "maps": {
+        "AO": {
+          "bit_depth": 8,
+          "bytes": 715767,
+          "channel_mean": [
+            0.9358826315284993
+          ],
+          "channel_stddev": [
+            0.026818031513102733
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1042,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.03198422655058012,
+            "y": 0.030511350793919874
+          },
+          "mode": "L",
+          "modifications": "Original PNG decoded to 8-bit without resizing or inventing detail; grayscale16 uses round(value/257), RGB16 retains high eight bits.",
+          "normal_convention": null,
+          "path": "silk/CrepeSatinMaps/AO.png",
+          "runtime_name": "T_LibrarySilk_AO",
+          "sha256": "faf48567d8a0d8bcfe1d2423b914c14638b084a74c84ab1ba7823a6eec48cbf3",
+          "source_mode": "L",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch1Textures/silk/CrepeSatinMaps/AO.png",
+          "statistics_divisor": 255.0,
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.03182793270859207,
+            "y": 0.031939338235294115
+          }
+        },
+        "Anisotropy": {
+          "bit_depth": 8,
+          "bytes": 801661,
+          "channel_mean": [
+            0.8458014832312485
+          ],
+          "channel_stddev": [
+            0.046491024657509004
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1042,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.054922426433569434,
+            "y": 0.04702246570157842
+          },
+          "mode": "L",
+          "modifications": "Original PNG decoded to 8-bit without resizing or inventing detail; grayscale16 uses round(value/257), RGB16 retains high eight bits.",
+          "normal_convention": null,
+          "path": "silk/CrepeSatinMaps/Anisotropy.png",
+          "runtime_name": "T_LibrarySilk_Anisotropy",
+          "sha256": "375aa7acf19ea5d573e054488a976d8e2c6f491544a8883f933ccc3180b107be",
+          "source_mode": "L",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch1Textures/silk/CrepeSatinMaps/Anisotropy.png",
+          "statistics_divisor": 255.0,
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.052248692183207254,
+            "y": 0.04515548406862745
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 8,
+          "bytes": 1745227,
+          "channel_mean": [
+            0.8583276807389756,
+            0.6763877470912081,
+            0.4620400368998944
+          ],
+          "channel_stddev": [
+            0.012101198287913657,
+            0.012191267560365725,
+            0.01640524235005505
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1042,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.015214714753989325,
+            "y": 0.014766457885988215
+          },
+          "mode": "RGB",
+          "modifications": "Original PNG decoded to 8-bit without resizing or inventing detail; grayscale16 uses round(value/257), RGB16 retains high eight bits.",
+          "normal_convention": null,
+          "path": "silk/CrepeSatinMaps/BaseColor.png",
+          "runtime_name": "T_LibrarySilk_BaseColor",
+          "sha256": "3f85172abcde2a6923e348a8c1b8246ed1d03f971cfea050523ed2d79bf16004",
+          "source_mode": "RGB",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch1Textures/silk/CrepeSatinMaps/BaseColor.png",
+          "statistics_divisor": 255.0,
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.01498626321929924,
+            "y": 0.013424223856209158
+          }
+        },
+        "Direction": {
+          "bit_depth": 8,
+          "bytes": 2285663,
+          "channel_mean": [
+            0.22873952026502692,
+            0.3748359826320963,
+            1.0
+          ],
+          "channel_stddev": [
+            0.22711810502043384,
+            0.3304702813396131,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1042,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.2179136064610284,
+            "y": 0.21439534660025553
+          },
+          "mode": "RGB",
+          "modifications": "Axial direction encoding of upstream authored turns; no invented fiber pattern.",
+          "normal_convention": null,
+          "packing": "R=(1+cos(2theta))/2 G=(1+sin(2theta))/2 B=1 confidence; theta=2*pi*upstream_rotation. Decode theta=.5*atan2(2G-1,2R-1).",
+          "path": "silk/CrepeSatinMaps/Direction.png",
+          "runtime_name": "T_LibrarySilk_Direction",
+          "sha256": "6530b6e1494cc3e92e09db33fe55995c4608541247e21b2907f490651e3d2391",
+          "source_mode": "RGB",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch1Textures/silk/CrepeSatinMaps/Direction.png",
+          "source_sha256": "d817dc13ed3bb367ba05cba41b5d0914fab8b614c374e12c87591b21844fb9af",
+          "statistics_divisor": 255.0,
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.21929296350657984,
+            "y": 0.20522237540849675
+          }
+        },
+        "Height": {
+          "bit_depth": 8,
+          "bytes": 815054,
+          "channel_mean": [
+            0.4962448487072373
+          ],
+          "channel_stddev": [
+            0.05997915070278706
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1042,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.05862003912643647,
+            "y": 0.050754335716034736
+          },
+          "mode": "L",
+          "modifications": "Original PNG decoded to 8-bit without resizing or inventing detail; grayscale16 uses round(value/257), RGB16 retains high eight bits.",
+          "normal_convention": null,
+          "path": "silk/CrepeSatinMaps/Height.png",
+          "runtime_name": "T_LibrarySilk_Height",
+          "sha256": "2ba69aab8f3a83f5b7a618c356d37dbdcbf07576993732c91bad408d013f6d51",
+          "source_mode": "L",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch1Textures/silk/CrepeSatinMaps/Height.png",
+          "statistics_divisor": 255.0,
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.05839072673215159,
+            "y": 0.05388327205882353
+          }
+        },
+        "Normal": {
+          "bit_depth": 8,
+          "bytes": 1796109,
+          "channel_mean": [
+            0.49999106168380186,
+            0.49993366093436237,
+            0.9956878026982208
+          ],
+          "channel_stddev": [
+            0.015931857660992258,
+            0.024490187245603184,
+            0.0034705769751061195
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1042,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.017907278775117948,
+            "y": 0.015969828533398622
+          },
+          "mode": "RGB",
+          "modifications": "Original PNG decoded to 8-bit without resizing or inventing detail; grayscale16 uses round(value/257), RGB16 retains high eight bits.",
+          "normal_convention": "DirectX tangent space (+X,-Y,+Z); do not flip green on import",
+          "path": "silk/CrepeSatinMaps/Normal.png",
+          "runtime_name": "T_LibrarySilk_Normal",
+          "sha256": "8fd6e5f54f9e6671f52c59819103f7c43d50d67c1e1d6c40f200aaca82a20ab3",
+          "source_mode": "RGB",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch1Textures/silk/CrepeSatinMaps/Normal.png",
+          "statistics_divisor": 255.0,
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.01757429779333358,
+            "y": 0.015719464869281042
+          }
+        },
+        "Roughness": {
+          "bit_depth": 8,
+          "bytes": 787808,
+          "channel_mean": [
+            0.49579147907963583
+          ],
+          "channel_stddev": [
+            0.04348117664537466
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1042,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.05465047941601933,
+            "y": 0.044094290198668326
+          },
+          "mode": "L",
+          "modifications": "Original PNG decoded to 8-bit without resizing or inventing detail; grayscale16 uses round(value/257), RGB16 retains high eight bits.",
+          "normal_convention": null,
+          "path": "silk/CrepeSatinMaps/Roughness.png",
+          "runtime_name": "T_LibrarySilk_Roughness",
+          "sha256": "8047d86229e9e86814f01cab12be9baf95caf158fc39b104ac95c370b6154620",
+          "source_mode": "L",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch1Textures/silk/CrepeSatinMaps/Roughness.png",
+          "statistics_divisor": 255.0,
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.05307289902525309,
+            "y": 0.044136795343137254
+          }
+        }
+      },
+      "source_batch": "Batch1Textures",
+      "source_key": "silk",
+      "source_url": "https://polyhaven.com/a/crepe_satin"
+    }
+  },
+  "schema_version": 1,
+  "slub_model": {
+    "event_radius_cm": [
+      0.0025,
+      0.006
+    ],
+    "events": 72,
+    "formula": "H=sum(radius*max(1-(dx/halfWidth)^2,0)^2*max(1-(dy/halfLength)^2,0)^3); periodic distances",
+    "half_length_cm": [
+      0.65,
+      1.8
+    ],
+    "half_width_cm": [
+      0.025,
+      0.055
+    ],
+    "height_cm": 26.78999900817871,
+    "height_range_cm": 0.006387873309317511,
+    "mask_mean": 0.0031060076230960084,
+    "nonzero_coverage": 0.013972716230806141,
+    "normal_formula": "normalize(-centralDifferenceU(H),-centralDifferenceV(H),1); physical pixel spacing, same array orientation",
+    "seed": 27241,
+    "warp_lanes": 96,
+    "width_cm": 26.319942218838303
+  },
+  "utilities": {
+    "SlubHeight": {
+      "bit_depth": 16,
+      "color_space": "linear",
+      "height": 1042,
+      "normal_convention": null,
+      "path": "Silk/SlubHeight.png",
+      "runtime_name": "T_AdaptiveSlubSilk_SlubHeight",
+      "sha256": "c2a1e672ee49e05a5a263ff725c14b073b5bb6804ea1c6fc5e042d73c361a04b",
+      "width": 1024
+    },
+    "SlubMask": {
+      "bit_depth": 8,
+      "color_space": "linear",
+      "height": 1042,
+      "normal_convention": null,
+      "path": "Silk/SlubMask.png",
+      "runtime_name": "T_AdaptiveSlubSilk_SlubMask",
+      "sha256": "b35e17a35887309cfa56bc2c97e7db3781095187180d843194a5ee1301d25276",
+      "width": 1024
+    },
+    "SlubNormal": {
+      "bit_depth": 8,
+      "color_space": "linear",
+      "height": 1042,
+      "normal_convention": "DirectX tangent space: decoded Nx=-dH/dU, Ny=-dH/dV",
+      "path": "Silk/SlubNormal.png",
+      "runtime_name": "T_AdaptiveSlubSilk_SlubNormal",
+      "sha256": "04efc7709340b4014ca9d97601347cd254766d722f03bad1e132bfec1574195f",
+      "width": 1024
+    }
+  }
+}

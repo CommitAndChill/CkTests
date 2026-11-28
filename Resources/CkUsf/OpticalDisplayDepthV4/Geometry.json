@@ -1,0 +1,273 @@
+{
+  "schema_version": 4,
+  "generator_source": "Tools/UsfMaterials/author_optical_display_bevel.py",
+  "generator_sha256": "81bb3eca33babadc66f3ba3343619e562a47c7a9ecaa332f77c065e4d099083a",
+  "helper_source": "Tools/UsfMaterials/author_optical_pair.py",
+  "helper_sha256": "ba960923f4d04070bd5980d4e03d44ce8c2d55897b101c63141b1c2b53fe3134",
+  "units": "centimeters",
+  "axes": "+X front, +Y width, +Z up",
+  "floor_Z": 0,
+  "display_dimensions_cm": {
+    "width_Y": 18,
+    "height_Z": 11,
+    "depth_X": 4.1
+  },
+  "glass": {
+    "width_Y_cm": 17,
+    "height_Z_cm": 10,
+    "thickness_cm": 1.8,
+    "back_X_cm": 2.3,
+    "front_X_cm": 4.1,
+    "bevel_cm": 0.15,
+    "outer_corner_radius_cm": 0.9,
+    "central_bow_cm": 0,
+    "sidewall_representation": "True 1.5cm straight wall between flat .15cm 45-degree chamfers; independent authored cap/bevel/side corner normals",
+    "minimum_panel_gap_cm": 0.89,
+    "standoff_clearance_cm": 0.01,
+    "bevel_angle_degrees": 45
+  },
+  "layout": {
+    "housing_backplate_X": [
+      0,
+      0.94
+    ],
+    "housing_rim_X": [
+      0.85,
+      1.48
+    ],
+    "panel_X": [
+      1.23,
+      1.41
+    ],
+    "metal_bezel_X": [
+      1.4,
+      1.58
+    ],
+    "glass_X": [
+      2.3,
+      4.1
+    ],
+    "standoffs_X": [
+      1.52,
+      2.29
+    ]
+  },
+  "design": "Original V2 thick cover dimensions with flat .15cm 45-degree chamfers and crisp authored reflection boundaries; no winding reversal.",
+  "uv_contract": "Planar YZ: U=Y/role_width+.5; V=(Z-5.5)/role_height+.5; GlassCover 17x10, Panel 16.35x9.35, Housing/MetalTrim 18x11cm. Same V1 face texture contract; projected back/side UVs overlap intentionally.",
+  "staging_contract": "Source axes unchanged. Horizontal display placement, pitch, floor elevation and camera are scene-owned; no baked rotation.",
+  "meshes": {
+    "GlassCover": {
+      "path": "Meshes/SM_OpticalPair_GlassCover.obj",
+      "sha256": "2cde50c46df162f7d835b48aad7c9355e14cf83e2903940f10e64c44f970d0e5",
+      "slot": "GlassCover",
+      "vertices": 2722,
+      "triangles": 5440,
+      "bounds": {
+        "min": [
+          2.3,
+          -8.5,
+          0.5
+        ],
+        "max": [
+          4.1,
+          8.5,
+          10.5
+        ]
+      },
+      "uv_bounds": {
+        "min": [
+          0.0,
+          0.0
+        ],
+        "max": [
+          1.0,
+          1.0
+        ]
+      },
+      "closed_edge_manifold": true,
+      "consistent_edge_winding": true,
+      "degenerate_triangles": 0,
+      "minimum_area_cm2": 0.0005318344870457501,
+      "component_signed_volumes_cm3": [
+        303.5681147188607
+      ],
+      "signed_volume_cm3": 303.5681147188607,
+      "vertex_normals": "Independent per-corner analytic normals: cap +/-X, side radial YZ, bevel normalized (+/-1,radial_Y,radial_Z); crease split at shared positions",
+      "normal_count": 206,
+      "normal_indexing": "Independent OBJ v/vt/vn corner indices; positions shared across creases",
+      "outward_normal_alignment_min_dot": 0.9987954561483162,
+      "crease_boundaries_X_cm": [
+        2.3,
+        2.45,
+        3.95,
+        4.1
+      ],
+      "bevel_angle_degrees": 45,
+      "mtl": {
+        "path": "Meshes/SM_OpticalPair_GlassCover.mtl",
+        "sha256": "39d897aa50c0c4736b364042feac5167c7bcd83a2c967781fa78159b2a9a72a4"
+      }
+    },
+    "Panel": {
+      "path": "Meshes/SM_OpticalPair_Panel.obj",
+      "sha256": "01a37d5630207e144ced548f676af350b8837477a1c8f42c716a33da79ec493c",
+      "slot": "Panel",
+      "mtl": {
+        "path": "Meshes/SM_OpticalPair_Panel.mtl",
+        "sha256": "655b9b96656b1b0865ab2547343fa260bbc1ad0bbd3ca91ed85c809d133d68c4"
+      },
+      "vertices": 3402,
+      "triangles": 6800,
+      "bounds": {
+        "min": [
+          1.23,
+          -8.175,
+          0.825
+        ],
+        "max": [
+          1.41,
+          8.175,
+          10.175
+        ]
+      },
+      "uv_bounds": {
+        "min": [
+          0.0,
+          0.0
+        ],
+        "max": [
+          1.0,
+          1.0
+        ]
+      },
+      "closed_edge_manifold": true,
+      "consistent_edge_winding": true,
+      "degenerate_triangles": 0,
+      "minimum_area_cm2": 0.0001679221144262956,
+      "component_signed_volumes_cm3": [
+        27.455947873668194
+      ],
+      "vertex_normals": "Authored area-weighted smooth normals",
+      "canonical_source": {
+        "path": "Plugins/CkTests/Resources/CkUsf/OpticalDisplayDepthV2/Meshes/SM_OpticalPair_Panel.obj",
+        "sha256": "01a37d5630207e144ced548f676af350b8837477a1c8f42c716a33da79ec493c"
+      },
+      "reused_byte_identical": true
+    },
+    "Housing": {
+      "path": "Meshes/SM_OpticalPair_Housing.obj",
+      "sha256": "090b161997d3e04701ca485673904f48c1fc86fc17fa803fb18581bca2d422eb",
+      "slot": "Housing",
+      "mtl": {
+        "path": "Meshes/SM_OpticalPair_Housing.mtl",
+        "sha256": "adc7e8b3339d03bb564bfc1fb8651e893f5db363eb47ff7b23c6b99b17e779d2"
+      },
+      "vertices": 3810,
+      "triangles": 7616,
+      "bounds": {
+        "min": [
+          0.0,
+          -9.0,
+          0.0
+        ],
+        "max": [
+          1.48,
+          9.0,
+          11.0
+        ]
+      },
+      "uv_bounds": {
+        "min": [
+          0.0,
+          0.0
+        ],
+        "max": [
+          1.0,
+          1.0
+        ]
+      },
+      "closed_edge_manifold": true,
+      "consistent_edge_winding": true,
+      "degenerate_triangles": 0,
+      "minimum_area_cm2": 0.000632893635142337,
+      "component_signed_volumes_cm3": [
+        184.89538242218842,
+        22.359703108360993
+      ],
+      "vertex_normals": "Authored area-weighted smooth normals",
+      "canonical_source": {
+        "path": "Plugins/CkTests/Resources/CkUsf/OpticalDisplayDepthV2/Meshes/SM_OpticalPair_Housing.obj",
+        "sha256": "090b161997d3e04701ca485673904f48c1fc86fc17fa803fb18581bca2d422eb"
+      },
+      "reused_byte_identical": true
+    },
+    "MetalTrim": {
+      "path": "Meshes/SM_OpticalPair_MetalTrim.obj",
+      "sha256": "9e6efec7e254b093cd9d7e25073989a43a15332473908bb2dc5ceee571b60cc5",
+      "slot": "MetalTrim",
+      "mtl": {
+        "path": "Meshes/SM_OpticalPair_MetalTrim.mtl",
+        "sha256": "7e357420338e22a98e37dfa4cd7130fa583a6ed604678927731b7dbf1937d2bf"
+      },
+      "vertices": 14016,
+      "triangles": 28016,
+      "bounds": {
+        "min": [
+          1.4,
+          -8.84,
+          0.16
+        ],
+        "max": [
+          2.29,
+          8.84,
+          10.84
+        ]
+      },
+      "uv_bounds": {
+        "min": [
+          0.00888888888888889,
+          0.014545454545454584
+        ],
+        "max": [
+          0.991111111111111,
+          0.9854545454545454
+        ]
+      },
+      "closed_edge_manifold": true,
+      "consistent_edge_winding": true,
+      "degenerate_triangles": 0,
+      "minimum_area_cm2": 9.772767050222743e-07,
+      "component_signed_volumes_cm3": [
+        2.8680946312364455,
+        0.03749346290508626,
+        0.03749346290502881,
+        0.03749346290508882,
+        0.037493462904870566
+      ],
+      "vertex_normals": "Authored area-weighted smooth normals",
+      "canonical_source": {
+        "path": "Plugins/CkTests/Resources/CkUsf/OpticalDisplayDepthV2/Meshes/SM_OpticalPair_MetalTrim.obj",
+        "sha256": "9e6efec7e254b093cd9d7e25073989a43a15332473908bb2dc5ceee571b60cc5"
+      },
+      "reused_byte_identical": true
+    }
+  },
+  "limitations": [
+    "Source geometric and normal validation only; visual result requires direct native render.",
+    "Only GlassCover is regenerated; other three OBJ/MTL sources are byte-identical to pinned V2.",
+    "No V1/V2/V3 resources or imported assets are changed."
+  ],
+  "source_chain": [
+    {
+      "path": "Tools/UsfMaterials/author_optical_display_depth.py",
+      "sha256": "e8034e548fc628a16371b733dc365900c2041c8725ba4e2e8f66a02ac98629cb"
+    }
+  ],
+  "canonical_source": {
+    "path": "Plugins/CkTests/Resources/CkUsf/OpticalDisplayDepthV2/Geometry.json",
+    "sha256": "d96b0fcd6f800c6372da6b6f855a92a67eca116d399dc4e16849561706f832eb"
+  },
+  "export_convention": "CANONICAL_OUTWARD_OBJ_PER_CORNER_NORMALS_V1",
+  "exported_winding_sign": 1,
+  "vertex_normals_convention": "Canonical outward analytic per-corner normals with cap/bevel/side crease separation"
+}

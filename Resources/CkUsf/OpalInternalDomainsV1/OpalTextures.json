@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "generator_source": "Tools/UsfMaterials/author_opal_internal_domains.py",
+  "generator_sha256": "2d444135b9f5307b1ab3ef88bfc366c8af45d7eb3ac59b9154050968670c827d",
+  "seed": 804231,
+  "source": {
+    "path": "Source/OpalOriginal.png",
+    "sha256": "7d66d3ff5ca042e4ffa170eeb844f18aaac921a4bba2d591030b2d41b59660b6",
+    "upstream_path": "Plugins/CkTests/Resources/CkUsf/OpalPolishV2/Source/OpalOriginal.png",
+    "provenance": "User-selected earlier built-in generated RGB artwork, preserved exactly. Full-area optical orientation/variation are numerical artist estimates, not mineral scans or measured optical data.",
+    "generation_image_id": "exec-6f70bd07-e659-496b-9121-d0f11029d84d",
+    "prompt_support": "Source/ImagePrompt.txt",
+    "prompt_sha256": "de814b7eab14df4b4622b66d75427bfb2d0cb1e31305169480e6acd4b696ee24"
+  },
+  "maps": {
+    "OpalColor": {
+      "path": "Textures/OpalColor.png",
+      "sha256": "7d66d3ff5ca042e4ffa170eeb844f18aaac921a4bba2d591030b2d41b59660b6",
+      "width": 1254,
+      "height": 1254,
+      "srgb": true,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_pixel_sha256": "b39811c7e68d0b50799358214d8384dfad6e3337fe281e6ee71a7fd3f77a6940",
+      "decoded_roundtrip_verified": true,
+      "decoded_min": 0,
+      "decoded_max": 255,
+      "runtime_name": "T_OpalInternal_OpalColor"
+    },
+    "OpalDomains": {
+      "path": "Textures/OpalDomains.png",
+      "sha256": "a10ca4d9b55609518f6b1acc10688774902a1379c4378c8190891f4c21373851",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_pixel_sha256": "7ab33ed8baffe4f663ab44bde437775d5fad1ef21d5a24dade0fdf7977d38d0e",
+      "decoded_roundtrip_verified": true,
+      "decoded_min": 0,
+      "decoded_max": 255,
+      "runtime_name": "T_OpalInternal_OpalDomains"
+    },
+    "OpalDomainNormal": {
+      "path": "Textures/OpalDomainNormal.png",
+      "sha256": "a6d1ca084e12a572f7be3d2d3e76cae71900aa8bfb7e7ed0122d379a73d767a7",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_pixel_sha256": "ead0b97ac4b73177eb0b3417d2f85a527cd50390269ea978ea929d7f802f16ec",
+      "decoded_roundtrip_verified": true,
+      "decoded_min": 99,
+      "decoded_max": 255,
+      "runtime_name": "T_OpalInternal_OpalDomainNormal"
+    },
+    "OpalPolishNormal": {
+      "path": "Textures/OpalPolishNormal.png",
+      "sha256": "6d184fdf4ec03c76963461aa88d4cfe960fb07d05a8ca6b8d911e984a1181556",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_pixel_sha256": "116569f3c6fa311b0909cecaacb0dd690e45b06fd798729d0039e2973ce895fc",
+      "decoded_roundtrip_verified": true,
+      "decoded_min": 128,
+      "decoded_max": 255,
+      "runtime_name": "T_OpalInternal_OpalPolishNormal"
+    },
+    "OpalRoughness": {
+      "path": "Textures/OpalRoughness.png",
+      "sha256": "4eb6acb542a9b082c794b5ffd80a5d417bebbeb2b9a9ded542438c443ff39614",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "L",
+      "bit_depth": 8,
+      "decoded_pixel_sha256": "8a440673aa8acb6bae7357d7889fdee70aaf47297f64d9166c325968bcc70c3a",
+      "decoded_roundtrip_verified": true,
+      "decoded_min": 31,
+      "decoded_max": 31,
+      "runtime_name": "T_OpalInternal_OpalRoughness"
+    }
+  },
+  "data_files": [
+    {
+      "path": "Data/DomainLabels.png",
+      "sha256": "b7eaa5918564cd6c9c082e44d08ac58ca0bee942e1cada25517a44e917242293"
+    },
+    {
+      "path": "Data/Regions.json",
+      "sha256": "b49d4c8090b4235cc332b75124f0648597f0da0e71f0981e76d0f00e400291c9"
+    }
+  ],
+  "color_preservation": "Source/OpalOriginal.png and Textures/OpalColor.png preserve the selected original RGB PNG bytes exactly; no generated/recolored/replaced appearance artwork.",
+  "authoring": {
+    "segmentation": {
+      "method": "Full-resolution RGB source-edge watershed with local interior-minimum markers; no hue/chroma exclusion, nearest-center partition or RGB alteration",
+      "prefilter_sigma_pixels": 0.85,
+      "seed_minimum_window_pixels": 45,
+      "seed_gradient_max_quantile": 0.45,
+      "cost_scale_quantile": 0.995,
+      "raw_watershed_regions": 683,
+      "merged_below_16_pixel_fragments": 133,
+      "merged_source_pixel_fraction": 0.00019141299675170238,
+      "region_area_percentiles": {
+        "5": 121.9,
+        "10": 272.9,
+        "25": 867.5,
+        "50": 2090.5,
+        "75": 3943.75,
+        "90": 6650.4,
+        "95": 8495.599999999991
+      },
+      "count": 550,
+      "minimum_region_pixels": 16,
+      "median_region_pixels": 2090.5,
+      "maximum_region_pixels": 15270,
+      "fraction_regions_below_16_pixels": 0.0,
+      "fraction_pixels_in_regions_below_16_pixels": 0.0,
+      "maximum_region_area_fraction": 0.009710553024579719,
+      "unassigned_pixels": 0
+    },
+    "eligibility": {
+      "minimum": 1,
+      "maximum": 1,
+      "eligible_fraction": 1,
+      "excluded_pixels": 0
+    },
+    "domain_channels": "R=constant1 eligibility/check only; G=mild seeded optical-thickness variation [.4,.6]; B=authored optical-axis tilt magnitude normalized by .24; no viewgate or spectralphase",
+    "orientation": "One deterministic seeded constant tangent tilt per full-area source-boundary region; .7-pixel numerical boundary interpolation. Brightness gradients locate boundaries only, never define tilt.",
+    "normal_convention": "DirectX tangent normalize(slope_x,slope_y,1), original image orientation, no green flip; reflector B only, independent smooth coat A and cloudy medium C.",
+    "authored_slope_magnitude_range": [
+      0.045739635204322275,
+      0.23981255695424847
+    ],
+    "maximum_decoded_unit_length_error": 0.0048020036369751384,
+    "polish_normal": [
+      128,
+      128,
+      255
+    ],
+    "roughness": 0.12156862745098039
+  },
+  "limitations": [
+    "Optical axes and thickness variation are deterministic artist data, not inferred physical crystal normals.",
+    "The unchanged source contains its original artistic RGB pattern; no new colors or background edits were made.",
+    "Full-area eligibility is a data invariant, not proof of native rendering, light transport, temporal stability, or visual approval."
+  ]
+}

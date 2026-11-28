@@ -1,0 +1,313 @@
+{
+  "decoder_sha256": "800d26f3ddee487b7612c0b6a65b8758cc98c918786556599ba2a06cc7d4506c",
+  "decoder_source": "Tools/UsfMaterials/derive_pebble_runtime_color.py",
+  "generator_sha256": "3e80a599e1e4449684ead90306e3523271b6f6e62c51e90e53a4910bf7457fbf",
+  "generator_source": "Tools/UsfMaterials/derive_advanced_bsdf_sources.py",
+  "limits": "Source-backed authored BSDF presentation, not measured optical calibration. Original maps unchanged; BC8 only re-encodes existing encoded RGB. Velvet NPOT originals retained; runtime policy explicitly resizes all aligned maps to1024 square.",
+  "materials": {
+    "NativeCopper": {
+      "asset_id": "Metal057A",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "identity_notes": "Actual clean copper source with fine finish marks; no tarnish, oxidation or wear overlay. Conductor reflectance/finish remain authored rather than certified optical calibration.",
+      "license": "CC0-1.0",
+      "look_id": "NativeCopper",
+      "maps": {
+        "BaseColor": {
+          "bit_depth": 8,
+          "color_space": "sRGB",
+          "derived": false,
+          "height": 1024,
+          "normal_convention": null,
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryCopper_BaseColor",
+          "runtime_resize_1024_square": false,
+          "sha256": "312c45de8141e0beb8ab7f954e78accae6cf51e6f01c153c1fc5865ea384a7a1",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/copper/Maps/BaseColor.png",
+          "source_sha256": "312c45de8141e0beb8ab7f954e78accae6cf51e6f01c153c1fc5865ea384a7a1",
+          "width": 1024
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "derived": false,
+          "height": 1024,
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryCopper_Normal",
+          "runtime_resize_1024_square": false,
+          "sha256": "58605c476f0b7746790851358f1bc0d974def680e80eae006adfc33707e4c7ba",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/copper/Maps/Normal.png",
+          "source_sha256": "58605c476f0b7746790851358f1bc0d974def680e80eae006adfc33707e4c7ba",
+          "width": 1024
+        },
+        "Roughness": {
+          "bit_depth": 8,
+          "color_space": "linear",
+          "derived": false,
+          "height": 1024,
+          "normal_convention": null,
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryCopper_Roughness",
+          "runtime_resize_1024_square": false,
+          "sha256": "2ea35c8c2b88aba7679251af4da388a8a4011975a7ca35a09ea034a0c0052d0a",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/copper/Maps/Roughness.png",
+          "source_sha256": "2ea35c8c2b88aba7679251af4da388a8a4011975a7ca35a09ea034a0c0052d0a",
+          "width": 1024
+        }
+      },
+      "provider": "ambientcg",
+      "source_key": "copper",
+      "source_manifest": "Evidence/Batch7Textures-Manifest.json",
+      "source_url": "https://ambientcg.com/a/Metal057A"
+    },
+    "NativeResinCarbon": {
+      "asset_id": "Fabric004",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "identity_notes": "Official clean carbon/fiber-tagged authored crossed-tow weave, despite upstream Fabric category. BC/Normal/Roughness share actual weave layout; resin is independently authored with native ClearCoat. Carbon stays dielectric with Metallic0; source Metalness is intentionally excluded.",
+      "license": "CC0-1.0",
+      "look_id": "NativeResinCarbon",
+      "maps": {
+        "BaseColor": {
+          "bit_depth": 8,
+          "color_space": "sRGB",
+          "derived": false,
+          "height": 1024,
+          "normal_convention": null,
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryCarbonFiber_BaseColor",
+          "runtime_resize_1024_square": false,
+          "sha256": "b6d1d8f7263f06a6aeca9cc86ca3b7315a7ff749141ba296a9c94c05d2d853d7",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/carbon_fiber/Maps/BaseColor.png",
+          "source_sha256": "b6d1d8f7263f06a6aeca9cc86ca3b7315a7ff749141ba296a9c94c05d2d853d7",
+          "width": 1024
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "derived": false,
+          "height": 1024,
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryCarbonFiber_Normal",
+          "runtime_resize_1024_square": false,
+          "sha256": "b90c53c5080f70c585fa58455443c868287711c747ddd33451445ef3b7dd899f",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/carbon_fiber/Maps/Normal.png",
+          "source_sha256": "b90c53c5080f70c585fa58455443c868287711c747ddd33451445ef3b7dd899f",
+          "width": 1024
+        },
+        "Roughness": {
+          "bit_depth": 8,
+          "color_space": "linear",
+          "derived": false,
+          "height": 1024,
+          "normal_convention": null,
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryCarbonFiber_Roughness",
+          "runtime_resize_1024_square": false,
+          "sha256": "694d914d5688bc943cfe1c17e8ad58c073be04f94c15023dccddbd1301d4ae01",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/carbon_fiber/Maps/Roughness.png",
+          "source_sha256": "694d914d5688bc943cfe1c17e8ad58c073be04f94c15023dccddbd1301d4ae01",
+          "width": 1024
+        }
+      },
+      "provider": "ambientcg",
+      "source_key": "carbon_fiber",
+      "source_manifest": "Evidence/Batch3Textures-Manifest.json",
+      "source_url": "https://ambientcg.com/a/Fabric004"
+    },
+    "NativeRubyVelvet": {
+      "asset_id": "velour_velvet",
+      "author": {
+        "Rico Cilliers": "Processing",
+        "colormass": "Photography"
+      },
+      "coverage_cm": {
+        "x": 28.422817052147234,
+        "y": 27.3499995470047
+      },
+      "identity_notes": "Actual napped velour velvet textile, not the silk source. Surface-only texture cannot reproduce geometric pile silhouette by itself.",
+      "license": "CC0-1.0",
+      "look_id": "NativeRubyVelvet",
+      "maps": {
+        "BaseColor": {
+          "bit_depth": 8,
+          "color_space": "sRGB",
+          "derived": true,
+          "height": 985,
+          "max_encoded_error": 0.001953154802777246,
+          "mean_encoded_error": 0.0009805739689316242,
+          "normal_convention": null,
+          "path": "NativeRubyVelvet/Maps/BaseColor.png",
+          "retained_color_chunks": {
+            "gAMA": "0000b18f",
+            "sRGB": "03"
+          },
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Native/T_NativeRubyVelvet_BaseColor",
+          "runtime_resize_1024_square": true,
+          "sha256": "d5712cd1f85ad60591ea09d722a92d537b8de9a1ba22beef4ddc98133075cda9",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/velvet/Maps/BaseColor.png",
+          "source_sha256": "fb9bde5e9ca1015424f3149fdc96daed0d040cbb944965d727993c9af40c478c",
+          "transform": "q8=floor((q16+128)/257); no gamma transform, grade, resize or spatial change",
+          "width": 1024
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "derived": false,
+          "height": 985,
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryVelvet_Normal",
+          "runtime_resize_1024_square": true,
+          "sha256": "d69f86885cb0c3594f9fd27dd1b01e96ffbb58f8603658705df16095115f4ba5",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/velvet/Maps/Normal.png",
+          "source_sha256": "d69f86885cb0c3594f9fd27dd1b01e96ffbb58f8603658705df16095115f4ba5",
+          "width": 1024
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "derived": false,
+          "height": 985,
+          "normal_convention": null,
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryVelvet_Roughness",
+          "runtime_resize_1024_square": true,
+          "sha256": "abbf0df83e6b19e8924f3e32eb853d5f0a78d6a64f96e2aff16803ca2bae99d8",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/velvet/Maps/Roughness.png",
+          "source_sha256": "abbf0df83e6b19e8924f3e32eb853d5f0a78d6a64f96e2aff16803ca2bae99d8",
+          "width": 1024
+        }
+      },
+      "provider": "polyhaven",
+      "source_key": "velvet",
+      "source_manifest": "Evidence/Batch3Textures-Manifest.json",
+      "source_url": "https://polyhaven.com/a/velour_velvet"
+    },
+    "NativeVarnishedWalnut": {
+      "asset_id": "walnut_veneer_02",
+      "author": {
+        "Jenelle van Heerden": "All"
+      },
+      "coverage_cm": {
+        "x": 100.0,
+        "y": 100.0
+      },
+      "identity_notes": "Actual clean walnut veneer, no added aging. Any finished coating is independently authored by the material.",
+      "license": "CC0-1.0",
+      "look_id": "NativeVarnishedWalnut",
+      "maps": {
+        "BaseColor": {
+          "bit_depth": 8,
+          "color_space": "sRGB",
+          "derived": true,
+          "height": 1024,
+          "max_encoded_error": 0.001953154802777246,
+          "mean_encoded_error": 0.0009798102071916365,
+          "normal_convention": null,
+          "path": "NativeVarnishedWalnut/Maps/BaseColor.png",
+          "retained_color_chunks": {
+            "gAMA": "0000b18f"
+          },
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Native/T_NativeVarnishedWalnut_BaseColor",
+          "runtime_resize_1024_square": false,
+          "sha256": "e8817cf87412cba3bba0a091769c1b38cf32cdb1f1a756af25f0394fd9feca6f",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/walnut/Maps/BaseColor.png",
+          "source_sha256": "336aaf9efad45a4791ffaa92a1cc2a7e7f61caf9116c398d5cd17dabaf99764e",
+          "transform": "q8=floor((q16+128)/257); no gamma transform, grade, resize or spatial change",
+          "width": 1024
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "derived": false,
+          "height": 1024,
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryWalnut_Normal",
+          "runtime_resize_1024_square": false,
+          "sha256": "15808b8c986ed410227c6caff96be54f8954497a649dcf71a6ae192459ff6acd",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/walnut/Maps/Normal.png",
+          "source_sha256": "15808b8c986ed410227c6caff96be54f8954497a649dcf71a6ae192459ff6acd",
+          "width": 1024
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "derived": false,
+          "height": 1024,
+          "normal_convention": null,
+          "runtime_asset": "/CkFoundation/CkUsf/Textures/Library/T_LibraryWalnut_Roughness",
+          "runtime_resize_1024_square": false,
+          "sha256": "072fcf14864c1ac7184c4b997cb107e64d2b624b6c0b909b7e25d0b5d245da7f",
+          "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/walnut/Maps/Roughness.png",
+          "source_sha256": "072fcf14864c1ac7184c4b997cb107e64d2b624b6c0b909b7e25d0b5d245da7f",
+          "width": 1024
+        }
+      },
+      "provider": "polyhaven",
+      "source_key": "walnut",
+      "source_manifest": "Evidence/Batch3Textures-Manifest.json",
+      "source_url": "https://polyhaven.com/a/walnut_veneer_02"
+    }
+  },
+  "provenance_evidence": [
+    {
+      "path": "Evidence/Batch3Textures-Manifest.json",
+      "sha256": "872a79f3d1026de86db4c2421bab9d8361db0f798e380b72fc4c19669af17098",
+      "source_path": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/Manifest.json"
+    },
+    {
+      "path": "Evidence/Batch3Textures-polyhaven.html",
+      "provider": "polyhaven",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623",
+      "spdx": "CC0-1.0",
+      "url": "https://polyhaven.com/license"
+    },
+    {
+      "path": "Evidence/NativeRubyVelvet-velour_velvet_info.json",
+      "sha256": "5eb1414ecc53f8cf6fc9ac70d869ee36eeaadb21193e3efa28eb2456ed3d9a93"
+    },
+    {
+      "path": "Evidence/NativeRubyVelvet-velour_velvet_files.json",
+      "sha256": "f16ffd3476008096871ad8037387a7e50bb4c1416081bfef1af1dfd507759b1b"
+    },
+    {
+      "path": "Evidence/NativeVarnishedWalnut-walnut_veneer_02_info.json",
+      "sha256": "e2ffd66a19a448e94cfd07512c47a20f2276def28d33ea080163fbe3011bd27e"
+    },
+    {
+      "path": "Evidence/NativeVarnishedWalnut-walnut_veneer_02_files.json",
+      "sha256": "d465ff5616f199410595a3ba8ad43fefded03f4e8098a70d76e347cd0d0cf411"
+    },
+    {
+      "path": "Evidence/Batch3Textures-ambientcg.html",
+      "provider": "ambientcg",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+      "spdx": "CC0-1.0",
+      "url": "https://docs.ambientcg.com/license/"
+    },
+    {
+      "path": "Evidence/NativeResinCarbon-Fabric004.json",
+      "sha256": "3aa9eb859781af05fdece6bbca529a051d8219e14dd16dcf2482f01ae27ba21a"
+    },
+    {
+      "path": "Evidence/Batch7Textures-Manifest.json",
+      "sha256": "5acce9f35ebf48b5a45a9abf116f831f50692a2c3f1346ef22ac4315f0655c60",
+      "source_path": "Plugins/CkTests/Resources/CkUsf/Batch7Textures/Manifest.json"
+    },
+    {
+      "path": "Evidence/Batch7Textures-ambientcg.html",
+      "provider": "ambientcg",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+      "spdx": "CC0-1.0",
+      "url": "https://docs.ambientcg.com/license/"
+    },
+    {
+      "path": "Evidence/NativeCopper-Metal057A.json",
+      "sha256": "406084f78366dcfa3066824ff3491fd2af72e33e349e3ff404ca4805f26d88fb"
+    }
+  ],
+  "schema_version": 1
+}

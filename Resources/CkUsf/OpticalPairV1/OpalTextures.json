@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "generator_source": "Tools/UsfMaterials/derive_opal_maps.py",
+  "generator_sha256": "c92cfb47243543467e9006ef919abc4ee2ddc504ebfbab131a09a340e44da822",
+  "source": {
+    "path": "Source/OpalOriginal.png",
+    "sha256": "6f06aaba3328c6e9fc096e3ec35d48aa79927060a1e3531a1f2e0cb5b4723ba2",
+    "provenance": "Original image generation, 2026-10-21. Artistic color reference, not a scan. Utility maps are estimated artist data."
+  },
+  "maps": {
+    "OpalColor": {
+      "path": "Textures/OpalColor.png",
+      "sha256": "e998bf6379cf91c4b2a072d4e10f95b83c44678c4fc2242f3a1b1e9231c8c489",
+      "width": 1254,
+      "height": 1254,
+      "srgb": true,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 0,
+      "decoded_max": 255
+    },
+    "OpalDomains": {
+      "path": "Textures/OpalDomains.png",
+      "sha256": "550a6cddf3c6bc7a58f64e3a8cfb2c1e68cb4b1e4fd1009db0e110e2e189c335",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 0,
+      "decoded_max": 255
+    },
+    "OpalDomainNormal": {
+      "path": "Textures/OpalDomainNormal.png",
+      "sha256": "67cb81b14fdf86e9a9a0504e3d2b3c0c1aacdb120c6c2e8709c845d26a093b50",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 47,
+      "decoded_max": 255
+    },
+    "OpalPolishNormal": {
+      "path": "Textures/OpalPolishNormal.png",
+      "sha256": "5793de3a9e01a46480b0db7b0c06c78683c39321eecc5ac5d15414f938d1d055",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 126,
+      "decoded_max": 255
+    },
+    "OpalRoughness": {
+      "path": "Textures/OpalRoughness.png",
+      "sha256": "8b18bd8a01b6c2506bb6ff8ecde6351e257caf7705564ce98ae7d44079488c42",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "L",
+      "bit_depth": 8,
+      "decoded_min": 61,
+      "decoded_max": 116
+    }
+  }
+}

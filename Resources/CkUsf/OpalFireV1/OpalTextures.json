@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "generator_source": "Tools/UsfMaterials/author_opal_fire_maps.py",
+  "generator_sha256": "6f932f52f69696541f2de5d6c1f54d756032a3bf55d7d69a801b9e2a6749d2f0",
+  "seed": 715093,
+  "source": {
+    "path": "Source/OpalOriginal.png",
+    "sha256": "7d66d3ff5ca042e4ffa170eeb844f18aaac921a4bba2d591030b2d41b59660b6",
+    "provenance": "Original built-in image generation2026-10-22; original artwork, not a scan. Numerical utility data are artist estimates, not measured mineral optics.",
+    "generation_image_id": "exec-6f70bd07-e659-496b-9121-d0f11029d84d",
+    "prompt_support": "Source/ImagePrompt.txt",
+    "prompt_sha256": "de814b7eab14df4b4622b66d75427bfb2d0cb1e31305169480e6acd4b696ee24"
+  },
+  "maps": {
+    "OpalColor": {
+      "path": "Textures/OpalColor.png",
+      "sha256": "7d66d3ff5ca042e4ffa170eeb844f18aaac921a4bba2d591030b2d41b59660b6",
+      "width": 1254,
+      "height": 1254,
+      "srgb": true,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 0,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "b39811c7e68d0b50799358214d8384dfad6e3337fe281e6ee71a7fd3f77a6940",
+      "decoded_roundtrip_verified": true
+    },
+    "OpalDomains": {
+      "path": "Textures/OpalDomains.png",
+      "sha256": "e7f40aba069933e9ed7ac7d555d46a138412b451b95c8e10991bf8c16db858cb",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 0,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "33d98d014b5b1f21f8aba676e99eb1154a8db0c9e0fbb0965cc5aab0f3d43c2a",
+      "decoded_roundtrip_verified": true
+    },
+    "OpalDomainNormal": {
+      "path": "Textures/OpalDomainNormal.png",
+      "sha256": "c3be4fb2cfa55833faa04c514be33a73d9f4bd717955e25be2dc9bb6fad36f5e",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 87,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "63c50beaf99a6f7a460a1001428df939878a9ceee7e0bb3b1774ab9b75a0aa5b",
+      "decoded_roundtrip_verified": true
+    },
+    "OpalPolishNormal": {
+      "path": "Textures/OpalPolishNormal.png",
+      "sha256": "6d184fdf4ec03c76963461aa88d4cfe960fb07d05a8ca6b8d911e984a1181556",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 128,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "116569f3c6fa311b0909cecaacb0dd690e45b06fd798729d0039e2973ce895fc",
+      "decoded_roundtrip_verified": true
+    },
+    "OpalRoughness": {
+      "path": "Textures/OpalRoughness.png",
+      "sha256": "093160758d08a20e05eef863bb0df541fc199c5edb417e97117599766b6de0b9",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "L",
+      "bit_depth": 8,
+      "decoded_min": 17,
+      "decoded_max": 48,
+      "decoded_pixel_sha256": "c0fc53fd962c8051843e957f960400fa49b4e9b8cc179c831feddeedbe4c70ed",
+      "decoded_roundtrip_verified": true
+    }
+  },
+  "color_preservation": "Original RGB PNG and original prompt copied byte-identically from OpalPolishV2; no appearance artwork edits.",
+  "authoring": {
+    "domain_channels": "R=spatial facet mask,G=broad body/depth value,B=facet spectral-phase artist estimate",
+    "normal_convention": "DirectX tangent normalize(slope_u,slope_v,1), top-left image orientation, no green flip",
+    "orientation": "Hue-independent seeded broadcluster tilt.12-.25 plus per-facetdelta.04-.10; constant within each nearest-site facet, clamped.34 beforeencoding; no luminance gradients.",
+    "facets": "Jittered nearest-site irregular connected cells at12px and42px spacing, clipped to broad chromatic clusters; sheets override flakes; no per-pixel random normals.",
+    "boundary_feather_source_pixels": [
+      1,
+      2
+    ],
+    "polish_normal": [
+      128,
+      128,
+      255
+    ],
+    "roughness_linear_range": [
+      0.06666666666666667,
+      0.19
+    ],
+    "statistics": {
+      "scales": [
+        {
+          "scale": "flakes",
+          "site_spacing_source_pixels": 12,
+          "selection_probability": 0.27,
+          "visible_facets": 2811,
+          "active_pixels_before_overlap": 386606,
+          "visible_area_pixels_min": 16,
+          "visible_area_pixels_median": 140.0,
+          "visible_area_pixels_max": 214
+        },
+        {
+          "scale": "sheets",
+          "site_spacing_source_pixels": 42,
+          "selection_probability": 0.14,
+          "visible_facets": 108,
+          "active_pixels_before_overlap": 168292,
+          "visible_area_pixels_min": 133,
+          "visible_area_pixels_median": 1636.5,
+          "visible_area_pixels_max": 2317
+        }
+      ],
+      "colored_cluster_pixels": 1438618,
+      "colored_cluster_image_fraction": 0.9148511048536231,
+      "active_fraction_within_colored_clusters": 0.35324665755607115,
+      "active_image_fraction": 0.32316809495102117,
+      "feathered_mask_mean_within_colored_clusters": 0.35140811247697573,
+      "maximum_decoded_slope_magnitude": 0.3418140303173273,
+      "decoded_slope_component_min": [
+        -0.3333333333333333,
+        -0.33609958506224064
+      ],
+      "decoded_slope_component_max": [
+        0.31687242798353915,
+        0.31687242798353915
+      ],
+      "flat_outside_mask_verified": true
+    }
+  },
+  "limitations": [
+    "Reflector geometry, phase, depth and roughness are numerical artist estimates, not calibrated optical scans.",
+    "Facet orientation is authored material data, not a displacement or luminance-gradient normal.",
+    "These maps do not bake sparkle or illumination; visible response requires native lighting/render verification."
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "generator": "Tools/UsfMaterials/author_tail_lamp_refinement.py",
+  "generator_sha256": "b9f16468c24c4f600ee479e6152c80bfeeb3f225a2a76bd0f0c5a12b52fe4429",
+  "maps": {
+    "LensNormal": {
+      "file": "LensNormal.png",
+      "sha256": "074ea564c858fb5fa648e95b0a2dfe5ad2c6e099130a8d6147de8a2992aec679",
+      "width": 2048,
+      "height": 1024,
+      "bit_depth": 8,
+      "srgb": false,
+      "range": [
+        123,
+        255
+      ]
+    },
+    "LensRoughness": {
+      "file": "LensRoughness.png",
+      "sha256": "2a72faa1623fa87de81803b944f0ac29480b16a20b9b7f4aff4427e77a0330c8",
+      "width": 2048,
+      "height": 1024,
+      "bit_depth": 8,
+      "srgb": false,
+      "range": [
+        19,
+        41
+      ]
+    },
+    "LensThickness": {
+      "file": "LensThickness.png",
+      "sha256": "ad6cf229f7728598e7e97fef81c930b289f2d256167529d5290a0981aab0c9da",
+      "width": 2048,
+      "height": 1024,
+      "bit_depth": 16,
+      "srgb": false,
+      "range": [
+        30801,
+        50462
+      ]
+    }
+  },
+  "provenance": "Original analytical molded optical tooling, no external images, scans, random noise or baked illumination.",
+  "units": "centimeters; U=(Y+12)/24,V=Z/10, all maps use the same orientation",
+  "features": "Three rounded optical fields, .48cm shallow pillow cells, .19cm fan tooling, continuous smooth perimeter, thicker support webs.",
+  "normal_convention": "DirectX tangent; normalize(-dH/dUphysical,-dH/dVphysical,1); no green flip",
+  "maximum_slope": 0.032501248701785244,
+  "limits": "Analytical normal/thickness textures on the existing single sheet, not geometric prism tracing or certified optics."
+}

@@ -1,0 +1,416 @@
+{
+  "actual_bounds_cm": [
+    [
+      -2.25,
+      -12.0,
+      2.220446049250313e-16
+    ],
+    [
+      2.25,
+      12.0,
+      10.0
+    ]
+  ],
+  "axes": "+X front; width+Y; height+Z; floorZ0",
+  "blend": {
+    "path": "Source/TailLamp.blend",
+    "sha256": "e652d852bd3b0360580a2eb02199d815356147d3c1fc8ff1dc9b26da3da6fc33"
+  },
+  "generator_sha256": "89c216d253532fb4b0a6f2b4ad1fc58d55b018238ddde96b2f7ccc779b0718a4",
+  "generator_source": "Tools/UsfMaterials/author_tail_lamp.py",
+  "lens_representation": "Exactly one exterior optical sheet; no inner transparent shell. Thickness is shader-authored. Lens faces point +X.",
+  "lens_wall_thickness_cm": 0.25,
+  "limits": "Source Blender preview is geometry lookdev only with transparent-mix lens, not UE/native optical proof, production lens ray tracing, retroreflective certification or photometry. OBJ importer may transformY/UVV; verify runtime basis independently.",
+  "map_authoring": {
+    "authoring": "Original deterministic modeled tooling profiles; no external scans, random/color noise or copied product artwork.",
+    "height_normal_formula": "N=normalize(-centralDifferenceU(H)/physicalUspacing,-centralDifferenceV(H)/physicalVspacing,1)",
+    "lens_prism_pitch_cm": 0.14285714285714285,
+    "lens_profile_amplitude_cm": 0.0035,
+    "lens_thickness_map_decode_cm": ".25*(.9+.2*R); original full nominal range.225..275cm; authored map narrower",
+    "maps": {
+      "HousingBaseColor": {
+        "bit_depth": 8,
+        "channel": "RGB",
+        "color_space": "sRGB",
+        "height": 1024,
+        "normal_convention": null,
+        "path": "Maps/HousingBaseColor.png",
+        "sha256": "b384193901b4762f451fba728dc0fd12165eb16625357ad744ee2cd3ab6c2166",
+        "width": 2048
+      },
+      "HousingNormal": {
+        "bit_depth": 8,
+        "channel": "RGB",
+        "color_space": "linear",
+        "height": 1024,
+        "normal_convention": "DirectX tangent space; Nx=-dH/dU, Ny=-dH/dV; no green flip",
+        "path": "Maps/HousingNormal.png",
+        "sha256": "b58e91509c7d3ed978c4f38878607b7db0e6e85135509a34a1b4357863b31a77",
+        "width": 2048
+      },
+      "HousingRoughness": {
+        "bit_depth": 8,
+        "channel": "R",
+        "color_space": "linear",
+        "height": 1024,
+        "normal_convention": null,
+        "path": "Maps/HousingRoughness.png",
+        "sha256": "19bea654b88e486287547cef3eae0a9d4afee44d2050579d8159398627166627",
+        "width": 2048
+      },
+      "LensNormal": {
+        "bit_depth": 8,
+        "channel": "RGB",
+        "color_space": "linear",
+        "height": 1024,
+        "normal_convention": "DirectX tangent space; Nx=-dH/dU, Ny=-dH/dV; no green flip",
+        "path": "Maps/LensNormal.png",
+        "sha256": "e6887b3c4e0a860cda7234f9127fa1c2326890c98e22efa9ed0da03856e4fbcd",
+        "width": 2048
+      },
+      "LensRoughness": {
+        "bit_depth": 8,
+        "channel": "R",
+        "color_space": "linear",
+        "height": 1024,
+        "normal_convention": null,
+        "path": "Maps/LensRoughness.png",
+        "sha256": "777a2e812daf71a927bf86b002e1abade1f01a9dae97ba497070ab27b851c164",
+        "width": 2048
+      },
+      "LensThickness": {
+        "bit_depth": 16,
+        "channel": "R",
+        "color_space": "linear",
+        "height": 1024,
+        "normal_convention": null,
+        "path": "Maps/LensThickness.png",
+        "sha256": "d30e35781a38fdf9e2a8bf3af5d1cd4278680df65c85f9b97dc1dcd23cd862a7",
+        "width": 2048
+      },
+      "ReflectorNormal": {
+        "bit_depth": 8,
+        "channel": "RGB",
+        "color_space": "linear",
+        "height": 1024,
+        "normal_convention": "DirectX tangent space; Nx=-dH/dU, Ny=-dH/dV; no green flip",
+        "path": "Maps/ReflectorNormal.png",
+        "sha256": "2abd290b43257e3e47abd0f12ea9d1c76ac3cc1e2611ea2b3ff919b5361111e9",
+        "width": 2048
+      },
+      "ReflectorRoughness": {
+        "bit_depth": 8,
+        "channel": "R",
+        "color_space": "linear",
+        "height": 1024,
+        "normal_convention": null,
+        "path": "Maps/ReflectorRoughness.png",
+        "sha256": "3c60296fd130d787c7b1f42a8755e35bafa13397321d6bbe0159d48bfff67337",
+        "width": 2048
+      }
+    },
+    "uv_basis": "OBJ source UV0 U=(Y+12)/24,V=Z/10; PNG rows increase V. Keep all map orientations identical; verify imported tangent basis before claiming UE optics."
+  },
+  "maps": {
+    "HousingBaseColor": {
+      "bit_depth": 8,
+      "channel": "RGB",
+      "color_space": "sRGB",
+      "height": 1024,
+      "normal_convention": null,
+      "path": "Maps/HousingBaseColor.png",
+      "sha256": "b384193901b4762f451fba728dc0fd12165eb16625357ad744ee2cd3ab6c2166",
+      "width": 2048
+    },
+    "HousingNormal": {
+      "bit_depth": 8,
+      "channel": "RGB",
+      "color_space": "linear",
+      "height": 1024,
+      "normal_convention": "DirectX tangent space; Nx=-dH/dU, Ny=-dH/dV; no green flip",
+      "path": "Maps/HousingNormal.png",
+      "sha256": "b58e91509c7d3ed978c4f38878607b7db0e6e85135509a34a1b4357863b31a77",
+      "width": 2048
+    },
+    "HousingRoughness": {
+      "bit_depth": 8,
+      "channel": "R",
+      "color_space": "linear",
+      "height": 1024,
+      "normal_convention": null,
+      "path": "Maps/HousingRoughness.png",
+      "sha256": "19bea654b88e486287547cef3eae0a9d4afee44d2050579d8159398627166627",
+      "width": 2048
+    },
+    "LensNormal": {
+      "bit_depth": 8,
+      "channel": "RGB",
+      "color_space": "linear",
+      "height": 1024,
+      "normal_convention": "DirectX tangent space; Nx=-dH/dU, Ny=-dH/dV; no green flip",
+      "path": "Maps/LensNormal.png",
+      "sha256": "e6887b3c4e0a860cda7234f9127fa1c2326890c98e22efa9ed0da03856e4fbcd",
+      "width": 2048
+    },
+    "LensRoughness": {
+      "bit_depth": 8,
+      "channel": "R",
+      "color_space": "linear",
+      "height": 1024,
+      "normal_convention": null,
+      "path": "Maps/LensRoughness.png",
+      "sha256": "777a2e812daf71a927bf86b002e1abade1f01a9dae97ba497070ab27b851c164",
+      "width": 2048
+    },
+    "LensThickness": {
+      "bit_depth": 16,
+      "channel": "R",
+      "color_space": "linear",
+      "height": 1024,
+      "normal_convention": null,
+      "path": "Maps/LensThickness.png",
+      "sha256": "d30e35781a38fdf9e2a8bf3af5d1cd4278680df65c85f9b97dc1dcd23cd862a7",
+      "width": 2048
+    },
+    "ReflectorNormal": {
+      "bit_depth": 8,
+      "channel": "RGB",
+      "color_space": "linear",
+      "height": 1024,
+      "normal_convention": "DirectX tangent space; Nx=-dH/dU, Ny=-dH/dV; no green flip",
+      "path": "Maps/ReflectorNormal.png",
+      "sha256": "2abd290b43257e3e47abd0f12ea9d1c76ac3cc1e2611ea2b3ff919b5361111e9",
+      "width": 2048
+    },
+    "ReflectorRoughness": {
+      "bit_depth": 8,
+      "channel": "R",
+      "color_space": "linear",
+      "height": 1024,
+      "normal_convention": null,
+      "path": "Maps/ReflectorRoughness.png",
+      "sha256": "3c60296fd130d787c7b1f42a8755e35bafa13397321d6bbe0159d48bfff67337",
+      "width": 2048
+    }
+  },
+  "meshes": {
+    "Fastener": {
+      "bounds": [
+        [
+          1.9300000667572021,
+          -11.010000228881836,
+          0.4400000274181366
+        ],
+        [
+          1.9900000095367432,
+          11.010000228881836,
+          9.559999465942383
+        ]
+      ],
+      "degenerate_triangles": 0,
+      "path": "Meshes/SM_TailLamp_Fastener.obj",
+      "sha256": "687dcd198a1ab1fe72e1115324cc38dbad6bc7dae926ceb5a7520bc15444f836",
+      "slot": "Fastener",
+      "triangles": 368,
+      "uv_bounds": [
+        [
+          -1.862645149230957e-07,
+          0.01000000536441803
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ],
+      "vertices": 192
+    },
+    "Gasket": {
+      "bounds": [
+        [
+          1.9149999618530273,
+          -11.56820297241211,
+          0.4344572424888611
+        ],
+        [
+          2.0250000953674316,
+          11.56820297241211,
+          9.565543174743652
+        ]
+      ],
+      "degenerate_triangles": 0,
+      "path": "Meshes/SM_TailLamp_Gasket.obj",
+      "sha256": "f4a438fefdc90b4f39b7bc16ae34002608715961091964d08c19d3807f11b48d",
+      "slot": "Gasket",
+      "triangles": 1536,
+      "uv_bounds": [
+        [
+          0.01799154281616211,
+          0.04344572499394417
+        ],
+        [
+          0.9820084571838379,
+          0.9565542936325073
+        ]
+      ],
+      "vertices": 768
+    },
+    "Housing": {
+      "bounds": [
+        [
+          -2.25,
+          -12.0,
+          2.220446049250313e-16
+        ],
+        [
+          1.996999979019165,
+          12.0,
+          10.0
+        ]
+      ],
+      "degenerate_triangles": 0,
+      "path": "Meshes/SM_TailLamp_Housing.obj",
+      "sha256": "c87709dc6597d04ba2c216b1377753f6ab122c46a82dfa73ac46c56908f16bbc",
+      "slot": "Housing",
+      "triangles": 1700,
+      "uv_bounds": [
+        [
+          0.0,
+          2.2204460823375376e-17
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ],
+      "vertices": 864
+    },
+    "LED": {
+      "bounds": [
+        [
+          -0.9100000262260437,
+          -7.575000286102295,
+          3.4000000953674316
+        ],
+        [
+          -0.8100000023841858,
+          7.575000286102295,
+          6.599999904632568
+        ]
+      ],
+      "degenerate_triangles": 0,
+      "path": "Meshes/SM_TailLamp_LED.obj",
+      "sha256": "3e80789ac55b177c04abe77d4e6b053e5848bc59424174ab3fd5c666a32ae995",
+      "slot": "LED",
+      "triangles": 1128,
+      "uv_bounds": [
+        [
+          0.18437495827674866,
+          0.3400000035762787
+        ],
+        [
+          0.8156250715255737,
+          0.6600000858306885
+        ]
+      ],
+      "vertices": 576
+    },
+    "LEDPackage": {
+      "bounds": [
+        [
+          -1.3000000715255737,
+          -7.925000190734863,
+          3.075000047683716
+        ],
+        [
+          -0.9000000357627869,
+          7.925000190734863,
+          6.924999713897705
+        ]
+      ],
+      "degenerate_triangles": 0,
+      "path": "Meshes/SM_TailLamp_LEDPackage.obj",
+      "sha256": "cd8abb74f53648036bf06fce415af01240fbd6ca0ad8ce78943cba866c14131d",
+      "slot": "LEDPackage",
+      "triangles": 1128,
+      "uv_bounds": [
+        [
+          0.16979163885116577,
+          0.3074999749660492
+        ],
+        [
+          0.830208420753479,
+          0.692500114440918
+        ]
+      ],
+      "vertices": 576
+    },
+    "Lens": {
+      "bounds": [
+        [
+          1.9700000286102295,
+          -11.399999618530273,
+          0.6000000238418579
+        ],
+        [
+          2.25,
+          11.399999618530273,
+          9.399999618530273
+        ]
+      ],
+      "degenerate_triangles": 0,
+      "path": "Meshes/SM_TailLamp_Lens.obj",
+      "sha256": "8f0676192e445da102445c7bfff132fa2faa28109d7272a741a257edc6de05ea",
+      "slot": "Lens",
+      "triangles": 6048,
+      "uv_bounds": [
+        [
+          0.025000015273690224,
+          0.06000000238418579
+        ],
+        [
+          0.9749999642372131,
+          0.9399999380111694
+        ]
+      ],
+      "vertices": 3073
+    },
+    "Reflector": {
+      "bounds": [
+        [
+          -1.3799999952316284,
+          -10.475000381469727,
+          1.100000023841858
+        ],
+        [
+          1.5700000524520874,
+          10.475000381469727,
+          8.899999618530273
+        ]
+      ],
+      "degenerate_triangles": 0,
+      "path": "Meshes/SM_TailLamp_Reflector.obj",
+      "sha256": "00f76821fc614c67358e82d7c4e3e7e2e4bcda00e27c6227675d0eb0fdcb2ad9",
+      "slot": "Reflector",
+      "triangles": 3258,
+      "uv_bounds": [
+        [
+          0.06354165077209473,
+          0.10999999940395355
+        ],
+        [
+          0.9364583492279053,
+          0.8899999856948853
+        ]
+      ],
+      "vertices": 1872
+    }
+  },
+  "nominal_dimensions_cm": {
+    "depth": 4.5,
+    "height": 10,
+    "width": 24
+  },
+  "provenance": "Original project-authored geometry and analytical molded/tooling maps, no external asset/scanned optics/product logo.",
+  "schema_version": 1,
+  "units": "centimeters"
+}

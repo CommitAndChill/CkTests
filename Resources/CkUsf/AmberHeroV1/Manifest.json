@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "generator_source": "Tools/UsfMaterials/author_amber_hero.py",
+  "generator_sha256": "334b1e4aedbdeaef9d9c56af88d504f734c39b8a2abcab1e435614dfbda1574e",
+  "units": "centimeters",
+  "axes": "+X front, Y width, Z up",
+  "nominal_dimensions_cm": {
+    "width": 11,
+    "height": 7.88,
+    "depth": 4.2
+  },
+  "body_representation": "Closed outward-wound irregular convex pebble, one-sided native optical material; NO opaque backing",
+  "body_uv": "U=(Y+5.5)/11,V=Z/8; current AmberSpecimenV1 body maps compatible",
+  "leaf_representation": "Curved 5.8x4.2cm rectangular tessellated carrier; full UV0..1. Photograph opacity mask supplies actual leaf outline/holes; carrier is NOT the final botanical silhouette.",
+  "debris": {
+    "count": 65,
+    "seed": 80423,
+    "representation": "Actual irregular dark chips and sparse elongated woody threads; deterministic placement only, no appearance-noise texture"
+  },
+  "bubble_source": "Closed outward UV sphere radius1cm at origin; instance transforms and bubble optics owned by scene, not this source",
+  "meshes": {
+    "Body": {
+      "path": "Meshes/SM_AmberHero_Body.obj",
+      "sha256": "63b4ab829afc40f5a6b8b7724778c66d9641d0c5153146ed113837c17b99623a",
+      "slot": "Body",
+      "mtl": {
+        "path": "Meshes/SM_AmberHero_Body.mtl",
+        "sha256": "92dd8eea300b4dbfa08ca686618a431b456e0071f763dfbc6eb87e863a793e11"
+      },
+      "vertices": 15202,
+      "triangles": 30400,
+      "bounds": {
+        "min": [
+          -2.1,
+          -5.5,
+          0.12
+        ],
+        "max": [
+          2.1,
+          5.5,
+          8.0
+        ]
+      },
+      "uv_bounds": {
+        "min": [
+          0.0,
+          0.015
+        ],
+        "max": [
+          1.0,
+          1.0
+        ]
+      },
+      "degenerate_triangles": 0,
+      "minimum_area_cm2": 0.00045994707799900807,
+      "closed_edge_manifold": true,
+      "consistent_edge_winding": true,
+      "signed_volume_cm3": 193.01973065639785,
+      "vertex_normals": "Authored area-weighted smooth normals"
+    },
+    "Leaf": {
+      "path": "Meshes/SM_AmberHero_Leaf.obj",
+      "sha256": "a152598adec1d8f96e88cbb110c66ae2d4a1282f2cf9ac97762aa2ca8d4987f2",
+      "slot": "Leaf",
+      "mtl": {
+        "path": "Meshes/SM_AmberHero_Leaf.mtl",
+        "sha256": "81fff8357cab0a93640215dfb93bb184edfacce76cdd8433e7644865d2aa83ad"
+      },
+      "vertices": 609,
+      "triangles": 1120,
+      "bounds": {
+        "min": [
+          -0.69,
+          -3.1288393118249935,
+          0.4842090679382465
+        ],
+        "max": [
+          -0.03295814340163668,
+          3.1288393118249935,
+          7.515790932061753
+        ]
+      },
+      "uv_bounds": {
+        "min": [
+          0.0,
+          0.0
+        ],
+        "max": [
+          1.0,
+          1.0
+        ]
+      },
+      "degenerate_triangles": 0,
+      "minimum_area_cm2": 0.021753754481687454,
+      "closed_edge_manifold": false,
+      "consistent_edge_winding": true,
+      "signed_volume_cm3": 0.3056064562297309,
+      "vertex_normals": "Authored area-weighted smooth normals"
+    },
+    "Debris": {
+      "path": "Meshes/SM_AmberHero_Debris.obj",
+      "sha256": "c63d652457331c922af64d0191829608fedfe0f4bd8090635d8c538060bbe3e4",
+      "slot": "Debris",
+      "mtl": {
+        "path": "Meshes/SM_AmberHero_Debris.mtl",
+        "sha256": "5f901983ebc66b68080e8f6b63932d7aebb9f2f45a34e2a55be7ecbeafc01c15"
+      },
+      "vertices": 390,
+      "triangles": 520,
+      "bounds": {
+        "min": [
+          -1.015186856569053,
+          -4.112604603557128,
+          0.841307751652026
+        ],
+        "max": [
+          0.9002362085557004,
+          3.761547891302686,
+          7.153758225213095
+        ]
+      },
+      "uv_bounds": {
+        "min": [
+          -0.928067801555936,
+          -1.1475133744145756
+        ],
+        "max": [
+          2.17695407727523,
+          2.1872658420341704
+        ]
+      },
+      "degenerate_triangles": 0,
+      "minimum_area_cm2": 0.0002427413174888088,
+      "closed_edge_manifold": true,
+      "consistent_edge_winding": true,
+      "signed_volume_cm3": 0.029631180897716325,
+      "vertex_normals": "Authored area-weighted smooth normals"
+    },
+    "BubbleSource": {
+      "path": "Meshes/SM_AmberHero_BubbleSource.obj",
+      "sha256": "392ee4f67338f7dfd4d8198be6ccd45ab28900287622af251ccdf2911cf5ca60",
+      "slot": "BubbleSource",
+      "mtl": {
+        "path": "Meshes/SM_AmberHero_BubbleSource.mtl",
+        "sha256": "b5c2034cb6904016aafa9ba602bdc43e80050c5b499e6cc2b37a7c753c62bf03"
+      },
+      "vertices": 482,
+      "triangles": 960,
+      "bounds": {
+        "min": [
+          -1.0,
+          -1.0,
+          -1.0
+        ],
+        "max": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "uv_bounds": {
+        "min": [
+          0.0,
+          0.0
+        ],
+        "max": [
+          0.9687499999999999,
+          1.0
+        ]
+      },
+      "degenerate_triangles": 0,
+      "minimum_area_cm2": 0.0037307291056354196,
+      "closed_edge_manifold": true,
+      "consistent_edge_winding": true,
+      "signed_volume_cm3": 4.1219417407858465,
+      "vertex_normals": "Authored area-weighted smooth normals"
+    }
+  },
+  "maps": {},
+  "limitations": [
+    "No native-rendered optical or visual correctness claim from source generation",
+    "Full rectangular leaf carrier must use photographed opacity mask, not opaque shading",
+    "Body planarUV and older analytical thickness remain an approximation, not front/back ray-traced chord length",
+    "BubbleSource geometry alone does not establish air/resin interface rendering; renderer material must be chosen independently"
+  ]
+}

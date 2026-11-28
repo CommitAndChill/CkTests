@@ -1,0 +1,22 @@
+{
+  "asset": "CGBookcase Autumn Leaf 31",
+  "page": "https://www.cgbookcase.com/textures/autumn-leaf-31",
+  "license": "CC0 1.0",
+  "license_source": "https://www.cgbookcase.com/textures",
+  "download_method": "Official website Download in background browser; copied completed ZIP, sources preserved",
+  "archive_sha256": "eda341d496c2cf0df1ad7e8bbad30b911ad3328249ef26dabdf7317dd5d114a7",
+  "files": {
+    "AutumnLeaf31_2K_back_BaseColor.png": "b1346fc15b5a4e3fbc92a551feac11ac35288eaa88f0e70745c3bf30a531d45c",
+    "AutumnLeaf31_2K_back_Height.png": "6b680f3e308e9a79c5ea639ee238086b37a944f4ba448eab8ed963f05df4c245",
+    "AutumnLeaf31_2K_back_Normal.png": "f4d99efec105f6d020f3670c2d8e9a7cd0a2ed78b94818bdee0fc98e8fa529af",
+    "AutumnLeaf31_2K_back_Opacity.png": "bdb926bac7aade777da951175cadf1f163f24d26a03d03118452335e5597f1fe",
+    "AutumnLeaf31_2K_back_Roughness.png": "df9b5b03680391c14f041c0ce54f87b077395f5505acb049765a28dae776b6fc",
+    "AutumnLeaf31_2K_front_BaseColor.png": "6fae1d8d1dccaa117bbf1828d60058a0e70b00d960b78e866a144e929cf35113",
+    "AutumnLeaf31_2K_front_Height.png": "4a7c94d3eb3cfae8284aa48391b6e43e77a80ac5266a07e5260068d3e0ac4001",
+    "AutumnLeaf31_2K_front_Normal.png": "262b1e24289adbe41a57b6289b37c26c0690dbb2228f384bec19dea75c408678",
+    "AutumnLeaf31_2K_front_Opacity.png": "048091399bf96a6593cb22b79d70ca9880ab7329b6c95d639129aabd10a5b127",
+    "AutumnLeaf31_2K_front_Roughness.png": "5b6b804066b495b5ad523134b76dedf0c1e988a5536705282ca67c386665ecb3"
+  },
+  "normal_convention": "Provider DirectX normal; no green flip",
+  "translucency_note": "Opacity is cutout; leaf transmission is artist-controlled, not a measured map"
+}

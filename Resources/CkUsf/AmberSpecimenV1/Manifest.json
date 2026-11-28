@@ -1,0 +1,373 @@
+{
+  "schema_version": 1,
+  "generator_source": "Tools/UsfMaterials/author_amber_specimen.py",
+  "generator_sha256": "fa6223b8f7b5c2b1317e8dc72f7d27866870ed1d4e217d2426de167e5acda6df",
+  "units": "centimeters",
+  "axes": "+X front, +Y width, +Z up; floor Z0",
+  "nominal_dimensions_cm": {
+    "width": 11,
+    "height": 8,
+    "depth": 2.7
+  },
+  "body_representation": "Exactly one +X-facing convex exterior optical sheet. No inner optical shell. Opaque recessed matching rear support.",
+  "thickness_decode_cm": ".45+2.15*AmberThickness.R; shader metadata, not ray traced thickness",
+  "maps": {
+    "AmberNormal": {
+      "path": "Maps/AmberNormal.png",
+      "sha256": "0d9cd3d9310078f4326313c13fb5a2d3eaba6d5211ca486f9bcea30f6e82dcaf",
+      "width": 2048,
+      "height": 2048,
+      "channels": "RGB",
+      "container_bits": 8,
+      "bit_depth": 8,
+      "srgb": false,
+      "normal_convention": "DirectX tangent; normalize(-dH/dUcm,-dH/dVcm,1); PNG rows increase V; no green flip",
+      "decoded_min": 127,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "bf034507fe9fc182f31793ab7cfe1f07f04491d86ba96bc7b68797218cf53550",
+      "decode_verified": true
+    },
+    "AmberRoughness": {
+      "path": "Maps/AmberRoughness.png",
+      "sha256": "f026e34290d2a94d9d8c6b5fd0629ef65f230afb00490ff1601351d0dd64c1d0",
+      "width": 2048,
+      "height": 2048,
+      "channels": "R",
+      "container_bits": 8,
+      "bit_depth": 8,
+      "srgb": false,
+      "normal_convention": null,
+      "decoded_min": 14,
+      "decoded_max": 19,
+      "decoded_pixel_sha256": "8602f8bf57056db1cb1df235ada1c70ca101c665dd628689193af86f2b2e453c",
+      "decode_verified": true
+    },
+    "AmberThickness": {
+      "path": "Maps/AmberThickness.png",
+      "sha256": "205d2b89a8fd5f887764fd07dc8329b46352da46807dea81572bbf042006a19d",
+      "width": 2048,
+      "height": 2048,
+      "channels": "R",
+      "container_bits": 16,
+      "bit_depth": 16,
+      "srgb": false,
+      "normal_convention": null,
+      "decoded_min": 0,
+      "decoded_max": 65535,
+      "decoded_pixel_sha256": "a3d8167a0589bff3b63ea2d6f2f02940989e3e24f9eb4c238b83f9c55206878a",
+      "decode_verified": true
+    },
+    "AmberTint": {
+      "path": "Maps/AmberTint.png",
+      "sha256": "5faa8e4defd57c0afe79dc3e4c412f6eee4752f6be51cc4eb1da5684e37a852a",
+      "width": 2048,
+      "height": 2048,
+      "channels": "RGB",
+      "container_bits": 8,
+      "bit_depth": 8,
+      "srgb": false,
+      "normal_convention": null,
+      "decoded_min": 238,
+      "decoded_max": 253,
+      "decoded_pixel_sha256": "5ce989abbb896f17e8b6a48d775873a19b957f8ef377d37e647032e2e8611447",
+      "decode_verified": true
+    },
+    "BotanicalBaseColor": {
+      "path": "Maps/BotanicalBaseColor.png",
+      "sha256": "829283cfe4237686670b736a7bdde38d0f850e1c6722fa712ff6ee8ad6c60517",
+      "width": 1024,
+      "height": 1024,
+      "channels": "RGB",
+      "container_bits": 8,
+      "bit_depth": 8,
+      "srgb": true,
+      "normal_convention": null,
+      "decoded_min": 12,
+      "decoded_max": 194,
+      "decoded_pixel_sha256": "f2622357d927e2a90c2a399182f3e16d45778301266436eb7e6240eac13c2621",
+      "decode_verified": true
+    },
+    "BotanicalNormal": {
+      "path": "Maps/BotanicalNormal.png",
+      "sha256": "3706a8ef9a94ea7a4fafae174124daba24f1c8ca8714d619dc3abb698c36dd87",
+      "width": 1024,
+      "height": 1024,
+      "channels": "RGB",
+      "container_bits": 8,
+      "bit_depth": 8,
+      "srgb": false,
+      "normal_convention": "DirectX tangent; normalize(-dH/dUcm,-dH/dVcm,1); PNG rows increase V; no green flip",
+      "decoded_min": 123,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "e911b6c6b861e6f4b04a78ce426f2bc7a4ec7eb635b622ea72e7d75b543da174",
+      "decode_verified": true
+    },
+    "BotanicalRoughness": {
+      "path": "Maps/BotanicalRoughness.png",
+      "sha256": "c01d0239c167a42305c020cc2258a0411bd1110ea0dacf160b06a790ccdf6071",
+      "width": 1024,
+      "height": 1024,
+      "channels": "R",
+      "container_bits": 8,
+      "bit_depth": 8,
+      "srgb": false,
+      "normal_convention": null,
+      "decoded_min": 145,
+      "decoded_max": 184,
+      "decoded_pixel_sha256": "c9eac422e27ad73dfa2de3f9434381934c0379a82091202336055f7d4aba43fb",
+      "decode_verified": true
+    }
+  },
+  "meshes": {
+    "Body": {
+      "path": "Meshes/SM_Amber_Body.obj",
+      "sha256": "570dcbb386d65392bc3a0451045a9f3ac160065a9e2699183dc2a885228e51d6",
+      "material_slot": "Body",
+      "slot": "Body",
+      "bounds": {
+        "min": [
+          -0.8999999999999999,
+          -5.5,
+          0.0
+        ],
+        "max": [
+          1.5,
+          5.5,
+          8.0
+        ]
+      },
+      "mtl": {
+        "path": "Meshes/SM_Amber_Body.mtl",
+        "sha256": "125e928378199b128f2246259228acd53fdde5cc44e345d3b9ffe939b77c8223"
+      },
+      "vertices": 5761,
+      "triangles": 11360,
+      "bounds_min": [
+        -0.8999999999999999,
+        -5.5,
+        0.0
+      ],
+      "bounds_max": [
+        1.5,
+        5.5,
+        8.0
+      ],
+      "uv_min": [
+        0.0,
+        0.0
+      ],
+      "uv_max": [
+        1.0,
+        1.0
+      ],
+      "degenerate_triangles": 0,
+      "minimum_triangle_area_cm2": 0.00031763169402528166,
+      "winding_check": "All triangle cross products +X",
+      "front_facing_triangles": 11360,
+      "finite_positions": true
+    },
+    "Backing": {
+      "path": "Meshes/SM_Amber_Backing.obj",
+      "sha256": "d7433eff97e652cde0bc537093d391a9fefc8e2122f9ae7be8bf1d11976da5f8",
+      "material_slot": "Backing",
+      "slot": "Backing",
+      "bounds": {
+        "min": [
+          -1.2,
+          -5.5,
+          0.0
+        ],
+        "max": [
+          -0.915,
+          5.5,
+          8.0
+        ]
+      },
+      "mtl": {
+        "path": "Meshes/SM_Amber_Backing.mtl",
+        "sha256": "820b62b1bcf4316d2b1a35667fc84fb56c5c36d5712183ff9170f8e8a14b6eb9"
+      },
+      "vertices": 321,
+      "triangles": 480,
+      "bounds_min": [
+        -1.2,
+        -5.5,
+        0.0
+      ],
+      "bounds_max": [
+        -0.915,
+        5.5,
+        8.0
+      ],
+      "uv_min": [
+        0.0,
+        0.0
+      ],
+      "uv_max": [
+        1.0,
+        1.0
+      ],
+      "degenerate_triangles": 0,
+      "minimum_triangle_area_cm2": 0.023905929791155196,
+      "winding_check": "Authored explicit winding; finite nonzero normals verified",
+      "front_facing_triangles": 0,
+      "finite_positions": true
+    },
+    "Botanical": {
+      "path": "Meshes/SM_Amber_Botanical.obj",
+      "sha256": "3d6a1874a918e95de88011f3b105e4edd3f7aaf593ccf1f80b554ad4df75f847",
+      "material_slot": "Botanical",
+      "slot": "Botanical",
+      "bounds": {
+        "min": [
+          -0.2130861868009294,
+          -3.1041655857931016,
+          2.109356287727602
+        ],
+        "max": [
+          0.04719663250522277,
+          2.208262041242105,
+          6.095640126903871
+        ]
+      },
+      "mtl": {
+        "path": "Meshes/SM_Amber_Botanical.mtl",
+        "sha256": "c6b330a9a0986931de494154764feb97f70771a761b8fe7c6d699c8eaeb7a5ba"
+      },
+      "vertices": 2128,
+      "triangles": 3456,
+      "bounds_min": [
+        -0.2130861868009294,
+        -3.1041655857931016,
+        2.109356287727602
+      ],
+      "bounds_max": [
+        0.04719663250522277,
+        2.208262041242105,
+        6.095640126903871
+      ],
+      "uv_min": [
+        0.04,
+        0.0536
+      ],
+      "uv_max": [
+        0.64,
+        0.7064000000000001
+      ],
+      "degenerate_triangles": 0,
+      "minimum_triangle_area_cm2": 0.0002013821017374863,
+      "winding_check": "Authored explicit winding; finite nonzero normals verified",
+      "front_facing_triangles": 3456,
+      "finite_positions": true
+    },
+    "Seed": {
+      "path": "Meshes/SM_Amber_Seed.obj",
+      "sha256": "3a699f9140fab23917665789079f2d046dd4b5a825403fbf54f587d2137b9a37",
+      "material_slot": "Seed",
+      "slot": "Seed",
+      "bounds": {
+        "min": [
+          -0.5483512742251626,
+          1.5665595225800726,
+          5.356940208784704
+        ],
+        "max": [
+          -0.47500000000000003,
+          2.5934404774199273,
+          6.893059791215296
+        ]
+      },
+      "mtl": {
+        "path": "Meshes/SM_Amber_Seed.mtl",
+        "sha256": "e22ecbd88de50f8fffdab254795f35c5e44d0d949f53cf6dbfc2cf87710550b2"
+      },
+      "vertices": 225,
+      "triangles": 384,
+      "bounds_min": [
+        -0.5483512742251626,
+        1.5665595225800726,
+        5.356940208784704
+      ],
+      "bounds_max": [
+        -0.47500000000000003,
+        2.5934404774199273,
+        6.893059791215296
+      ],
+      "uv_min": [
+        0.7,
+        0.0502
+      ],
+      "uv_max": [
+        0.98,
+        0.7098000000000001
+      ],
+      "degenerate_triangles": 0,
+      "minimum_triangle_area_cm2": 0.0005043127867980239,
+      "winding_check": "Authored explicit winding; finite nonzero normals verified",
+      "front_facing_triangles": 384,
+      "finite_positions": true
+    },
+    "Stem": {
+      "path": "Meshes/SM_Amber_Stem.obj",
+      "sha256": "5e0966271bcdebb2ec2ba1665014ca41f421f10b92d46a2b1080635a12637f60",
+      "material_slot": "Stem",
+      "slot": "Stem",
+      "bounds": {
+        "min": [
+          -0.395,
+          -2.6366156758773633,
+          1.662338161954712
+        ],
+        "max": [
+          -0.19497704181546754,
+          2.110252389245662,
+          6.31054531465268
+        ]
+      },
+      "mtl": {
+        "path": "Meshes/SM_Amber_Stem.mtl",
+        "sha256": "8c12f048bdc5356656aa1e6ff921f654826df29e838bf956d8a393c209960fc2"
+      },
+      "vertices": 410,
+      "triangles": 800,
+      "bounds_min": [
+        -0.395,
+        -2.6366156758773633,
+        1.662338161954712
+      ],
+      "bounds_max": [
+        -0.19497704181546754,
+        2.110252389245662,
+        6.31054531465268
+      ],
+      "uv_min": [
+        0.04,
+        0.8
+      ],
+      "uv_max": [
+        0.58,
+        0.98
+      ],
+      "degenerate_triangles": 0,
+      "minimum_triangle_area_cm2": 0.0007824111138793394,
+      "winding_check": "Authored explicit winding; finite nonzero normals verified",
+      "front_facing_triangles": 322,
+      "finite_positions": true
+    }
+  },
+  "uv_contract": {
+    "Body": "U=(Y+5.5)/11,V=Z/8",
+    "Botanical": "Each blade width U=.04..64, longitudinal V=.04..72",
+    "Seed": "Width U=.70..98, longitudinal V=.04..72",
+    "Stem": "Circumference U=.04..64, length V=.80..98",
+    "Backing": "Same planar mapping as Body"
+  },
+  "normal_height_units": "cm; normalize(-dH/dUphysical,-dH/dVphysical,1); amber physical domain 11x8cm; botanical atlas nominal domain 1.4x2cm",
+  "provenance": "Original deterministic geometry and analytical resin flow, polish, leaf veins, seed fibers and bark maps. No external assets, noise pretending inclusions, or baked lighting.",
+  "limitations": [
+    "Front acceptance angles limited to approximately +/-30 degrees; single cap is not a closed traced resin solid.",
+    "Botanical and seed blades are thin open geometry; use two-sided opaque botanical material. Twig ends are open and hidden in foliage.",
+    "Backing source is opaque. Source MTL is slot metadata only; Unreal native materials own optical response.",
+    "Interior appearance, UV orientation and native PNO require rendered Unreal verification. No source-only optical correctness or visual acceptance claim."
+  ]
+}

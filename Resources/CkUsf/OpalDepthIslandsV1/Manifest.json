@@ -1,0 +1,371 @@
+{
+  "schema_version": 1,
+  "generator_source": "Tools/UsfMaterials/author_opal_depth_islands.py",
+  "generator_sha256": "7c789c34485c4dbb438c8c54961e9628ef118807420bb46cb4f3d40ea0bd2a5e",
+  "source_hashes": {
+    "Plugins/CkTests/Resources/CkUsf/AmberHeroV1/Meshes/SM_AmberHero_Body.obj": "63b4ab829afc40f5a6b8b7724778c66d9641d0c5153146ed113837c17b99623a",
+    "Plugins/CkTests/Resources/CkUsf/AmberHeroV1/Manifest.json": "20cfcc73d82fa52cefd85c39eecbca9e9226352e6139f11667d8f0fb41b113f2",
+    "Plugins/CkTests/Resources/CkUsf/OpalPolishV2/Textures/OpalColor.png": "7d66d3ff5ca042e4ffa170eeb844f18aaac921a4bba2d591030b2d41b59660b6",
+    "Plugins/CkTests/Resources/CkUsf/OpalPolishV2/OpalTextures.json": "09d1820a34b56d3e873e1305397094a2eeb809080d02546e3db05df671a4b7d3"
+  },
+  "seed": 80423,
+  "representation": "Twenty disconnected filled opaque front-facing mineral patches; geometric gaps, no masks or image edits",
+  "source_uvs": "Original Body UVs, barycentrically interpolated on clipped source triangles; image samples use row=V*(height-1)",
+  "baked_scale": [
+    0.9285714285,
+    0.9727272725,
+    0.961928934
+  ],
+  "baked_center": [
+    0.0,
+    0.0,
+    4.06
+  ],
+  "actor_transform": "Identity; do not apply inset twice",
+  "mesh": {
+    "path": "Meshes/SM_OpalDepth_Islands.obj",
+    "sha256": "9aff6a8ce55a6e793f7a6a1ddc389b634a58c6e3df5753d3b9daac35f1f2f54e",
+    "mtl": {
+      "path": "Meshes/SM_OpalDepth_Islands.mtl",
+      "sha256": "92dd8eea300b4dbfa08ca686618a431b456e0071f763dfbc6eb87e863a793e11"
+    }
+  },
+  "geometry_checks": {
+    "vertices": 1858,
+    "triangles": 2495,
+    "slot": "Body",
+    "disconnected_filled_patches": 20,
+    "patch_spans_cm": [
+      [
+        0.1265036367279111,
+        0.7501010402085835,
+        0.6322562801480984
+      ],
+      [
+        0.29759335361545514,
+        0.7498915482380695,
+        0.6330453722997023
+      ],
+      [
+        0.4495828869340932,
+        0.7140283767316271,
+        0.6606608984153293
+      ],
+      [
+        0.5365306319060745,
+        0.750130757814155,
+        0.6321376881581484
+      ],
+      [
+        0.37169180792353185,
+        0.712467708887691,
+        0.6573057362264438
+      ],
+      [
+        0.17117163784690592,
+        0.7125924166291497,
+        0.6577564895598491
+      ],
+      [
+        0.19343280432877874,
+        0.7453956464334514,
+        0.6434489144903228
+      ],
+      [
+        0.12446347120914103,
+        0.7406130511165476,
+        0.6503765490985409
+      ],
+      [
+        0.17792838525703725,
+        0.7437764913730802,
+        0.6460588870878348
+      ],
+      [
+        0.3189677541003919,
+        0.7468173568297695,
+        0.6408339783856682
+      ],
+      [
+        0.15896773121049979,
+        0.7484164400036346,
+        0.6373342562927515
+      ],
+      [
+        0.10503562860822968,
+        0.7121170786955704,
+        0.655271709071191
+      ],
+      [
+        0.21865129385717652,
+        0.7302025990884558,
+        0.6599509079689803
+      ],
+      [
+        0.31564682410225897,
+        0.7269189805783411,
+        0.6617770024896634
+      ],
+      [
+        0.6594860488163039,
+        0.7139294311135429,
+        0.6374477149843365
+      ],
+      [
+        0.059185943039077094,
+        0.715675567599715,
+        0.6622234598155425
+      ],
+      [
+        0.6488860127280749,
+        0.7121494101241188,
+        0.6555697062167267
+      ],
+      [
+        0.3559656582370314,
+        0.7308981883921152,
+        0.6594920546988607
+      ],
+      [
+        0.26329822548822035,
+        0.7162874081553685,
+        0.6625916812694221
+      ],
+      [
+        0.26934219752483735,
+        0.7340670320458247,
+        0.6570889541408622
+      ]
+    ],
+    "projected_visible_coverage": 0.11141812010994734,
+    "coverage_scope": "Projected +X front area, not arbitrary-camera pixel coverage",
+    "degenerate_triangles": 0,
+    "minimum_triangle_area_cm2": 1.2162468443000076e-08,
+    "minimum_normal_winding_dot": 0.9992930191840719,
+    "boundary_edges": 1181,
+    "filled_disk_euler_verified": true,
+    "shell_triangle_plane_clearance_lower_bound_cm": 0.1326688039313959,
+    "core_convex_hull_plane_separation_lower_bound_cm": 0.13084000784810135,
+    "floor_clearance_cm": 0.833177386331941,
+    "bounds": {
+      "min": [
+        0.3177042146935993,
+        -3.924215247279078,
+        0.943177386331941
+      ],
+      "max": [
+        1.9421801895624022,
+        4.288292637784566,
+        7.130883690543533
+      ]
+    }
+  },
+  "patches": [
+    {
+      "index": 0,
+      "source_face": 4140,
+      "center_yz_cm": [
+        -2.3176276903333335,
+        4.630689222333333
+      ],
+      "center_chroma": 1.0,
+      "triangles": 132
+    },
+    {
+      "index": 1,
+      "source_face": 8158,
+      "center_yz_cm": [
+        4.0276122543333335,
+        3.9202117876666667
+      ],
+      "center_chroma": 0.9954545454545455,
+      "triangles": 102
+    },
+    {
+      "index": 2,
+      "source_face": 8698,
+      "center_yz_cm": [
+        -1.8170518553333335,
+        1.1589830033333335
+      ],
+      "center_chroma": 0.9878048780487805,
+      "triangles": 108
+    },
+    {
+      "index": 3,
+      "source_face": 9810,
+      "center_yz_cm": [
+        2.5256406056666667,
+        6.932306789999999
+      ],
+      "center_chroma": 0.9915966386554622,
+      "triangles": 122
+    },
+    {
+      "index": 4,
+      "source_face": 8360,
+      "center_yz_cm": [
+        -2.9842367726666663,
+        1.8468852719999997
+      ],
+      "center_chroma": 0.9822222222222223,
+      "triangles": 106
+    },
+    {
+      "index": 5,
+      "source_face": 5437,
+      "center_yz_cm": [
+        -3.0340521643333336,
+        4.109568542666666
+      ],
+      "center_chroma": 0.9914163090128756,
+      "triangles": 112
+    },
+    {
+      "index": 6,
+      "source_face": 5179,
+      "center_yz_cm": [
+        -1.1836818756666665,
+        2.1419647546666667
+      ],
+      "center_chroma": 0.9690721649484536,
+      "triangles": 114
+    },
+    {
+      "index": 7,
+      "source_face": 3630,
+      "center_yz_cm": [
+        1.0427877706666666,
+        2.76399687
+      ],
+      "center_chroma": 0.926530612244898,
+      "triangles": 146
+    },
+    {
+      "index": 8,
+      "source_face": 4930,
+      "center_yz_cm": [
+        2.1332963816666664,
+        2.9173152940000002
+      ],
+      "center_chroma": 0.9206349206349207,
+      "triangles": 122
+    },
+    {
+      "index": 9,
+      "source_face": 7263,
+      "center_yz_cm": [
+        1.1495018803333332,
+        6.637606128333334
+      ],
+      "center_chroma": 0.9133858267716535,
+      "triangles": 102
+    },
+    {
+      "index": 10,
+      "source_face": 4510,
+      "center_yz_cm": [
+        -2.165292562,
+        2.967896209333333
+      ],
+      "center_chroma": 0.9,
+      "triangles": 126
+    },
+    {
+      "index": 11,
+      "source_face": 3674,
+      "center_yz_cm": [
+        1.9386060796666669,
+        3.8426284949999996
+      ],
+      "center_chroma": 0.8861788617886179,
+      "triangles": 146
+    },
+    {
+      "index": 12,
+      "source_face": 5960,
+      "center_yz_cm": [
+        2.2349714793333333,
+        5.7434073796666665
+      ],
+      "center_chroma": 0.8543307086614172,
+      "triangles": 98
+    },
+    {
+      "index": 13,
+      "source_face": 7635,
+      "center_yz_cm": [
+        -2.691322847,
+        6.159476912333333
+      ],
+      "center_chroma": 0.836,
+      "triangles": 100
+    },
+    {
+      "index": 14,
+      "source_face": 11722,
+      "center_yz_cm": [
+        3.4334970203333337,
+        6.864632905333333
+      ],
+      "center_chroma": 0.8472906403940886,
+      "triangles": 127
+    },
+    {
+      "index": 15,
+      "source_face": 1699,
+      "center_yz_cm": [
+        0.25325797833333336,
+        3.3539333616666673
+      ],
+      "center_chroma": 0.8280000000000001,
+      "triangles": 282
+    },
+    {
+      "index": 16,
+      "source_face": 10686,
+      "center_yz_cm": [
+        3.6731246456666664,
+        1.7777318336666665
+      ],
+      "center_chroma": 0.7936507936507937,
+      "triangles": 134
+    },
+    {
+      "index": 17,
+      "source_face": 7611,
+      "center_yz_cm": [
+        -0.9973643736666666,
+        6.7698336506666665
+      ],
+      "center_chroma": 0.8174603174603174,
+      "triangles": 106
+    },
+    {
+      "index": 18,
+      "source_face": 7534,
+      "center_yz_cm": [
+        3.7645001963333335,
+        4.840241194666667
+      ],
+      "center_chroma": 0.7727272727272727,
+      "triangles": 102
+    },
+    {
+      "index": 19,
+      "source_face": 7338,
+      "center_yz_cm": [
+        -3.6430390829999997,
+        5.110522774333334
+      ],
+      "center_chroma": 0.7865612648221344,
+      "triangles": 108
+    }
+  ],
+  "limitations": [
+    "Open one-sided patches: rear/edge views intentionally reveal gaps and recessed core.",
+    "Plane tests provide conservative positive separation bounds, not exact triangle distance or optical ray thickness.",
+    "Selected artwork chroma is an artistic placement criterion, not measured opal structure.",
+    "No rendered appearance or visual acceptance is established by geometry generation."
+  ]
+}

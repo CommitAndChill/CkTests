@@ -1,0 +1,353 @@
+{
+  "schema_version": 1,
+  "generator_source": "Tools/UsfMaterials/author_opal_polish_maps.py",
+  "generator_sha256": "eeb28182169cc6045ea75100291c760e097fdf98ccbece1ef341a7caee59b938",
+  "source": {
+    "path": "Source/OpalOriginal.png",
+    "sha256": "7d66d3ff5ca042e4ffa170eeb844f18aaac921a4bba2d591030b2d41b59660b6",
+    "provenance": "Original built-in image generation, 2026-10-22. Original RGB artwork, not a scan or measured optics. Utility maps are numerical artist estimates.",
+    "generation_image_id": "exec-6f70bd07-e659-496b-9121-d0f11029d84d",
+    "prompt_support": "Source/ImagePrompt.txt",
+    "prompt_note": "Original generation prompt is supplied by the lead in the separate support file; no prompt has been invented by utility-map authoring."
+  },
+  "maps": {
+    "OpalColor": {
+      "path": "Textures/OpalColor.png",
+      "sha256": "7d66d3ff5ca042e4ffa170eeb844f18aaac921a4bba2d591030b2d41b59660b6",
+      "width": 1254,
+      "height": 1254,
+      "srgb": true,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 0,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "b39811c7e68d0b50799358214d8384dfad6e3337fe281e6ee71a7fd3f77a6940",
+      "decoded_roundtrip_verified": true
+    },
+    "OpalDomains": {
+      "path": "Textures/OpalDomains.png",
+      "sha256": "0324215efc4c35c0090e9ecd546becc93964e0719ec1572fe5c7a0e6c13dff3c",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 0,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "691f53a4fd356a09da077fee7da9e246cfb73dac24c57d1f82cc73a0d6674be8",
+      "decoded_roundtrip_verified": true
+    },
+    "OpalDomainNormal": {
+      "path": "Textures/OpalDomainNormal.png",
+      "sha256": "71dbde563e42e232b777758f63152008897a7a6ada8fa8869b5394aeef263773",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 93,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "83983323b0d0da61b3eb1efeb41e1ff70d695203e5f902d1dce3f0f6017697dc",
+      "decoded_roundtrip_verified": true
+    },
+    "OpalPolishNormal": {
+      "path": "Textures/OpalPolishNormal.png",
+      "sha256": "6d184fdf4ec03c76963461aa88d4cfe960fb07d05a8ca6b8d911e984a1181556",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "RGB",
+      "bit_depth": 8,
+      "decoded_min": 128,
+      "decoded_max": 255,
+      "decoded_pixel_sha256": "116569f3c6fa311b0909cecaacb0dd690e45b06fd798729d0039e2973ce895fc",
+      "decoded_roundtrip_verified": true
+    },
+    "OpalRoughness": {
+      "path": "Textures/OpalRoughness.png",
+      "sha256": "2f8be9c935b4185f6645b920e2dd558f17900f35fae76e659879f34e5cd986a5",
+      "width": 1254,
+      "height": 1254,
+      "srgb": false,
+      "channels": "L",
+      "bit_depth": 8,
+      "decoded_min": 73,
+      "decoded_max": 79,
+      "decoded_pixel_sha256": "7e46a1d8f6f50ab58f7ebd5e0b40154b6a57f195764f90922f8fd38420b6ac82",
+      "decoded_roundtrip_verified": true
+    }
+  },
+  "seed": 641933,
+  "color_preservation": "Source/OpalOriginal.png and Textures/OpalColor.png are byte-identical copies of the original generated RGB PNG; appearance artwork is unedited.",
+  "authoring": {
+    "segmentation": "8 broad hue families plus low-chroma body; 4-connected regions on blurred 64x64 color, small islands merged by color and proximity",
+    "segmentation_grid": 64,
+    "minimum_region_grid_pixels": 24,
+    "broad_region_count": 21,
+    "merged_small_region_count": 88,
+    "transition_blur_pixels": 16,
+    "orientation": "One seeded constant tangent tilt per retained connected broad palette region; smooth boundary interpolation; no brightness-derivative normal, fracture gradient or tiny Voronoi glitter.",
+    "normal_convention": "DirectX tangent; normalize(slope_u,slope_v,1); original top-left image orientation; no green flip",
+    "domain_channels": "R=smoothed broad chromatic coverage,G=smoothed broad body value,B=coherent palette spectral-phase artist estimate",
+    "polish_normal": [
+      128,
+      128,
+      255
+    ],
+    "roughness_linear_range": [
+      0.28555294117647056,
+      0.3114235294117647
+    ],
+    "authored_pretransition_slope_magnitude_range": [
+      0.18094567653122876,
+      0.2795003603414537
+    ],
+    "decoded_slope_component_min": [
+      -0.28163265306122454,
+      -0.22267206477732798
+    ],
+    "decoded_slope_component_max": [
+      0.2469635627530365,
+      0.2550607287449393
+    ],
+    "maximum_decoded_slope_magnitude": 0.2830782185208115,
+    "regions": [
+      {
+        "identity": 0,
+        "grid_pixel_count": 54,
+        "palette_class": 1,
+        "hue": 0.1514907648086682,
+        "tangent_slope": [
+          0.16050077058402817,
+          0.13684923028822465
+        ],
+        "slope_magnitude": 0.2109222823424457
+      },
+      {
+        "identity": 1,
+        "grid_pixel_count": 276,
+        "palette_class": 2,
+        "hue": 0.24360019376623596,
+        "tangent_slope": [
+          0.03983812801607965,
+          0.18334455984750297
+        ],
+        "slope_magnitude": 0.1876227706583083
+      },
+      {
+        "identity": 5,
+        "grid_pixel_count": 1185,
+        "palette_class": 1,
+        "hue": 0.12347087005942337,
+        "tangent_slope": [
+          0.1647595273433575,
+          0.22308841508488805
+        ],
+        "slope_magnitude": 0.27733399141737725
+      },
+      {
+        "identity": 6,
+        "grid_pixel_count": 273,
+        "palette_class": 3,
+        "hue": 0.379137112914904,
+        "tangent_slope": [
+          -0.11172451225511452,
+          0.14845109644207719
+        ],
+        "slope_magnitude": 0.1857958413783746
+      },
+      {
+        "identity": 8,
+        "grid_pixel_count": 105,
+        "palette_class": 4,
+        "hue": 0.47977729705106803,
+        "tangent_slope": [
+          -0.2782771743678608,
+          -0.02612021548229752
+        ],
+        "slope_magnitude": 0.2795003603414537
+      },
+      {
+        "identity": 17,
+        "grid_pixel_count": 83,
+        "palette_class": 6,
+        "hue": 0.7253161330039196,
+        "tangent_slope": [
+          0.007311673825000129,
+          -0.20384796995528998
+        ],
+        "slope_magnitude": 0.2039790563489693
+      },
+      {
+        "identity": 20,
+        "grid_pixel_count": 37,
+        "palette_class": 0,
+        "hue": 0.03226719615122425,
+        "tangent_slope": [
+          0.25963586022721835,
+          0.041205191020969145
+        ],
+        "slope_magnitude": 0.2628852367155718
+      },
+      {
+        "identity": 26,
+        "grid_pixel_count": 48,
+        "palette_class": 1,
+        "hue": 0.14396419625679924,
+        "tangent_slope": [
+          0.18786007382220582,
+          0.1663889542419906
+        ],
+        "slope_magnitude": 0.2509515718823611
+      },
+      {
+        "identity": 32,
+        "grid_pixel_count": 36,
+        "palette_class": 8,
+        "hue": 0.258567998814133,
+        "tangent_slope": [
+          -0.10744789147530212,
+          0.20488220671428875
+        ],
+        "slope_magnitude": 0.23134772099721415
+      },
+      {
+        "identity": 35,
+        "grid_pixel_count": 306,
+        "palette_class": 2,
+        "hue": 0.24053104601373657,
+        "tangent_slope": [
+          0.10421967508281485,
+          0.20293341109101715
+        ],
+        "slope_magnitude": 0.22813090542800918
+      },
+      {
+        "identity": 36,
+        "grid_pixel_count": 48,
+        "palette_class": 5,
+        "hue": 0.6426894260022524,
+        "tangent_slope": [
+          -0.1009096392720825,
+          -0.22098322952801133
+        ],
+        "slope_magnitude": 0.24293279529666545
+      },
+      {
+        "identity": 39,
+        "grid_pixel_count": 161,
+        "palette_class": 3,
+        "hue": 0.3805499030626089,
+        "tangent_slope": [
+          -0.17730665355108466,
+          0.17301864398416783
+        ],
+        "slope_magnitude": 0.24773594926777295
+      },
+      {
+        "identity": 49,
+        "grid_pixel_count": 113,
+        "palette_class": 8,
+        "hue": 0.28594449905355884,
+        "tangent_slope": [
+          -0.037937063830518834,
+          0.25860649151804
+        ],
+        "slope_magnitude": 0.2613743259529347
+      },
+      {
+        "identity": 50,
+        "grid_pixel_count": 94,
+        "palette_class": 4,
+        "hue": 0.48300212816399113,
+        "tangent_slope": [
+          -0.2384483515739744,
+          -0.018441962444545913
+        ],
+        "slope_magnitude": 0.2391604531421358
+      },
+      {
+        "identity": 53,
+        "grid_pixel_count": 66,
+        "palette_class": 4,
+        "hue": 0.4837555150079699,
+        "tangent_slope": [
+          -0.18614294406476778,
+          -0.02698627264917698
+        ],
+        "slope_magnitude": 0.18808895378675214
+      },
+      {
+        "identity": 66,
+        "grid_pixel_count": 757,
+        "palette_class": 1,
+        "hue": 0.11196523295915846,
+        "tangent_slope": [
+          0.18878978087922127,
+          0.13369976310992931
+        ],
+        "slope_magnitude": 0.23133786551292376
+      },
+      {
+        "identity": 76,
+        "grid_pixel_count": 58,
+        "palette_class": 5,
+        "hue": 0.6398089838846672,
+        "tangent_slope": [
+          -0.1810208067692651,
+          -0.18609827613163454
+        ],
+        "slope_magnitude": 0.25961721988836123
+      },
+      {
+        "identity": 82,
+        "grid_pixel_count": 72,
+        "palette_class": 0,
+        "hue": 0.032187920523791665,
+        "tangent_slope": [
+          0.15735164898036688,
+          0.10870454903735041
+        ],
+        "slope_magnitude": 0.19124910566654768
+      },
+      {
+        "identity": 91,
+        "grid_pixel_count": 156,
+        "palette_class": 1,
+        "hue": 0.134546094553773,
+        "tangent_slope": [
+          0.07402434201182681,
+          0.22065121784578837
+        ],
+        "slope_magnitude": 0.232737111667034
+      },
+      {
+        "identity": 97,
+        "grid_pixel_count": 116,
+        "palette_class": 3,
+        "hue": 0.3874937153161869,
+        "tangent_slope": [
+          -0.15690834188918887,
+          0.13187514051974178
+        ],
+        "slope_magnitude": 0.20496653493074476
+      },
+      {
+        "identity": 98,
+        "grid_pixel_count": 52,
+        "palette_class": 4,
+        "hue": 0.45009675870930266,
+        "tangent_slope": [
+          -0.14989477307895097,
+          0.10135529023664164
+        ],
+        "slope_magnitude": 0.18094567653122876
+      }
+    ]
+  },
+  "limitations": [
+    "Numerically authored coverage, orientation, phase and roughness are artistic estimates, not calibrated mineral or optical scans.",
+    "Smooth tangent orientation is constant over broad color-region interiors; it is not a displacement-derived surface normal.",
+    "A flat outer polish normal is intentional. Native response and visual quality still require real rendered verification."
+  ]
+}
