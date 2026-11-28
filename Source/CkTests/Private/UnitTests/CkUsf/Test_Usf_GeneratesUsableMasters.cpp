@@ -1,6 +1,6 @@
 // End-to-end editor test for CkUsf:
 //   - runs the generator over all UCkUsf_LookDefinition assets
-//   - for each look, the generated master resolves and a MID can be created
+//   - validates every look; for each renderer-compatible look, the generated master resolves and a MID can be created
 // Editor-only: the generator lives in CkUsfEditor.
 //
 // Generation writes to a lane-unique root (CkUsf_TestLookMasters.h), never the shipped GeneratedLooks —
@@ -14,12 +14,15 @@
 
 #include "Misc/App.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistry/AssetData.h"
+#include "UObject/Package.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
 
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
 #include "CkUsf/Apply/CkUsf_Utils.h"
 #include "CkUsfEditor/Generator/CkUsf_Generator.h"
+#include "CkUsfEditor/Generator/CkUsf_LookValidator.h"
 
 #include "CkUsf_TestLookMasters.h"
 
@@ -53,9 +56,9 @@ bool FCkTest_Usf_GeneratesUsableMasters::RunTest(const FString& Parameters)
         return false;
     }
 
-    // 1. Generate masters for every declared look. Generation now also force-compiles each
-    //    master's shaders and reports any HLSL compile failures (the silent fallback-to-default
-    //    case that a bare object/MID check misses — e.g. a broken PostProcess permutation).
+    // 1. Generate compatible masters. Opposite-profile definitions must still pass full authoring
+    //    validation, and their exclusion must be explicit and reconciled against the registry below.
+    //    Generation reports available compile errors; it does not destructively force recompilation.
     const auto TestPackageRoot = ck_test_usf::Get_TestPackageRoot();
 
     const auto Result = ck::usf_editor::Generate_AllLookMaterials(TestPackageRoot);
@@ -71,16 +74,41 @@ bool FCkTest_Usf_GeneratesUsableMasters::RunTest(const FString& Parameters)
     TArray<FAssetData> Assets;
     ARM.GetAssetsByClass(UCkUsf_LookDefinition::StaticClass()->GetClassPathName(), Assets);
     TestTrue(TEXT("found at least one UCkUsf_LookDefinition"), Assets.Num() > 0);
+    auto CompatibleCount = 0;
+    auto IncompatibleCount = 0;
+    TestEqual(TEXT("every profile exclusion has a named receipt"), Result.IncompatibleLooks.Num(), Result.NumIncompatible);
 
-    // 3. Each look: the master this run generated resolves, the shipped one resolves through the runtime
+    // 3. Each compatible look: the master this run generated resolves, the shipped one resolves through the runtime
     //    lookup, and a MID can be created from it.
     for (const auto& A : Assets)
     {
         const TWeakObjectPtr<UCkUsf_LookDefinition> Def = Cast<UCkUsf_LookDefinition>(A.GetAsset());
-        if (NOT Def.IsValid()) { continue; }
+        if (NOT TestTrue(*FString::Printf(TEXT("registered look definition loads: %s"), *A.GetSoftObjectPath().ToString()), Def.IsValid()))
+        { continue; }
 
         const auto LookName = Def->Get_EffectiveLookName();
         const auto Name = LookName.ToString();
+        const auto Admission = ck::usf_editor::Classify_LookForGeneration(Def.Get());
+        if (Admission.Admission == ck::usf_editor::ELookGenerationAdmission::Invalid)
+        {
+            AddError(FString::Printf(TEXT("Invalid registered look [%s] is not a renderer-profile exclusion"), *Def->GetPathName()));
+            for (const auto& Error : Admission.Validation.Errors) { AddError(Error); }
+            continue;
+        }
+        if (Admission.Admission == ck::usf_editor::ELookGenerationAdmission::OtherRendererProfile)
+        {
+            ++IncompatibleCount;
+            TestTrue(TEXT("Opposite-profile look still passed full authoring validation"), Admission.Validation.Get_IsValid());
+            TestFalse(TEXT("Profile exclusion identifies required profile"), Admission.RequiredProfile.IsEmpty());
+            TestFalse(TEXT("Profile exclusion supplies reason"), Admission.Reason.IsEmpty());
+            const auto Path = Def->GetPathName();
+            TestEqual(*FString::Printf(TEXT("Exactly one bulk exclusion receipt for [%s]"), *Path),
+                Result.IncompatibleLooks.FilterByPredicate([&](const FString& Receipt) { return Receipt.Contains(Path); }).Num(), 1);
+            AddInfo(FString::Printf(TEXT("Validated opposite-profile look [%s], resolved graph %d, requires %s: %s"),
+                *Path, static_cast<int32>(Admission.ResolvedGraph), *Admission.RequiredProfile, *Admission.Reason));
+            continue;
+        }
+        ++CompatibleCount;
 
         const auto GeneratedPath = Def->Get_GeneratedMasterObjectPath(TestPackageRoot);
         const TWeakObjectPtr<UMaterial> GeneratedMaster = LoadObject<UMaterial>(nullptr, *GeneratedPath);
@@ -112,6 +140,11 @@ bool FCkTest_Usf_GeneratesUsableMasters::RunTest(const FString& Parameters)
                 *Name));
         }
     }
+
+    TestEqual(TEXT("Bulk generated every compatible registered look"), Result.NumGenerated, CompatibleCount);
+    TestEqual(TEXT("Bulk reported exactly the independently classified opposite-profile looks"), Result.NumIncompatible, IncompatibleCount);
+    TestEqual(TEXT("All registered definitions are accounted for without invalid or silent skips"), CompatibleCount + IncompatibleCount, Assets.Num());
+    TestEqual(TEXT("Bulk result accounts for the complete registry roster"), Result.NumGenerated + Result.NumIncompatible, Assets.Num());
 
     return true;
 }

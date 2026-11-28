@@ -73,6 +73,7 @@ namespace ck_test_usf_toon_pipeline
         FString ShaderFile;
         TArray<uint8> OriginalBytes;
         TAtomic<bool> Completed{false};
+        TAtomic<bool> Rejected{false};
         bool Observing = false;
         bool Modified = false;
         bool RecoveryNeeded = false;
@@ -86,6 +87,12 @@ namespace ck_test_usf_toon_pipeline
         auto Serialize(const TCHAR* InMessage, ELogVerbosity::Type InVerbosity, const FName& InCategory)
             -> void override
         {
+            if (MaterialReload && FString{InMessage}.Contains(TEXT("CkUsf reload batch rejected:")))
+            {
+                Rejected.Store(true);
+                Completed.Store(true);
+                return;
+            }
             if (FString{InMessage}.Contains(MaterialReload
                 ? TEXT("CkUsf reload complete:") : TEXT("CkUsf shading-model reload complete")))
             { Completed.Store(true); }
@@ -95,6 +102,7 @@ namespace ck_test_usf_toon_pipeline
         {
             MaterialReload = InMaterialReload;
             Completed.Store(false);
+            Rejected.Store(false);
             ReloadStarted = FPlatformTime::Seconds();
             return IConsoleManager::Get().ProcessUserConsoleInput(
                 InMaterialReload ? TEXT("Ck_Usf_ReloadShaders") : TEXT("Ck_Usf_ReloadShadingModels"), *GLog, World.Get());
@@ -286,6 +294,11 @@ namespace ck_test_usf_toon_pipeline
                     return true;
                 }
                 return false;
+            }
+            if (Fixture->Rejected.Load())
+            {
+                Test.AddError(TEXT("Production material reload rejected the batch; see its preflight diagnostics."));
+                return true;
             }
             Test.TestEqual(TEXT("Reload remains in the same editor process"),
                 FPlatformProcess::GetCurrentProcessId(), Fixture->EditorPid);

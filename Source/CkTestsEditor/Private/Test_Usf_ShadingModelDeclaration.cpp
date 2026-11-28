@@ -3,6 +3,7 @@
 #include "CkCore/Macros/CkMacros.h"
 #include "CkUsf/LookDefinition/CkUsf_LookDefinition.h"
 #include "CkUsfEditor/Generator/CkUsf_Generator.h"
+#include "CkUsfEditor/Generator/CkUsf_LookValidator.h"
 #include "CkUsfEditor/Generator/CkUsf_ShadingModelContract.h"
 
 #include "AssetCompilingManager.h"
@@ -12,6 +13,8 @@
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
+#include "Materials/MaterialExpressionSceneColor.h"
+#include "Materials/MaterialExpressionScreenPosition.h"
 #include "Materials/MaterialExpressionSingleLayerWaterMaterialOutput.h"
 #include "Materials/MaterialExpressionThinTranslucentMaterialOutput.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -37,6 +40,7 @@ namespace ck_test_usf_declaration
         const TCHAR* Name;
         ECk_Usf_ShadingModel Model;
         EMaterialShadingModel Native;
+        bool Directional = false;
     };
 
     auto GetModels() -> TArray<FModelRow>
@@ -111,6 +115,31 @@ namespace ck_test_usf_declaration
         InMaterial.UpdateCachedExpressionData();
         InMaterial.ClearFlags(RF_Public | RF_Standalone);
         InMaterial.MarkAsGarbage();
+    }
+
+    auto MakeSurfaceSceneColorDefinition(const FSourceFixture& InFixture, const FString& InRoot,
+        const FString& InModel, bool InSceneColor) -> TStrongObjectPtr<UCkUsf_LookDefinition>
+    {
+        auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{NewObject<UCkUsf_LookDefinition>()};
+        Definition->_LookName = FName{*FGuid::NewGuid().ToString(EGuidFormats::Digits)};
+        Definition->_GeneratedPackageRoot = InRoot.LeftChop(1);
+        Definition->_UshFunctionName = TEXT("CkUsf_Look_SceneColorProbe");
+        Definition->_Domain = ECk_Usf_Domain::SurfaceLit;
+        Definition->_BlendMode = ECk_Usf_BlendMode::Translucent;
+        Definition->_TranslucencyLighting = ECk_Usf_TranslucencyLighting::SurfacePerPixel;
+        Definition->_SurfaceSceneColor = InSceneColor;
+        auto Tint = FCk_Usf_ParamDesc{};
+        Tint._Name = TEXT("Tint");
+        Tint._DefaultScalar = 0.5f;
+        Definition->_Parameters = {Tint};
+        if (NOT InFixture.Write(FString::Printf(TEXT("// @ckusf shading_model %s\n#pragma once\n"
+            "#include \"/CkUsf/Common.ush\"\n"
+            "FCkUsf_SurfaceOutput CkUsf_Look_SceneColorProbe(FCkUsf_SurfaceInput In, float Tint) { "
+            "FCkUsf_SurfaceOutput O = CkUsf_DefaultSurface(); "
+            "O.EmissiveColor = In.SceneColor.rgb * Tint; O.Opacity = 1.0; return O; }\n"),
+            *InModel), Definition->_UshIncludePath))
+        { return {}; }
+        return Definition;
     }
 }
 
@@ -233,6 +262,8 @@ auto FCkTest_Usf_ShadingModelResolution::RunTest(const FString& Parameters) -> b
             { TestEqual(TEXT("Model-specific input uses its named output"), Pins[InInput.OutputIndex].OutputName, FName{InName}); }
         };
         const auto& Data = *Material->GetEditorOnlyData();
+        TestNull(TEXT("Existing definitions do not connect anisotropy"), Data.Anisotropy.Expression);
+        TestNull(TEXT("Existing definitions do not connect a custom tangent"), Data.Tangent.Expression);
         switch (Row.Native)
         {
             case MSM_Subsurface:
@@ -253,6 +284,7 @@ auto FCkTest_Usf_ShadingModelResolution::RunTest(const FString& Parameters) -> b
                 CheckPin(Data.ClearCoat, TEXT("ToonThreshold"));
                 CheckPin(Data.ClearCoatRoughness, TEXT("ToonSoftness"));
                 break;
+
 #endif
             case MSM_Hair:
                 CheckPin(Data.Normal, TEXT("CkUsf_HairTangent"));
@@ -296,6 +328,96 @@ auto FCkTest_Usf_ShadingModelResolution::RunTest(const FString& Parameters) -> b
         }
         TestEqual(TEXT("Only water creates exactly one water output node"), WaterCount, Row.Native == MSM_SingleLayerWater ? 1 : 0);
         TestEqual(TEXT("Only thin transmission creates exactly one transmission node"), ThinCount, Row.Native == MSM_ThinTranslucent ? 1 : 0);
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_Usf_DirectionalSurfaceContract,
+    "CkTests.UnitTests.CkUsf.DirectionalSurfaceContract",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+auto FCkTest_Usf_DirectionalSurfaceContract::RunTest(const FString& Parameters) -> bool
+{
+    using namespace ck::usf_editor;
+    const auto Fixture = ck_test_usf_declaration::FSourceFixture{};
+    const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{NewObject<UCkUsf_LookDefinition>()};
+    Definition->_DirectionalShading = true;
+    Definition->_BlendMode = ECk_Usf_BlendMode::Masked;
+    for (const auto& Row : ck_test_usf_declaration::GetModels())
+    {
+        if (TestTrue(TEXT("Write directional contract fixture"), Fixture.Write(
+            FString::Printf(TEXT("// @ckusf shading_model %s\nvoid Look() {}"), Row.Name), Definition->_UshIncludePath)) == false)
+        { return false; }
+        auto Contract = FShadingModelContract{};
+        auto Errors = TArray<FString>{};
+        const auto Supported = Row.Native == MSM_DefaultLit || Row.Native == MSM_ClearCoat;
+        TestEqual(TEXT("Only DefaultLit and ClearCoat accept directional authoring"),
+            Resolve_ShadingModelContract(*Definition, Contract, Errors), Supported);
+        if (NOT Supported)
+        {
+            TestFalse(TEXT("Rejected directional contract publishes no partial opt-in"), Contract.DirectionalShading);
+            TestFalse(TEXT("Unsupported directional model explains rejection"), Errors.IsEmpty());
+            continue;
+        }
+        TestTrue(TEXT("Directional contract retains tangent-space inputs"), Contract.TangentSpaceNormal);
+        const auto Material = TStrongObjectPtr<UMaterial>{NewObject<UMaterial>()};
+        ON_SCOPE_EXIT { ck_test_usf_declaration::RetireOwnedMaterial(*Material); };
+        const auto Custom = TStrongObjectPtr<UMaterialExpressionCustom>{NewObject<UMaterialExpressionCustom>(Material.Get())};
+        Material->GetExpressionCollection().AddExpression(Custom.Get());
+        ck_test_usf_declaration::ConfigureOutputs(*Custom, Contract);
+        Apply_ShadingModelContract(*Material, *Custom, Contract);
+        for (const auto Property : {MP_Anisotropy, MP_Tangent})
+        {
+            const auto& Input = *Material->GetExpressionInputForProperty(Property);
+            TestTrue(TEXT("Directional pin connects to the production Custom node"), Input.Expression == Custom.Get());
+            const auto& Outputs = Custom->GetOutputs();
+            if (TestTrue(TEXT("Directional output index exists"), Outputs.IsValidIndex(Input.OutputIndex)))
+            {
+                TestEqual(TEXT("Directional pin connects to its named output"), Outputs[Input.OutputIndex].OutputName,
+                    FName{Property == MP_Anisotropy ? TEXT("CkUsf_Anisotropy") : TEXT("CkUsf_Tangent")});
+            }
+        }
+        const auto Code = Build_ShadingModelOutputCode(Contract);
+        TestTrue(TEXT("Directional wrapper consumes numeric anisotropy"), Code.Contains(TEXT("CkUsf_Anisotropy = O.Anisotropy;")));
+        TestTrue(TEXT("Directional wrapper consumes tangent-space direction"), Code.Contains(TEXT("CkUsf_Tangent = O.Tangent;")));
+        Contract.DirectionalShading = false;
+        ck_test_usf_declaration::ConfigureOutputs(*Custom, Contract);
+        Apply_ShadingModelContract(*Material, *Custom, Contract);
+        TestNull(TEXT("Disabling directional contract clears anisotropy"), Material->GetEditorOnlyData()->Anisotropy.Expression);
+        TestNull(TEXT("Disabling directional contract clears tangent"), Material->GetEditorOnlyData()->Tangent.Expression);
+    }
+    if (TestTrue(TEXT("Write DefaultLit rejection fixture"), Fixture.Write(
+        TEXT("// @ckusf shading_model DefaultLit\nvoid Look() {}"), Definition->_UshIncludePath)) == false)
+    { return false; }
+    for (auto Case = 0; Case < 2; ++Case)
+    {
+        Definition->_Domain = Case == 0 ? ECk_Usf_Domain::SurfaceLit : ECk_Usf_Domain::SurfaceUnlit;
+        Definition->_BlendMode = Case == 0 ? ECk_Usf_BlendMode::Translucent : ECk_Usf_BlendMode::Opaque;
+        auto Contract = FShadingModelContract{};
+        auto Errors = TArray<FString>{};
+        TestFalse(TEXT("Directional authoring rejects incompatible blend or domain"),
+            Resolve_ShadingModelContract(*Definition, Contract, Errors));
+        TestFalse(TEXT("Rejected blend/domain publishes no directional state"), Contract.DirectionalShading);
+        TestFalse(TEXT("Rejected blend/domain explains incompatibility"), Errors.IsEmpty());
+    }
+    Definition->_Domain = ECk_Usf_Domain::SurfaceLit;
+    Definition->_BlendMode = ECk_Usf_BlendMode::Opaque;
+    Definition->_UshFunctionName = TEXT("Look");
+    for (const auto Name : {FName{TEXT("CkUsf_Anisotropy")}, FName{TEXT("ckusf_tangent")}})
+    {
+        auto Parameter = FCk_Usf_ParamDesc{};
+        Parameter._Name = Name;
+        Definition->_Parameters = {Parameter};
+        if (TestTrue(TEXT("Write directional output collision fixture"), Fixture.Write(FString::Printf(
+            TEXT("// @ckusf shading_model DefaultLit\n#include \"/CkUsf/Common.ush\"\n"
+                 "FCkUsf_SurfaceOutput Look(FCkUsf_SurfaceInput In, float %s) { return CkUsf_DefaultSurface(); }"),
+            *Name.ToString()), Definition->_UshIncludePath)) == false)
+        { return false; }
+        const auto Validation = Validate_LookDefinition(Definition.Get());
+        TestFalse(TEXT("Directional output names cannot collide with user parameters"), Validation.Get_IsValid());
+        TestTrue(TEXT("Output collision is rejected case-insensitively before graph mutation"),
+            Validation.Errors.ContainsByPredicate([](const FString& InError)
+            { return InError.Contains(TEXT("collides with a generated shading-model output")); }));
     }
     return true;
 }
@@ -357,6 +479,8 @@ auto FCkTest_Usf_ShadingModelTransitions::RunTest(const FString& Parameters) -> 
         TestNull(TEXT("Transition clears model-specific subsurface pin"), Data.SubsurfaceColor.Expression);
         TestNull(TEXT("Transition clears model-specific custom-data zero pin"), Data.ClearCoat.Expression);
         TestNull(TEXT("Transition clears model-specific custom-data one pin"), Data.ClearCoatRoughness.Expression);
+        TestNull(TEXT("Non-directional transition leaves anisotropy disconnected"), Data.Anisotropy.Expression);
+        TestNull(TEXT("Non-directional transition leaves tangent disconnected"), Data.Tangent.Expression);
         for (const auto& Expression : Material->GetExpressions())
         {
             TestFalse(TEXT("Transition removes obsolete water output expression"), Expression->IsA<UMaterialExpressionSingleLayerWaterMaterialOutput>());
@@ -457,15 +581,20 @@ auto FCkTest_Usf_ShadingModelCompilation::RunTest(const FString& Parameters) -> 
             { ck_test_usf_declaration::RetireOwnedMaterial(*Material); }
         }
     };
-    const auto Rows = ck_test_usf_declaration::GetModels();
+    auto Rows = ck_test_usf_declaration::GetModels();
+    Rows.Add({TEXT("DefaultLit"), ECk_Usf_ShadingModel::DefaultLit, MSM_DefaultLit, true});
+    Rows.Add({TEXT("ClearCoat"), ECk_Usf_ShadingModel::ClearCoat, MSM_ClearCoat, true});
     for (const auto& Row : Rows)
     {
         const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{NewObject<UCkUsf_LookDefinition>()};
-        Definition->_LookName = FName{Row.Name};
+        Definition->_LookName = FName{*(FString{Row.Name} + (Row.Directional ? TEXT("Directional") : TEXT("")))};
+        Definition->_DirectionalShading = Row.Directional;
         Definition->_GeneratedPackageRoot = Root.LeftChop(1);
         Definition->_UshFunctionName = TEXT("CkUsf_Look_Declaration");
         const auto Source = FString::Printf(TEXT("// @ckusf shading_model %s\n#pragma once\n#include \"/CkUsf/Common.ush\"\n"
-            "FCkUsf_SurfaceOutput CkUsf_Look_Declaration(FCkUsf_SurfaceInput In) { return CkUsf_DefaultSurface(); }\n"), Row.Name);
+            "FCkUsf_SurfaceOutput CkUsf_Look_Declaration(FCkUsf_SurfaceInput In) { "
+            "FCkUsf_SurfaceOutput O = CkUsf_DefaultSurface(); %s return O; }\n"), Row.Name,
+            Row.Directional ? TEXT("O.Anisotropy = 0.65; O.Tangent = float3(0.0, 1.0, 0.0);") : TEXT(""));
         if (TestTrue(TEXT("Write source-declared model compile fixture"), Fixture.Write(Source, Definition->_UshIncludePath)) == false)
         { return false; }
         // Keep the required profile inside its new material package so SavePackage has no private external reference.
@@ -491,6 +620,8 @@ auto FCkTest_Usf_ShadingModelCompilation::RunTest(const FString& Parameters) -> 
         { continue; }
         const auto& Resource = *Material.GetMaterialResource(GMaxRHIShaderPlatform);
         TestTrue(TEXT("Active platform preserves the declared model"), Resource.GetShadingModels().HasOnlyShadingModel(Rows[Index].Native));
+        TestEqual(TEXT("Only explicitly directional fixtures enable the anisotropic shader feature"),
+            Resource.MaterialUsesAnisotropy_GameThread(), Rows[Index].Directional);
         for (const auto& Error : Resource.GetCompileErrors())
         { AddError(FString::Printf(TEXT("[%s] %s"), Rows[Index].Name, *Error)); }
         TestTrue(TEXT("Generated material compilation finishes"), Resource.IsCompilationFinished());
@@ -511,121 +642,414 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_Usf_ShadingModelReloadPreparation,
 auto FCkTest_Usf_ShadingModelReloadPreparation::RunTest(const FString& Parameters) -> bool
 {
     using namespace ck::usf_editor;
+    for (const auto Directional : {false, true})
+    {
+        const auto Fixture = ck_test_usf_declaration::FSourceFixture{};
+        const auto Root = TEXT("/CkUsfDeclarationReload_") + FGuid::NewGuid().ToString(EGuidFormats::Digits) + TEXT("/");
+        const auto PackageDirectory = Fixture.Directory / TEXT("Packages/");
+        if (TestTrue(TEXT("Create reload fixture package directory"), IFileManager::Get().MakeDirectory(*PackageDirectory, true)) == false)
+        { return false; }
+        FPackageName::RegisterMountPoint(Root, PackageDirectory);
+        ON_SCOPE_EXIT { FPackageName::UnRegisterMountPoint(Root, PackageDirectory); };
+        const FScopedDisableValidateOnSave DisableFixtureValidation;
+        const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{NewObject<UCkUsf_LookDefinition>()};
+        Definition->_LookName = TEXT("ReloadFixture");
+        Definition->_GeneratedPackageRoot = Root.LeftChop(1);
+        Definition->_UshIncludePath = Fixture.VirtualRoot / TEXT("Reload.ush");
+        Definition->_UshFunctionName = TEXT("CkUsf_Look_Declaration");
+        Definition->_DirectionalShading = Directional;
+        auto Parameter = FCk_Usf_ParamDesc{};
+        Parameter._Name = TEXT("Tint");
+        Parameter._DefaultScalar = 0.4f;
+        Definition->_Parameters.Add(Parameter);
+        const auto WriteSource = [&Fixture](const FString& InModel, bool InVector = false) -> bool
+        {
+            const auto Annotation = InModel.IsEmpty() ? FString{} : TEXT("// @ckusf shading_model ") + InModel + TEXT("\n");
+            const auto Source = Annotation + FString::Printf(TEXT("#pragma once\n#include \"/CkUsf/Common.ush\"\n"
+                "FCkUsf_SurfaceOutput CkUsf_Look_Declaration(FCkUsf_SurfaceInput In, %s Tint) "
+                "{ FCkUsf_SurfaceOutput O = CkUsf_DefaultSurface(); O.BaseColor = Tint; return O; }\n"), InVector ? TEXT("float3") : TEXT("float"));
+            return FFileHelper::SaveStringToFile(Source, *(Fixture.Directory / TEXT("Reload.ush")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+        };
+        if (TestTrue(TEXT("Write initial reload source"), WriteSource(Directional ? TEXT("DefaultLit") : TEXT("Cloth"))) == false)
+        { return false; }
+        const auto Material = TStrongObjectPtr<UMaterial>{Generate_LookMaterial(Definition.Get())};
+        if (TestNotNull(TEXT("Production generator creates reload fixture"), Material.Get()) == false)
+        { return false; }
+        ON_SCOPE_EXIT
+        {
+            ck_test_usf_declaration::DrainFixtureCompilation();
+            ck_test_usf_declaration::RetireOwnedMaterial(*Material);
+        };
+        const auto Mid = TStrongObjectPtr<UMaterialInstanceDynamic>{UMaterialInstanceDynamic::Create(Material.Get(), GetTransientPackage())};
+        if (TestNotNull(TEXT("Existing MID created"), Mid.Get()) == false)
+        { return false; }
+        Mid->SetScalarParameterValue(TEXT("Tint"), 0.75f);
+        auto Custom = TWeakObjectPtr<UMaterialExpressionCustom>{};
+        auto Scalar = TWeakObjectPtr<UMaterialExpressionScalarParameter>{};
+        for (const auto& Expression : Material->GetExpressions())
+        {
+            if (const auto Candidate = TWeakObjectPtr<UMaterialExpressionCustom>{Cast<UMaterialExpressionCustom>(Expression)}; Candidate.IsValid())
+            { Custom = Candidate; }
+            if (const auto Candidate = TWeakObjectPtr<UMaterialExpressionScalarParameter>{Cast<UMaterialExpressionScalarParameter>(Expression)};
+                Candidate.IsValid() && Candidate->ParameterName == TEXT("Tint"))
+            { Scalar = Candidate; }
+        }
+        if (TestTrue(TEXT("Generated primary Custom and scalar parameter exist"), Custom.IsValid() && Scalar.IsValid()) == false)
+        { return false; }
+        for (const auto Model : {FString{Directional ? TEXT("ClearCoat") : TEXT("ThinTranslucent")}, FString{}})
+        {
+            if (TestTrue(TEXT("Rewrite only entrypoint model annotation"), WriteSource(Model)) == false)
+            { return false; }
+            auto Prepared = FPreparedLookShadingModelReload{};
+            auto Errors = TArray<FString>{};
+            if (TestTrue(TEXT("Production preflight accepts annotation transition"), Prepare_LookShadingModelReload(*Material, Prepared, Errors)) == false)
+            { for (const auto& Error : Errors) { AddError(Error); } return false; }
+            TestTrue(TEXT("Preparation targets the existing Custom expression"), Prepared.Custom == Custom);
+            Apply_LookShadingModelReload(*Material, Prepared);
+            TestTrue(TEXT("Production application retains MID parent"), Mid->Parent == Material.Get());
+            TestTrue(TEXT("Production application retains the scalar parameter object"), Material->GetExpressions().Contains(Scalar.Get()));
+            TestTrue(TEXT("Existing MID keeps parameter overrides"), FMath::IsNearlyEqual(Mid->K2_GetScalarParameterValue(TEXT("Tint")), 0.75f));
+            TestTrue(TEXT("Annotation removal restores the definition's default model"), Material->GetShadingModels().HasOnlyShadingModel(
+                Model.IsEmpty() ? MSM_DefaultLit : Directional ? MSM_ClearCoat : MSM_ThinTranslucent));
+            TestTrue(TEXT("Reload retains the selected directional pin contract"), Directional
+                ? Material->GetEditorOnlyData()->Anisotropy.Expression == Custom.Get()
+                    && Material->GetEditorOnlyData()->Tangent.Expression == Custom.Get()
+                : Material->GetEditorOnlyData()->Anisotropy.Expression == nullptr
+                    && Material->GetEditorOnlyData()->Tangent.Expression == nullptr);
+            auto ThinOutputCount = 0;
+            for (const auto& Expression : Material->GetExpressions())
+            {
+                if (Expression->IsA<UMaterialExpressionThinTranslucentMaterialOutput>())
+                { ++ThinOutputCount; }
+            }
+            const auto Thin = NOT Directional && NOT Model.IsEmpty();
+            TestEqual(TEXT("Reload creates then removes the ThinTranslucent output node"), ThinOutputCount, Thin ? 1 : 0);
+            TestTrue(TEXT("Reload applies and restores the translucency blend"), Material->BlendMode == (Thin ? BLEND_Translucent : BLEND_Opaque));
+            TestTrue(TEXT("Reload applies and restores the translucency lighting mode"), Material->TranslucencyLightingMode ==
+                (Thin ? TLM_SurfacePerPixelLighting : TLM_VolumetricNonDirectional));
+        }
+        const auto BeforeState = Material->StateId;
+        const auto BeforeCode = Custom->Code;
+        const auto BeforeBlend = Material->BlendMode;
+        const auto BeforeLighting = Material->TranslucencyLightingMode;
+        const auto BeforeTwoSided = Material->TwoSided;
+        const auto BeforeTangentSpace = Material->bTangentSpaceNormal;
+        const auto BeforeProfile = TWeakObjectPtr<USubsurfaceProfile>{Material->SubsurfaceProfile};
+        const TArray<EMaterialProperty> Properties{MP_BaseColor, MP_Normal, MP_Metallic, MP_Specular, MP_Roughness,
+            MP_AmbientOcclusion, MP_EmissiveColor, MP_Opacity, MP_OpacityMask, MP_Refraction,
+            MP_SubsurfaceColor, MP_CustomData0, MP_CustomData1, MP_Anisotropy, MP_Tangent};
+        auto BeforeInputs = TArray<FExpressionInput>{};
+        for (const auto Property : Properties) { BeforeInputs.Add(*Material->GetExpressionInputForProperty(Property)); }
+        auto BeforeExpressions = TArray<TWeakObjectPtr<UMaterialExpression>>{};
+        for (const auto& Expression : Material->GetExpressions()) { BeforeExpressions.Add(Expression); }
+        const auto BeforeOutputCount = Custom->AdditionalOutputs.Num();
+        for (auto Case = 0; Case < 4; ++Case)
+        {
+            Definition->_Parameters[0]._Type = Case == 2 ? ECk_Usf_ParamType::Vector : ECk_Usf_ParamType::Scalar;
+            Definition->_DirectionalShading = Case == 3 ? NOT Directional : Directional;
+            if (TestTrue(TEXT("Write invalid reload candidate"), WriteSource(Case == 0 ? TEXT("UnknownModel") :
+                Case == 1 ? TEXT("Eye") : Case == 2 && NOT Directional ? TEXT("Cloth") : TEXT("DefaultLit"), Case == 2)) == false)
+            { return false; }
+            auto Prepared = FPreparedLookShadingModelReload{};
+            auto Errors = TArray<FString>{};
+            TestFalse(TEXT("Production preflight rejects invalid metadata, missing profile, parameter type, or directional layout change"),
+                Prepare_LookShadingModelReload(*Material, Prepared, Errors));
+            TestFalse(TEXT("Rejected reload never publishes a runnable Custom expression"), Prepared.Custom.IsValid());
+            TestFalse(TEXT("Rejected reload reports its reason"), Errors.IsEmpty());
+            if (Case == 3)
+            {
+                TestTrue(TEXT("Directional schema changes explicitly require regeneration"),
+                    Errors.ContainsByPredicate([](const FString& InError)
+                    { return InError.Contains(TEXT("Directional shading layout changed; regenerate")); }));
+            }
+            TestEqual(TEXT("Rejected preflight leaves material state ID unchanged"), Material->StateId, BeforeState);
+            TestEqual(TEXT("Rejected preflight leaves HLSL unchanged"), Custom->Code, BeforeCode);
+            TestTrue(TEXT("Rejected preflight leaves shading settings unchanged"), Material->GetShadingModels().HasOnlyShadingModel(MSM_DefaultLit)
+                && Material->BlendMode == BeforeBlend && Material->TranslucencyLightingMode == BeforeLighting
+                && Material->TwoSided == BeforeTwoSided && Material->bTangentSpaceNormal == BeforeTangentSpace
+                && Material->SubsurfaceProfile == BeforeProfile.Get());
+            for (auto Index = 0; Index < Properties.Num(); ++Index)
+            {
+                const auto& Before = BeforeInputs[Index];
+                const auto& After = *Material->GetExpressionInputForProperty(Properties[Index]);
+                TestTrue(TEXT("Rejected preflight preserves every material pin connection"), Before.Expression == After.Expression
+                    && Before.OutputIndex == After.OutputIndex && Before.Mask == After.Mask
+                    && Before.MaskR == After.MaskR && Before.MaskG == After.MaskG && Before.MaskB == After.MaskB && Before.MaskA == After.MaskA);
+            }
+            TestEqual(TEXT("Rejected preflight leaves output layout unchanged"), Custom->AdditionalOutputs.Num(), BeforeOutputCount);
+            TestEqual(TEXT("Rejected preflight leaves graph size unchanged"), Material->GetExpressions().Num(), BeforeExpressions.Num());
+            for (auto Index = 0; Index < BeforeExpressions.Num() && Index < Material->GetExpressions().Num(); ++Index)
+            { TestTrue(TEXT("Rejected preflight preserves every expression identity"), Material->GetExpressions()[Index] == BeforeExpressions[Index].Get()); }
+            TestTrue(TEXT("Rejected preflight preserves the MID parent and scalar override"), Mid->Parent == Material.Get()
+                && FMath::IsNearlyEqual(Mid->K2_GetScalarParameterValue(TEXT("Tint")), 0.75f));
+        }
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_Usf_SurfaceSceneColorContract,
+    "CkTests.UnitTests.CkUsf.SurfaceSceneColorContract",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter | EAutomationTestFlags::NonNullRHI)
+
+auto FCkTest_Usf_SurfaceSceneColorContract::RunTest(const FString& Parameters) -> bool
+{
+    using namespace ck::usf_editor;
+    if (TestTrue(TEXT("Scene-color compilation requires real RHI"), FApp::CanEverRender()) == false)
+    { return false; }
     const auto Fixture = ck_test_usf_declaration::FSourceFixture{};
-    const auto Root = TEXT("/CkUsfDeclarationReload_") + FGuid::NewGuid().ToString(EGuidFormats::Digits) + TEXT("/");
+    const auto Root = TEXT("/CkUsfSurfaceSceneColor_") + FGuid::NewGuid().ToString(EGuidFormats::Digits) + TEXT("/");
     const auto PackageDirectory = Fixture.Directory / TEXT("Packages/");
-    if (TestTrue(TEXT("Create reload fixture package directory"), IFileManager::Get().MakeDirectory(*PackageDirectory, true)) == false)
+    if (TestTrue(TEXT("Create owned scene-color package directory"), IFileManager::Get().MakeDirectory(*PackageDirectory, true)) == false)
     { return false; }
     FPackageName::RegisterMountPoint(Root, PackageDirectory);
     ON_SCOPE_EXIT { FPackageName::UnRegisterMountPoint(Root, PackageDirectory); };
     const FScopedDisableValidateOnSave DisableFixtureValidation;
-    const auto Definition = TStrongObjectPtr<UCkUsf_LookDefinition>{NewObject<UCkUsf_LookDefinition>()};
-    Definition->_LookName = TEXT("ReloadFixture");
-    Definition->_GeneratedPackageRoot = Root.LeftChop(1);
-    Definition->_UshIncludePath = Fixture.VirtualRoot / TEXT("Reload.ush");
-    Definition->_UshFunctionName = TEXT("CkUsf_Look_Declaration");
-    auto Parameter = FCk_Usf_ParamDesc{};
-    Parameter._Name = TEXT("Tint");
-    Parameter._DefaultScalar = 0.4f;
-    Definition->_Parameters.Add(Parameter);
-    const auto WriteSource = [&Fixture](const FString& InModel, bool InVector = false) -> bool
+    for (const auto& Model : {FString{TEXT("DefaultLit")}, FString{TEXT("ThinTranslucent")}})
+    for (auto Mode = 0; Mode < 3; ++Mode)
     {
-        const auto Annotation = InModel.IsEmpty() ? FString{} : TEXT("// @ckusf shading_model ") + InModel + TEXT("\n");
-        const auto Source = Annotation + FString::Printf(TEXT("#pragma once\n#include \"/CkUsf/Common.ush\"\n"
-            "FCkUsf_SurfaceOutput CkUsf_Look_Declaration(FCkUsf_SurfaceInput In, %s Tint) "
-            "{ FCkUsf_SurfaceOutput O = CkUsf_DefaultSurface(); O.BaseColor = Tint; return O; }\n"), InVector ? TEXT("float3") : TEXT("float"));
-        return FFileHelper::SaveStringToFile(Source, *(Fixture.Directory / TEXT("Reload.ush")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
-    };
-    if (TestTrue(TEXT("Write initial Cloth source"), WriteSource(TEXT("Cloth"))) == false)
-    { return false; }
-    const auto Material = TStrongObjectPtr<UMaterial>{Generate_LookMaterial(Definition.Get())};
-    if (TestNotNull(TEXT("Production generator creates reload fixture"), Material.Get()) == false)
-    { return false; }
-    ON_SCOPE_EXIT
-    {
+        const auto Enabled = Mode != 0;
+        const auto ReplacesBackground = Mode == 2;
+        const auto Definition = ck_test_usf_declaration::MakeSurfaceSceneColorDefinition(Fixture, Root, Model, Enabled);
+        if (TestTrue(TEXT("Write owned scene-color entrypoint"), Definition.IsValid()) == false)
+        { return false; }
+        Definition->_SceneColorReplacesBackground = ReplacesBackground;
+        const auto Material = TStrongObjectPtr<UMaterial>{Generate_LookMaterial(Definition.Get())};
+        if (TestNotNull(TEXT("Production generator creates scene-color contract master"), Material.Get()) == false)
+        { return false; }
+        ON_SCOPE_EXIT
+        {
+            ck_test_usf_declaration::DrainFixtureCompilation();
+            ck_test_usf_declaration::RetireOwnedMaterial(*Material);
+        };
+        auto Custom = TWeakObjectPtr<UMaterialExpressionCustom>{};
+        auto SceneNodeCount = 0;
+        auto ScreenNodeCount = 0;
+        for (const auto& Expression : Material->GetExpressions())
+        {
+            if (Expression->IsA<UMaterialExpressionCustom>())
+            { Custom = Cast<UMaterialExpressionCustom>(Expression); }
+            SceneNodeCount += Expression->IsA<UMaterialExpressionSceneColor>() ? 1 : 0;
+            ScreenNodeCount += Expression->IsA<UMaterialExpressionScreenPosition>() ? 1 : 0;
+        }
+        if (TestTrue(TEXT("Generated primary Custom exists"), Custom.IsValid()) == false)
+        { return false; }
+        TestTrue(TEXT("Only background replacement disables material-local vertex fog"), Material->bUseTranslucencyVertexFog ==
+            (ReplacesBackground ? false : GetDefault<UMaterial>()->bUseTranslucencyVertexFog));
+        TestTrue(TEXT("Only background replacement overrides material-local pixel fog"), Material->bComputeFogPerPixel ==
+            (ReplacesBackground ? false : GetDefault<UMaterial>()->bComputeFogPerPixel));
+        const auto SceneDefines = Custom->AdditionalDefines.FilterByPredicate([](const FCustomDefine& InDefine)
+        { return InDefine.DefineName == TEXT("CK_USF_SURFACE_SCENE_COLOR"); });
+        TestEqual(TEXT("The internal scene-color capability define is strictly opt-in"), SceneDefines.Num(), Enabled ? 1 : 0);
+        if (Enabled && SceneDefines.Num() == 1)
+        { TestEqual(TEXT("The internal scene-color capability define is enabled"), SceneDefines[0].DefineValue, FString{TEXT("1")}); }
+        TestEqual(TEXT("Scene-color node is strictly opt-in"), SceneNodeCount, Enabled ? 1 : 0);
+        TestEqual(TEXT("Surface viewport UV node is strictly opt-in"), ScreenNodeCount, Enabled ? 1 : 0);
+        auto FoundSceneInput = false;
+        auto FoundScreenInput = false;
+        for (const auto& Input : Custom->Inputs)
+        {
+            const auto Traced = Input.Input.GetTracedInput();
+            if (Input.InputName == TEXT("SceneColor"))
+            {
+                FoundSceneInput = true;
+                const auto Node = TWeakObjectPtr<UMaterialExpressionSceneColor>{Cast<UMaterialExpressionSceneColor>(Traced.Expression)};
+                if (TestTrue(TEXT("SceneColor is connected to a native scene-color expression"), Node.IsValid()))
+                {
+                    const auto& Outputs = Node->GetOutputs();
+                    if (TestTrue(TEXT("SceneColor output index is valid"), Outputs.IsValidIndex(Traced.OutputIndex)))
+                    { TestEqual(TEXT("SceneColor reads RGB rather than alpha"), Outputs[Traced.OutputIndex].OutputName, FName{TEXT("RGB")}); }
+                }
+            }
+            if (Input.InputName == TEXT("SurfaceScreenUV"))
+            {
+                FoundScreenInput = true;
+                const auto Node = TWeakObjectPtr<UMaterialExpressionScreenPosition>{Cast<UMaterialExpressionScreenPosition>(Traced.Expression)};
+                if (TestTrue(TEXT("SurfaceScreenUV is connected to native screen position"), Node.IsValid()))
+                {
+                    const auto& Outputs = Node->GetOutputs();
+                    if (TestTrue(TEXT("Screen-position output index is valid"), Outputs.IsValidIndex(Traced.OutputIndex)))
+                    { TestEqual(TEXT("SurfaceScreenUV reads viewport UV rather than pixels"), Outputs[Traced.OutputIndex].OutputName, FName{TEXT("ViewportUV")}); }
+                }
+            }
+        }
+        TestEqual(TEXT("SceneColor input is absent from unchanged default graphs"), FoundSceneInput, Enabled);
+        TestEqual(TEXT("SurfaceScreenUV input is absent from unchanged default graphs"), FoundScreenInput, Enabled);
+        TestEqual(TEXT("Surface viewport assignment is opt-in"), Custom->Code.Contains(TEXT("In.SurfaceScreenUV = SurfaceScreenUV;")), Enabled);
+        TestEqual(TEXT("Surface scene-color assignment is opt-in"), Custom->Code.Contains(TEXT("In.SceneColor = float4(SceneColor.rgb, 1")), Enabled);
+        Material->EnsureIsComplete();
         ck_test_usf_declaration::DrainFixtureCompilation();
-        ck_test_usf_declaration::RetireOwnedMaterial(*Material);
-    };
-    const auto Mid = TStrongObjectPtr<UMaterialInstanceDynamic>{UMaterialInstanceDynamic::Create(Material.Get(), GetTransientPackage())};
-    if (TestNotNull(TEXT("Existing MID created"), Mid.Get()) == false)
-    { return false; }
-    Mid->SetScalarParameterValue(TEXT("Tint"), 0.75f);
-    auto Custom = TWeakObjectPtr<UMaterialExpressionCustom>{};
-    auto Scalar = TWeakObjectPtr<UMaterialExpressionScalarParameter>{};
-    for (const auto& Expression : Material->GetExpressions())
-    {
-        if (const auto Candidate = TWeakObjectPtr<UMaterialExpressionCustom>{Cast<UMaterialExpressionCustom>(Expression)}; Candidate.IsValid())
-        { Custom = Candidate; }
-        if (const auto Candidate = TWeakObjectPtr<UMaterialExpressionScalarParameter>{Cast<UMaterialExpressionScalarParameter>(Expression)};
-            Candidate.IsValid() && Candidate->ParameterName == TEXT("Tint"))
-        { Scalar = Candidate; }
-    }
-    if (TestTrue(TEXT("Generated primary Custom and scalar parameter exist"), Custom.IsValid() && Scalar.IsValid()) == false)
-    { return false; }
-    for (const auto Model : {FString{TEXT("ThinTranslucent")}, FString{}})
-    {
-        if (TestTrue(TEXT("Rewrite only entrypoint model annotation"), WriteSource(Model)) == false)
+        if (TestNotNull(TEXT("Scene-color master has an active-platform resource"), Material->GetMaterialResource(GMaxRHIShaderPlatform)) == false)
         { return false; }
+        const auto& Resource = *Material->GetMaterialResource(GMaxRHIShaderPlatform);
+        for (const auto& Error : Resource.GetCompileErrors()) { AddError(Error); }
+        TestTrue(TEXT("Scene-color master has a complete game-thread shader map"), Resource.IsCompilationFinished()
+            && Resource.IsGameThreadShaderMapComplete() && Resource.GetGameThreadShaderMap() != nullptr);
+        TestEqual(TEXT("Only opted-in masters require the actual scene-color copy pass"), Resource.RequiresSceneColorCopy_GameThread(), Enabled);
+        auto RenderComplete = false;
+        ENQUEUE_RENDER_COMMAND(CkUsfSurfaceSceneColorReady)([&Resource, &RenderComplete](FRHICommandListImmediate&)
+        { RenderComplete = Resource.IsRenderingThreadShaderMapComplete(); });
+        FlushRenderingCommands();
+        TestTrue(TEXT("Scene-color master has a complete render-thread shader map"), RenderComplete);
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCkTest_Usf_SurfaceSceneColorRejection,
+    "CkTests.UnitTests.CkUsf.SurfaceSceneColorRejectsUnsupportedAndChangedLayouts",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter | EAutomationTestFlags::NonNullRHI)
+
+auto FCkTest_Usf_SurfaceSceneColorRejection::RunTest(const FString& Parameters) -> bool
+{
+    using namespace ck::usf_editor;
+    if (TestTrue(TEXT("Scene-color reload fixtures require real RHI"), FApp::CanEverRender()) == false)
+    { return false; }
+    const auto Fixture = ck_test_usf_declaration::FSourceFixture{};
+    const auto Root = TEXT("/CkUsfSurfaceSceneColorReject_") + FGuid::NewGuid().ToString(EGuidFormats::Digits) + TEXT("/");
+    const auto PackageDirectory = Fixture.Directory / TEXT("Packages/");
+    if (TestTrue(TEXT("Create owned rejection package directory"), IFileManager::Get().MakeDirectory(*PackageDirectory, true)) == false)
+    { return false; }
+    FPackageName::RegisterMountPoint(Root, PackageDirectory);
+    ON_SCOPE_EXIT { FPackageName::UnRegisterMountPoint(Root, PackageDirectory); };
+    const FScopedDisableValidateOnSave DisableFixtureValidation;
+    for (auto Case = 0; Case < 11; ++Case)
+    {
+        const auto Model = Case == 5 ? FString{TEXT("Unlit")} : Case == 6 ? FString{TEXT("Cloth")} : FString{TEXT("DefaultLit")};
+        const auto Definition = ck_test_usf_declaration::MakeSurfaceSceneColorDefinition(Fixture, Root, Model, true);
+        if (TestTrue(TEXT("Write owned invalid scene-color fixture"), Definition.IsValid()) == false)
+        { return false; }
+        if (Case == 0) { Definition->_Domain = ECk_Usf_Domain::UI; }
+        if (Case == 1) { Definition->_Domain = ECk_Usf_Domain::PostProcess; }
+        if (Case == 2) { Definition->_Domain = ECk_Usf_Domain::Decal; }
+        if (Case == 3) { Definition->_BlendMode = ECk_Usf_BlendMode::Opaque; }
+        if (Case == 4) { Definition->_BlendMode = ECk_Usf_BlendMode::Masked; }
+        if (Case == 7) { Definition->_Domain = ECk_Usf_Domain::SurfaceUnlit; }
+        if (Case == 8)
+        {
+            Definition->_SurfaceSceneColor = false;
+            Definition->_SceneColorReplacesBackground = true;
+        }
+        if (Case == 9) { Definition->_Defines = {TEXT("CK_USF_SURFACE_SCENE_COLOR")}; }
+        if (Case == 10) { Definition->_Defines = {TEXT("CK_USF_SURFACE_SCENE_COLOR=0")}; }
+        const auto Validation = Validate_LookDefinition(Definition.Get());
+        if (TestFalse(TEXT("Unsupported scene-color authoring is rejected"), Validation.Get_IsValid()) == false)
+        { return false; }
+        if (Case == 8)
+        {
+            TestTrue(TEXT("Background replacement explicitly requires surface scene color"), Validation.Errors.ContainsByPredicate([](const FString& InError)
+            { return InError.Contains(TEXT("background replacement requires surface scene color")); }));
+        }
+        if (Case >= 9)
+        {
+            TestTrue(TEXT("Authoring cannot spoof the reserved scene-color capability define"), Validation.Errors.ContainsByPredicate([](const FString& InError)
+            { return InError.Contains(TEXT("CK_USF_SURFACE_SCENE_COLOR is generated internally")); }));
+        }
+        for (const auto& Error : Validation.Errors)
+        { AddExpectedError(*Error, EAutomationExpectedErrorFlags::Contains, 1); }
+        TestNull(TEXT("Production generation rejects incompatible scene-color use"), Generate_LookMaterial(Definition.Get()));
+        const auto Path = Definition->Get_GeneratedMasterPackagePath();
+        TestNull(TEXT("Rejected scene-color generation creates no in-memory package"), FindPackage(nullptr, *Path));
+        TestFalse(TEXT("Rejected scene-color generation saves no package"), FPackageName::DoesPackageExist(Path));
+    }
+    for (auto Toggle = 0; Toggle < 4; ++Toggle)
+    {
+        const auto Enabled = Toggle != 0;
+        const auto ReplacesBackground = Toggle == 3;
+        const auto Definition = ck_test_usf_declaration::MakeSurfaceSceneColorDefinition(Fixture, Root, TEXT("ThinTranslucent"), Enabled);
+        if (TestTrue(TEXT("Write scene-color toggle fixture"), Definition.IsValid()) == false)
+        { return false; }
+        Definition->_SceneColorReplacesBackground = ReplacesBackground;
+        const auto Material = TStrongObjectPtr<UMaterial>{Generate_LookMaterial(Definition.Get())};
+        if (TestNotNull(TEXT("Generate accepted pre-toggle master"), Material.Get()) == false)
+        { return false; }
+        ON_SCOPE_EXIT
+        {
+            ck_test_usf_declaration::DrainFixtureCompilation();
+            ck_test_usf_declaration::RetireOwnedMaterial(*Material);
+        };
+        const auto Mid = TStrongObjectPtr<UMaterialInstanceDynamic>{UMaterialInstanceDynamic::Create(Material.Get(), GetTransientPackage())};
+        if (TestNotNull(TEXT("Toggle fixture creates its existing MID"), Mid.Get()) == false)
+        { return false; }
+        Mid->SetScalarParameterValue(TEXT("Tint"), 0.75f);
+        auto Custom = TWeakObjectPtr<UMaterialExpressionCustom>{};
+        auto BeforeExpressions = TArray<TWeakObjectPtr<UMaterialExpression>>{};
+        for (const auto& Expression : Material->GetExpressions())
+        {
+            BeforeExpressions.Add(Expression);
+            if (Expression->IsA<UMaterialExpressionCustom>())
+            { Custom = Cast<UMaterialExpressionCustom>(Expression); }
+        }
+        if (TestTrue(TEXT("Toggle fixture has its primary Custom expression"), Custom.IsValid()) == false)
+        { return false; }
+        const auto BeforeState = Material->StateId;
+        const auto BeforeCode = Custom->Code;
+        const auto BeforeInputs = Custom->Inputs;
+        const auto BeforeOutputs = Custom->AdditionalOutputs;
+        const auto BeforeDefines = Custom->AdditionalDefines;
+        const auto BeforeBlend = Material->BlendMode;
+        const auto BeforeVertexFog = Material->bUseTranslucencyVertexFog != 0;
+        const auto BeforePixelFog = Material->bComputeFogPerPixel != 0;
+        const TArray<EMaterialProperty> Properties{MP_BaseColor, MP_Normal, MP_Metallic, MP_Specular,
+            MP_Roughness, MP_AmbientOcclusion, MP_EmissiveColor, MP_Opacity, MP_OpacityMask,
+            MP_Refraction, MP_SubsurfaceColor, MP_CustomData0, MP_CustomData1, MP_Anisotropy, MP_Tangent};
+        auto BeforeMaterialInputs = TArray<FExpressionInput>{};
+        for (const auto Property : Properties)
+        { BeforeMaterialInputs.Add(*Material->GetExpressionInputForProperty(Property)); }
+        auto Unchanged = FPreparedLookShadingModelReload{};
+        auto UnchangedErrors = TArray<FString>{};
+        TestTrue(TEXT("Unchanged scene-color layout remains compatible with live reload"),
+            Prepare_LookShadingModelReload(*Material, Unchanged, UnchangedErrors));
+        for (const auto& Error : UnchangedErrors) { AddError(Error); }
+        TestTrue(TEXT("Compatible reload targets the existing Custom"), Unchanged.Custom == Custom);
+        if (Toggle < 2)
+        { Definition->_SurfaceSceneColor = NOT Enabled; }
+        else
+        { Definition->_SceneColorReplacesBackground = NOT ReplacesBackground; }
         auto Prepared = FPreparedLookShadingModelReload{};
         auto Errors = TArray<FString>{};
-        if (TestTrue(TEXT("Production preflight accepts annotation transition"), Prepare_LookShadingModelReload(*Material, Prepared, Errors)) == false)
-        { for (const auto& Error : Errors) { AddError(Error); } return false; }
-        TestTrue(TEXT("Preparation targets the existing Custom expression"), Prepared.Custom == Custom);
-        Apply_LookShadingModelReload(*Material, Prepared);
-        TestTrue(TEXT("Production application retains MID parent"), Mid->Parent == Material.Get());
-        TestTrue(TEXT("Production application retains the scalar parameter object"), Material->GetExpressions().Contains(Scalar.Get()));
-        TestTrue(TEXT("Existing MID keeps parameter overrides"), FMath::IsNearlyEqual(Mid->K2_GetScalarParameterValue(TEXT("Tint")), 0.75f));
-        TestTrue(TEXT("Annotation removal restores the definition's default model"), Material->GetShadingModels().HasOnlyShadingModel(
-            Model.IsEmpty() ? MSM_DefaultLit : MSM_ThinTranslucent));
-    }
-    const auto BeforeState = Material->StateId;
-    const auto BeforeCode = Custom->Code;
-    const auto BeforeBlend = Material->BlendMode;
-    const auto BeforeLighting = Material->TranslucencyLightingMode;
-    const auto BeforeTwoSided = Material->TwoSided;
-    const auto BeforeTangentSpace = Material->bTangentSpaceNormal;
-    const auto BeforeProfile = TWeakObjectPtr<USubsurfaceProfile>{Material->SubsurfaceProfile};
-    const TArray<EMaterialProperty> Properties{MP_BaseColor, MP_Normal, MP_Metallic, MP_Specular, MP_Roughness,
-        MP_AmbientOcclusion, MP_EmissiveColor, MP_Opacity, MP_OpacityMask, MP_Refraction,
-        MP_SubsurfaceColor, MP_CustomData0, MP_CustomData1};
-    auto BeforeInputs = TArray<FExpressionInput>{};
-    for (const auto Property : Properties) { BeforeInputs.Add(*Material->GetExpressionInputForProperty(Property)); }
-    auto BeforeExpressions = TArray<TWeakObjectPtr<UMaterialExpression>>{};
-    for (const auto& Expression : Material->GetExpressions()) { BeforeExpressions.Add(Expression); }
-    const auto BeforeOutputCount = Custom->AdditionalOutputs.Num();
-    for (auto Case = 0; Case < 3; ++Case)
-    {
-        if (Case == 2)
-        { Definition->_Parameters[0]._Type = ECk_Usf_ParamType::Vector; }
-        if (TestTrue(TEXT("Write invalid reload candidate"), WriteSource(Case == 0 ? TEXT("UnknownModel") :
-            Case == 1 ? TEXT("Eye") : TEXT("Cloth"), Case == 2)) == false)
-        { return false; }
-        auto Prepared = FPreparedLookShadingModelReload{};
-        auto Errors = TArray<FString>{};
-        TestFalse(TEXT("Production preflight rejects invalid metadata, missing profile, or changed parameter type"),
+        TestFalse(TEXT("Changing surface scene-color or replacement policy requires regeneration"),
             Prepare_LookShadingModelReload(*Material, Prepared, Errors));
-        TestFalse(TEXT("Rejected reload never publishes a runnable Custom expression"), Prepared.Custom.IsValid());
-        TestFalse(TEXT("Rejected reload reports its reason"), Errors.IsEmpty());
-        TestEqual(TEXT("Rejected preflight leaves material state ID unchanged"), Material->StateId, BeforeState);
-        TestEqual(TEXT("Rejected preflight leaves HLSL unchanged"), Custom->Code, BeforeCode);
-        TestTrue(TEXT("Rejected preflight leaves shading settings unchanged"), Material->GetShadingModels().HasOnlyShadingModel(MSM_DefaultLit)
-            && Material->BlendMode == BeforeBlend && Material->TranslucencyLightingMode == BeforeLighting
-            && Material->TwoSided == BeforeTwoSided && Material->bTangentSpaceNormal == BeforeTangentSpace
-            && Material->SubsurfaceProfile == BeforeProfile.Get());
-        for (auto Index = 0; Index < Properties.Num(); ++Index)
+        TestFalse(TEXT("Rejected toggle publishes no runnable reload"), Prepared.Custom.IsValid());
+        TestTrue(TEXT("Rejected toggle explains the required regeneration"), Errors.ContainsByPredicate([](const FString& InError)
+        { return InError.Contains(TEXT("regenerate"), ESearchCase::IgnoreCase); }));
+        TestEqual(TEXT("Rejected toggle preserves material state ID"), Material->StateId, BeforeState);
+        TestEqual(TEXT("Rejected toggle preserves generated HLSL"), Custom->Code, BeforeCode);
+        TestTrue(TEXT("Rejected toggle preserves shading settings"), Material->BlendMode == BeforeBlend
+            && Material->GetShadingModels().HasOnlyShadingModel(MSM_ThinTranslucent));
+        TestTrue(TEXT("Rejected toggle preserves both local fog policies"), (Material->bUseTranslucencyVertexFog != 0) == BeforeVertexFog
+            && (Material->bComputeFogPerPixel != 0) == BeforePixelFog);
+        TestEqual(TEXT("Rejected toggle preserves internal define count"), Custom->AdditionalDefines.Num(), BeforeDefines.Num());
+        for (auto Index = 0; Index < BeforeDefines.Num() && Index < Custom->AdditionalDefines.Num(); ++Index)
+        { TestTrue(TEXT("Rejected toggle preserves internal define values"), BeforeDefines[Index].DefineName == Custom->AdditionalDefines[Index].DefineName
+            && BeforeDefines[Index].DefineValue == Custom->AdditionalDefines[Index].DefineValue); }
+        TestEqual(TEXT("Rejected toggle preserves graph size"), Material->GetExpressions().Num(), BeforeExpressions.Num());
+        for (auto Index = 0; Index < BeforeExpressions.Num() && Index < Material->GetExpressions().Num(); ++Index)
+        { TestTrue(TEXT("Rejected toggle preserves every graph identity"), Material->GetExpressions()[Index] == BeforeExpressions[Index].Get()); }
+        TestEqual(TEXT("Rejected toggle preserves Custom input count"), Custom->Inputs.Num(), BeforeInputs.Num());
+        for (auto Index = 0; Index < BeforeInputs.Num() && Index < Custom->Inputs.Num(); ++Index)
         {
             const auto& Before = BeforeInputs[Index];
+            const auto& After = Custom->Inputs[Index];
+            TestTrue(TEXT("Rejected toggle preserves Custom input bindings"), Before.InputName == After.InputName
+                && Before.Input.Expression == After.Input.Expression && Before.Input.OutputIndex == After.Input.OutputIndex
+                && Before.Input.Mask == After.Input.Mask && Before.Input.MaskR == After.Input.MaskR
+                && Before.Input.MaskG == After.Input.MaskG && Before.Input.MaskB == After.Input.MaskB && Before.Input.MaskA == After.Input.MaskA);
+        }
+        for (auto Index = 0; Index < Properties.Num(); ++Index)
+        {
+            const auto& Before = BeforeMaterialInputs[Index];
             const auto& After = *Material->GetExpressionInputForProperty(Properties[Index]);
-            TestTrue(TEXT("Rejected preflight preserves every material pin connection"), Before.Expression == After.Expression
+            TestTrue(TEXT("Rejected toggle preserves every material input connection"), Before.Expression == After.Expression
                 && Before.OutputIndex == After.OutputIndex && Before.Mask == After.Mask
                 && Before.MaskR == After.MaskR && Before.MaskG == After.MaskG && Before.MaskB == After.MaskB && Before.MaskA == After.MaskA);
         }
-        TestEqual(TEXT("Rejected preflight leaves output layout unchanged"), Custom->AdditionalOutputs.Num(), BeforeOutputCount);
-        TestEqual(TEXT("Rejected preflight leaves graph size unchanged"), Material->GetExpressions().Num(), BeforeExpressions.Num());
-        for (auto Index = 0; Index < BeforeExpressions.Num() && Index < Material->GetExpressions().Num(); ++Index)
-        { TestTrue(TEXT("Rejected preflight preserves every expression identity"), Material->GetExpressions()[Index] == BeforeExpressions[Index].Get()); }
-        TestTrue(TEXT("Rejected preflight preserves the MID parent and scalar override"), Mid->Parent == Material.Get()
+        TestEqual(TEXT("Rejected toggle preserves output count"), Custom->AdditionalOutputs.Num(), BeforeOutputs.Num());
+        for (auto Index = 0; Index < BeforeOutputs.Num() && Index < Custom->AdditionalOutputs.Num(); ++Index)
+        { TestTrue(TEXT("Rejected toggle preserves output layout"), BeforeOutputs[Index].OutputName == Custom->AdditionalOutputs[Index].OutputName
+            && BeforeOutputs[Index].OutputType == Custom->AdditionalOutputs[Index].OutputType); }
+        TestTrue(TEXT("Rejected toggle preserves MID parent and override"), Mid->Parent == Material.Get()
             && FMath::IsNearlyEqual(Mid->K2_GetScalarParameterValue(TEXT("Tint")), 0.75f));
+        Definition->_SurfaceSceneColor = Enabled;
+        Definition->_SceneColorReplacesBackground = ReplacesBackground;
     }
     return true;
 }
