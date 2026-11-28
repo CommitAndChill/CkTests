@@ -1,0 +1,45 @@
+{
+  "manifest_sha256": "468e45c619acf908a98143ac012d40fdfff4d0b630c0fb4c4a46f6e8c6fa7997",
+  "maps": {
+    "AO": {
+      "sha256": "15d52430f266202f2d36ec82c576cd4f3532b74dbe4cb3c387bc74251c5c7e97",
+      "decoded_dtype": "uint8",
+      "unique_channel_values": 17,
+      "min": 0,
+      "max": 255
+    },
+    "BaseColor": {
+      "sha256": "2980bbe63b6ddf3e9b6514a9af772a0417880f8f62b4db34d73fb2a18dd180dd",
+      "decoded_dtype": "uint8",
+      "unique_channel_values": 46,
+      "min": 29,
+      "max": 226
+    },
+    "Height": {
+      "sha256": "094476830aa7a29137cabab7692faa87ed5f02c6c81f5d187071c360c07f6a4c",
+      "decoded_dtype": "uint16",
+      "unique_channel_values": 39141,
+      "min": 0,
+      "max": 65535
+    },
+    "Normal": {
+      "sha256": "baa7eeda88dbd6412311d8841543ce69d52ecd7469011203cadee2cc689833d9",
+      "decoded_dtype": "uint8",
+      "unique_channel_values": 256,
+      "min": 0,
+      "max": 255
+    },
+    "Roughness": {
+      "sha256": "8c88727c7067d080e48c81136d0ab6f0e0bd3ca5b04c12819a776c035c1fa9e0",
+      "decoded_dtype": "uint8",
+      "unique_channel_values": 14,
+      "min": 156,
+      "max": 232
+    }
+  },
+  "png_normal_height_correlation_RG": [
+    0.9038015383997327,
+    0.8684710829682118
+  ],
+  "visual_status": "Initial native prototype; checkerboard soil and flat leaf swatches require art review. No UE acceptance."
+}

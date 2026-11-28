@@ -1,0 +1,190 @@
+{
+  "look_id": "EnvironmentDioramaMud",
+  "physical_width_cm": 80,
+  "physical_height_cm": 80,
+  "seed": 904739,
+  "blend": {
+    "path": "V2/mud/EnvironmentDioramaMud.blend",
+    "sha256": "5123fd45b995ae0d3e3fea4c1cdc31c88d7c48fa992c1d667fa184dd204f940f"
+  },
+  "beauty": {
+    "path": "V2/mud/Proof/Beauty-Lit-Blender.png",
+    "sha256": "cc5ee93b8fb00ee65dbc0bf58fa18b731ef787b5ca646d1ebe9affefeb0223fa"
+  },
+  "maps": {
+    "BaseColor": {
+      "path": "V2/mud/Maps/BaseColor.png",
+      "sha256": "a08b24196ac6519409b36dfe0a9151f936d45eac80e75300feeee5b44fcd0d60",
+      "runtime_name": "T_EnvironmentDioramaMud_BaseColor",
+      "width": 1024,
+      "height": 1024,
+      "bit_depth": 8,
+      "color_space": "sRGB",
+      "normal_convention": null,
+      "import_settings": {
+        "sRGB": true,
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "mips": "TMGS_SimpleAverage",
+        "flip_green_channel": false
+      }
+    },
+    "Normal": {
+      "path": "V2/mud/Maps/Normal.png",
+      "sha256": "36a39f040ba6b36078c978c38b3e64bc06163cdd9e714211be103bfc9650a095",
+      "runtime_name": "T_EnvironmentDioramaMud_Normal",
+      "width": 1024,
+      "height": 1024,
+      "bit_depth": 16,
+      "color_space": "linear",
+      "normal_convention": "DirectX imageU/worldX,imageV/-worldY,Zup; no green flip",
+      "import_settings": {
+        "sRGB": false,
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "mips": "TMGS_SimpleAverage",
+        "flip_green_channel": false
+      }
+    },
+    "Roughness": {
+      "path": "V2/mud/Maps/Roughness.png",
+      "sha256": "c3755992598f00214c8ba5329a3109b671ce649eef49d3089a9e47795abc97a6",
+      "runtime_name": "T_EnvironmentDioramaMud_Roughness",
+      "width": 1024,
+      "height": 1024,
+      "bit_depth": 8,
+      "color_space": "linear",
+      "normal_convention": null,
+      "import_settings": {
+        "sRGB": false,
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "mips": "TMGS_SimpleAverage",
+        "flip_green_channel": false
+      }
+    },
+    "Height": {
+      "path": "V2/mud/Maps/Height.png",
+      "sha256": "4997aa635df43932778defe5ec9399bb22c6868bfbb623ed4e7228ff801c328c",
+      "runtime_name": "T_EnvironmentDioramaMud_Height",
+      "width": 1024,
+      "height": 1024,
+      "bit_depth": 16,
+      "color_space": "linear",
+      "normal_convention": null,
+      "import_settings": {
+        "sRGB": false,
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "mips": "TMGS_SimpleAverage",
+        "flip_green_channel": false
+      }
+    },
+    "AO": {
+      "path": "V2/mud/Maps/AO.png",
+      "sha256": "64b0a28bfb19acf63ee9dca831cfe7429f10a3c1e3b5ae85dd63ba5146198619",
+      "runtime_name": "T_EnvironmentDioramaMud_AO",
+      "width": 1024,
+      "height": 1024,
+      "bit_depth": 8,
+      "color_space": "linear",
+      "normal_convention": null,
+      "import_settings": {
+        "sRGB": false,
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "mips": "TMGS_SimpleAverage",
+        "flip_green_channel": false
+      }
+    }
+  },
+  "masters": {
+    "BaseColor": {
+      "path": "V2/mud/Masters/BaseColor.exr",
+      "sha256": "9a105f1f732609f22a27abe53c913551814f1768fc180f615a5a6c4aeae2622e",
+      "bit_depth": 32,
+      "color_space": "linear"
+    },
+    "WorldNormal": {
+      "path": "V2/mud/Masters/WorldNormal.exr",
+      "sha256": "eae9a87fb1188fbcbb73604580ab6373116dc3a987e160e1f08cd43d1688a9fb",
+      "bit_depth": 32,
+      "color_space": "linear"
+    },
+    "Roughness": {
+      "path": "V2/mud/Masters/Roughness.exr",
+      "sha256": "6c6b9b23ebd7a37105948c43eeb6c30fbdae65baa63d95b4cc58003d52dbc170",
+      "bit_depth": 32,
+      "color_space": "linear"
+    },
+    "HeightCm": {
+      "path": "V2/mud/Masters/HeightCm.exr",
+      "sha256": "944425fd68dc15479ba3f9b9ce81f391cb66031ec3232356f4572654b9326d2f",
+      "bit_depth": 32,
+      "color_space": "linear"
+    },
+    "AO": {
+      "path": "V2/mud/Masters/AO.exr",
+      "sha256": "e969ca48d6ae4d4017bdd8bcf4113af381f213932bd5cfdd642abd0bbad7a3ef",
+      "bit_depth": 32,
+      "color_space": "linear"
+    }
+  },
+  "height": {
+    "z_min_cm": 0.5637997388839722,
+    "z_max_cm": 4.1060709953308105,
+    "range_cm": 3.5422712564468384,
+    "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+    "master_precision": "32bitfloat actual topmostGeometry.Position.Z in centimeters",
+    "not_albedo_derived": true
+  },
+  "calibration": {
+    "expected_world_normal": [
+      -0.03987063033659808,
+      -0.06977360308904665,
+      0.9967657584149521
+    ],
+    "measured_world_normal": [
+      -0.039870619773864746,
+      -0.0697736144065857,
+      0.9967658519744873
+    ],
+    "known_linear_color": [
+      0.18,
+      0.31,
+      0.47
+    ],
+    "measured_linear_color": [
+      0.18000000715255737,
+      0.3100000023841858,
+      0.4699999988079071
+    ],
+    "low_slope_noncliff_normal_height_correlations_RG": [
+      0.9417477307038237,
+      0.9326823509646436
+    ],
+    "correlation_pixels": 972263,
+    "basis": "image-right/world+X,image-up/world+Y; PNG U+X,V-Y; DX=(Nx,-Ny,Nz)*.5+.5. Allmaps identicalorientation; no solitary flips."
+  },
+  "ao": "Actual Cycles rayAO emission16samples,3.5cmradius, no denoising; not placeholderwhite.",
+  "roughness": "Authoredgrass/flower/mineralresponse; source leafR and soilR, with mud wetness interpolated from actualgroundvertexattribute. No measuredopticalroughness claim.",
+  "mud_wetness_statistics": {
+    "pool_pixels": 87982,
+    "rim_pixels": 107792,
+    "pool_roughness_mean": 0.20550157129764557,
+    "rough_rim_roughness_mean": 0.6589857935905457,
+    "pool_normal_z_mean": 0.9912754893302917,
+    "rough_rim_normal_z_mean": 0.9836386442184448,
+    "note": "Includes any visible gravel/leaves/blades overlaying basins; no isolated watervolume or opticalscan claim."
+  },
+  "counts": {
+    "clumps": 15,
+    "blades": 161,
+    "stones": 260,
+    "photo_leaves": 19,
+    "flowers": 5
+  },
+  "source_identity_notes": "PolyHaven gravelly_sand scanned foundation (DarioBarresi,CC0), ambientCG LeafSet001 species-unverified photos(approximatePBR,CC0), Granite002A mineralBC(CC0). Grass blades/flowers/placement are authored geometry, not a grass scan. Mud wetness is authored soil deformation/roughness, not a calibrated wet-mud scan.",
+  "elapsed_bake_seconds": 8.688628673553467,
+  "limits": "Internal source-art review only, not userapproval or UE/POM acceptance. Heightfield records topmostsurfaces; grass/leaves/petals undersides/overhangs lost. No realwatervolume/collision/performance proof."
+}

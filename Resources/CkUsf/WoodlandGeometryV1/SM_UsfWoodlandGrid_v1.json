@@ -1,0 +1,114 @@
+{
+  "generator": "CkUsf.WoodlandGrid.v1",
+  "obj_file": "SM_UsfWoodlandGrid_v1.obj",
+  "mtl_file": "SM_UsfWoodlandGrid_v1.mtl",
+  "mtl_sha256": "33e53aa28e4081078037009b4a00e22d5dd56121d1828a1c26c011d2b2bea701",
+  "sha256": "ca9c9d6be31239b61b6cfd0fcb421567a0ebbd683ab92851c215b16ab5e59ebe",
+  "cells": [
+    256,
+    256
+  ],
+  "top_vertices": 66049,
+  "vertices": 66057,
+  "top_triangles": 131072,
+  "triangles": 131082,
+  "width_cm": 80.0,
+  "local_bounds": [
+    [
+      -40,
+      -40,
+      -9
+    ],
+    [
+      40,
+      40,
+      0
+    ]
+  ],
+  "slab_top_cm": -6.5,
+  "slab_bottom_cm": -9,
+  "height_mip": 2,
+  "maximum_relief_cm": 6,
+  "import_axes": "KEEP_XYZ_AXES",
+  "import_scale": 1,
+  "runtime_uv_basis": "U=+localX,V=+localY; importer negates positionY and maps UV V to 1-sourceV",
+  "slots": [
+    "Specimen",
+    "CoreBase"
+  ],
+  "nanite": false,
+  "positive_bounds_extension": [
+    0,
+    0,
+    6
+  ],
+  "negative_bounds_extension": [
+    0,
+    0,
+    6
+  ],
+  "expanded_local_bounds": [
+    [
+      -40,
+      -40,
+      -15
+    ],
+    [
+      40,
+      40,
+      6
+    ]
+  ],
+  "runtime_import_and_render_validation": "Not performed by this source generator",
+  "source_validation": {
+    "validated_source_vertices": 66057,
+    "validated_source_triangles": 131082,
+    "section_triangles": {
+      "Specimen": 131072,
+      "CoreBase": 10
+    },
+    "top_area_cm2": 6400.0,
+    "asymmetric_basis_probes": [
+      {
+        "source_position_cm": [
+          -31.25,
+          17.5,
+          0
+        ],
+        "source_uv": [
+          0.109375,
+          0.71875
+        ],
+        "predicted_imported_position_cm": [
+          -31.25,
+          -17.5,
+          0
+        ],
+        "predicted_imported_uv": [
+          0.109375,
+          0.28125
+        ]
+      },
+      {
+        "source_position_cm": [
+          21.5625,
+          -8.125,
+          0
+        ],
+        "source_uv": [
+          0.76953125,
+          0.3984375
+        ],
+        "predicted_imported_position_cm": [
+          21.5625,
+          8.125,
+          0
+        ],
+        "predicted_imported_uv": [
+          0.76953125,
+          0.6015625
+        ]
+      }
+    ]
+  }
+}

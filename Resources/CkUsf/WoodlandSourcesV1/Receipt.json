@@ -1,0 +1,20 @@
+{
+  "asset": "LeafSet001",
+  "source_url": "https://ambientcg.com/a/LeafSet001",
+  "license": "CC0-1.0",
+  "license_url": "https://docs.ambientcg.com/license/",
+  "license_sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+  "archive_url": "https://ambientcg.com/get?file=LeafSet001_1K-PNG.zip",
+  "archive_sha256": "2e4cf57d6e54a4c3a01dd52886661bafad29a903a689a4cbc485fef6bff85a26",
+  "api_sha256": "053edb719bf862d3b776ad5ebd9160267a0e12a3d28c8c974ccb94626695c183",
+  "maps": {
+    "LeafSet001_1K-PNG_Color.png": "f7c3990b6152fdf54ee4d0bb445fbb3dfd3458155d11596769ddd8d9e6e08ebf",
+    "LeafSet001_1K-PNG_Displacement.png": "94ab7af6203091645065a9ad125161a7e11d521b194c804737d6240e89099cfa",
+    "LeafSet001_1K-PNG_NormalDX.png": "29913281dc2cbbb4399b819eb6423c304554ebd61289408470608e1912e08d07",
+    "LeafSet001_1K-PNG_NormalGL.png": "943ab15f499d244fc0a66b32b53dd662d447e7093083c6732769afbee0ed6a02",
+    "LeafSet001_1K-PNG_Opacity.png": "c17d5e5cd48b7c3ed43ce010a3f4db89d3178e6364ad15b6f243295ae058bb89",
+    "LeafSet001_1K-PNG_Roughness.png": "60bb863a8818d28f4ecead1f973b245fe1464dd93363ed324a4c6ba6a7fc3b17",
+    "LeafSet001.png": "97015b014be79ddf58315550fff2e3ac2219b9b4d4c62be2edf75f7838df8ec7"
+  },
+  "notes": "Publisher photo atlas with approximate PBR maps; no species or physical calibration inferred."
+}

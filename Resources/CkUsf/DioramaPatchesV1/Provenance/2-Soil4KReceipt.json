@@ -1,0 +1,14 @@
+{
+  "source_url": "https://polyhaven.com/a/gravelly_sand",
+  "license": "CC0-1.0",
+  "license_receipt": "Plugins/CkTests/Resources/CkUsf/Environment1Textures/Manifest.json",
+  "file": {
+    "size": 17471864,
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/gravelly_sand/gravelly_sand_diff_4k.jpg",
+    "md5": "56d8d8ab93b40651f9ccab7c52b01582",
+    "path": "gravelly_sand_diff_4k.jpg",
+    "sha256": "c5a505ca4e00ae72378cbcfc56d07d521d32b5292d3f8db8e51256784c13913e"
+  },
+  "metadata_sha256": "8ef9b251f4d751566b8eb69b10f56e20df35d0fc2eb5763c11c5577a95c75856",
+  "note": "Higher-resolution same-scan BC only, registered to retained 1K height/roughness; original4K JPEG bytes."
+}

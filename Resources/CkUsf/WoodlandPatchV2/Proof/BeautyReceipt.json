@@ -1,0 +1,23 @@
+{
+  "stage": "Native first beauty only; data not yet baked; no UE acceptance",
+  "seed": 781204,
+  "physical_width_cm": 80,
+  "physical_height_cm": 80,
+  "resolution": 1024,
+  "blend_sha256": "e0b605f7d934dea0e0d1bd7859fc87ac3e46d16e44092a373873c16b503c0826",
+  "generator_sha256": "31efdc8c0b9839ed5ac7a806f60cc142837096798ef8225fdbfdbb2765a6acf4",
+  "beauty_sha256": "14fd979074bfdbc1071c81046c0555e871c57a37e3991b734cdc518e620a0f38",
+  "scan_foundation": {
+    "manifest_path": "D:\\Repos\\CkPlugins_3\\Plugins\\CkTests\\Resources\\CkUsf\\Environment1Textures\\Manifest.json",
+    "manifest_sha256": "d9f79a9995599596c4540ed2180a5d64b8fbee8f677dc38b69fd656d9214297b",
+    "asset_id": "gravelly_sand",
+    "provider": "Poly Haven",
+    "license": "CC0-1.0",
+    "author": "Dario Barresi",
+    "source_coverage_m": 2.48,
+    "scan_height_geometry_amplitude_cm": 0.9,
+    "color_transform": "sRGB decoded to linear; multiplied by .42 for authored dark woodland soil; no baked shading",
+    "normal": "derived from actual rendered displaced mesh; source normal not substituted"
+  },
+  "elapsed_seconds": 112.93127703666687
+}

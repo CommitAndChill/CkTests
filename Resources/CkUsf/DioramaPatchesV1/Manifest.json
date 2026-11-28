@@ -1,0 +1,628 @@
+{
+  "acceptance": "V2 source direction approved internally; user visual and Unreal/runtime acceptance pending. V1firstbeauties preserved.",
+  "generator_sha256": "db31e99e40b557a59e16c46a77e122d6fcb3c4a4a8189fe3e4aab856c0c9a4b0",
+  "generator_source": "Tools/UsfMaterials/author_diorama_patches.py",
+  "helper_sha256": "533a30f6cccfd05fa08279fb4ab66b28213d8b1d4a47103e1fa65004db3d7a18",
+  "helper_source": "Tools/UsfMaterials/author_woodland_patch.py",
+  "licensed_source_sha256": {
+    "Plugins/CkTests/Resources/CkUsf/Batch3Textures/Manifest.json": "872a79f3d1026de86db4c2421bab9d8361db0f798e380b72fc4c19669af17098",
+    "Plugins/CkTests/Resources/CkUsf/Batch3Textures/granite/Maps/BaseColor.png": "9a19b1b9f1ce6bfbcaa59a3ec6e821704fc8646987dc0b0c31da5838c18e5f15",
+    "Plugins/CkTests/Resources/CkUsf/Environment1Textures/License/polyhaven.html": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623",
+    "Plugins/CkTests/Resources/CkUsf/Environment1Textures/Manifest.json": "d9f79a9995599596c4540ed2180a5d64b8fbee8f677dc38b69fd656d9214297b",
+    "Plugins/CkTests/Resources/CkUsf/Environment1Textures/gravel/Maps/Height.png": "93805cebcf5e360140ae2583167a6e64102c53dc48ee3ba52997ac3bb1191f52",
+    "Plugins/CkTests/Resources/CkUsf/Environment1Textures/gravel/Maps/Roughness.png": "bb5a6800475b3f87be09e556d90687c1b8593691ff0bbd071b00e23f43b6ea9c",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/LeafSet001_1K-PNG_Color.png": "f7c3990b6152fdf54ee4d0bb445fbb3dfd3458155d11596769ddd8d9e6e08ebf",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/LeafSet001_1K-PNG_Displacement.png": "94ab7af6203091645065a9ad125161a7e11d521b194c804737d6240e89099cfa",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/LeafSet001_1K-PNG_Opacity.png": "c17d5e5cd48b7c3ed43ce010a3f4db89d3178e6364ad15b6f243295ae058bb89",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/LeafSet001_1K-PNG_Roughness.png": "60bb863a8818d28f4ecead1f973b245fe1464dd93363ed324a4c6ba6a7fc3b17",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/License.html": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/Receipt.json": "957e26365e83c58943c80e0c00bb54f89b75b35d4fc3c37edbe283d348a1994e",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/Soil4KReceipt.json": "5eb8d2bf9a97a2a737f25686473f45996d5ec64747f0d96e500176654ee4091b",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/gravelly_sand_diff_4k.jpg": "c5a505ca4e00ae72378cbcfc56d07d521d32b5292d3f8db8e51256784c13913e"
+  },
+  "materials": {
+    "dirt": {
+      "ao": "Actual Cycles rayAO emission16samples,3.5cmradius, no denoising; not placeholderwhite.",
+      "beauty": {
+        "path": "V2/dirt/Proof/Beauty-Lit-Blender.png",
+        "sha256": "bf932e86c627a2b2052746165365ce6991ff45e8e097115aa0f14592a0653e22"
+      },
+      "blend": {
+        "path": "V2/dirt/EnvironmentDioramaDirt.blend",
+        "sha256": "fdd3563ee31d7e85364df2a8c2691244f79b5632e7b10075244d59d4028f0339"
+      },
+      "calibration": {
+        "basis": "image-right/world+X,image-up/world+Y; PNG U+X,V-Y; DX=(Nx,-Ny,Nz)*.5+.5. Allmaps identicalorientation; no solitary flips.",
+        "correlation_pixels": 885671,
+        "expected_world_normal": [
+          -0.03987063033659808,
+          -0.06977360308904665,
+          0.9967657584149521
+        ],
+        "known_linear_color": [
+          0.18,
+          0.31,
+          0.47
+        ],
+        "low_slope_noncliff_normal_height_correlations_RG": [
+          0.9145943166773904,
+          0.8903804292974392
+        ],
+        "measured_linear_color": [
+          0.18000000715255737,
+          0.3100000023841858,
+          0.4699999988079071
+        ],
+        "measured_world_normal": [
+          -0.039870619773864746,
+          -0.0697736144065857,
+          0.9967658519744873
+        ]
+      },
+      "counts": {
+        "blades": 377,
+        "clumps": 35,
+        "flowers": 9,
+        "photo_leaves": 40,
+        "stones": 390
+      },
+      "elapsed_bake_seconds": 10.597414493560791,
+      "height": {
+        "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+        "master_precision": "32bitfloat actual topmostGeometry.Position.Z in centimeters",
+        "not_albedo_derived": true,
+        "range_cm": 2.8766430616378784,
+        "z_max_cm": 4.240128040313721,
+        "z_min_cm": 1.3634849786758423
+      },
+      "limits": "Internal source-art review only, not userapproval or UE/POM acceptance. Heightfield records topmostsurfaces; grass/leaves/petals undersides/overhangs lost. No realwatervolume/collision/performance proof.",
+      "look_id": "EnvironmentDioramaDirt",
+      "maps": {
+        "AO": {
+          "bit_depth": 8,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/dirt/Maps/AO.png",
+          "runtime_name": "T_EnvironmentDioramaDirt_AO",
+          "sha256": "08119c4e43377ce1a53f33cef2c9a6a0c84fc5adb498d3e3fc0dbc16685f317b",
+          "width": 1024
+        },
+        "BaseColor": {
+          "bit_depth": 8,
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "normal_convention": null,
+          "path": "V2/dirt/Maps/BaseColor.png",
+          "runtime_name": "T_EnvironmentDioramaDirt_BaseColor",
+          "sha256": "605175e13925af3db63ccbf2c3638e64481e4261a4f86fc4ffb4adc9bff74347",
+          "width": 1024
+        },
+        "Height": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/dirt/Maps/Height.png",
+          "runtime_name": "T_EnvironmentDioramaDirt_Height",
+          "sha256": "7dcaf0985d87b4d736625726e4afea39b113096398bed2f87b8ed60c1122327b",
+          "width": 1024
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": "DirectX imageU/worldX,imageV/-worldY,Zup; no green flip",
+          "path": "V2/dirt/Maps/Normal.png",
+          "runtime_name": "T_EnvironmentDioramaDirt_Normal",
+          "sha256": "8c5e98d235bdfc6371560f9eeddae542213321de0107a2f23953ae8ee15539ae",
+          "width": 1024
+        },
+        "Roughness": {
+          "bit_depth": 8,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/dirt/Maps/Roughness.png",
+          "runtime_name": "T_EnvironmentDioramaDirt_Roughness",
+          "sha256": "73f1e383ba63d35ba2e98179233fa59657c3b78c445edda00f32c2c54e9ceb4f",
+          "width": 1024
+        }
+      },
+      "masters": {
+        "AO": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/dirt/Masters/AO.exr",
+          "sha256": "8c580811a7363839ceff4de7135bede1b40566dd549720e07391562429342eac"
+        },
+        "BaseColor": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/dirt/Masters/BaseColor.exr",
+          "sha256": "19a748a9455dceadd37a744fa25954b955fc381c2ff1adc2f0a1db87afed076e"
+        },
+        "HeightCm": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/dirt/Masters/HeightCm.exr",
+          "sha256": "f6ba4bbb52f75344620f29e3091bea47d32412c2af5ee8d5f2083b550bdf9d95"
+        },
+        "Roughness": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/dirt/Masters/Roughness.exr",
+          "sha256": "9fc420537c5fe2dc729bee19ad09434faf5c91ec0c081a0d4c2215c26cddc4e6"
+        },
+        "WorldNormal": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/dirt/Masters/WorldNormal.exr",
+          "sha256": "2ebbc5ef3abb7bdee62747dcbaba22b8a673d87b4770bdee6d69de8902e5f06e"
+        }
+      },
+      "mud_wetness_statistics": null,
+      "physical_height_cm": 80,
+      "physical_width_cm": 80,
+      "roughness": "Authoredgrass/flower/mineralresponse; source leafR and soilR, with mud wetness interpolated from actualgroundvertexattribute. No measuredopticalroughness claim.",
+      "seed": 904733,
+      "source_identity_notes": "PolyHaven gravelly_sand scanned foundation (DarioBarresi,CC0), ambientCG LeafSet001 species-unverified photos(approximatePBR,CC0), Granite002A mineralBC(CC0). Grass blades/flowers/placement are authored geometry, not a grass scan. Mud wetness is authored soil deformation/roughness, not a calibrated wet-mud scan."
+    },
+    "grass": {
+      "ao": "Actual Cycles rayAO emission16samples,3.5cmradius, no denoising; not placeholderwhite.",
+      "beauty": {
+        "path": "V2/grass/Proof/Beauty-Lit-Blender.png",
+        "sha256": "733b99c13cc4a153ee6bd913c29ab768362bfed956d236029d8fa76d1c21fe4e"
+      },
+      "blend": {
+        "path": "V2/grass/EnvironmentDioramaGrass.blend",
+        "sha256": "7079da8a4e89b234abef0add7daab81fe603ff97833b12b0b9a606aeacf6cd7c"
+      },
+      "calibration": {
+        "basis": "image-right/world+X,image-up/world+Y; PNG U+X,V-Y; DX=(Nx,-Ny,Nz)*.5+.5. Allmaps identicalorientation; no solitary flips.",
+        "correlation_pixels": 385828,
+        "expected_world_normal": [
+          -0.03987063033659808,
+          -0.06977360308904665,
+          0.9967657584149521
+        ],
+        "known_linear_color": [
+          0.18,
+          0.31,
+          0.47
+        ],
+        "low_slope_noncliff_normal_height_correlations_RG": [
+          0.8515887562372785,
+          0.8241867289419995
+        ],
+        "measured_linear_color": [
+          0.18000000715255737,
+          0.3100000023841858,
+          0.4699999988079071
+        ],
+        "measured_world_normal": [
+          -0.039870619773864746,
+          -0.0697736144065857,
+          0.9967658519744873
+        ]
+      },
+      "counts": {
+        "blades": 6103,
+        "clumps": 550,
+        "flowers": 16,
+        "photo_leaves": 11,
+        "stones": 180
+      },
+      "elapsed_bake_seconds": 9.869019269943237,
+      "height": {
+        "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+        "master_precision": "32bitfloat actual topmostGeometry.Position.Z in centimeters",
+        "not_albedo_derived": true,
+        "range_cm": 5.262450933456421,
+        "z_max_cm": 6.621115684509277,
+        "z_min_cm": 1.3586647510528564
+      },
+      "limits": "Internal source-art review only, not userapproval or UE/POM acceptance. Heightfield records topmostsurfaces; grass/leaves/petals undersides/overhangs lost. No realwatervolume/collision/performance proof.",
+      "look_id": "EnvironmentDioramaGrass",
+      "maps": {
+        "AO": {
+          "bit_depth": 8,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/grass/Maps/AO.png",
+          "runtime_name": "T_EnvironmentDioramaGrass_AO",
+          "sha256": "b7dbf17c0c5b88040bfd543477742c2fab30c0aa12df5b40e0430423b0d3f034",
+          "width": 1024
+        },
+        "BaseColor": {
+          "bit_depth": 8,
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "normal_convention": null,
+          "path": "V2/grass/Maps/BaseColor.png",
+          "runtime_name": "T_EnvironmentDioramaGrass_BaseColor",
+          "sha256": "f8c3d764108ec986f6c0cbb1dbb1ea285dfa0dc4cd0f649d596e73233ab2d82f",
+          "width": 1024
+        },
+        "Height": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/grass/Maps/Height.png",
+          "runtime_name": "T_EnvironmentDioramaGrass_Height",
+          "sha256": "c9dff0751d7225d0f0b401025e64160436686a2d6620322349245f91ab2bad83",
+          "width": 1024
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": "DirectX imageU/worldX,imageV/-worldY,Zup; no green flip",
+          "path": "V2/grass/Maps/Normal.png",
+          "runtime_name": "T_EnvironmentDioramaGrass_Normal",
+          "sha256": "3f55337ef10d85f3a8cc2162962f575f270e2deeb5f9f42936366e210f5ae8f3",
+          "width": 1024
+        },
+        "Roughness": {
+          "bit_depth": 8,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/grass/Maps/Roughness.png",
+          "runtime_name": "T_EnvironmentDioramaGrass_Roughness",
+          "sha256": "11c87eacfb80b37a808ec6674c78dae947177454ea60757aaa50f4b705fc1550",
+          "width": 1024
+        }
+      },
+      "masters": {
+        "AO": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/grass/Masters/AO.exr",
+          "sha256": "e04575288d9dcba45d0d21995c01abd87fb4270b4da93015fb6153d0fdfe771b"
+        },
+        "BaseColor": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/grass/Masters/BaseColor.exr",
+          "sha256": "d03e653fa93f31b5e2d55f2d4ed9428b09ad7f1d476145ee1f34b8e0985707bf"
+        },
+        "HeightCm": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/grass/Masters/HeightCm.exr",
+          "sha256": "b7ee119c2d408de304c53c0f72adc806b58d8d173ec38325dd01a76662fb62c7"
+        },
+        "Roughness": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/grass/Masters/Roughness.exr",
+          "sha256": "9709a4613aad75ca9c44b8dd882db8162b124d113bf66fdde34cb993a717b93b"
+        },
+        "WorldNormal": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/grass/Masters/WorldNormal.exr",
+          "sha256": "221781253cf36ee3b2fcf3283da05fc67d3d997e0a96cbf5b314834a9de36b19"
+        }
+      },
+      "mud_wetness_statistics": null,
+      "physical_height_cm": 80,
+      "physical_width_cm": 80,
+      "roughness": "Authoredgrass/flower/mineralresponse; source leafR and soilR, with mud wetness interpolated from actualgroundvertexattribute. No measuredopticalroughness claim.",
+      "seed": 904731,
+      "source_identity_notes": "PolyHaven gravelly_sand scanned foundation (DarioBarresi,CC0), ambientCG LeafSet001 species-unverified photos(approximatePBR,CC0), Granite002A mineralBC(CC0). Grass blades/flowers/placement are authored geometry, not a grass scan. Mud wetness is authored soil deformation/roughness, not a calibrated wet-mud scan."
+    },
+    "mud": {
+      "ao": "Actual Cycles rayAO emission16samples,3.5cmradius, no denoising; not placeholderwhite.",
+      "beauty": {
+        "path": "V2/mud/Proof/Beauty-Lit-Blender.png",
+        "sha256": "cc5ee93b8fb00ee65dbc0bf58fa18b731ef787b5ca646d1ebe9affefeb0223fa"
+      },
+      "blend": {
+        "path": "V2/mud/EnvironmentDioramaMud.blend",
+        "sha256": "5123fd45b995ae0d3e3fea4c1cdc31c88d7c48fa992c1d667fa184dd204f940f"
+      },
+      "calibration": {
+        "basis": "image-right/world+X,image-up/world+Y; PNG U+X,V-Y; DX=(Nx,-Ny,Nz)*.5+.5. Allmaps identicalorientation; no solitary flips.",
+        "correlation_pixels": 972263,
+        "expected_world_normal": [
+          -0.03987063033659808,
+          -0.06977360308904665,
+          0.9967657584149521
+        ],
+        "known_linear_color": [
+          0.18,
+          0.31,
+          0.47
+        ],
+        "low_slope_noncliff_normal_height_correlations_RG": [
+          0.9417477307038237,
+          0.9326823509646436
+        ],
+        "measured_linear_color": [
+          0.18000000715255737,
+          0.3100000023841858,
+          0.4699999988079071
+        ],
+        "measured_world_normal": [
+          -0.039870619773864746,
+          -0.0697736144065857,
+          0.9967658519744873
+        ]
+      },
+      "counts": {
+        "blades": 161,
+        "clumps": 15,
+        "flowers": 5,
+        "photo_leaves": 19,
+        "stones": 260
+      },
+      "elapsed_bake_seconds": 8.688628673553467,
+      "height": {
+        "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+        "master_precision": "32bitfloat actual topmostGeometry.Position.Z in centimeters",
+        "not_albedo_derived": true,
+        "range_cm": 3.5422712564468384,
+        "z_max_cm": 4.1060709953308105,
+        "z_min_cm": 0.5637997388839722
+      },
+      "limits": "Internal source-art review only, not userapproval or UE/POM acceptance. Heightfield records topmostsurfaces; grass/leaves/petals undersides/overhangs lost. No realwatervolume/collision/performance proof.",
+      "look_id": "EnvironmentDioramaMud",
+      "maps": {
+        "AO": {
+          "bit_depth": 8,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/mud/Maps/AO.png",
+          "runtime_name": "T_EnvironmentDioramaMud_AO",
+          "sha256": "64b0a28bfb19acf63ee9dca831cfe7429f10a3c1e3b5ae85dd63ba5146198619",
+          "width": 1024
+        },
+        "BaseColor": {
+          "bit_depth": 8,
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "normal_convention": null,
+          "path": "V2/mud/Maps/BaseColor.png",
+          "runtime_name": "T_EnvironmentDioramaMud_BaseColor",
+          "sha256": "a08b24196ac6519409b36dfe0a9151f936d45eac80e75300feeee5b44fcd0d60",
+          "width": 1024
+        },
+        "Height": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/mud/Maps/Height.png",
+          "runtime_name": "T_EnvironmentDioramaMud_Height",
+          "sha256": "4997aa635df43932778defe5ec9399bb22c6868bfbb623ed4e7228ff801c328c",
+          "width": 1024
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": "DirectX imageU/worldX,imageV/-worldY,Zup; no green flip",
+          "path": "V2/mud/Maps/Normal.png",
+          "runtime_name": "T_EnvironmentDioramaMud_Normal",
+          "sha256": "36a39f040ba6b36078c978c38b3e64bc06163cdd9e714211be103bfc9650a095",
+          "width": 1024
+        },
+        "Roughness": {
+          "bit_depth": 8,
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Clamp",
+            "address_y": "Clamp",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "normal_convention": null,
+          "path": "V2/mud/Maps/Roughness.png",
+          "runtime_name": "T_EnvironmentDioramaMud_Roughness",
+          "sha256": "c3755992598f00214c8ba5329a3109b671ce649eef49d3089a9e47795abc97a6",
+          "width": 1024
+        }
+      },
+      "masters": {
+        "AO": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/mud/Masters/AO.exr",
+          "sha256": "e969ca48d6ae4d4017bdd8bcf4113af381f213932bd5cfdd642abd0bbad7a3ef"
+        },
+        "BaseColor": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/mud/Masters/BaseColor.exr",
+          "sha256": "9a105f1f732609f22a27abe53c913551814f1768fc180f615a5a6c4aeae2622e"
+        },
+        "HeightCm": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/mud/Masters/HeightCm.exr",
+          "sha256": "944425fd68dc15479ba3f9b9ce81f391cb66031ec3232356f4572654b9326d2f"
+        },
+        "Roughness": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/mud/Masters/Roughness.exr",
+          "sha256": "6c6b9b23ebd7a37105948c43eeb6c30fbdae65baa63d95b4cc58003d52dbc170"
+        },
+        "WorldNormal": {
+          "bit_depth": 32,
+          "color_space": "linear",
+          "path": "V2/mud/Masters/WorldNormal.exr",
+          "sha256": "eae9a87fb1188fbcbb73604580ab6373116dc3a987e160e1f08cd43d1688a9fb"
+        }
+      },
+      "mud_wetness_statistics": {
+        "note": "Includes any visible gravel/leaves/blades overlaying basins; no isolated watervolume or opticalscan claim.",
+        "pool_normal_z_mean": 0.9912754893302917,
+        "pool_pixels": 87982,
+        "pool_roughness_mean": 0.20550157129764557,
+        "rim_pixels": 107792,
+        "rough_rim_normal_z_mean": 0.9836386442184448,
+        "rough_rim_roughness_mean": 0.6589857935905457
+      },
+      "physical_height_cm": 80,
+      "physical_width_cm": 80,
+      "roughness": "Authoredgrass/flower/mineralresponse; source leafR and soilR, with mud wetness interpolated from actualgroundvertexattribute. No measuredopticalroughness claim.",
+      "seed": 904739,
+      "source_identity_notes": "PolyHaven gravelly_sand scanned foundation (DarioBarresi,CC0), ambientCG LeafSet001 species-unverified photos(approximatePBR,CC0), Granite002A mineralBC(CC0). Grass blades/flowers/placement are authored geometry, not a grass scan. Mud wetness is authored soil deformation/roughness, not a calibrated wet-mud scan."
+    }
+  },
+  "provenance_evidence": [
+    {
+      "original_source": "Plugins/CkTests/Resources/CkUsf/Environment1Textures/Manifest.json",
+      "path": "Provenance/0-Manifest.json",
+      "sha256": "d9f79a9995599596c4540ed2180a5d64b8fbee8f677dc38b69fd656d9214297b"
+    },
+    {
+      "original_source": "Plugins/CkTests/Resources/CkUsf/Environment1Textures/License/polyhaven.html",
+      "path": "Provenance/1-polyhaven.html",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623"
+    },
+    {
+      "original_source": "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/Soil4KReceipt.json",
+      "path": "Provenance/2-Soil4KReceipt.json",
+      "sha256": "5eb8d2bf9a97a2a737f25686473f45996d5ec64747f0d96e500176654ee4091b"
+    },
+    {
+      "original_source": "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/Receipt.json",
+      "path": "Provenance/3-Receipt.json",
+      "sha256": "957e26365e83c58943c80e0c00bb54f89b75b35d4fc3c37edbe283d348a1994e"
+    },
+    {
+      "original_source": "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/License.html",
+      "path": "Provenance/4-License.html",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c"
+    },
+    {
+      "original_source": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/Manifest.json",
+      "path": "Provenance/5-Manifest.json",
+      "sha256": "872a79f3d1026de86db4c2421bab9d8361db0f798e380b72fc4c19669af17098"
+    },
+    {
+      "original_source": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/License/ambientcg.html",
+      "path": "Provenance/6-ambientcg.html",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c"
+    },
+    {
+      "original_source": "Plugins/CkTests/Resources/CkUsf/Batch3Textures/License/polyhaven.html",
+      "path": "Provenance/7-polyhaven.html",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623"
+    },
+    {
+      "path": "Provenance/SourceInputHashes.json",
+      "sha256": "77b01e84428b6b0977676d422b0d6f6ba176be736eefa7055b25d2672c31f828"
+    }
+  ],
+  "render_backend": "Blender4.4 CyclesCPU4threads,1024\u00b2; actualgeometry Emission data1sample Raw, noadaptivesampling/no denoise. Beauty16samplesAgX separate. BC alone manuallylinear-to-sRGBencodedPNG8; N/HlinearPNG16, R/AOlinearPNG8.",
+  "schema_version": 1,
+  "selected_source_version": "V2"
+}

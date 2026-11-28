@@ -1,0 +1,22 @@
+{
+  "verified": true,
+  "native_blender": "4.4.3",
+  "sources": {
+    "dirt": {
+      "blend_sha256": "fdd3563ee31d7e85364df2a8c2691244f79b5632e7b10075244d59d4028f0339",
+      "all_file_images_packed": true,
+      "file_images": 7
+    },
+    "grass": {
+      "blend_sha256": "7079da8a4e89b234abef0add7daab81fe603ff97833b12b0b9a606aeacf6cd7c",
+      "all_file_images_packed": true,
+      "file_images": 7
+    },
+    "mud": {
+      "blend_sha256": "5123fd45b995ae0d3e3fea4c1cdc31c88d7c48fa992c1d667fa184dd204f940f",
+      "all_file_images_packed": true,
+      "file_images": 7
+    }
+  },
+  "scope": "Native file load and packing only; no render/Unreal/artistic acceptance"
+}

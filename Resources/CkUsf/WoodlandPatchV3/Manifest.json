@@ -1,0 +1,974 @@
+{
+  "ao": {
+    "provenance": "Actual Cycles ray AO emission,16samples/distance.035m, no denoising; photoalpha gates same ray-visible surfaces.",
+    "radius_cm": 3.5
+  },
+  "beauty": {
+    "label": "Selected native Blender lit source proof; separate from lighting-free BC and UE proof",
+    "path": "Proof/Beauty-Final4K-Lit-Blender.png",
+    "sha256": "31278425f89dd75f483df18079968419bb599568eee1447c9973251184f3e098"
+  },
+  "blend": {
+    "packed_file_images": [
+      {
+        "filepath": "//..\\Environment1Textures\\gravel\\Maps\\BaseColor.png",
+        "name": "BaseColor.png",
+        "packed": true
+      },
+      {
+        "filepath": "D:\\Repos\\CkPlugins_3\\Plugins\\CkTests\\Resources\\CkUsf\\Batch3Textures\\granite\\Maps\\BaseColor.png",
+        "name": "BaseColor.png.001",
+        "packed": true
+      },
+      {
+        "filepath": "D:\\Repos\\CkPlugins_3\\Plugins\\CkTests\\Resources\\CkUsf\\WoodlandSourcesV1\\gravelly_sand_diff_4k.jpg",
+        "name": "gravelly_sand_diff_4k.jpg",
+        "packed": true
+      },
+      {
+        "filepath": "//..\\WoodlandSourcesV1\\LeafSet001_1K-PNG_Color.png",
+        "name": "LeafSet001_1K-PNG_Color.png",
+        "packed": true
+      },
+      {
+        "filepath": "//..\\WoodlandSourcesV1\\LeafSet001_1K-PNG_Displacement.png",
+        "name": "LeafSet001_1K-PNG_Displacement.png",
+        "packed": true
+      },
+      {
+        "filepath": "//..\\WoodlandSourcesV1\\LeafSet001_1K-PNG_Opacity.png",
+        "name": "LeafSet001_1K-PNG_Opacity.png",
+        "packed": true
+      },
+      {
+        "filepath": "//..\\WoodlandSourcesV1\\LeafSet001_1K-PNG_Roughness.png",
+        "name": "LeafSet001_1K-PNG_Roughness.png",
+        "packed": true
+      },
+      {
+        "filepath": "//..\\Environment1Textures\\gravel\\Maps\\Roughness.png",
+        "name": "Roughness.png",
+        "packed": true
+      }
+    ],
+    "path": "WoodlandPatchV3-Final4K-Packed.blend",
+    "sha256": "29cfed830b25da9144e6d3001a903889539677b211f3cc750fd456bebfe090ba"
+  },
+  "blender_version": "4.4.3",
+  "calibration": {
+    "correlation_pixels": 943039,
+    "expected_world_normal": [
+      -0.03987063033659808,
+      -0.06977360308904665,
+      0.9967657584149521
+    ],
+    "known_plane": "z=.05+.04*x+.07*y meters",
+    "linear_color_probe": [
+      0.18,
+      0.31,
+      0.47
+    ],
+    "measured_linear_color": [
+      0.18000000715255737,
+      0.3100000023841858,
+      0.4699999988079071
+    ],
+    "measured_world_normal": [
+      -0.039870619773864746,
+      -0.0697736144065857,
+      0.9967658519744873
+    ],
+    "normal_height_correlation_low_slope_noncliff": {
+      "G_vs_minus_dHdv": 0.8841573785030319,
+      "R_vs_minus_dHdu": 0.9027773711174648
+    }
+  },
+  "composition": "22 curved species-unverified serrated oval photo leaves with varied green/ochre tint; connected embedded gravel,12frond-only mossbanks,shortgrass,7flowerrosettes andtwigs; quietsoil gaps.",
+  "data_orientation": "Orthographic image-right=bake+X,image-up=bake+Y; PNGU+X,V-bakeY; everymap identicalorientation. NormalDX=(Nx,-Ny,Nz)*.5+.5; no green flip.",
+  "elapsed_seconds": 44.43240571022034,
+  "elapsed_seconds_color_upgrade": 19.1373929977417,
+  "generator_sha256": "533a30f6cccfd05fa08279fb4ab66b28213d8b1d4a47103e1fa65004db3d7a18",
+  "generator_snapshot": "Source/author_woodland_patch-selected.py",
+  "generator_source": "Tools/UsfMaterials/author_woodland_patch.py",
+  "height": {
+    "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+    "master": "Masters/HeightCm.exr",
+    "master_precision": "32bitfloat actual topmost Geometry.Position.Z*100 centimeters",
+    "not_albedo_derived": true,
+    "range_cm": 2.4801279306411743,
+    "z_max_cm": 3.6573753356933594,
+    "z_min_cm": 1.177247405052185
+  },
+  "input_blend": {
+    "path": "WoodlandPatchV3.blend",
+    "sha256": "1281b4786d37f2921426d5d3f11ae98452931baf4bd26417305df70590a4dea5"
+  },
+  "limits": "One1Ksourceprototype; uservisual and UnrealPOM acceptance pending. Heightfield stores topmostsurface, not separate leafundersides/overhangs/hiddenlayers. Non-tileable; clamp sampling. Photo leaf species and physical displacement amplitude unverified; authored folds and strength. Source groundscan relativeheight amplitude authored0.9cm.",
+  "look_id": "EnvironmentWoodland",
+  "maps": {
+    "AO": {
+      "bit_depth": 8,
+      "color_space": "linear",
+      "height": 1024,
+      "import_settings": {
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "compression": "TC_Masks",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": false
+      },
+      "normal_convention": null,
+      "path": "Maps/AO.png",
+      "runtime_name": "T_EnvironmentWoodland_AO",
+      "sha256": "c07ca4f968d8feb54076f9f1443e229c4990cf65814bb5bdcdc46228f16c283b",
+      "width": 1024
+    },
+    "BaseColor": {
+      "bit_depth": 8,
+      "color_space": "sRGB",
+      "height": 1024,
+      "import_settings": {
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "compression": "TC_Default",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": true
+      },
+      "normal_convention": null,
+      "path": "Maps/BaseColor-Final4K.png",
+      "runtime_name": "T_EnvironmentWoodland_BaseColor",
+      "sha256": "e7abf3934d61cb2019eeda5be0dcb9b928290ae838a538b0e026fb23224a01b0",
+      "width": 1024
+    },
+    "Height": {
+      "bit_depth": 16,
+      "color_space": "linear",
+      "height": 1024,
+      "import_settings": {
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "compression": "TC_Masks",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": false
+      },
+      "normal_convention": null,
+      "path": "Maps/Height.png",
+      "runtime_name": "T_EnvironmentWoodland_Height",
+      "sha256": "debfe93a402e339976207e127c312c75b1b064ba82c8d4d60df7132afb9f2261",
+      "width": 1024
+    },
+    "Normal": {
+      "bit_depth": 8,
+      "color_space": "linear",
+      "height": 1024,
+      "import_settings": {
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "compression": "TC_Normalmap",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": false
+      },
+      "normal_convention": "DirectX",
+      "path": "Maps/Normal.png",
+      "runtime_name": "T_EnvironmentWoodland_Normal",
+      "sha256": "9a79de644c00829100248c649992ddc8dbbe29ff614a451178b4cf35541f87f9",
+      "width": 1024
+    },
+    "Roughness": {
+      "bit_depth": 8,
+      "color_space": "linear",
+      "height": 1024,
+      "import_settings": {
+        "address_x": "Clamp",
+        "address_y": "Clamp",
+        "compression": "TC_Masks",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": false
+      },
+      "normal_convention": null,
+      "path": "Maps/Roughness.png",
+      "runtime_name": "T_EnvironmentWoodland_Roughness",
+      "sha256": "ff24f93b41cc65529e9366063871c234020688e8211524718ed1d4579eaf5023",
+      "width": 1024
+    }
+  },
+  "masters": {
+    "AO": {
+      "bit_depth": 32,
+      "color_space": "linear",
+      "path": "Masters/AO.exr",
+      "sha256": "df2d3f9582662aae0f56e1e477c4764568bff7458e5bf8e3c97a01fbedcfa07d"
+    },
+    "BaseColor": {
+      "bit_depth": 32,
+      "color_space": "linear",
+      "path": "Masters/BaseColor-Final4K.exr",
+      "sha256": "492ec93b49a33b2e796868a69115d3de270801787fd21672f33ef1db170a5d39"
+    },
+    "HeightCm": {
+      "bit_depth": 32,
+      "color_space": "linear",
+      "path": "Masters/HeightCm.exr",
+      "sha256": "b19403d1f1095bc335e78196874e0ee323a9e27ca1879bad5097fe4e87d515a4"
+    },
+    "Roughness": {
+      "bit_depth": 32,
+      "color_space": "linear",
+      "path": "Masters/Roughness.exr",
+      "sha256": "903164d99fd63b2f83907ef0448a2017c401bdd87671047208e26bd843c0bcb9"
+    },
+    "WorldNormal": {
+      "bit_depth": 32,
+      "color_space": "linear",
+      "path": "Masters/WorldNormal.exr",
+      "sha256": "acf94968b67ec049c754d517f70f51d45aa3a355d0d23c784661c2ddd363f1ae"
+    }
+  },
+  "normal": {
+    "master": "Masters/WorldNormal.exr",
+    "master_precision": "32bitfloat encoded worldspaceGeometry.Normal, including real photo displacement vertices",
+    "normal_convention": "DirectX imageU/worldX,imageV/-worldY,Zup"
+  },
+  "physical_height_cm": 80,
+  "physical_width_cm": 80,
+  "polish": {
+    "bc_upgrade": {
+      "candidate_manifest": "Manifest-1KBC-candidate.json",
+      "no_geometry_change": true,
+      "soil_bc_resolution": 4096,
+      "stone_additional_linear_multiplier": 0.35,
+      "unchanged_map_sha256": {
+        "AO": "c07ca4f968d8feb54076f9f1443e229c4990cf65814bb5bdcdc46228f16c283b",
+        "Height": "debfe93a402e339976207e127c312c75b1b064ba82c8d4d60df7132afb9f2261",
+        "Normal": "9a79de644c00829100248c649992ddc8dbbe29ff614a451178b4cf35541f87f9",
+        "Roughness": "ff24f93b41cc65529e9366063871c234020688e8211524718ed1d4579eaf5023"
+      }
+    },
+    "composition_changes": false,
+    "hidden_base_caps": [
+      "MossCushion0",
+      "MossCushion1",
+      "MossCushion10",
+      "MossCushion11",
+      "MossCushion2",
+      "MossCushion3",
+      "MossCushion4",
+      "MossCushion5",
+      "MossCushion6",
+      "MossCushion7",
+      "MossCushion8",
+      "MossCushion9"
+    ],
+    "stone_mapping_repeat_cm": 20
+  },
+  "prototype_resolution": 1024,
+  "provenance_evidence": [
+    {
+      "path": "Provenance/Soil-Manifest.json",
+      "sha256": "d9f79a9995599596c4540ed2180a5d64b8fbee8f677dc38b69fd656d9214297b"
+    },
+    {
+      "path": "Provenance/Soil-CC0-License.html",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623"
+    },
+    {
+      "path": "Provenance/Leaf-Receipt.json",
+      "sha256": "957e26365e83c58943c80e0c00bb54f89b75b35d4fc3c37edbe283d348a1994e"
+    },
+    {
+      "path": "Provenance/Leaf-CC0-License.html",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c"
+    },
+    {
+      "path": "Provenance/Leaf-Official-API.json",
+      "sha256": "053edb719bf862d3b776ad5ebd9160267a0e12a3d28c8c974ccb94626695c183"
+    },
+    {
+      "path": "Provenance/Granite-Batch3-Manifest.json",
+      "sha256": "872a79f3d1026de86db4c2421bab9d8361db0f798e380b72fc4c19669af17098"
+    },
+    {
+      "path": "Provenance/Granite-License-0.html",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c"
+    },
+    {
+      "path": "Provenance/Granite-License-1.html",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623"
+    },
+    {
+      "path": "Provenance/Soil4KReceipt.json",
+      "sha256": "5eb8d2bf9a97a2a737f25686473f45996d5ec64747f0d96e500176654ee4091b"
+    }
+  ],
+  "render_backend": "Cycles CPU,4threads; data1sample/noadaptive/no denoise/Raw; beauty16samplesAgX separately labeled",
+  "roughness": "Source soil/leaf roughness maps and authored dry stone,moss,grass,flower roughness; uncalibrated, not measured.",
+  "schema_version": 1,
+  "seed": 781204,
+  "source": "Native editable authored geometry with licensed photo texture backing; topmost geometry supplies height and normals. No height inferred from albedo.",
+  "sources": {
+    "leaves": {
+      "receipt": {
+        "api_sha256": "053edb719bf862d3b776ad5ebd9160267a0e12a3d28c8c974ccb94626695c183",
+        "archive_sha256": "2e4cf57d6e54a4c3a01dd52886661bafad29a903a689a4cbc485fef6bff85a26",
+        "archive_url": "https://ambientcg.com/get?file=LeafSet001_1K-PNG.zip",
+        "asset": "LeafSet001",
+        "license": "CC0-1.0",
+        "license_sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+        "license_url": "https://docs.ambientcg.com/license/",
+        "maps": {
+          "LeafSet001.png": "97015b014be79ddf58315550fff2e3ac2219b9b4d4c62be2edf75f7838df8ec7",
+          "LeafSet001_1K-PNG_Color.png": "f7c3990b6152fdf54ee4d0bb445fbb3dfd3458155d11596769ddd8d9e6e08ebf",
+          "LeafSet001_1K-PNG_Displacement.png": "94ab7af6203091645065a9ad125161a7e11d521b194c804737d6240e89099cfa",
+          "LeafSet001_1K-PNG_NormalDX.png": "29913281dc2cbbb4399b819eb6423c304554ebd61289408470608e1912e08d07",
+          "LeafSet001_1K-PNG_NormalGL.png": "943ab15f499d244fc0a66b32b53dd662d447e7093083c6732769afbee0ed6a02",
+          "LeafSet001_1K-PNG_Opacity.png": "c17d5e5cd48b7c3ed43ce010a3f4db89d3178e6364ad15b6f243295ae058bb89",
+          "LeafSet001_1K-PNG_Roughness.png": "60bb863a8818d28f4ecead1f973b245fe1464dd93363ed324a4c6ba6a7fc3b17"
+        },
+        "notes": "Publisher photo atlas with approximate PBR maps; no species or physical calibration inferred.",
+        "source_url": "https://ambientcg.com/a/LeafSet001"
+      },
+      "reuse": {
+        "asset_id": "LeafSet001",
+        "color_transform": "Publisher BC sRGB decoded then varied authored green/ochre multiplicative tint; no geometry inferred from color",
+        "count": 22,
+        "crop_bounds_topdown_pixels": [
+          [
+            40,
+            30,
+            275,
+            475
+          ],
+          [
+            340,
+            135,
+            570,
+            425
+          ],
+          [
+            690,
+            75,
+            925,
+            480
+          ],
+          [
+            45,
+            565,
+            275,
+            965
+          ],
+          [
+            370,
+            550,
+            600,
+            980
+          ],
+          [
+            715,
+            565,
+            935,
+            970
+          ]
+        ],
+        "height": "Actual curved mesh97x49 per leaf plus publisher Displacement sampled into real vertices at authored0.07cm range; source normal NOT substituted",
+        "lengths_cm": [
+          16.0,
+          16.0,
+          16.0,
+          16.0,
+          15.0,
+          16.0,
+          16.0,
+          14.499999999999998,
+          16.0,
+          16.0,
+          16.0,
+          15.0,
+          15.0,
+          16.0,
+          16.0,
+          15.0,
+          16.0,
+          15.0,
+          14.000000000000002,
+          15.0,
+          15.0,
+          14.000000000000002
+        ],
+        "opacity": "Publisher aligned Opacity threshold .5 gates TransparentMix identically for beauty and each data pass",
+        "source_receipt_path": "D:\\Repos\\CkPlugins_3\\Plugins\\CkTests\\Resources\\CkUsf\\WoodlandSourcesV1\\Receipt.json",
+        "source_receipt_sha256": "957e26365e83c58943c80e0c00bb54f89b75b35d4fc3c37edbe283d348a1994e",
+        "species": "Unverified serrated oval photo leaves; not oak/maple",
+        "width_policy": "Source crop aspect multiplied1.10, small authored broadening"
+      }
+    },
+    "soil": {
+      "material": {
+        "asset_id": "gravelly_sand",
+        "author": {
+          "Dario Barresi": "All"
+        },
+        "coverage_cm": {
+          "x": 248.00000190734863,
+          "y": 248.00000190734863
+        },
+        "coverage_note": "Official millimeter dimensions converted to centimeters; original pixel aspect is retained.",
+        "description": "Free 16K texture of gravelly sand: coarse dusty brown surface with compacted soil, fine grit and scattered small stones and debris, rough granular detail.",
+        "files_metadata_path": "Metadata/gravelly_sand_files.json",
+        "files_metadata_sha256": "8ef9b251f4d751566b8eb69b10f56e20df35d0fc2eb5763c11c5577a95c75856",
+        "identity_notes": "Actual gravelly sand/soil with stony coarse grain and aligned source height. No invented gravel noise, vegetation or wet-mud claim. Height is publisher-relative, not calibrated displacement in centimeters.",
+        "license": "CC0-1.0",
+        "look_id": "EnvironmentGravel",
+        "maps": {
+          "AO": {
+            "bit_depth": 16,
+            "bytes": 1969441,
+            "channel_mean": [
+              0.8887862837868498
+            ],
+            "channel_stddev": [
+              0.07597165636288727
+            ],
+            "color_space": "linear",
+            "decoded_dtype": "uint16",
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Masks",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": false
+            },
+            "interior_step_mean": {
+              "x": 0.05000773929762054,
+              "y": 0.049667739369123914
+            },
+            "mode": "I;16",
+            "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+            "normal_convention": null,
+            "path": "gravel/Maps/AO.png",
+            "range": [
+              0.20720225833524072,
+              0.998947127489128
+            ],
+            "runtime_name": "T_EnvironmentGravel_AO",
+            "sha256": "32ad45a635362cd262b75f3b0b0c4e1f6590bea15b979a04173f9a1a6d294817",
+            "source_mode": "I;16",
+            "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_ao_1k.png",
+            "statistics_divisor": 65535.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.04611721968699932,
+              "y": 0.047706214355878546
+            }
+          },
+          "BaseColor": {
+            "bit_depth": 16,
+            "bytes": 5867006,
+            "channel_mean": [
+              0.5719877616985538,
+              0.4333037843926248,
+              0.29819069656542196
+            ],
+            "channel_stddev": [
+              0.06503016993504125,
+              0.0580299813711728,
+              0.05739055918527779
+            ],
+            "color_space": "sRGB",
+            "decoded_dtype": "uint8",
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Default",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": true
+            },
+            "interior_step_mean": {
+              "x": 0.04565424540111743,
+              "y": 0.045605919848389014
+            },
+            "mode": "RGB",
+            "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+            "normal_convention": null,
+            "path": "gravel/Maps/BaseColor.png",
+            "range": [
+              0.011764705882352941,
+              0.8549019607843137
+            ],
+            "runtime_name": "T_EnvironmentGravel_BaseColor",
+            "sha256": "3dd1716e246ca3b652bca30028d27d7f2b201caffacac37fe73bd91064613b00",
+            "source_mode": "RGB",
+            "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_diff_1k.png",
+            "statistics_divisor": 255.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.04211984272875816,
+              "y": 0.046714154411764706
+            }
+          },
+          "Height": {
+            "bit_depth": 16,
+            "bytes": 1694619,
+            "channel_mean": [
+              0.22251268277554276
+            ],
+            "channel_stddev": [
+              0.023146058567208787
+            ],
+            "color_space": "linear",
+            "decoded_dtype": "uint16",
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Masks",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": false
+            },
+            "interior_step_mean": {
+              "x": 0.005814358138188827,
+              "y": 0.005821825263330929
+            },
+            "mode": "I;16",
+            "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+            "normal_convention": null,
+            "path": "gravel/Maps/Height.png",
+            "range": [
+              0.11714351110093843,
+              0.46591897459372855
+            ],
+            "runtime_name": "T_EnvironmentGravel_Height",
+            "sha256": "93805cebcf5e360140ae2583167a6e64102c53dc48ee3ba52997ac3bb1191f52",
+            "source_mode": "I;16",
+            "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_disp_1k.png",
+            "statistics_divisor": 65535.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.0055046474450675216,
+              "y": 0.005335695501449607
+            }
+          },
+          "Normal": {
+            "bit_depth": 16,
+            "bytes": 6086271,
+            "channel_mean": [
+              0.5048788257673561,
+              0.5020110934387195,
+              0.8965503543151605
+            ],
+            "channel_stddev": [
+              0.12106790568802013,
+              0.12169883948553617,
+              0.04519838626726092
+            ],
+            "color_space": "linear",
+            "decoded_dtype": "uint8",
+            "decoded_normal_length_percentiles_1_50_99": [
+              0.6770926381225609,
+              0.8703673982405538,
+              0.9921103608415732
+            ],
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Normalmap",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": false
+            },
+            "interior_step_mean": {
+              "x": 0.08682184002022117,
+              "y": 0.08641284913892244
+            },
+            "mode": "RGB",
+            "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+            "normal_convention": "DirectX tangent space; do not flip green",
+            "path": "gravel/Maps/Normal.png",
+            "range": [
+              0.03529411764705882,
+              1.0
+            ],
+            "runtime_name": "T_EnvironmentGravel_Normal",
+            "sha256": "5e8688ed210d64724f6ee0d6a6217c7e62150df7114d97bb9252bf840b5c8969",
+            "source_mode": "RGB",
+            "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_nor_dx_1k.png",
+            "statistics_divisor": 255.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.08521752450980391,
+              "y": 0.08570516748366012
+            }
+          },
+          "Roughness": {
+            "bit_depth": 16,
+            "bytes": 1717985,
+            "channel_mean": [
+              0.7884664596786961
+            ],
+            "channel_stddev": [
+              0.008487393726901766
+            ],
+            "color_space": "linear",
+            "decoded_dtype": "uint16",
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Masks",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": false
+            },
+            "interior_step_mean": {
+              "x": 0.006751664044325257,
+              "y": 0.006746734350352547
+            },
+            "mode": "I;16",
+            "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+            "normal_convention": null,
+            "path": "gravel/Maps/Roughness.png",
+            "range": [
+              0.7359426260776685,
+              0.8338139925230793
+            ],
+            "runtime_name": "T_EnvironmentGravel_Roughness",
+            "sha256": "bb5a6800475b3f87be09e556d90687c1b8593691ff0bbd071b00e23f43b6ea9c",
+            "source_mode": "I;16",
+            "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_rough_1k.png",
+            "statistics_divisor": 65535.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.00617005405031662,
+              "y": 0.006866425741016249
+            }
+          }
+        },
+        "metadata_path": "Metadata/gravelly_sand_info.json",
+        "metadata_sha256": "ebea314914e73e9a27c0829802b99961a3ef9819827b2f5d0d80097f7e851603",
+        "official_tags": [
+          "sand",
+          "gravel",
+          "stony",
+          "terrain",
+          "ground",
+          "dirt",
+          "coarse",
+          "debris",
+          "dusty"
+        ],
+        "originals": {
+          "AO": {
+            "path": "gravel/Original/gravelly_sand_ao_1k.png",
+            "sha256": "32ad45a635362cd262b75f3b0b0c4e1f6590bea15b979a04173f9a1a6d294817",
+            "upstream_md5": "431217a5827358680af8344d2da1ed17",
+            "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_ao_1k.png"
+          },
+          "BaseColor": {
+            "path": "gravel/Original/gravelly_sand_diff_1k.png",
+            "sha256": "3dd1716e246ca3b652bca30028d27d7f2b201caffacac37fe73bd91064613b00",
+            "upstream_md5": "cb6fa7ad422868ad6ac5c1f078f3e937",
+            "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_diff_1k.png"
+          },
+          "Height": {
+            "path": "gravel/Original/gravelly_sand_disp_1k.png",
+            "sha256": "93805cebcf5e360140ae2583167a6e64102c53dc48ee3ba52997ac3bb1191f52",
+            "upstream_md5": "592e4c98c6d4ccc821547f5fb9e1e11b",
+            "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_disp_1k.png"
+          },
+          "Normal": {
+            "path": "gravel/Original/gravelly_sand_nor_dx_1k.png",
+            "sha256": "5e8688ed210d64724f6ee0d6a6217c7e62150df7114d97bb9252bf840b5c8969",
+            "upstream_md5": "5b4814d062cf7f6fcbbe861eba1e4a39",
+            "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_nor_dx_1k.png"
+          },
+          "Roughness": {
+            "path": "gravel/Original/gravelly_sand_rough_1k.png",
+            "sha256": "bb5a6800475b3f87be09e556d90687c1b8593691ff0bbd071b00e23f43b6ea9c",
+            "upstream_md5": "89825bfcbce5e50f690922e8070fb472",
+            "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_rough_1k.png"
+          }
+        },
+        "provider": "polyhaven",
+        "release_date_unix": 1728345600,
+        "source_url": "https://polyhaven.com/a/gravelly_sand",
+        "transform_provenance": "None; all original publisher1K PNG bytes, aspect and map alignment retained. Native nor_dx, no green inversion."
+      },
+      "reuse": {
+        "asset_id": "gravelly_sand",
+        "author": "Dario Barresi",
+        "color_transform": "sRGB decoded to linear; multiplied by .42 for authored dark woodland soil; no baked shading",
+        "license": "CC0-1.0",
+        "manifest_path": "D:\\Repos\\CkPlugins_3\\Plugins\\CkTests\\Resources\\CkUsf\\Environment1Textures\\Manifest.json",
+        "manifest_sha256": "d9f79a9995599596c4540ed2180a5d64b8fbee8f677dc38b69fd656d9214297b",
+        "mixed_resolution_registration": "Official4Ksame-scan BC retains exact worldUV2.48m; authored .42linear multiply unchanged. Geometry and R remain originalaligned1K, no new height inference.",
+        "normal": "derived from actual rendered displaced mesh; source normal not substituted",
+        "provider": "Poly Haven",
+        "scan_height_geometry_amplitude_cm": 0.9,
+        "source_coverage_m": 2.48
+      },
+      "selected_bc_4k": {
+        "file": {
+          "md5": "56d8d8ab93b40651f9ccab7c52b01582",
+          "path": "gravelly_sand_diff_4k.jpg",
+          "sha256": "c5a505ca4e00ae72378cbcfc56d07d521d32b5292d3f8db8e51256784c13913e",
+          "size": 17471864,
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/gravelly_sand/gravelly_sand_diff_4k.jpg"
+        },
+        "license": "CC0-1.0",
+        "license_receipt": "Plugins/CkTests/Resources/CkUsf/Environment1Textures/Manifest.json",
+        "metadata_sha256": "8ef9b251f4d751566b8eb69b10f56e20df35d0fc2eb5763c11c5577a95c75856",
+        "note": "Higher-resolution same-scan BC only, registered to retained 1K height/roughness; original4K JPEG bytes.",
+        "source_url": "https://polyhaven.com/a/gravelly_sand"
+      }
+    },
+    "stones": {
+      "material": {
+        "archive": {
+          "bytes": 12984811,
+          "path": "Candidates/Granite002A_1K-PNG.zip",
+          "sha256": "fa92393df0f250c6e54501b77ecd5a54f8ce2ac2b517130c3808e77829783a11",
+          "url": "https://ambientcg.com/get?file=Granite002A_1K-PNG.zip"
+        },
+        "asset_id": "Granite002A",
+        "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+        "author_source": "https://docs.ambientcg.com/legal/",
+        "coverage_cm": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "coverage_note": "Zero means not specified by publisher; no inferred physical scale.",
+        "creation_method": "PBRProcedural",
+        "identity_notes": "Actual intact countertop granite source with aligned mineral color and surface response.",
+        "license": "CC0-1.0",
+        "look_id": "LibraryGranite",
+        "maps": {
+          "BaseColor": {
+            "archive_member": "Granite002A_1K-PNG_Color.png",
+            "bit_depth": 8,
+            "bytes": 2429656,
+            "channel_mean": [
+              0.7084862727748792,
+              0.6938982907458215,
+              0.6782841102735001
+            ],
+            "channel_stddev": [
+              0.1530598922232562,
+              0.149722730630957,
+              0.14533356407683168
+            ],
+            "color_space": "sRGB",
+            "decoded_dtype": "uint8",
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Default",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": true
+            },
+            "interior_step_mean": {
+              "x": 0.06778564897672168,
+              "y": 0.06911245599575772
+            },
+            "mode": "RGB",
+            "modifications": "None; byte-identical publisher PNG",
+            "normal_convention": null,
+            "path": "granite/Maps/BaseColor.png",
+            "range": [
+              0.043137254901960784,
+              1.0
+            ],
+            "runtime_name": "T_LibraryGranite_BaseColor",
+            "sha256": "9a19b1b9f1ce6bfbcaa59a3ec6e821704fc8646987dc0b0c31da5838c18e5f15",
+            "source_mode": "RGB",
+            "statistics_divisor": 255.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.07791436887254903,
+              "y": 0.07599571078431373
+            }
+          },
+          "Height": {
+            "archive_member": "Granite002A_1K-PNG_Displacement.png",
+            "bit_depth": 16,
+            "bytes": 1461897,
+            "channel_mean": [
+              0.49991915766776474
+            ],
+            "channel_stddev": [
+              0.0027096970580003017
+            ],
+            "color_space": "linear",
+            "decoded_dtype": "uint16",
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Masks",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": false
+            },
+            "interior_step_mean": {
+              "x": 0.001323860234244067,
+              "y": 0.0013207224358886107
+            },
+            "mode": "I;16",
+            "modifications": "None; byte-identical publisher PNG",
+            "normal_convention": null,
+            "path": "granite/Maps/Height.png",
+            "range": [
+              0.48082703898680096,
+              0.5073777370870527
+            ],
+            "runtime_name": "T_LibraryGranite_Height",
+            "sha256": "109d5af07c80e5a9ad623691d300305643fe8113d27e0032dd4e51d90e4280ba",
+            "source_mode": "I;16",
+            "statistics_divisor": 65535.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.00202889856088349,
+              "y": 0.001837415717746236
+            }
+          },
+          "Normal": {
+            "archive_member": "Granite002A_1K-PNG_NormalDX.png",
+            "bit_depth": 16,
+            "bytes": 3554941,
+            "channel_mean": [
+              0.4999957626941166,
+              0.49999616660323865,
+              1.0
+            ],
+            "channel_stddev": [
+              0.001969027585025907,
+              0.001968611253676005,
+              0.0
+            ],
+            "color_space": "linear",
+            "decoded_dtype": "uint8",
+            "decoded_normal_length_percentiles_1_50_99": [
+              1.0000153785822494,
+              1.0000153785822494,
+              1.0000153785822494
+            ],
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Normalmap",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": false
+            },
+            "interior_step_mean": {
+              "x": 0.001121388168129744,
+              "y": 0.0011237728127256076
+            },
+            "mode": "RGB",
+            "modifications": "None; byte-identical publisher PNG",
+            "normal_convention": "DirectX tangent space; do not flip green",
+            "path": "granite/Maps/Normal.png",
+            "range": [
+              0.49019607843137253,
+              1.0
+            ],
+            "runtime_name": "T_LibraryGranite_Normal",
+            "sha256": "b65de69bca7fdfae5a80c0436f9b4c8dd0752937d203a623b2e42531171ec7ba",
+            "source_mode": "RGB",
+            "statistics_divisor": 255.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.0011705984477124141,
+              "y": 0.0011769812091503226
+            }
+          },
+          "Roughness": {
+            "archive_member": "Granite002A_1K-PNG_Roughness.png",
+            "bit_depth": 8,
+            "bytes": 445847,
+            "channel_mean": [
+              0.022737125321930528
+            ],
+            "channel_stddev": [
+              0.022532212059660994
+            ],
+            "color_space": "linear",
+            "decoded_dtype": "uint8",
+            "height": 1024,
+            "import_settings": {
+              "address_x": "Wrap",
+              "address_y": "Wrap",
+              "compression": "TC_Masks",
+              "flip_green_channel": false,
+              "mips": "TMGS_SimpleAverage",
+              "npot_note": null,
+              "sRGB": false
+            },
+            "interior_step_mean": {
+              "x": 0.008662320698685142,
+              "y": 0.008620673648247179
+            },
+            "mode": "L",
+            "modifications": "None; byte-identical publisher PNG",
+            "normal_convention": null,
+            "path": "granite/Maps/Roughness.png",
+            "range": [
+              0.0,
+              0.2
+            ],
+            "runtime_name": "T_LibraryGranite_Roughness",
+            "sha256": "91a6626bd8b9b51b9ed0ecdf5ac55a561554d24f1b78e8e72c8f4e97bfa7f10c",
+            "source_mode": "L",
+            "statistics_divisor": 255.0,
+            "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+            "width": 1024,
+            "wrap_step_mean": {
+              "x": 0.014518229166666665,
+              "y": 0.01330422794117647
+            }
+          }
+        },
+        "metadata_path": "Metadata/Granite002A.json",
+        "metadata_sha256": "f830c7e95f78215fe3d63ec07018cdf8bcd3bb7a0cf2f8b933cd4236367c5358",
+        "official_tags": [
+          "2",
+          "countertop",
+          "granite"
+        ],
+        "provider": "ambientcg",
+        "release_date": "2022-12-29 19:00:00",
+        "source_url": "https://ambientcg.com/a/Granite002A"
+      },
+      "reuse": "Only licensed Granite002A BC via world-position box mapping at authored20cm repeat, grayscale then linearRGB tint(.245,.2555,.2415). Additional .35linear darkening approved; authored dryroughness unchanged. Source scale unverified."
+    }
+  }
+}

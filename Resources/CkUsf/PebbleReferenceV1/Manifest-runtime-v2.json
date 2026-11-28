@@ -1,0 +1,438 @@
+{
+  "comparison": "Candidate actual1Kcolor+height maps retained. Selected2Koriginals and canonical byte-identical maps retained. No previous Environment2 or Woodland bytes changed.",
+  "generator_sha256": "a3a2b1a917e8fdcb19ff02a654d0175bfc17d256f6c366e3f55f0e8356fe1d6d",
+  "generator_source": "Tools/UsfMaterials/source_pebble_reference.py",
+  "height_contract": "Original aligned linear16-bit publisher-relative displacement. Increasing values mean higher relief. Physical centimeter amplitude/zero plane are authored separately; no derived height from BC and no geometry/POM acceptance claim.",
+  "licenses": [
+    {
+      "path": "License/polyhaven.html",
+      "provider": "polyhaven",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623",
+      "spdx": "CC0-1.0",
+      "url": "https://polyhaven.com/license"
+    }
+  ],
+  "maps_root": "Plugins/CkTests/Resources/CkUsf/PebbleReferenceV1",
+  "materials": {
+    "pebbles": {
+      "asset_id": "ganges_river_pebbles",
+      "author": {
+        "Amal Kumar": "All"
+      },
+      "author_method_evidence": {
+        "title": "Ganges River Pebbles - Free Photoscanned Material",
+        "url": "https://amalbubble.artstation.com/projects/PXg36L",
+        "verified_statement": "Author identifies it as a photoscanned material made for Poly Haven; lists CanonM6MarkII/EF-M28mm/GodoxAR400 capture hardware."
+      },
+      "coverage_cm": {
+        "x": 215.99998474121094,
+        "y": 215.99998474121094
+      },
+      "coverage_note": "Official dimensions in millimeters converted to cm. This defines source XY coverage, not calibrated displacement amplitude.",
+      "description": "Free 16K texture of Ganges river pebbles: rough, uneven mix of rounded stones and grit, multicolored stony surface with varied shapes and subtle damp sheen.",
+      "identity_notes": "Actual mixed river-pebble photogrammetric ground source; evaluated against rounded dense mixed-size reference. Source selection is not UE/POM or visual acceptance.",
+      "license": "CC0-1.0",
+      "look_id": "EnvironmentRiverPebbles",
+      "maps": {
+        "AO": {
+          "bit_depth": 16,
+          "bytes": 6159073,
+          "channel_mean": [
+            0.7492630565867705
+          ],
+          "channel_stddev": [
+            0.1731084511548043
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 2048,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.028242898359567555,
+            "y": 0.02867291214829194
+          },
+          "mode": "I;16",
+          "modifications": "None; original aligned publisher2K PNG bytes; no new grain, height remapping or resampling.",
+          "normal_convention": null,
+          "path": "pebbles/Maps/AO.png",
+          "range": [
+            0.03759822995345998,
+            0.9997558556496529
+          ],
+          "runtime_name": "T_EnvironmentRiverPebbles_AO",
+          "sha256": "a7a2a2026e8177c1e3ae9d25125a9a6aa564efef3a91766bd7a71094bee6dcff",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_ao_2k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 2048,
+          "wrap_step_mean": {
+            "x": 0.029001365563248643,
+            "y": 0.026991600385290304
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 8,
+          "bytes": 7659106,
+          "channel_mean": [
+            0.4995212078040885,
+            0.4594312003913196,
+            0.41215900999624283
+          ],
+          "channel_stddev": [
+            0.12912569803565738,
+            0.12395631640986236,
+            0.11473489316465761
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 2048,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.024210035519459373,
+            "y": 0.024358159550102815
+          },
+          "mode": "RGB",
+          "modifications": "Exact16bitPNG unfilter then encodedRGB8=round(encodedRGB16/257); opaquealpha dropped. No gamma transform, color grade, resampling or spatial changes.",
+          "normal_convention": null,
+          "path": "pebbles/RuntimeV2/BaseColor.png",
+          "range": [
+            0.10588235294117647,
+            0.9215686274509803
+          ],
+          "runtime_name": "T_EnvironmentRiverPebblesBC8_BaseColor",
+          "sha256": "feb3dae165b62e48f97b26de306606ed012a3d2c9f9169cc4f13918d34f694e7",
+          "source_mode": "RGB",
+          "source_sha256": "5728a9eb68b6ec18ef02ccb9eb8793a529f952a3aba3a13a936cfe3c4aa2f937",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_diff_2k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 2048,
+          "wrap_step_mean": {
+            "x": 0.025037020016339867,
+            "y": 0.02402279922385621
+          }
+        },
+        "Height": {
+          "bit_depth": 16,
+          "bytes": 6458113,
+          "channel_mean": [
+            0.4834718460329812
+          ],
+          "channel_stddev": [
+            0.1336270480164626
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 2048,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.00538327272330753,
+            "y": 0.005473436046288377
+          },
+          "mode": "I;16",
+          "modifications": "None; original aligned publisher2K PNG bytes; no new grain, height remapping or resampling.",
+          "normal_convention": null,
+          "path": "pebbles/Maps/Height.png",
+          "range": [
+            0.000976577401388571,
+            0.9996643015182727
+          ],
+          "runtime_name": "T_EnvironmentRiverPebbles_Height",
+          "sha256": "fdbb9d22cf6eaa573598c28b08a90d25a43cf23d363192a29a5fa91fd7a3fe1e",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_disp_2k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 2048,
+          "wrap_step_mean": {
+            "x": 0.006011339360646982,
+            "y": 0.00554486629282063
+          }
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "bytes": 26927421,
+          "channel_mean": [
+            0.49540620878525754,
+            0.5004008769999535,
+            0.8849928294619714,
+            1.0
+          ],
+          "channel_stddev": [
+            0.195326448030427,
+            0.19637366644883003,
+            0.09035420389898406,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.7030334667448782,
+            0.9840168289055814,
+            1.0047407809524211
+          ],
+          "height": 2048,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.03586868006526469,
+            "y": 0.036144630742502175
+          },
+          "mode": "RGBA",
+          "modifications": "None; original aligned publisher2K PNG bytes; no new grain, height remapping or resampling.",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "pebbles/Maps/Normal.png",
+          "range": [
+            0.0,
+            1.0
+          ],
+          "runtime_name": "T_EnvironmentRiverPebbles_Normal",
+          "sha256": "a7ae52ef633fc7c093934520b0570d40412b4a05c441d5864729848394357460",
+          "source_mode": "RGBA",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_nor_dx_2k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 2048,
+          "wrap_step_mean": {
+            "x": 0.035611500459558826,
+            "y": 0.03578527113970588
+          }
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "bytes": 6997520,
+          "channel_mean": [
+            0.8083969618332436
+          ],
+          "channel_stddev": [
+            0.04670083272208984
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 2048,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.008857557944623819,
+            "y": 0.009008941777164124
+          },
+          "mode": "I;16",
+          "modifications": "None; original aligned publisher2K PNG bytes; no new grain, height remapping or resampling.",
+          "normal_convention": null,
+          "path": "pebbles/Maps/Roughness.png",
+          "range": [
+            0.5870908674753949,
+            0.977080949111162
+          ],
+          "runtime_name": "T_EnvironmentRiverPebbles_Roughness",
+          "sha256": "8d1067690650150df15eba73e0a9e8fd6e0cef7a463d1bca9bb7827f4e637727",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_rough_2k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 2048,
+          "wrap_step_mean": {
+            "x": 0.009077970621614403,
+            "y": 0.008310504406042574
+          }
+        }
+      },
+      "normal_height_fit": {
+        "R_G_correlations": [
+          0.9760156379410561,
+          0.9757846438181262
+        ],
+        "fit_pixels": 1574373,
+        "height_percentiles": {
+          "0": 0.000976577401388571,
+          "1": 0.23378347447928588,
+          "100": 0.9996643015182727,
+          "25": 0.38916609445334555,
+          "5": 0.3022507057297627,
+          "50": 0.4614633401998932,
+          "75": 0.5609521629663539,
+          "95": 0.7345540550850691,
+          "99": 0.8734264133669032
+        },
+        "height_std": 0.1336270480164626,
+        "limit": "Normal-consistency estimate, not physical or optical calibration. Source microsurface/finite differences/filtering differ. Runtime5-6cm is authored; renderedPOM/displacement remains unverified.",
+        "median_slope_residual": 0.058899181893768804,
+        "method": "Through-zero joint leastsquares N.xy/N.z against negative centralHgradient pernormalizedUV, Nz>.85, gradientnorm2 between.03and2000,3pxborderexcluded;4passes3MADresidualtrimming. Normal decodedPillowRGB8; originalRGB16 bytes remain untouched.",
+        "relative_height_to_width_fit": 0.0686058030354731,
+        "suggested_full_height_amplitude_at80cm_cm": 5.488464242837848
+      },
+      "official_tags": [
+        "rough",
+        "uneven",
+        "rock",
+        "pebbles",
+        "pebble",
+        "scattered pebbles",
+        "scattered",
+        "river",
+        "pebbly",
+        "rocky",
+        "bumpy"
+      ],
+      "originals": {
+        "AO": {
+          "bytes": 6159073,
+          "path": "pebbles/Original/ganges_river_pebbles_ao_2k.png",
+          "sha256": "a7a2a2026e8177c1e3ae9d25125a9a6aa564efef3a91766bd7a71094bee6dcff",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_ao_2k.png",
+          "upstream_md5": "dd2f433118be0121ed4039f29f36977b"
+        },
+        "BaseColor": {
+          "bytes": 25719715,
+          "path": "pebbles/Original/ganges_river_pebbles_diff_2k.png",
+          "sha256": "5728a9eb68b6ec18ef02ccb9eb8793a529f952a3aba3a13a936cfe3c4aa2f937",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_diff_2k.png",
+          "upstream_md5": "78cc54886f4747ec257d1ca67bdb0538"
+        },
+        "Height": {
+          "bytes": 6458113,
+          "path": "pebbles/Original/ganges_river_pebbles_disp_2k.png",
+          "sha256": "fdbb9d22cf6eaa573598c28b08a90d25a43cf23d363192a29a5fa91fd7a3fe1e",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_disp_2k.png",
+          "upstream_md5": "157023381e0f0ec98d404cb9a789e46d"
+        },
+        "Normal": {
+          "bytes": 26927421,
+          "path": "pebbles/Original/ganges_river_pebbles_nor_dx_2k.png",
+          "sha256": "a7ae52ef633fc7c093934520b0570d40412b4a05c441d5864729848394357460",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_nor_dx_2k.png",
+          "upstream_md5": "4f663a7752d5838582fa236a521002fd"
+        },
+        "Roughness": {
+          "bytes": 6997520,
+          "path": "pebbles/Original/ganges_river_pebbles_rough_2k.png",
+          "sha256": "8d1067690650150df15eba73e0a9e8fd6e0cef7a463d1bca9bb7827f4e637727",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/ganges_river_pebbles/ganges_river_pebbles_rough_2k.png",
+          "upstream_md5": "39a078701543505e0b4ee82a7c036754"
+        }
+      },
+      "presentation_contract": {
+        "note": "Authored scaled-down presentation of complete216cm scan at80cm; original sourcebytes and XYmetadata unchanged. Relief default5-6cm authored, not measured.",
+        "runtime_height_cm": 80,
+        "runtime_width_cm": 80,
+        "uv_tiling": 1
+      },
+      "provider": "polyhaven",
+      "source_url": "https://polyhaven.com/a/ganges_river_pebbles"
+    }
+  },
+  "metadata": {
+    "clean_pebbles": {
+      "files": {
+        "path": "Metadata/clean_pebbles_files.json",
+        "sha256": "799d3d27d53c79a776db328d0a570ed3715e28bbed9753d6a11e30e61d0fbaad"
+      },
+      "info": {
+        "path": "Metadata/clean_pebbles_info.json",
+        "sha256": "7a5c0aa82536a9c95b6d9b628085716f028bf0645f9ed3336baa301e103fcc7f"
+      }
+    },
+    "dry_river_pebbles": {
+      "files": {
+        "path": "Metadata/dry_river_pebbles_files.json",
+        "sha256": "90cc08e2d6aff5efbfa8c77e4e30614df87ce630b13aefc2a492782048055da7"
+      },
+      "info": {
+        "path": "Metadata/dry_river_pebbles_info.json",
+        "sha256": "966640c172c92d46fe648bd731fc7aee21a00d78f04e345f84d6dd3a042eb8e7"
+      }
+    },
+    "ganges_river_pebbles": {
+      "files": {
+        "path": "Metadata/ganges_river_pebbles_files.json",
+        "sha256": "baeb49f41ff789bc4391d95739238ca114ef1d8d1e6d1977c12969847cfecb38"
+      },
+      "info": {
+        "path": "Metadata/ganges_river_pebbles_info.json",
+        "sha256": "d2c9e77b91b2130499ae5e2ade9e6ceab0b65196fb86e6f49cc7560e4c952b94"
+      }
+    }
+  },
+  "required_helper": "Tools/UsfMaterials/source_batch2_textures.py",
+  "required_helper_sha256": "f279cceb7551d5a0638e62b1ebc8eeb54c35db360e04cea26b1da01644a4ad0c",
+  "retrieved_utc": "2026-10-20T01:34:04.402231+00:00",
+  "runtime_color_derivation": {
+    "gamma_transform": false,
+    "intent": "Isolated nativeimport A/B candidate addressing16bit-vs8bit source decode; no Unrealacceptance or causalfix claim.",
+    "max_encoded_error": 0.001953154802777246,
+    "mean_encoded_error": 0.0009806221339895465,
+    "original_opaque_alpha": true,
+    "quantization": "q8=floor((q16+128)/257), normalizedencodederror<=0.5/255",
+    "recipe_sha256": "800d26f3ddee487b7612c0b6a65b8758cc98c918786556599ba2a06cc7d4506c",
+    "recipe_source": "Tools/UsfMaterials/derive_pebble_runtime_color.py",
+    "resize": false,
+    "retained_color_chunks": {
+      "gAMA": "0000b18f",
+      "sRGB": "03"
+    },
+    "runtime_bit_depth": 8,
+    "runtime_name": "T_EnvironmentRiverPebblesBC8_BaseColor",
+    "source_bit_depth": 16,
+    "source_channels": 4,
+    "source_encoded_RGB_mean": [
+      0.49952074825488607,
+      0.4594315959438616,
+      0.41215886174990063
+    ],
+    "source_path": "pebbles/Maps/BaseColor.png",
+    "source_sha256": "5728a9eb68b6ec18ef02ccb9eb8793a529f952a3aba3a13a936cfe3c4aa2f937"
+  },
+  "schema_version": 1,
+  "selection_review": {
+    "alternatives": "dry_river_pebbles moreangularandbrownuniform; clean_pebbles muchsmaller/moreuniform stones. Actualcolor/heightcomparisons retained.",
+    "best_reason": "ActualsourceBC showsdense roundedmixedsizegray/cream/russet/purplestones; alignedheight showsindividualroundedcaps/deepgaps, closestactualmapmatchtoreference.",
+    "strongest_counterargument": "Someangularstones/finegritremain; sourceheight lacksphysicalcmcalibration and sourcealone cannotprove deep reference-likePOM."
+  },
+  "source_bytes_selected": 72261842,
+  "source_manifest": {
+    "generator_sha256": "a3a2b1a917e8fdcb19ff02a654d0175bfc17d256f6c366e3f55f0e8356fe1d6d",
+    "generator_source": "Tools/UsfMaterials/source_pebble_reference.py",
+    "path": "Manifest.json",
+    "sha256": "8ab3c61c683cfcdfdc3e4d6d5d5bb5ab38e522d69bffe856555187e81c843cca"
+  },
+  "verification_scope": "OfficialCC0/metadata snapshots, publisherMD5/size and SHA256, aligneddimensions/normalDX, source map inspection; no import or native render."
+}

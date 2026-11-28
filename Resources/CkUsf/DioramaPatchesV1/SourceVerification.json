@@ -1,0 +1,223 @@
+{
+  "verified": true,
+  "scope": "Native source/map integrity and calibration, not userart or Unreal/runtimeacceptance",
+  "manifest_sha256": "8306fed6c88cc1f230707261fde8e151acd7a51afe30792031bad279df9a7e51",
+  "generator_sha256": "db31e99e40b557a59e16c46a77e122d6fcb3c4a4a8189fe3e4aab856c0c9a4b0",
+  "materials": {
+    "grass": {
+      "maps": {
+        "AO": {
+          "sha256": "b7dbf17c0c5b88040bfd543477742c2fab30c0aa12df5b40e0430423b0d3f034",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 17,
+          "min": 0,
+          "max": 255
+        },
+        "BaseColor": {
+          "sha256": "f8c3d764108ec986f6c0cbb1dbb1ea285dfa0dc4cd0f649d596e73233ab2d82f",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 154,
+          "min": 1,
+          "max": 209
+        },
+        "Height": {
+          "sha256": "c9dff0751d7225d0f0b401025e64160436686a2d6620322349245f91ab2bad83",
+          "bit_depth": 16,
+          "decoded_dtype": "uint16",
+          "unique_values": 57172,
+          "min": 0,
+          "max": 65535
+        },
+        "Normal": {
+          "sha256": "3f55337ef10d85f3a8cc2162962f575f270e2deeb5f9f42936366e210f5ae8f3",
+          "bit_depth": 16,
+          "decoded_dtype": "uint16",
+          "unique_values": 64406,
+          "min": 147,
+          "max": 65535
+        },
+        "Roughness": {
+          "sha256": "11c87eacfb80b37a808ec6674c78dae947177454ea60757aaa50f4b705fc1550",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 83,
+          "min": 123,
+          "max": 235
+        }
+      },
+      "height": {
+        "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+        "master_precision": "32bitfloat actual topmostGeometry.Position.Z in centimeters",
+        "not_albedo_derived": true,
+        "range_cm": 5.262450933456421,
+        "z_max_cm": 6.621115684509277,
+        "z_min_cm": 1.3586647510528564
+      },
+      "normal_height_correlations_RG": [
+        0.8515408583861624,
+        0.8241824050787216
+      ],
+      "calibrated_normalDX": [
+        -0.03987182421606772,
+        0.06977950713359271,
+        0.9967650873579004
+      ],
+      "calibrated_BC8_RGB": [
+        118.0,
+        151.0,
+        182.0
+      ],
+      "masters_verified": 5,
+      "mud_wetness_statistics": null
+    },
+    "dirt": {
+      "maps": {
+        "AO": {
+          "sha256": "08119c4e43377ce1a53f33cef2c9a6a0c84fc5adb498d3e3fc0dbc16685f317b",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 17,
+          "min": 0,
+          "max": 255
+        },
+        "BaseColor": {
+          "sha256": "605175e13925af3db63ccbf2c3638e64481e4261a4f86fc4ffb4adc9bff74347",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 162,
+          "min": 1,
+          "max": 209
+        },
+        "Height": {
+          "sha256": "7dcaf0985d87b4d736625726e4afea39b113096398bed2f87b8ed60c1122327b",
+          "bit_depth": 16,
+          "decoded_dtype": "uint16",
+          "unique_values": 50492,
+          "min": 0,
+          "max": 65535
+        },
+        "Normal": {
+          "sha256": "8c5e98d235bdfc6371560f9eeddae542213321de0107a2f23953ae8ee15539ae",
+          "bit_depth": 16,
+          "decoded_dtype": "uint16",
+          "unique_values": 61118,
+          "min": 252,
+          "max": 65535
+        },
+        "Roughness": {
+          "sha256": "73f1e383ba63d35ba2e98179233fa59657c3b78c445edda00f32c2c54e9ceb4f",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 91,
+          "min": 121,
+          "max": 235
+        }
+      },
+      "height": {
+        "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+        "master_precision": "32bitfloat actual topmostGeometry.Position.Z in centimeters",
+        "not_albedo_derived": true,
+        "range_cm": 2.8766430616378784,
+        "z_max_cm": 4.240128040313721,
+        "z_min_cm": 1.3634849786758423
+      },
+      "normal_height_correlations_RG": [
+        0.9145719701977715,
+        0.8903782951942139
+      ],
+      "calibrated_normalDX": [
+        -0.03987182421606772,
+        0.06977950713359271,
+        0.9967650873579004
+      ],
+      "calibrated_BC8_RGB": [
+        118.0,
+        151.0,
+        182.0
+      ],
+      "masters_verified": 5,
+      "mud_wetness_statistics": null
+    },
+    "mud": {
+      "maps": {
+        "AO": {
+          "sha256": "64b0a28bfb19acf63ee9dca831cfe7429f10a3c1e3b5ae85dd63ba5146198619",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 17,
+          "min": 0,
+          "max": 255
+        },
+        "BaseColor": {
+          "sha256": "a08b24196ac6519409b36dfe0a9151f936d45eac80e75300feeee5b44fcd0d60",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 159,
+          "min": 0,
+          "max": 209
+        },
+        "Height": {
+          "sha256": "4997aa635df43932778defe5ec9399bb22c6868bfbb623ed4e7228ff801c328c",
+          "bit_depth": 16,
+          "decoded_dtype": "uint16",
+          "unique_values": 45598,
+          "min": 0,
+          "max": 65535
+        },
+        "Normal": {
+          "sha256": "36a39f040ba6b36078c978c38b3e64bc06163cdd9e714211be103bfc9650a095",
+          "bit_depth": 16,
+          "decoded_dtype": "uint16",
+          "unique_values": 54627,
+          "min": 393,
+          "max": 65535
+        },
+        "Roughness": {
+          "sha256": "c3755992598f00214c8ba5329a3109b671ce649eef49d3089a9e47795abc97a6",
+          "bit_depth": 8,
+          "decoded_dtype": "uint8",
+          "unique_values": 186,
+          "min": 26,
+          "max": 235
+        }
+      },
+      "height": {
+        "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+        "master_precision": "32bitfloat actual topmostGeometry.Position.Z in centimeters",
+        "not_albedo_derived": true,
+        "range_cm": 3.5422712564468384,
+        "z_max_cm": 4.1060709953308105,
+        "z_min_cm": 0.5637997388839722
+      },
+      "normal_height_correlations_RG": [
+        0.9417973288602026,
+        0.932698702127266
+      ],
+      "calibrated_normalDX": [
+        -0.03987182421606772,
+        0.06977950713359271,
+        0.9967650873579004
+      ],
+      "calibrated_BC8_RGB": [
+        118.0,
+        151.0,
+        182.0
+      ],
+      "masters_verified": 5,
+      "mud_wetness_statistics": {
+        "note": "Includes any visible gravel/leaves/blades overlaying basins; no isolated watervolume or opticalscan claim.",
+        "pool_normal_z_mean": 0.9912754893302917,
+        "pool_pixels": 87982,
+        "pool_roughness_mean": 0.20550157129764557,
+        "rim_pixels": 107792,
+        "rough_rim_normal_z_mean": 0.9836386442184448,
+        "rough_rim_roughness_mean": 0.6589857935905457
+      }
+    }
+  },
+  "total_runtime_maps": 15,
+  "total_EXR_masters": 15,
+  "provenance_records_verified": 9
+}

@@ -1,0 +1,40 @@
+{
+  "generator": "CkUsf.EnvironmentGrid.v4",
+  "obj_file": "SM_UsfGroundGrid_v4.obj",
+  "mtl_file": "SM_UsfGroundGrid_v4.mtl",
+  "mtl_sha256": "33e53aa28e4081078037009b4a00e22d5dd56121d1828a1c26c011d2b2bea701",
+  "sha256": "31fdb8952d334c3a215ea74b1a4e7bd564923728af236638d722703c188a8dd9",
+  "cells": [
+    256,
+    256
+  ],
+  "top_vertices": 66049,
+  "vertices": 66057,
+  "top_triangles": 131072,
+  "triangles": 131082,
+  "width_cm": 230.0,
+  "local_bounds": [
+    [
+      -115,
+      -115,
+      -16
+    ],
+    [
+      115,
+      115,
+      0
+    ]
+  ],
+  "slab_top_cm": -12.5,
+  "slab_bottom_cm": -16,
+  "height_mip": 2,
+  "maximum_relief_cm": 12,
+  "import_axes": "KEEP_XYZ_AXES",
+  "import_scale": 1,
+  "runtime_uv_basis": "U=+localX,V=+localY; importer negates positionY and maps UV V to 1-sourceV",
+  "slots": [
+    "Specimen",
+    "CoreBase"
+  ],
+  "nanite": false
+}

@@ -1,0 +1,70 @@
+{
+  "verified": true,
+  "scope": "Native Blender source/data integrity and decode checks only; user art and UE/POM acceptance pending",
+  "manifest_sha256": "f5802f8e3649e0dd58d708f38f9a04d7d3b672b248816bd9b6a73e448b1c9617",
+  "generator_sha256": "533a30f6cccfd05fa08279fb4ab66b28213d8b1d4a47103e1fa65004db3d7a18",
+  "blend_sha256": "29cfed830b25da9144e6d3001a903889539677b211f3cc750fd456bebfe090ba",
+  "all_file_images_packed": true,
+  "maps": {
+    "AO": {
+      "sha256": "c07ca4f968d8feb54076f9f1443e229c4990cf65814bb5bdcdc46228f16c283b",
+      "dtype": "uint8",
+      "min": 0,
+      "max": 255,
+      "unique_values": 17
+    },
+    "BaseColor": {
+      "sha256": "e7abf3934d61cb2019eeda5be0dcb9b928290ae838a538b0e026fb23224a01b0",
+      "dtype": "uint8",
+      "min": 1,
+      "max": 226,
+      "unique_values": 167
+    },
+    "Height": {
+      "sha256": "debfe93a402e339976207e127c312c75b1b064ba82c8d4d60df7132afb9f2261",
+      "dtype": "uint16",
+      "min": 0,
+      "max": 65535,
+      "unique_values": 46173
+    },
+    "Normal": {
+      "sha256": "9a79de644c00829100248c649992ddc8dbbe29ff614a451178b4cf35541f87f9",
+      "dtype": "uint8",
+      "min": 0,
+      "max": 255,
+      "unique_values": 256
+    },
+    "Roughness": {
+      "sha256": "ff24f93b41cc65529e9366063871c234020688e8211524718ed1d4579eaf5023",
+      "dtype": "uint8",
+      "min": 120,
+      "max": 236,
+      "unique_values": 116
+    }
+  },
+  "five_exr_master_hashes_verified": true,
+  "png_color_probe_RGB": [
+    118.0,
+    151.0,
+    182.0
+  ],
+  "png_normal_probe_DX": [
+    -0.04313725490196074,
+    0.06666666666666665,
+    1.0
+  ],
+  "png_height_normal_correlation_RG": [
+    0.9026441493670349,
+    0.8840251304091499
+  ],
+  "height_cm": {
+    "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+    "master": "Masters/HeightCm.exr",
+    "master_precision": "32bitfloat actual topmost Geometry.Position.Z*100 centimeters",
+    "not_albedo_derived": true,
+    "range_cm": 2.4801279306411743,
+    "z_max_cm": 3.6573753356933594,
+    "z_min_cm": 1.177247405052185
+  },
+  "other_data_unchanged_by_color_upgrade": true
+}

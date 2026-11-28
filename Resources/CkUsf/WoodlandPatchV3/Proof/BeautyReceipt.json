@@ -1,0 +1,96 @@
+{
+  "stage": "Native first beauty only; data not yet baked; no UE acceptance",
+  "seed": 781204,
+  "physical_width_cm": 80,
+  "physical_height_cm": 80,
+  "resolution": 1024,
+  "blend_sha256": "1281b4786d37f2921426d5d3f11ae98452931baf4bd26417305df70590a4dea5",
+  "generator_sha256": "dac224684704f8a6bae60e08477b1cc91f536e63fc3fb0b2e96415643700af20",
+  "beauty_sha256": "1926060951796d146c80a10661d815f41ccc1b6506ab7d798bdc4f92d3bbb5ab",
+  "scan_foundation": {
+    "manifest_path": "D:\\Repos\\CkPlugins_3\\Plugins\\CkTests\\Resources\\CkUsf\\Environment1Textures\\Manifest.json",
+    "manifest_sha256": "d9f79a9995599596c4540ed2180a5d64b8fbee8f677dc38b69fd656d9214297b",
+    "asset_id": "gravelly_sand",
+    "provider": "Poly Haven",
+    "license": "CC0-1.0",
+    "author": "Dario Barresi",
+    "source_coverage_m": 2.48,
+    "scan_height_geometry_amplitude_cm": 0.9,
+    "color_transform": "sRGB decoded to linear; multiplied by .42 for authored dark woodland soil; no baked shading",
+    "normal": "derived from actual rendered displaced mesh; source normal not substituted"
+  },
+  "photo_leaves": {
+    "count": 22,
+    "asset_id": "LeafSet001",
+    "source_receipt_sha256": "957e26365e83c58943c80e0c00bb54f89b75b35d4fc3c37edbe283d348a1994e",
+    "source_receipt_path": "D:\\Repos\\CkPlugins_3\\Plugins\\CkTests\\Resources\\CkUsf\\WoodlandSourcesV1\\Receipt.json",
+    "species": "Unverified serrated oval photo leaves; not oak/maple",
+    "color_transform": "Publisher BC sRGB decoded then varied authored green/ochre multiplicative tint; no geometry inferred from color",
+    "height": "Actual curved mesh97x49 per leaf plus publisher Displacement sampled into real vertices at authored0.07cm range; source normal NOT substituted",
+    "opacity": "Publisher aligned Opacity threshold .5 gates TransparentMix identically for beauty and each data pass",
+    "crop_bounds_topdown_pixels": [
+      [
+        40,
+        30,
+        275,
+        475
+      ],
+      [
+        340,
+        135,
+        570,
+        425
+      ],
+      [
+        690,
+        75,
+        925,
+        480
+      ],
+      [
+        45,
+        565,
+        275,
+        965
+      ],
+      [
+        370,
+        550,
+        600,
+        980
+      ],
+      [
+        715,
+        565,
+        935,
+        970
+      ]
+    ],
+    "lengths_cm": [
+      16.0,
+      16.0,
+      16.0,
+      16.0,
+      15.0,
+      16.0,
+      16.0,
+      14.499999999999998,
+      16.0,
+      16.0,
+      16.0,
+      15.0,
+      15.0,
+      16.0,
+      16.0,
+      15.0,
+      16.0,
+      15.0,
+      14.000000000000002,
+      15.0,
+      15.0,
+      14.000000000000002
+    ],
+    "width_policy": "Source crop aspect multiplied1.10, small authored broadening"
+  },
+  "elapsed_seconds": 167.66510653495789
+}

@@ -1,0 +1,165 @@
+{
+  "ao": {
+    "provenance": "ActualCyclesrayAOemission,ShaderNodeAmbientOcclusion16samples/distance.035m; no denoising. Not a neutralwhiteplaceholder.",
+    "radius_cm": 3.5
+  },
+  "blend": {
+    "path": "WoodlandPatchV1.blend",
+    "sha256": "a60e78e3043bdd78878aa4d7bf50cb2fbe8d2cd5043dc6f390534852131d5c78"
+  },
+  "blender_version": "4.4.3",
+  "calibration": {
+    "correlation_pixels": 998838,
+    "expected_world_normal": [
+      -0.03987063033659808,
+      -0.06977360308904665,
+      0.9967657584149521
+    ],
+    "known_plane": "z=.05+.04*x+.07*y meters",
+    "linear_color_probe": [
+      0.18,
+      0.31,
+      0.47
+    ],
+    "measured_linear_color": [
+      0.18000000715255737,
+      0.3100000023841858,
+      0.4699999988079071
+    ],
+    "measured_world_normal": [
+      -0.039870619773864746,
+      -0.0697736144065857,
+      0.9967658519744873
+    ],
+    "normal_height_correlation_low_slope_noncliff": {
+      "G_vs_minus_dHdv": 0.8693846770924912,
+      "R_vs_minus_dHdu": 0.9044053176163955
+    }
+  },
+  "composition": "Three intentionalclusters; upperleft3russetoaks+ochremaple/moss/embeddedgraystones; lowerrightmaple/twig/3flowerrosettes; upperrightpebbles/curledleaf/moss; oneclearingconnectorleaf. Diagonalmoistsoilnegative-space clearing,7flowers in2offsetclusters.",
+  "counts": {
+    "CalibrationPlane": 1,
+    "ConnectorLeaf": 1,
+    "Flower0": 11,
+    "Flower1": 11,
+    "Flower2": 11,
+    "Flower3": 11,
+    "Flower4": 11,
+    "Flower5": 11,
+    "Flower6": 11,
+    "GrassClump": 200,
+    "MaplePrimary": 1,
+    "MapleSecondary": 1,
+    "MossCushion0": 171,
+    "MossCushion1": 171,
+    "MossCushion2": 171,
+    "MossCushion3": 171,
+    "MossCushion4": 171,
+    "MossCushion5": 171,
+    "OakA": 1,
+    "OakB": 1,
+    "OakC": 1,
+    "OakSmallUpperRight": 1,
+    "SoilTerrain": 1,
+    "flower": 7,
+    "grain": 650,
+    "stone": 62
+  },
+  "data_orientation": "Orthographicimage-right=bake+X,image-up=bake+Y; PNGU+X,V-bakeY; allmapsidenticalorientation. WorldNormalEXR encodedN*.5+.5; NormalDXPNG=(Nx,-Ny,Nz)*.5+.5; do not flipgreen.",
+  "elapsed_seconds": 55.23900818824768,
+  "generator_sha256": "8fa6c17fb491f75eab41363fcc35dfd60f23e5e3ff34303aec7c664aac47fc33",
+  "generator_source": "Tools/UsfMaterials/author_woodland_patch.py",
+  "height": {
+    "decode": "height_cm=z_min_cm+sampleHeight16*range_cm",
+    "master": "Masters/HeightCm.exr",
+    "master_precision": "32bitfloat actualtopmostGeometry.Position.Z*100 centimeters",
+    "not_albedo_derived": true,
+    "range_cm": 2.710221290588379,
+    "z_max_cm": 4.0158371925354,
+    "z_min_cm": 1.3056159019470215
+  },
+  "limits": "One1Ksourceprototype,notUE/POMacceptance. Heightfield stores topmostsurface; doesnotpreserveseparateleafundersides,flowerpetaloverhangs,grasssilhouetteorhiddenlayers. Notseamless/notmirrored; no2Kfinalorvariantsbeforevisualdecision.",
+  "look_id": "EnvironmentWoodland",
+  "maps": {
+    "AO": {
+      "bit_depth": 8,
+      "color_space": "linear",
+      "height": 1024,
+      "path": "Maps/AO.png",
+      "runtime_name": "T_EnvironmentWoodland_AO",
+      "sha256": "15d52430f266202f2d36ec82c576cd4f3532b74dbe4cb3c387bc74251c5c7e97",
+      "width": 1024
+    },
+    "BaseColor": {
+      "bit_depth": 8,
+      "color_space": "sRGB",
+      "height": 1024,
+      "path": "Maps/BaseColor.png",
+      "runtime_name": "T_EnvironmentWoodland_BaseColor",
+      "sha256": "2980bbe63b6ddf3e9b6514a9af772a0417880f8f62b4db34d73fb2a18dd180dd",
+      "width": 1024
+    },
+    "Height": {
+      "bit_depth": 16,
+      "color_space": "linear",
+      "height": 1024,
+      "path": "Maps/Height.png",
+      "runtime_name": "T_EnvironmentWoodland_Height",
+      "sha256": "094476830aa7a29137cabab7692faa87ed5f02c6c81f5d187071c360c07f6a4c",
+      "width": 1024
+    },
+    "Normal": {
+      "bit_depth": 8,
+      "color_space": "linear",
+      "height": 1024,
+      "path": "Maps/Normal.png",
+      "runtime_name": "T_EnvironmentWoodland_Normal",
+      "sha256": "baa7eeda88dbd6412311d8841543ce69d52ecd7469011203cadee2cc689833d9",
+      "width": 1024
+    },
+    "Roughness": {
+      "bit_depth": 8,
+      "color_space": "linear",
+      "height": 1024,
+      "path": "Maps/Roughness.png",
+      "runtime_name": "T_EnvironmentWoodland_Roughness",
+      "sha256": "8c88727c7067d080e48c81136d0ab6f0e0bd3ca5b04c12819a776c035c1fa9e0",
+      "width": 1024
+    }
+  },
+  "masters": {
+    "AO": {
+      "path": "Masters/AO.exr",
+      "sha256": "6e56a192a21eb1cfda0ba441fec88e5d83fd2f2d519cf4c0855768052a36ab90"
+    },
+    "BaseColor": {
+      "path": "Masters/BaseColor.exr",
+      "sha256": "3a5bd2803af4e295055ceefc0135e6706e5d7bbba3b9fe5e1a9a547027d0e100"
+    },
+    "HeightCm": {
+      "path": "Masters/HeightCm.exr",
+      "sha256": "f1e8ae90b3ed5684a0731ba3fe98ec6186ef8a6aec55dd0fe48b103154b9e015"
+    },
+    "Roughness": {
+      "path": "Masters/Roughness.exr",
+      "sha256": "cadd4347649f7f702e9332d7349ce0daff3e830918470878f794ac1b954765bf"
+    },
+    "WorldNormal": {
+      "path": "Masters/WorldNormal.exr",
+      "sha256": "71404c183507c0df44a066af3e066e257a3bcdecd1cc77b983b7db0fa68a76df"
+    }
+  },
+  "normal": {
+    "master": "Masters/WorldNormal.exr",
+    "master_precision": "32bitfloat encodedworldspaceGeometry.Normal",
+    "normal_convention": "DirectX tangentbasis imageU/worldX,imageV/-worldY,Zup"
+  },
+  "physical_height_cm": 80,
+  "physical_width_cm": 80,
+  "prototype_resolution": 1024,
+  "render_backend": "Cycles CPU,4threads; data1sample/noadaptive/no denoise/Raw; beauty16samplesAgX separately labeled",
+  "roughness": "Authoredmaterialvalues,notmeasured: drysoil.81-.88,moistsoil.61,stone.74-.87,leaves.76-.87,moss.91,grass.84,petals.69.",
+  "schema_version": 1,
+  "seed": 781204,
+  "source": "Native authored3D geometry/materials; no external source texture or height inferred fromalbedo. Fine soil granules, veins and flowerpetals are actual meshes/curves."
+}

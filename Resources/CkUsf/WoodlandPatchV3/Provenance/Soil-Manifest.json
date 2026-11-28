@@ -1,0 +1,328 @@
+{
+  "generator_sha256": "de51352b5a43c08d3ad12c073b658e8c370dde4fa64e22f3a7d7d8ea4c3adce2",
+  "generator_source": "Tools/UsfMaterials/source_environment1_textures.py",
+  "height_contract": "Height.r is the actual aligned publisher displacement image, linear16-bit data. Increasing values represent higher source relief; amplitude/zero plane are authored separately. POM/displacement behavior, silhouettes and grazing-angle filtering require runtime validation.",
+  "licenses": [
+    {
+      "path": "License/polyhaven.html",
+      "provider": "polyhaven",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623",
+      "spdx": "CC0-1.0",
+      "url": "https://polyhaven.com/license"
+    }
+  ],
+  "maps_root": "Plugins/CkTests/Resources/CkUsf/Environment1Textures",
+  "materials": {
+    "gravel": {
+      "asset_id": "gravelly_sand",
+      "author": {
+        "Dario Barresi": "All"
+      },
+      "coverage_cm": {
+        "x": 248.00000190734863,
+        "y": 248.00000190734863
+      },
+      "coverage_note": "Official millimeter dimensions converted to centimeters; original pixel aspect is retained.",
+      "description": "Free 16K texture of gravelly sand: coarse dusty brown surface with compacted soil, fine grit and scattered small stones and debris, rough granular detail.",
+      "files_metadata_path": "Metadata/gravelly_sand_files.json",
+      "files_metadata_sha256": "8ef9b251f4d751566b8eb69b10f56e20df35d0fc2eb5763c11c5577a95c75856",
+      "identity_notes": "Actual gravelly sand/soil with stony coarse grain and aligned source height. No invented gravel noise, vegetation or wet-mud claim. Height is publisher-relative, not calibrated displacement in centimeters.",
+      "license": "CC0-1.0",
+      "look_id": "EnvironmentGravel",
+      "maps": {
+        "AO": {
+          "bit_depth": 16,
+          "bytes": 1969441,
+          "channel_mean": [
+            0.8887862837868498
+          ],
+          "channel_stddev": [
+            0.07597165636288727
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.05000773929762054,
+            "y": 0.049667739369123914
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "gravel/Maps/AO.png",
+          "range": [
+            0.20720225833524072,
+            0.998947127489128
+          ],
+          "runtime_name": "T_EnvironmentGravel_AO",
+          "sha256": "32ad45a635362cd262b75f3b0b0c4e1f6590bea15b979a04173f9a1a6d294817",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_ao_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.04611721968699932,
+            "y": 0.047706214355878546
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 16,
+          "bytes": 5867006,
+          "channel_mean": [
+            0.5719877616985538,
+            0.4333037843926248,
+            0.29819069656542196
+          ],
+          "channel_stddev": [
+            0.06503016993504125,
+            0.0580299813711728,
+            0.05739055918527779
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.04565424540111743,
+            "y": 0.045605919848389014
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "gravel/Maps/BaseColor.png",
+          "range": [
+            0.011764705882352941,
+            0.8549019607843137
+          ],
+          "runtime_name": "T_EnvironmentGravel_BaseColor",
+          "sha256": "3dd1716e246ca3b652bca30028d27d7f2b201caffacac37fe73bd91064613b00",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_diff_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.04211984272875816,
+            "y": 0.046714154411764706
+          }
+        },
+        "Height": {
+          "bit_depth": 16,
+          "bytes": 1694619,
+          "channel_mean": [
+            0.22251268277554276
+          ],
+          "channel_stddev": [
+            0.023146058567208787
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.005814358138188827,
+            "y": 0.005821825263330929
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "gravel/Maps/Height.png",
+          "range": [
+            0.11714351110093843,
+            0.46591897459372855
+          ],
+          "runtime_name": "T_EnvironmentGravel_Height",
+          "sha256": "93805cebcf5e360140ae2583167a6e64102c53dc48ee3ba52997ac3bb1191f52",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_disp_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0055046474450675216,
+            "y": 0.005335695501449607
+          }
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "bytes": 6086271,
+          "channel_mean": [
+            0.5048788257673561,
+            0.5020110934387195,
+            0.8965503543151605
+          ],
+          "channel_stddev": [
+            0.12106790568802013,
+            0.12169883948553617,
+            0.04519838626726092
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.6770926381225609,
+            0.8703673982405538,
+            0.9921103608415732
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.08682184002022117,
+            "y": 0.08641284913892244
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "gravel/Maps/Normal.png",
+          "range": [
+            0.03529411764705882,
+            1.0
+          ],
+          "runtime_name": "T_EnvironmentGravel_Normal",
+          "sha256": "5e8688ed210d64724f6ee0d6a6217c7e62150df7114d97bb9252bf840b5c8969",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_nor_dx_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.08521752450980391,
+            "y": 0.08570516748366012
+          }
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "bytes": 1717985,
+          "channel_mean": [
+            0.7884664596786961
+          ],
+          "channel_stddev": [
+            0.008487393726901766
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.006751664044325257,
+            "y": 0.006746734350352547
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "gravel/Maps/Roughness.png",
+          "range": [
+            0.7359426260776685,
+            0.8338139925230793
+          ],
+          "runtime_name": "T_EnvironmentGravel_Roughness",
+          "sha256": "bb5a6800475b3f87be09e556d90687c1b8593691ff0bbd071b00e23f43b6ea9c",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_rough_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.00617005405031662,
+            "y": 0.006866425741016249
+          }
+        }
+      },
+      "metadata_path": "Metadata/gravelly_sand_info.json",
+      "metadata_sha256": "ebea314914e73e9a27c0829802b99961a3ef9819827b2f5d0d80097f7e851603",
+      "official_tags": [
+        "sand",
+        "gravel",
+        "stony",
+        "terrain",
+        "ground",
+        "dirt",
+        "coarse",
+        "debris",
+        "dusty"
+      ],
+      "originals": {
+        "AO": {
+          "path": "gravel/Original/gravelly_sand_ao_1k.png",
+          "sha256": "32ad45a635362cd262b75f3b0b0c4e1f6590bea15b979a04173f9a1a6d294817",
+          "upstream_md5": "431217a5827358680af8344d2da1ed17",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_ao_1k.png"
+        },
+        "BaseColor": {
+          "path": "gravel/Original/gravelly_sand_diff_1k.png",
+          "sha256": "3dd1716e246ca3b652bca30028d27d7f2b201caffacac37fe73bd91064613b00",
+          "upstream_md5": "cb6fa7ad422868ad6ac5c1f078f3e937",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_diff_1k.png"
+        },
+        "Height": {
+          "path": "gravel/Original/gravelly_sand_disp_1k.png",
+          "sha256": "93805cebcf5e360140ae2583167a6e64102c53dc48ee3ba52997ac3bb1191f52",
+          "upstream_md5": "592e4c98c6d4ccc821547f5fb9e1e11b",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_disp_1k.png"
+        },
+        "Normal": {
+          "path": "gravel/Original/gravelly_sand_nor_dx_1k.png",
+          "sha256": "5e8688ed210d64724f6ee0d6a6217c7e62150df7114d97bb9252bf840b5c8969",
+          "upstream_md5": "5b4814d062cf7f6fcbbe861eba1e4a39",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_nor_dx_1k.png"
+        },
+        "Roughness": {
+          "path": "gravel/Original/gravelly_sand_rough_1k.png",
+          "sha256": "bb5a6800475b3f87be09e556d90687c1b8593691ff0bbd071b00e23f43b6ea9c",
+          "upstream_md5": "89825bfcbce5e50f690922e8070fb472",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravelly_sand/gravelly_sand_rough_1k.png"
+        }
+      },
+      "provider": "polyhaven",
+      "release_date_unix": 1728345600,
+      "source_url": "https://polyhaven.com/a/gravelly_sand",
+      "transform_provenance": "None; all original publisher1K PNG bytes, aspect and map alignment retained. Native nor_dx, no green inversion."
+    }
+  },
+  "required_helper": "Tools/UsfMaterials/source_batch2_textures.py",
+  "required_helper_sha256": "f279cceb7551d5a0638e62b1ebc8eeb54c35db360e04cea26b1da01644a4ad0c",
+  "retrieved_utc": "2026-10-20T00:17:16.588239+00:00",
+  "schema_version": 1,
+  "verification_scope": "Official metadata/license, publisherMD5/size, original/mapsSHA256, aligned1K dimensions and source/detail inspection. No runtime POM acceptance or physical height calibration."
+}

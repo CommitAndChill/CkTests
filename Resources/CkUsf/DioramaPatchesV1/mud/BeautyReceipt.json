@@ -1,0 +1,47 @@
+{
+  "kind": "mud",
+  "look_id": "EnvironmentDioramaMud",
+  "seed": 904739,
+  "physical_width_cm": 80,
+  "physical_height_cm": 80,
+  "resolution": 1024,
+  "stage": "Native source beauty only; maps not yet baked; visualreview pending",
+  "blend": {
+    "path": "mud/EnvironmentDioramaMud.blend",
+    "sha256": "544e4addadb0dd1e6ab0cee981f689a097f96eb1503353a9bea363bb69715a69"
+  },
+  "beauty": {
+    "path": "mud/Proof/Beauty-Lit-Blender.png",
+    "sha256": "e474450970d0a72670f56fa266a6283c58f99875bf73b3a89be59f100ddec43c"
+  },
+  "counts": {
+    "clumps": 65,
+    "blades": 716,
+    "stones": 260,
+    "photo_leaves": 19,
+    "flowers": 5
+  },
+  "generator_source": "Tools/UsfMaterials/author_diorama_patches.py",
+  "generator_sha256": "25ab0758a87db0f2fbcca7ca89459281b636ea850b2fedf94533914144668732",
+  "helper_source": "Tools/UsfMaterials/author_woodland_patch.py",
+  "helper_sha256": "533a30f6cccfd05fa08279fb4ab66b28213d8b1d4a47103e1fa65004db3d7a18",
+  "licensed_source_sha256": {
+    "Plugins/CkTests/Resources/CkUsf/Environment1Textures/Manifest.json": "d9f79a9995599596c4540ed2180a5d64b8fbee8f677dc38b69fd656d9214297b",
+    "Plugins/CkTests/Resources/CkUsf/Environment1Textures/License/polyhaven.html": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623",
+    "Plugins/CkTests/Resources/CkUsf/Environment1Textures/gravel/Maps/Height.png": "93805cebcf5e360140ae2583167a6e64102c53dc48ee3ba52997ac3bb1191f52",
+    "Plugins/CkTests/Resources/CkUsf/Environment1Textures/gravel/Maps/Roughness.png": "bb5a6800475b3f87be09e556d90687c1b8593691ff0bbd071b00e23f43b6ea9c",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/Soil4KReceipt.json": "5eb8d2bf9a97a2a737f25686473f45996d5ec64747f0d96e500176654ee4091b",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/gravelly_sand_diff_4k.jpg": "c5a505ca4e00ae72378cbcfc56d07d521d32b5292d3f8db8e51256784c13913e",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/Receipt.json": "957e26365e83c58943c80e0c00bb54f89b75b35d4fc3c37edbe283d348a1994e",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/License.html": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/LeafSet001_1K-PNG_Color.png": "f7c3990b6152fdf54ee4d0bb445fbb3dfd3458155d11596769ddd8d9e6e08ebf",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/LeafSet001_1K-PNG_Opacity.png": "c17d5e5cd48b7c3ed43ce010a3f4db89d3178e6364ad15b6f243295ae058bb89",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/LeafSet001_1K-PNG_Displacement.png": "94ab7af6203091645065a9ad125161a7e11d521b194c804737d6240e89099cfa",
+    "Plugins/CkTests/Resources/CkUsf/WoodlandSourcesV1/LeafSet001_1K-PNG_Roughness.png": "60bb863a8818d28f4ecead1f973b245fe1464dd93363ed324a4c6ba6a7fc3b17",
+    "Plugins/CkTests/Resources/CkUsf/Batch3Textures/Manifest.json": "872a79f3d1026de86db4c2421bab9d8361db0f798e380b72fc4c19669af17098",
+    "Plugins/CkTests/Resources/CkUsf/Batch3Textures/granite/Maps/BaseColor.png": "9a19b1b9f1ce6bfbcaa59a3ec6e821704fc8646987dc0b0c31da5838c18e5f15"
+  },
+  "source_identity_notes": "PolyHaven gravelly_sand scanned foundation (DarioBarresi,CC0), ambientCG LeafSet001 species-unverified photos(approximatePBR,CC0), Granite002A mineralBC(CC0). Grass blades/flowers/placement are authored geometry, not a grass scan. Mud wetness is authored soil deformation/roughness, not a calibrated wet-mud scan.",
+  "composition": "Newkind-specific connectedbladefield or clusteredlitter/wetdepressions; no reusedWoodlandV3arrangement.",
+  "limits": "Non-tileable80cm source; heightfield later retains topmostsurface only, losesoverhangs/undersides/independentgrasssilhouettes. NoUE/performance/userartacceptance."
+}

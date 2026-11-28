@@ -1,0 +1,38 @@
+{
+  "generator": "CkUsf.EnvironmentGrid.v1",
+  "obj_file": "SM_UsfGroundGrid.obj",
+  "sha256": "bd96b0eab6fe4d938c30d14e6eb57954dd72b3d5ae0f6accc62ba70ba19d2cb0",
+  "cells": [
+    256,
+    256
+  ],
+  "top_vertices": 66049,
+  "vertices": 66057,
+  "top_triangles": 131072,
+  "triangles": 131082,
+  "width_cm": 230.0,
+  "local_bounds": [
+    [
+      -115,
+      -115,
+      -16
+    ],
+    [
+      115,
+      115,
+      0
+    ]
+  ],
+  "slab_top_cm": -12.5,
+  "slab_bottom_cm": -16,
+  "height_mip": 2,
+  "maximum_relief_cm": 12,
+  "import_axes": "KEEP_XYZ_AXES",
+  "import_scale": 1,
+  "runtime_uv_basis": "U=+localX,V=+localY; source OBJ V preflipped for Unreal importer",
+  "slots": [
+    "Specimen",
+    "CoreBase"
+  ],
+  "nanite": false
+}

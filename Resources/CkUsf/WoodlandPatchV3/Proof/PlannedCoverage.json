@@ -1,0 +1,7 @@
+{
+  "method": "Approximate planar alpha-footprint union; ignores mesh folds, actual ray visibility and occlusion by other categories",
+  "leaf_count": 22,
+  "leaf_union_fraction": 0.19567394256591797,
+  "summed_leaf_area_fraction_before_overlap": 0.1960601806640625,
+  "status": "Planning measure, not final rendered semantic coverage"
+}

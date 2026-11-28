@@ -1,0 +1,344 @@
+{
+  "generator_sha256": "a75df2210dac6e1fb59657d79fae197ef9cca9110dc4a9720c04df7a34cead81",
+  "generator_source": "Tools/UsfMaterials/source_environment2_textures.py",
+  "height_contract": "Height.r is aligned publisher-relative linear16bit displacement; increasing values mean higher source relief. Runtime amplitude/zero plane are authored separately. Source data does not establish rendered POM/displacement behavior, silhouettes or calibrated centimeters.",
+  "licenses": [
+    {
+      "path": "License/polyhaven.html",
+      "provider": "polyhaven",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623",
+      "spdx": "CC0-1.0",
+      "url": "https://polyhaven.com/license"
+    }
+  ],
+  "maps_root": "Plugins/CkTests/Resources/CkUsf/Environment2Textures",
+  "materials": {
+    "gravel": {
+      "asset_id": "gravel_floor",
+      "author": {
+        "Jenelle van Heerden": "Processing",
+        "Matterfield": "Photography"
+      },
+      "coverage_cm": {
+        "x": 225.0,
+        "y": 225.0
+      },
+      "coverage_note": "Official millimeter dimensions converted to centimeters; original pixel aspect is retained.",
+      "description": "Free 8K texture of coarse pebbly gravel, rough and uneven stones in warm browns, ideal for driveways, pathways and outdoor stony ground.",
+      "files_metadata_path": "Metadata/gravel_floor_files.json",
+      "files_metadata_sha256": "ed4c4054a8f7bd0a0f1d89309aeb80935a40ca15793b9408e781e34bce9df4e6",
+      "identity_notes": "Actual coarse pebbly gravel floor/driveway source with rough uneven warm stones. Replaces the finer gravelly_sand candidate in the existing EnvironmentGravel showcase only; no newlook/actor contract. No added vegetation, generic noise, wet mud or calibrated centimeter displacement claim.",
+      "license": "CC0-1.0",
+      "look_id": "EnvironmentGravel",
+      "maps": {
+        "AO": {
+          "bit_depth": 16,
+          "bytes": 2039132,
+          "channel_mean": [
+            0.8241379633296899
+          ],
+          "channel_stddev": [
+            0.11774452971621548
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.09695009294760785,
+            "y": 0.0986070832788901
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "gravel/Maps/AO.png",
+          "range": [
+            0.21550316624704358,
+            0.9982146944380865
+          ],
+          "runtime_name": "T_EnvironmentGravelV2_AO",
+          "sha256": "50d2a6f214de3451e0631e5c46255ef392c1b026c708baa5e03622fd320947c2",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_ao_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.09476710917830167,
+            "y": 0.0963519910639353
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 16,
+          "bytes": 6040585,
+          "channel_mean": [
+            0.636006265525676,
+            0.5243294061401551,
+            0.3945015140608366
+          ],
+          "channel_stddev": [
+            0.1273776145200022,
+            0.12586206514394163,
+            0.1356343179402962
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.0783903556636894,
+            "y": 0.07772685294996134
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "gravel/Maps/BaseColor.png",
+          "range": [
+            0.0,
+            0.9882352941176471
+          ],
+          "runtime_name": "T_EnvironmentGravelV2_BaseColor",
+          "sha256": "58981489dc9f4619180bdefbb72cd7e412e4c8e18ce64dfeb116187a861bc7f5",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_diff_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.07938623366013071,
+            "y": 0.07478809232026144
+          }
+        },
+        "Height": {
+          "bit_depth": 16,
+          "bytes": 1858698,
+          "channel_mean": [
+            0.5778210641190544
+          ],
+          "channel_stddev": [
+            0.06443645821049118
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.021389025020283836,
+            "y": 0.021574759437925986
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "gravel/Maps/Height.png",
+          "range": [
+            0.22450598916609446,
+            0.9683985656519417
+          ],
+          "runtime_name": "T_EnvironmentGravelV2_Height",
+          "sha256": "ab3edc4b1e805abf0593d7315067b2751052adcea588b6147ce9a3944006830a",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_disp_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.02136593876363775,
+            "y": 0.019399983668078127
+          }
+        },
+        "Normal": {
+          "bit_depth": 8,
+          "bytes": 2789701,
+          "channel_mean": [
+            0.4959275638356193,
+            0.5085522520775795,
+            0.8634133357734443
+          ],
+          "channel_stddev": [
+            0.16470288960787866,
+            0.16395979113237427,
+            0.06792924061218546
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.5645288393496973,
+            0.8944185940036689,
+            1.0013677689485345
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.11364247311827957,
+            "y": 0.11413239092578219
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "gravel/Maps/Normal.png",
+          "range": [
+            0.027450980392156862,
+            1.0
+          ],
+          "runtime_name": "T_EnvironmentGravelV2_Normal",
+          "sha256": "aefc95bcf32f5fa19f4481e49e4e7dc4184021f4932d0845f3b93ed03aa0a709",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_nor_dx_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.11177747140522876,
+            "y": 0.10754570057189543
+          }
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "bytes": 2533216,
+          "channel_mean": [
+            0.5063982570860439,
+            0.5063982570860439,
+            0.5063982570860439
+          ],
+          "channel_stddev": [
+            0.034870005625226685,
+            0.034870005625226685,
+            0.034870005625226685
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.024138342180102735,
+            "y": 0.02394109800567343
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "gravel/Maps/Roughness.png",
+          "range": [
+            0.38823529411764707,
+            0.6470588235294118
+          ],
+          "runtime_name": "T_EnvironmentGravelV2_Roughness",
+          "sha256": "bfa8d66bd83c4989be85947e329fa9780e205999ab27af23a199e4fa3ca16ed4",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_rough_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.024536611519607843,
+            "y": 0.023000919117647057
+          }
+        }
+      },
+      "metadata_path": "Metadata/gravel_floor_info.json",
+      "metadata_sha256": "b02f66d6be609b2e597de67b6219d8b87647403b9d5c58e85652ce6c864ba48f",
+      "official_tags": [
+        "rough",
+        "uneven",
+        "stones",
+        "gravel",
+        "pathway",
+        "driveway stones",
+        "path",
+        "pebbles",
+        "outdoor flooring",
+        "gravelly ground",
+        "driveway gravel",
+        "coarse",
+        "gravelly texture",
+        "walkway",
+        "gravelly",
+        "pebbly",
+        "driveway",
+        "stony"
+      ],
+      "originals": {
+        "AO": {
+          "path": "gravel/Original/gravel_floor_ao_1k.png",
+          "sha256": "50d2a6f214de3451e0631e5c46255ef392c1b026c708baa5e03622fd320947c2",
+          "upstream_md5": "2101a32a335bd1cd95820aa2ca0574fb",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_ao_1k.png"
+        },
+        "BaseColor": {
+          "path": "gravel/Original/gravel_floor_diff_1k.png",
+          "sha256": "58981489dc9f4619180bdefbb72cd7e412e4c8e18ce64dfeb116187a861bc7f5",
+          "upstream_md5": "18332fff217d2534f60211e000ce63a3",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_diff_1k.png"
+        },
+        "Height": {
+          "path": "gravel/Original/gravel_floor_disp_1k.png",
+          "sha256": "ab3edc4b1e805abf0593d7315067b2751052adcea588b6147ce9a3944006830a",
+          "upstream_md5": "e8d09393250751c65be17eb237d322ad",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_disp_1k.png"
+        },
+        "Normal": {
+          "path": "gravel/Original/gravel_floor_nor_dx_1k.png",
+          "sha256": "aefc95bcf32f5fa19f4481e49e4e7dc4184021f4932d0845f3b93ed03aa0a709",
+          "upstream_md5": "d1b8763868c346f58b6b99aea7bdc2c2",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_nor_dx_1k.png"
+        },
+        "Roughness": {
+          "path": "gravel/Original/gravel_floor_rough_1k.png",
+          "sha256": "bfa8d66bd83c4989be85947e329fa9780e205999ab27af23a199e4fa3ca16ed4",
+          "upstream_md5": "dceef6f6f1be7b91c58662840cbe5b97",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/gravel_floor/gravel_floor_rough_1k.png"
+        }
+      },
+      "provider": "polyhaven",
+      "release_date_unix": 1684281600,
+      "source_url": "https://polyhaven.com/a/gravel_floor",
+      "transform_provenance": "None; original publisher1K PNG bytes, map alignment and aspect retained. NativeDirectX nor_dx, no green inversion."
+    }
+  },
+  "required_helper": "Tools/UsfMaterials/source_batch2_textures.py",
+  "required_helper_sha256": "f279cceb7551d5a0638e62b1ebc8eeb54c35db360e04cea26b1da01644a4ad0c",
+  "retrieved_utc": "2026-10-20T00:34:33.151691+00:00",
+  "runtime_texture_count": 5,
+  "schema_version": 1,
+  "verification_scope": "OfficialCC0/metadata, publisherMD5/size, sourceSHA256, aligned1K dimensions and actual source/detail inspection. Runtime acceptance remains separate.",
+  "version_contract": "Retain allEnvironment1 source/assets as candidate. Existing look/master EnvironmentGravel consumes separately importedT_EnvironmentGravelV2_* textures; no new station actors/master."
+}

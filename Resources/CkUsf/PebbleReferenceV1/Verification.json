@@ -1,0 +1,38 @@
+{
+  "verified": true,
+  "scope": "Source provenance, originalbytes, aligneddimensions and cachedmanifestreproduction; no Unreal/renderacceptance",
+  "manifest_sha256": "8ab3c61c683cfcdfdc3e4d6d5d5bb5ab38e522d69bffe856555187e81c843cca",
+  "generator_sha256": "a3a2b1a917e8fdcb19ff02a654d0175bfc17d256f6c366e3f55f0e8356fe1d6d",
+  "source_download_bytes": 80004339,
+  "maps_sha256": {
+    "AO": "a7a2a2026e8177c1e3ae9d25125a9a6aa564efef3a91766bd7a71094bee6dcff",
+    "BaseColor": "5728a9eb68b6ec18ef02ccb9eb8793a529f952a3aba3a13a936cfe3c4aa2f937",
+    "Height": "fdbb9d22cf6eaa573598c28b08a90d25a43cf23d363192a29a5fa91fd7a3fe1e",
+    "Normal": "a7ae52ef633fc7c093934520b0570d40412b4a05c441d5864729848394357460",
+    "Roughness": "8d1067690650150df15eba73e0a9e8fd6e0cef7a463d1bca9bb7827f4e637727"
+  },
+  "normal_height_fit": {
+    "R_G_correlations": [
+      0.9760156379410561,
+      0.9757846438181262
+    ],
+    "fit_pixels": 1574373,
+    "height_percentiles": {
+      "0": 0.000976577401388571,
+      "1": 0.23378347447928588,
+      "100": 0.9996643015182727,
+      "25": 0.38916609445334555,
+      "5": 0.3022507057297627,
+      "50": 0.4614633401998932,
+      "75": 0.5609521629663539,
+      "95": 0.7345540550850691,
+      "99": 0.8734264133669032
+    },
+    "height_std": 0.1336270480164626,
+    "limit": "Normal-consistency estimate, not physical or optical calibration. Source microsurface/finite differences/filtering differ. Runtime5-6cm is authored; renderedPOM/displacement remains unverified.",
+    "median_slope_residual": 0.058899181893768804,
+    "method": "Through-zero joint leastsquares N.xy/N.z against negative centralHgradient pernormalizedUV, Nz>.85, gradientnorm2 between.03and2000,3pxborderexcluded;4passes3MADresidualtrimming. Normal decodedPillowRGB8; originalRGB16 bytes remain untouched.",
+    "relative_height_to_width_fit": 0.0686058030354731,
+    "suggested_full_height_amplitude_at80cm_cm": 5.488464242837848
+  }
+}
