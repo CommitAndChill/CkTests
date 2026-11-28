@@ -1,0 +1,742 @@
+{
+    "searchQuery": {
+        "forceSpecificAssetId": false,
+        "category": [],
+        "assetId": [],
+        "dataType": [
+            "Material"
+        ],
+        "creationMethod": null,
+        "queryString": "rubber",
+        "sort": "Popular",
+        "createdUsingAssetId": null,
+        "basedOnAssetId": null,
+        "variationsOfAssetId": null,
+        "limit": 60,
+        "offset": 0
+    },
+    "numberOfResults": 4,
+    "currentPageHttp": "https://ambientcg.com/api/v2/full_json?type=material&q=rubber&sort=popular&limit=60&include=statisticsData%2ClabelData%2CpreviewData%2CtechnicalData%2CfileData",
+    "foundAssets": [
+        {
+            "assetId": "Rubber004",
+            "releaseDate": "2023-12-03 14:00:00",
+            "earlyReleaseDate": "2023-11-13 19:00:00",
+            "dataType": "Material",
+            "creationMethod": "PBRProcedural",
+            "category": null,
+            "downloadCount": 100427,
+            "downloadCountMonth": 12064,
+            "downloadCountWeek": 4100,
+            "popularityScore": 20.027443527876635,
+            "tags": [
+                "4",
+                "black",
+                "floor",
+                "gym",
+                "rubber"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Rubber 004",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Rubber",
+            "shortLink": "https://ambientcg.com/a/Rubber004",
+            "dimensionX": 75,
+            "dimensionY": 75,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber004_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber004_1K-JPG.zip",
+                                    "fileName": "Rubber004_1K-JPG.zip",
+                                    "size": 8419107,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber004_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber004_2K-JPG.zip",
+                                    "fileName": "Rubber004_2K-JPG.zip",
+                                    "size": 30486130,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber004_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber004_4K-JPG.zip",
+                                    "fileName": "Rubber004_4K-JPG.zip",
+                                    "size": 113956852,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber004_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber004_8K-JPG.zip",
+                                    "fileName": "Rubber004_8K-JPG.zip",
+                                    "size": 482173805,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber004_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber004_1K-PNG.zip",
+                                    "fileName": "Rubber004_1K-PNG.zip",
+                                    "size": 17516740,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber004_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber004_2K-PNG.zip",
+                                    "fileName": "Rubber004_2K-PNG.zip",
+                                    "size": 65382135,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber004_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber004_4K-PNG.zip",
+                                    "fileName": "Rubber004_4K-PNG.zip",
+                                    "size": 251658304,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber004_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber004_8K-PNG.zip",
+                                    "fileName": "Rubber004_8K-PNG.zip",
+                                    "size": 1038603781,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber004/Rubber004_SQ_Color.jpg?60467&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber004/Rubber004_SQ_Displacement.jpg?38222&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber004/Rubber004_SQ_NormalDX.jpg?99146&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber004/Rubber004_SQ_Roughness.jpg?91030",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber004/Rubber004_SQ_Color.jpg?54319,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber004/Rubber004_SQ_Displacement.jpg?46237,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber004/Rubber004_SQ_NormalDX.jpg?57369,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber004/Rubber004_SQ_Roughness.jpg?80969&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/Rubber004.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/Rubber004.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/Rubber004.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/Rubber004.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/Rubber004.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/Rubber004.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/Rubber004.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/Rubber004.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/Rubber004.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/Rubber004.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/Rubber004.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/Rubber004.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/Rubber004.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/Rubber004.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/Rubber004.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/Rubber004.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/Rubber004.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/Rubber004.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/Rubber004.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/Rubber004.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/Rubber004.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/Rubber004.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/Rubber004.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/Rubber004.webp"
+            }
+        },
+        {
+            "assetId": "Rubber001",
+            "releaseDate": "2023-12-03 14:00:00",
+            "earlyReleaseDate": "2023-11-13 19:00:00",
+            "dataType": "Material",
+            "creationMethod": "PBRProcedural",
+            "category": null,
+            "downloadCount": 30264,
+            "downloadCountMonth": 3434,
+            "downloadCountWeek": 1209,
+            "popularityScore": 6.7339814086616006,
+            "tags": [
+                "1",
+                "black",
+                "floor",
+                "gym",
+                "rubber"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Rubber 001",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Rubber",
+            "shortLink": "https://ambientcg.com/a/Rubber001",
+            "dimensionX": 75,
+            "dimensionY": 75,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber001_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber001_1K-JPG.zip",
+                                    "fileName": "Rubber001_1K-JPG.zip",
+                                    "size": 8442514,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber001_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber001_2K-JPG.zip",
+                                    "fileName": "Rubber001_2K-JPG.zip",
+                                    "size": 30344118,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber001_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber001_4K-JPG.zip",
+                                    "fileName": "Rubber001_4K-JPG.zip",
+                                    "size": 114197239,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber001_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber001_8K-JPG.zip",
+                                    "fileName": "Rubber001_8K-JPG.zip",
+                                    "size": 489827482,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber001_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber001_1K-PNG.zip",
+                                    "fileName": "Rubber001_1K-PNG.zip",
+                                    "size": 17560022,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber001_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber001_2K-PNG.zip",
+                                    "fileName": "Rubber001_2K-PNG.zip",
+                                    "size": 65459163,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber001_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber001_4K-PNG.zip",
+                                    "fileName": "Rubber001_4K-PNG.zip",
+                                    "size": 252855512,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber001_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber001_8K-PNG.zip",
+                                    "fileName": "Rubber001_8K-PNG.zip",
+                                    "size": 1056645629,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber001/Rubber001_SQ_Color.jpg?49021&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber001/Rubber001_SQ_Displacement.jpg?29995&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber001/Rubber001_SQ_NormalDX.jpg?53639&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber001/Rubber001_SQ_Roughness.jpg?2124",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber001/Rubber001_SQ_Color.jpg?67756,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber001/Rubber001_SQ_Displacement.jpg?32139,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber001/Rubber001_SQ_NormalDX.jpg?69340,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber001/Rubber001_SQ_Roughness.jpg?83844&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/Rubber001.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/Rubber001.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/Rubber001.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/Rubber001.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/Rubber001.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/Rubber001.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/Rubber001.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/Rubber001.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/Rubber001.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/Rubber001.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/Rubber001.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/Rubber001.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/Rubber001.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/Rubber001.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/Rubber001.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/Rubber001.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/Rubber001.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/Rubber001.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/Rubber001.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/Rubber001.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/Rubber001.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/Rubber001.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/Rubber001.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/Rubber001.webp"
+            }
+        },
+        {
+            "assetId": "Rubber002",
+            "releaseDate": "2023-12-03 14:00:00",
+            "earlyReleaseDate": "2023-11-13 19:00:00",
+            "dataType": "Material",
+            "creationMethod": "PBRProcedural",
+            "category": null,
+            "downloadCount": 17018,
+            "downloadCountMonth": 1912,
+            "downloadCountWeek": 636,
+            "popularityScore": 4.2243224825734575,
+            "tags": [
+                "2",
+                "black",
+                "floor",
+                "gym",
+                "rubber"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Rubber 002",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Rubber",
+            "shortLink": "https://ambientcg.com/a/Rubber002",
+            "dimensionX": 75,
+            "dimensionY": 75,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber002_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber002_1K-JPG.zip",
+                                    "fileName": "Rubber002_1K-JPG.zip",
+                                    "size": 8949974,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber002_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber002_2K-JPG.zip",
+                                    "fileName": "Rubber002_2K-JPG.zip",
+                                    "size": 31404914,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber002_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber002_4K-JPG.zip",
+                                    "fileName": "Rubber002_4K-JPG.zip",
+                                    "size": 116077752,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber002_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber002_8K-JPG.zip",
+                                    "fileName": "Rubber002_8K-JPG.zip",
+                                    "size": 494302207,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber002_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber002_1K-PNG.zip",
+                                    "fileName": "Rubber002_1K-PNG.zip",
+                                    "size": 17859760,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber002_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber002_2K-PNG.zip",
+                                    "fileName": "Rubber002_2K-PNG.zip",
+                                    "size": 66039093,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber002_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber002_4K-PNG.zip",
+                                    "fileName": "Rubber002_4K-PNG.zip",
+                                    "size": 253409735,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber002_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber002_8K-PNG.zip",
+                                    "fileName": "Rubber002_8K-PNG.zip",
+                                    "size": 1050115319,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber002/Rubber002_SQ_Color.jpg?68052&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber002/Rubber002_SQ_Displacement.jpg?40109&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber002/Rubber002_SQ_NormalDX.jpg?82931&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber002/Rubber002_SQ_Roughness.jpg?3813",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber002/Rubber002_SQ_Color.jpg?78235,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber002/Rubber002_SQ_Displacement.jpg?71540,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber002/Rubber002_SQ_NormalDX.jpg?39363,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber002/Rubber002_SQ_Roughness.jpg?27248&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/Rubber002.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/Rubber002.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/Rubber002.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/Rubber002.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/Rubber002.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/Rubber002.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/Rubber002.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/Rubber002.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/Rubber002.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/Rubber002.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/Rubber002.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/Rubber002.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/Rubber002.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/Rubber002.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/Rubber002.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/Rubber002.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/Rubber002.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/Rubber002.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/Rubber002.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/Rubber002.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/Rubber002.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/Rubber002.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/Rubber002.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/Rubber002.webp"
+            }
+        },
+        {
+            "assetId": "Rubber003",
+            "releaseDate": "2023-12-03 14:00:00",
+            "earlyReleaseDate": "2023-11-13 19:00:00",
+            "dataType": "Material",
+            "creationMethod": "PBRProcedural",
+            "category": null,
+            "downloadCount": 15421,
+            "downloadCountMonth": 1787,
+            "downloadCountWeek": 639,
+            "popularityScore": 3.921746210116658,
+            "tags": [
+                "3",
+                "black",
+                "floor",
+                "gym",
+                "rubber"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Rubber 003",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Rubber",
+            "shortLink": "https://ambientcg.com/a/Rubber003",
+            "dimensionX": 75,
+            "dimensionY": 75,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber003_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber003_1K-JPG.zip",
+                                    "fileName": "Rubber003_1K-JPG.zip",
+                                    "size": 9643067,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber003_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber003_2K-JPG.zip",
+                                    "fileName": "Rubber003_2K-JPG.zip",
+                                    "size": 34303013,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber003_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber003_4K-JPG.zip",
+                                    "fileName": "Rubber003_4K-JPG.zip",
+                                    "size": 125949233,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber003_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber003_8K-JPG.zip",
+                                    "fileName": "Rubber003_8K-JPG.zip",
+                                    "size": 521310057,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber003_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber003_1K-PNG.zip",
+                                    "fileName": "Rubber003_1K-PNG.zip",
+                                    "size": 18668612,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber003_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber003_2K-PNG.zip",
+                                    "fileName": "Rubber003_2K-PNG.zip",
+                                    "size": 68765587,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber003_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber003_4K-PNG.zip",
+                                    "fileName": "Rubber003_4K-PNG.zip",
+                                    "size": 261696234,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Rubber003_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Rubber003_8K-PNG.zip",
+                                    "fileName": "Rubber003_8K-PNG.zip",
+                                    "size": 1062696387,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber003/Rubber003_SQ_Color.jpg?86786&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber003/Rubber003_SQ_Displacement.jpg?44552&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber003/Rubber003_SQ_NormalDX.jpg?63810&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber003/Rubber003_SQ_Roughness.jpg?98979",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber003/Rubber003_SQ_Color.jpg?93537,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber003/Rubber003_SQ_Displacement.jpg?79962,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber003/Rubber003_SQ_NormalDX.jpg?88475,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rubber003/Rubber003_SQ_Roughness.jpg?78440&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/Rubber003.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/Rubber003.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/Rubber003.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/Rubber003.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/Rubber003.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/Rubber003.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/Rubber003.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/Rubber003.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/Rubber003.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/Rubber003.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/Rubber003.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/Rubber003.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/Rubber003.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/Rubber003.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/Rubber003.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/Rubber003.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/Rubber003.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/Rubber003.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/Rubber003.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/Rubber003.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/Rubber003.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/Rubber003.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/Rubber003.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/Rubber003.webp"
+            }
+        }
+    ]
+}

@@ -1,0 +1,1526 @@
+{
+  "generator_sha256": "f279cceb7551d5a0638e62b1ebc8eeb54c35db360e04cea26b1da01644a4ad0c",
+  "generator_source": "Tools/UsfMaterials/source_batch2_textures.py",
+  "known_source_gaps": "Cotton is actual stretch poplin rather than heavy canvas. Rubber originates in fine-grain flooring rather than certified molded rubber. Glass uses authored optional smear finish, not an optical glass scan; its canonical Roughness is an explicit variation mask. Terracotta includes slight existing source wear, no extra aging.",
+  "licenses": [
+    {
+      "path": "License/ambientcg.html",
+      "provider": "ambientcg",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+      "spdx": "CC0-1.0",
+      "url": "https://docs.ambientcg.com/license/"
+    },
+    {
+      "path": "License/polyhaven.html",
+      "provider": "polyhaven",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623",
+      "spdx": "CC0-1.0",
+      "url": "https://polyhaven.com/license"
+    }
+  ],
+  "maps_root": "Plugins/CkTests/Resources/CkUsf/Batch2Textures",
+  "materials": {
+    "canvas": {
+      "asset_id": "stretch_poplin",
+      "author": {
+        "Rico Cilliers": "Processing",
+        "colormass": "Photography"
+      },
+      "coverage_cm": {
+        "x": 29.102332415690476,
+        "y": 28.08000147342682
+      },
+      "coverage_note": "Official millimeter dimensions converted to centimeters; original pixel aspect is retained.",
+      "description": "Free 8K texture: green stretch poplin cotton with a fine, tight weave and flexible stretch - ideal for garments, upholstery, and textile visualizations.",
+      "files_metadata_path": "Metadata/stretch_poplin_files.json",
+      "files_metadata_sha256": "b2f9622eaca90685cfa960fc1de9371ddd9f2776e6329576fd8f5bf7db7e49ca",
+      "identity_notes": "Cotton plain weave: actual stretch poplin source, not heavy canvas. The stable look ID is LibraryCanvas; present it as Cotton plain weave.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryCanvas",
+      "maps": {
+        "AO": {
+          "bit_depth": 16,
+          "bytes": 1862816,
+          "channel_mean": [
+            0.8647553820811111
+          ],
+          "channel_stddev": [
+            0.03661250333898741
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 988,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.029465757639579142,
+            "y": 0.04603081104887591
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "canvas/Maps/AO.png",
+          "range": [
+            0.6367437247272449,
+            0.9816281376363775
+          ],
+          "runtime_name": "T_LibraryCanvas_AO",
+          "sha256": "73ee3964d125583109ffdde1bcfdd927d2064ae8a004106286b77e323268a70c",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_ao_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.031107693790350305,
+            "y": 0.057999497525177385
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 16,
+          "bytes": 5213759,
+          "channel_mean": [
+            0.715573152328229,
+            0.832742174640943,
+            0.3886395748712456
+          ],
+          "channel_stddev": [
+            0.011709264974910547,
+            0.01014807124968264,
+            0.016338336201665925
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 988,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.01230026580570873,
+            "y": 0.0148632112788969
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "canvas/Maps/BaseColor.png",
+          "range": [
+            0.29411764705882354,
+            0.8705882352941177
+          ],
+          "runtime_name": "T_LibraryCanvas_BaseColor",
+          "sha256": "ecfa9c575ab4e184229889ebda547777436117adda5fa456da08237eac0f95f3",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_diff_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.012308486147495436,
+            "y": 0.01860064338235294
+          }
+        },
+        "Height": {
+          "bit_depth": 16,
+          "bytes": 1880283,
+          "channel_mean": [
+            0.49823762051096815
+          ],
+          "channel_stddev": [
+            0.05039452037766326
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 988,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.03489594768883056,
+            "y": 0.06591550993784866
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "canvas/Maps/Height.png",
+          "range": [
+            0.2917982757305257,
+            0.7745784695201038
+          ],
+          "runtime_name": "T_LibraryCanvas_Height",
+          "sha256": "b8744de24b65c53b4dfb22280cad1137554f7ed8c8c5cf7997394cbd73afb6a0",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_disp_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.035770900303914,
+            "y": 0.07831155048352026
+          }
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "bytes": 5200942,
+          "channel_mean": [
+            0.49998088660122464,
+            0.4998932037390159,
+            0.9950070887424887
+          ],
+          "channel_stddev": [
+            0.010269206154201807,
+            0.026326537251063542,
+            0.001842842945127241
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9843293491455941,
+            0.9926062688302871,
+            0.9990306720701944
+          ],
+          "height": 988,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.011407322772547973,
+            "y": 0.01598137537373105
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "canvas/Maps/Normal.png",
+          "range": [
+            0.4117647058823529,
+            1.0
+          ],
+          "runtime_name": "T_LibraryCanvas_Normal",
+          "sha256": "ba420033465248d9ea15a269f40553ed39e1873f378e71814fbfb16a77cb1dfd",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_nor_dx_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.012209256172104464,
+            "y": 0.01861085580065359
+          }
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "bytes": 1871456,
+          "channel_mean": [
+            0.8081297183919662
+          ],
+          "channel_stddev": [
+            0.02889950612204384
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 988,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.035062707838527295,
+            "y": 0.035838510438066684
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "canvas/Maps/Roughness.png",
+          "range": [
+            0.6460975051499199,
+            0.9922331578545815
+          ],
+          "runtime_name": "T_LibraryCanvas_Roughness",
+          "sha256": "8570b7f13098b49e9a3c339e77786fcbcf7cfc4abe3314ae7f25b1b96d001b2d",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_rough_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.03889345526959819,
+            "y": 0.03994774679083696
+          }
+        }
+      },
+      "metadata_path": "Metadata/stretch_poplin_info.json",
+      "metadata_sha256": "2cb046701eae6e80f98cc80f5bac247bcb698b883b4e869eb852b7425aa27902",
+      "official_tags": [
+        "green",
+        "fine",
+        "flexible",
+        "tight weave",
+        "textile ",
+        "cotton",
+        "stretch cotton",
+        "poplin",
+        "woven",
+        "tightweave"
+      ],
+      "originals": {
+        "AO": {
+          "path": "canvas/Original/stretch_poplin_ao_1k.png",
+          "sha256": "73ee3964d125583109ffdde1bcfdd927d2064ae8a004106286b77e323268a70c",
+          "upstream_md5": "6f8e00739511a14c5b8a8db2bd4b39e9",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_ao_1k.png"
+        },
+        "BaseColor": {
+          "path": "canvas/Original/stretch_poplin_diff_1k.png",
+          "sha256": "ecfa9c575ab4e184229889ebda547777436117adda5fa456da08237eac0f95f3",
+          "upstream_md5": "fd2a14f94024f8b13f095d30aa673105",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_diff_1k.png"
+        },
+        "Height": {
+          "path": "canvas/Original/stretch_poplin_disp_1k.png",
+          "sha256": "b8744de24b65c53b4dfb22280cad1137554f7ed8c8c5cf7997394cbd73afb6a0",
+          "upstream_md5": "cc5157ecc64445b6503e84c113dccf69",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_disp_1k.png"
+        },
+        "Normal": {
+          "path": "canvas/Original/stretch_poplin_nor_dx_1k.png",
+          "sha256": "ba420033465248d9ea15a269f40553ed39e1873f378e71814fbfb16a77cb1dfd",
+          "upstream_md5": "e6c52f8a4526ec1f9c0c5cc12c6e50fe",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_nor_dx_1k.png"
+        },
+        "Roughness": {
+          "path": "canvas/Original/stretch_poplin_rough_1k.png",
+          "sha256": "8570b7f13098b49e9a3c339e77786fcbcf7cfc4abe3314ae7f25b1b96d001b2d",
+          "upstream_md5": "e31f4085cd3939f572ab41ee69613610",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/stretch_poplin/stretch_poplin_rough_1k.png"
+        }
+      },
+      "provider": "polyhaven",
+      "release_date_unix": 1757078158,
+      "source_url": "https://polyhaven.com/a/stretch_poplin"
+    },
+    "glass": {
+      "archive": {
+        "bytes": 4216323,
+        "path": "Candidates/Smear005_1K-PNG.zip",
+        "sha256": "b6ed3893507361b0745c782209a79acef1e1b56f99ac7fae32904d0f174c5a41",
+        "url": "https://ambientcg.com/get?file=Smear005_1K-PNG.zip"
+      },
+      "asset_id": "Smear005",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means not specified by publisher; no inferred physical scale.",
+      "creation_method": "PBRApproximated",
+      "identity_notes": "Authored surface-imperfection smear Normal and Opacity, not a clean optical glass scan. Optional subtle handling finish only; no grime color or transmission mask by default.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryGlass",
+      "maps": {
+        "Normal": {
+          "archive_member": "Smear005_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 1191818,
+          "channel_mean": [
+            0.49803358339839837,
+            0.4980269188978794,
+            0.9987708634024073
+          ],
+          "channel_stddev": [
+            0.0064331348804459055,
+            0.01553691160998136,
+            0.005370040277317039
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9597112855614375,
+            1.0000153785822494,
+            1.0004458829087104
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0016068211966278846,
+            "y": 0.0028548675600086884
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "glass/Maps/Normal.png",
+          "range": [
+            0.2823529411764706,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGlass_Normal",
+          "sha256": "e83cc1e0f9b2a4fe7ccb1d0aecadfdd56625992feb6b5f489ba98af2000a7740",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "Opacity": {
+          "archive_member": "Smear005_1K-PNG_Opacity.png",
+          "bit_depth": 8,
+          "bytes": 139915,
+          "channel_mean": [
+            0.04971832574582568
+          ],
+          "channel_stddev": [
+            0.17321186672060127
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.005900284570084143,
+            "y": 0.014911643115212848
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "glass/Maps/Opacity.png",
+          "range": [
+            0.0,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGlass_Opacity",
+          "sha256": "44be9960a0e6e1b199df826bfefcd176055ad1835c8f5e183cdf0d43e9156c52",
+          "source_mode": "L",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "usage": "Optional finish concentration only; do not drive optical transmission or visible grime color by default.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "Roughness": {
+          "archive_member": "Smear005_1K-PNG_Opacity.png",
+          "bit_depth": 8,
+          "bytes": 139915,
+          "channel_mean": [
+            0.04971832574582568
+          ],
+          "channel_stddev": [
+            0.17321186672060127
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "default_normal_strength": 0.04,
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.005900284570084143,
+            "y": 0.014911643115212848
+          },
+          "mode": "L",
+          "modifications": "Byte-identical source Opacity, repurposed as a roughness-variation input only; not a measured roughness map.",
+          "normal_convention": null,
+          "path": "glass/Maps/Roughness.png",
+          "range": [
+            0.0,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGlass_Roughness",
+          "sha256": "44be9960a0e6e1b199df826bfefcd176055ad1835c8f5e183cdf0d43e9156c52",
+          "shader_decode": "roughness = 0.045 + 0.035 * sample.r (do not remap twice)",
+          "source_mode": "L",
+          "source_sha256": "44be9960a0e6e1b199df826bfefcd176055ad1835c8f5e183cdf0d43e9156c52",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0,
+            "y": 0.0
+          }
+        }
+      },
+      "metadata_path": "Metadata/Smear005.json",
+      "metadata_sha256": "4b67ceaf3aa721c362bef10737911e5719af09fbebbddd2fae43f39bb88ffba8",
+      "official_tags": [
+        "5",
+        "imperfections",
+        "smear",
+        "smudge",
+        "surface"
+      ],
+      "provider": "ambientcg",
+      "release_date": "2018-06-10 00:00:00",
+      "source_url": "https://ambientcg.com/a/Smear005"
+    },
+    "marble": {
+      "archive": {
+        "bytes": 12909875,
+        "path": "Candidates/Marble012_1K-PNG.zip",
+        "sha256": "7c733a107be2cc068c8d7a4fb36b548b8e6fdadec5db3dec04b063357078e72b",
+        "url": "https://ambientcg.com/get?file=Marble012_1K-PNG.zip"
+      },
+      "asset_id": "Marble012",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means not specified by publisher; no inferred physical scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "Actual polished white/gray veined marble source, with source-authored surface variation.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryMarble",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Marble012_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 2046204,
+          "channel_mean": [
+            0.6752197340360454,
+            0.679748479051225,
+            0.7138344484211243
+          ],
+          "channel_stddev": [
+            0.06632370375497768,
+            0.06575468909413837,
+            0.06460460397086548
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.03295734313805353,
+            "y": 0.037257266639753
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "marble/Maps/BaseColor.png",
+          "range": [
+            0.22745098039215686,
+            0.8509803921568627
+          ],
+          "runtime_name": "T_LibraryMarble_BaseColor",
+          "sha256": "c3a903a10a1e8273789cd40e3d49fd2cb2e39abcb579294fe8820dc218b55dd6",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.041403696895424835,
+            "y": 0.04391467524509804
+          }
+        },
+        "Height": {
+          "archive_member": "Marble012_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1950856,
+          "channel_mean": [
+            0.8719881571575225
+          ],
+          "channel_stddev": [
+            0.09126260068442629
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.04440402529464418,
+            "y": 0.04696810515763144
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "marble/Maps/Height.png",
+          "range": [
+            0.18350499732967115,
+            1.0
+          ],
+          "runtime_name": "T_LibraryMarble_Height",
+          "sha256": "50b52ae6762241b6d33df1693360b7fa6519384004f983acf43a213d15bf73d5",
+          "source_mode": "I;16",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.04949329318303197,
+            "y": 0.047326810101472494
+          }
+        },
+        "Normal": {
+          "archive_member": "Marble012_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 3488791,
+          "channel_mean": [
+            0.4999945584465488,
+            0.4999953475652967,
+            1.0
+          ],
+          "channel_stddev": [
+            0.001960814161814831,
+            0.0019608012335333522,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            1.0000153785822494,
+            1.0000153785822494,
+            1.0000153785822494
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0012754803829726697,
+            "y": 0.0013280486314760462
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "marble/Maps/Normal.png",
+          "range": [
+            0.49411764705882355,
+            1.0
+          ],
+          "runtime_name": "T_LibraryMarble_Normal",
+          "sha256": "a942690c89a087bf95c670d8180688f2f78a0f20305b69d9cf0bc48e4386221b",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.001267616421568623,
+            "y": 0.001401654411764701
+          }
+        },
+        "Roughness": {
+          "archive_member": "Marble012_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 496768,
+          "channel_mean": [
+            0.06589946372836243
+          ],
+          "channel_stddev": [
+            0.02943672793213775
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.01083679088081958,
+            "y": 0.011553292351886991
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "marble/Maps/Roughness.png",
+          "range": [
+            0.01568627450980392,
+            0.28627450980392155
+          ],
+          "runtime_name": "T_LibraryMarble_Roughness",
+          "sha256": "8c1e88602a73f3cc546bbe9803e5184e32f9f606d293c00023ca8107f52a4d93",
+          "source_mode": "L",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.013993566176470587,
+            "y": 0.013143382352941175
+          }
+        }
+      },
+      "metadata_path": "Metadata/Marble012.json",
+      "metadata_sha256": "b847633ea261208c420d59e8419e4403622e2f4fa24443802b7d68f68a007aad",
+      "official_tags": [
+        "012",
+        "12",
+        "bathroom",
+        "elegant",
+        "glossy",
+        "gray",
+        "grey",
+        "kitchen",
+        "light",
+        "marble",
+        "modern",
+        "natural",
+        "polished",
+        "smooth",
+        "stone",
+        "veined",
+        "white"
+      ],
+      "provider": "ambientcg",
+      "release_date": "2020-01-26 00:00:00",
+      "source_url": "https://ambientcg.com/a/Marble012"
+    },
+    "rubber": {
+      "archive": {
+        "bytes": 17516740,
+        "path": "Candidates/Rubber004_1K-PNG.zip",
+        "sha256": "73b8a1e4655bd4b6bb29492ca158e5ca43da52a2fc4e2b46eaacafbd96d17901",
+        "url": "https://ambientcg.com/get?file=Rubber004_1K-PNG.zip"
+      },
+      "asset_id": "Rubber004",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 75,
+        "y": 75,
+        "z": 0
+      },
+      "coverage_note": "Zero means not specified by publisher; no inferred physical scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "Actual fine-grain rubber gym-floor source reused as a dense hard-rubber finish. Source does not establish molding process or measured mechanical hardness.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryRubber",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Rubber004_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 1569886,
+          "channel_mean": [
+            0.16297273074839028,
+            0.17012289458603902,
+            0.19394159878118633
+          ],
+          "channel_stddev": [
+            0.028100426832449586,
+            0.029155454462479347,
+            0.02856588334675646
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.016921373163960925,
+            "y": 0.01691249844268108
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "rubber/Maps/BaseColor.png",
+          "range": [
+            0.03529411764705882,
+            0.25882352941176473
+          ],
+          "runtime_name": "T_LibraryRubber_BaseColor",
+          "sha256": "559ddef0d43572ff96015da9a12a218d8fcff3be9fb2a1febf00731d5b31e121",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.020562704248366013,
+            "y": 0.01890829248366013
+          }
+        },
+        "Height": {
+          "archive_member": "Rubber004_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1943749,
+          "channel_mean": [
+            0.910244489081748
+          ],
+          "channel_stddev": [
+            0.05049401848920027
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.04270289699214921,
+            "y": 0.04275217302914648
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "rubber/Maps/Height.png",
+          "range": [
+            0.563103685053788,
+            1.0
+          ],
+          "runtime_name": "T_LibraryRubber_Height",
+          "sha256": "0bd31aebe4af12291d5a7233deda43927d917c46a47f9861780c85a3c24a9b63",
+          "source_mode": "I;16",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.040012046282520794,
+            "y": 0.04039779852845808
+          }
+        },
+        "Normal": {
+          "archive_member": "Rubber004_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 5899387,
+          "channel_mean": [
+            0.49890102311680634,
+            0.4989276437198903,
+            0.9157842972814327
+          ],
+          "channel_stddev": [
+            0.06368925732287606,
+            0.06436821205555525,
+            0.04207215970922542
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.6750909489185907,
+            0.8467228818217554,
+            1.0006918022273306
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.051904000822184534,
+            "y": 0.05202389815693303
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "rubber/Maps/Normal.png",
+          "range": [
+            0.23529411764705882,
+            1.0
+          ],
+          "runtime_name": "T_LibraryRubber_Normal",
+          "sha256": "cb927ac9703b41d4ab87ffd2edee7cb773d8ba76ef162772d47735e7d721bb2a",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.05954988766339869,
+            "y": 0.06269658905228759
+          }
+        },
+        "Roughness": {
+          "archive_member": "Rubber004_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 750731,
+          "channel_mean": [
+            0.5906616285735484
+          ],
+          "channel_stddev": [
+            0.05122826674856624
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.04664620888678051,
+            "y": 0.046242736005692606
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "rubber/Maps/Roughness.png",
+          "range": [
+            0.4,
+            0.8196078431372549
+          ],
+          "runtime_name": "T_LibraryRubber_Roughness",
+          "sha256": "3969d0cd375fa94f849bcbc7fe836ebc619aed4b80673cb59ce823e1423db699",
+          "source_mode": "L",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.05208333333333333,
+            "y": 0.052550551470588236
+          }
+        }
+      },
+      "metadata_path": "Metadata/Rubber004.json",
+      "metadata_sha256": "03829f0f5a63a69a7ca8b0583388ea20feace33b27faaccc129a901aad4ea0e1",
+      "official_tags": [
+        "4",
+        "black",
+        "floor",
+        "gym",
+        "rubber"
+      ],
+      "provider": "ambientcg",
+      "release_date": "2023-12-03 14:00:00",
+      "source_url": "https://ambientcg.com/a/Rubber004"
+    },
+    "suede": {
+      "archive": {
+        "bytes": 16827273,
+        "path": "Candidates/Leather039_1K-PNG.zip",
+        "sha256": "d649dd87779d717e08beaeec3c7e48f5575b18a65be862d08568a21fcf553e5c",
+        "url": "https://ambientcg.com/get?file=Leather039_1K-PNG.zip"
+      },
+      "asset_id": "Leather039",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means not specified by publisher; no inferred physical scale.",
+      "creation_method": "PBRMultiAngle",
+      "identity_notes": "Actual fine light suede source; no invented leather pebbling or wear overlay.",
+      "license": "CC0-1.0",
+      "look_id": "LibrarySuede",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Leather039_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 1523414,
+          "channel_mean": [
+            0.9874339309420572,
+            0.76955476649601,
+            0.467810791618598
+          ],
+          "channel_stddev": [
+            0.004066835257202388,
+            0.020485036070413968,
+            0.026258625351872206
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.014649292278413493,
+            "y": 0.01313010021946218
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "suede/Maps/BaseColor.png",
+          "range": [
+            0.32941176470588235,
+            1.0
+          ],
+          "runtime_name": "T_LibrarySuede_BaseColor",
+          "sha256": "8812b9e830db5821c8b58eeed8e0743526b313f972d2f432ab6df078b62a7805",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.017958537581699355,
+            "y": 0.016048815359477133
+          }
+        },
+        "Height": {
+          "archive_member": "Leather039_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1995776,
+          "channel_mean": [
+            0.7371773058611241
+          ],
+          "channel_stddev": [
+            0.0768232691836596
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.06863942904572531,
+            "y": 0.06983409652797776
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "suede/Maps/Height.png",
+          "range": [
+            0.05635156786449989,
+            0.9977111467154955
+          ],
+          "runtime_name": "T_LibrarySuede_Height",
+          "sha256": "f190a314713ed25cbd0f23f8487fcd059eec24a02deef1b9f51a6aedf18ab8b0",
+          "source_mode": "I;16",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.07133336432822156,
+            "y": 0.06917111324101625
+          }
+        },
+        "Normal": {
+          "archive_member": "Leather039_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 5555270,
+          "channel_mean": [
+            0.4998788384830403,
+            0.49992560966344535,
+            0.9897438946914564
+          ],
+          "channel_stddev": [
+            0.02909704862191241,
+            0.02959252323041212,
+            0.006024293067797607
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9530218637671157,
+            0.9849540921430671,
+            1.0007532726146746
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.021568828355103854,
+            "y": 0.02157587247794198
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "suede/Maps/Normal.png",
+          "range": [
+            0.3411764705882353,
+            1.0
+          ],
+          "runtime_name": "T_LibrarySuede_Normal",
+          "sha256": "bf3c46d8be8098a8eab998c50abaf6080d0c07fe9bd608739bfbf9875a1d50a7",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.02644888684640523,
+            "y": 0.0264859068627451
+          }
+        },
+        "Roughness": {
+          "archive_member": "Leather039_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 745617,
+          "channel_mean": [
+            0.5932896744971181
+          ],
+          "channel_stddev": [
+            0.040670803971544094
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.043756674758735355,
+            "y": 0.04419971701718322
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "suede/Maps/Roughness.png",
+          "range": [
+            0.43529411764705883,
+            0.8627450980392157
+          ],
+          "runtime_name": "T_LibrarySuede_Roughness",
+          "sha256": "1b456c741fcd7ee91e734877770cab0c6ebff7f42977b077952bd0e50bbf4f87",
+          "source_mode": "L",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.04592907475490196,
+            "y": 0.045109528186274506
+          }
+        }
+      },
+      "metadata_path": "Metadata/Leather039.json",
+      "metadata_sha256": "cf3550ee301bfd3d289b34bf5c95d9f3acbd206266e83d2e5d21e6037f07a195",
+      "official_tags": [
+        "39",
+        "bright",
+        "fine",
+        "leather",
+        "light",
+        "rough",
+        "suede"
+      ],
+      "provider": "ambientcg",
+      "release_date": "2025-03-14 09:00:00",
+      "source_url": "https://ambientcg.com/a/Leather039"
+    },
+    "terracotta": {
+      "asset_id": "brown_floor_tiles",
+      "author": {
+        "Rob Tuytel": "All"
+      },
+      "coverage_cm": {
+        "x": 170.00000476837158,
+        "y": 170.00000476837158
+      },
+      "coverage_note": "Official millimeter dimensions converted to centimeters; original pixel aspect is retained.",
+      "description": "Free 8K texture: brown terracotta ceramic floor tiles with square grid and subtle wear - flat, grout-lined material for outdoor or indoor floors.",
+      "files_metadata_path": "Metadata/brown_floor_tiles_files.json",
+      "files_metadata_sha256": "ac576b376a844d34ab452be6d1b46148f7be5d14b81980a57b8684bf6c6912df",
+      "identity_notes": "Actual terracotta floor tiles, intact grid with subtle source wear. No claim that these are pristine or unglazed; no added aging.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryTerracotta",
+      "maps": {
+        "AO": {
+          "bit_depth": 16,
+          "bytes": 1159344,
+          "channel_mean": [
+            0.9846752835564276
+          ],
+          "channel_stddev": [
+            0.040606826614159465
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0029229671048517417,
+            "y": 0.004467920566862595
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "terracotta/Maps/AO.png",
+          "range": [
+            0.6968795300221255,
+            0.9999694819562066
+          ],
+          "runtime_name": "T_LibraryTerracotta_AO",
+          "sha256": "9b412e1c2363f039f84e3f91ad3df237321d10022a304f142280754ff71eec1a",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_ao_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.07092239893282215,
+            "y": 0.03696539778362707
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 16,
+          "bytes": 6468678,
+          "channel_mean": [
+            0.5370448093739901,
+            0.4325377183831805,
+            0.3291451435438888,
+            1.0
+          ],
+          "channel_stddev": [
+            0.0704383949393035,
+            0.05563261862182964,
+            0.03846622386563268,
+            0.0
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.018888517153867905,
+            "y": 0.018833610431281508
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "terracotta/Maps/BaseColor.png",
+          "range": [
+            0.1607843137254902,
+            1.0
+          ],
+          "runtime_name": "T_LibraryTerracotta_BaseColor",
+          "sha256": "37306ea757df387bfa9cbd5f6bffaa69ad774b81cb3553b38bc38cd184016980",
+          "source_mode": "RGBA",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_diff_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.04162071078431372,
+            "y": 0.056709558823529405
+          }
+        },
+        "Height": {
+          "bit_depth": 16,
+          "bytes": 1114442,
+          "channel_mean": [
+            0.6280885259847013
+          ],
+          "channel_stddev": [
+            0.007232918558875096
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0004899558645516807,
+            "y": 0.00047498101781591413
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "terracotta/Maps/Height.png",
+          "range": [
+            0.5851377126726177,
+            0.6594491493095292
+          ],
+          "runtime_name": "T_LibraryTerracotta_Height",
+          "sha256": "e3a05dd7167a0eb27adade34c48465e322180ebc472f5cbd7491186ef2937317",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_disp_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.006115365954261086,
+            "y": 0.006398864871824228
+          }
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "bytes": 5222222,
+          "channel_mean": [
+            0.49988585827401205,
+            0.4999522826250851,
+            0.9982764262782536,
+            1.0
+          ],
+          "channel_stddev": [
+            0.02659282390950861,
+            0.026941696930598738,
+            0.0071434130520976755,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9833914904703068,
+            1.000076890546421,
+            1.0033929368003918
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0034602905762439362,
+            "y": 0.003464635907821093
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "terracotta/Maps/Normal.png",
+          "range": [
+            0.2235294117647059,
+            1.0
+          ],
+          "runtime_name": "T_LibraryTerracotta_Normal",
+          "sha256": "266fcac2802a1eaeb1f0f75981c221c7617ae59ee3188e3e56940e21f3428cbb",
+          "source_mode": "RGBA",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_nor_dx_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.026471545649509806,
+            "y": 0.027803308823529414
+          }
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "bytes": 1878444,
+          "channel_mean": [
+            0.8282016963264605
+          ],
+          "channel_stddev": [
+            0.05115911307156035
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.023545290148325,
+            "y": 0.023315557115857664
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "terracotta/Maps/Roughness.png",
+          "range": [
+            0.5456015869382772,
+            0.9984283207446403
+          ],
+          "runtime_name": "T_LibraryTerracotta_Roughness",
+          "sha256": "30416a784341d72a939742ec37c46efcdaa8871ee6763de2d8ef8a7378a1887e",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_rough_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.04867937933928435,
+            "y": 0.06304139724956132
+          }
+        }
+      },
+      "metadata_path": "Metadata/brown_floor_tiles_info.json",
+      "metadata_sha256": "fb2321aaa36ca8ad074703092bd9c88e76e97c6d5de974160e1bc94af7029d83",
+      "official_tags": [
+        "tiles",
+        "ceramic",
+        "square",
+        "outdoor flooring",
+        "flat",
+        "continuous",
+        "consistent",
+        "brown",
+        "terracotta",
+        "grout lines",
+        "grid pattern"
+      ],
+      "originals": {
+        "AO": {
+          "path": "terracotta/Original/brown_floor_tiles_ao_1k.png",
+          "sha256": "9b412e1c2363f039f84e3f91ad3df237321d10022a304f142280754ff71eec1a",
+          "upstream_md5": "ffc197803dc3904726e4a1083650ec23",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_ao_1k.png"
+        },
+        "BaseColor": {
+          "path": "Candidates/brown_floor_tiles_diff_1k.png",
+          "sha256": "37306ea757df387bfa9cbd5f6bffaa69ad774b81cb3553b38bc38cd184016980",
+          "upstream_md5": "e4ac84e5ae1fcedb5fafb714300be654",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_diff_1k.png"
+        },
+        "Height": {
+          "path": "terracotta/Original/brown_floor_tiles_disp_1k.png",
+          "sha256": "e3a05dd7167a0eb27adade34c48465e322180ebc472f5cbd7491186ef2937317",
+          "upstream_md5": "aa386669662b9da164836057f5599048",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_disp_1k.png"
+        },
+        "Normal": {
+          "path": "Candidates/brown_floor_tiles_nor_dx_1k.png",
+          "sha256": "266fcac2802a1eaeb1f0f75981c221c7617ae59ee3188e3e56940e21f3428cbb",
+          "upstream_md5": "4d81d05753f9092ea84d6fbee1724c75",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_nor_dx_1k.png"
+        },
+        "Roughness": {
+          "path": "Candidates/brown_floor_tiles_rough_1k.png",
+          "sha256": "30416a784341d72a939742ec37c46efcdaa8871ee6763de2d8ef8a7378a1887e",
+          "upstream_md5": "b8cbba6bd963cf70bcc4bd7dd05df143",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/brown_floor_tiles/brown_floor_tiles_rough_1k.png"
+        }
+      },
+      "provider": "polyhaven",
+      "release_date_unix": 1757980800,
+      "source_url": "https://polyhaven.com/a/brown_floor_tiles"
+    }
+  },
+  "retrieved_utc": "2026-10-19T17:29:48.055624+00:00",
+  "schema_version": 1,
+  "verification_scope": "Official source metadata/license snapshots;1K source dimensions, ZIP CRC or upstream MD5, SHA256 pins, channel distributions, boundary-neighbor steps, actual source-map contact sheet. No rendering, optical calibration, import, or artistic acceptance is claimed."
+}

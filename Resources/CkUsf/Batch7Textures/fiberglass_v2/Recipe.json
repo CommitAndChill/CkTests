@@ -1,0 +1,41 @@
+{
+  "base_color": "linearRGB=clamp(.55*ratio^.8,.04,.92).xxx then sRGB8. Preserves fine photographed bundle/gap contrast; removes chroma and broad lighting approximately, not measured albedo.",
+  "base_linear_mean_std": [
+    0.5411564493422507,
+    0.177929463807367
+  ],
+  "crop_dimensions": [
+    448,
+    448
+  ],
+  "crop_xyxy": [
+    96,
+    16,
+    544,
+    464
+  ],
+  "detail_percentiles_1_99": [
+    -1.413815178770137,
+    0.7104654048777207
+  ],
+  "generator_sha256": "f86a4bc9f7b728a60513044a3d4a2745a53cb2da47516e33f6095463d5216999",
+  "height": "H=clamp(.5+.5*detail/(percentile99(detail)-percentile1(detail)),0,1); encodeuint16. Uncalibrated brightness relief surrogate, not measured height.",
+  "height_mean_std": [
+    0.4780134182080945,
+    0.10658959038893447
+  ],
+  "illumination": "Decode sRGB to linear; Y=.2126R+.7152G+.0722B; low=periodicFFTGaussian(Y,sigma32px); ratio=(Y+.02)/(low+.02); detail=log(ratio).",
+  "license": "LicenseRef-PD-self",
+  "normal": "Periodic central derivatives=(next-prev)*512; N=normalize(-.0006*dHdu,-.0006*dHdv,1); encodeRGB8. Constructed projectDirectX convention; derived uncalibrated normal, not scan.",
+  "normal_XY_amplitude_p99": 0.1240389562342245,
+  "rights_unchanged": "Original author PD-self release and exact rights/metadata/original remain in V1 receipts; not relabeledCC0.",
+  "roughness": "clamp(.32+.12*(1-H),0,1), encodeL8. Authored variation surrogate, not measured roughness.",
+  "source_identity": "Actual finer220g/m2 plain0/90 glass reinforcement cloth at photo left; raw glass weave beneath independently authored resin. Not a cured-resin PBR scan.",
+  "source_manifest_sha256": "5acce9f35ebf48b5a45a9abf116f831f50692a2c3f1346ef22ac4315f0655c60",
+  "source_photo_path": "fiberglass/Original/Glass_fabric.jpg",
+  "source_photo_sha256": "78c014272990e554776da7c7d896417b573dda3dc5b97ac94370a4338dae7919",
+  "source_url": "https://commons.wikimedia.org/wiki/File:Glass_fabric.jpg",
+  "tiling": "Concatenate crop+Xmirror, then row+Ymirror ->896square, Lanczos resize1024square. No new weave grid/noise. Mirrored repetition explicit; not1024native unique photo resolution.",
+  "verification_scope": "Actual finer photo region and authored-map structure inspected; crop excludes ruler/coin/green edge. All data uncalibrated; runtime visual acceptance remains separate.",
+  "version": 2
+}

@@ -1,0 +1,202 @@
+{
+    "searchQuery": {
+        "forceSpecificAssetId": false,
+        "category": [],
+        "assetId": [
+            "leather037"
+        ],
+        "dataType": [],
+        "creationMethod": null,
+        "queryString": "",
+        "sort": "Popular",
+        "createdUsingAssetId": null,
+        "basedOnAssetId": null,
+        "variationsOfAssetId": null,
+        "limit": 100,
+        "offset": 0
+    },
+    "numberOfResults": 1,
+    "currentPageHttp": "https://ambientcg.com/api/v2/full_json?id=leather037&sort=popular&limit=100&include=statisticsData%2ClabelData%2CpreviewData%2CtechnicalData%2CfileData",
+    "foundAssets": [
+        {
+            "assetId": "Leather037",
+            "releaseDate": "2022-08-14 00:00:00",
+            "earlyReleaseDate": "2022-08-07 10:32:00",
+            "dataType": "Material",
+            "creationMethod": "PBRMultiAngle",
+            "category": null,
+            "downloadCount": 108482,
+            "downloadCountMonth": 8912,
+            "downloadCountWeek": 2832,
+            "popularityScore": 13.646014864801156,
+            "tags": [
+                "37",
+                "brown",
+                "clean",
+                "dark",
+                "leather"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Leather 037",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Leather",
+            "shortLink": "https://ambientcg.com/a/Leather037",
+            "dimensionX": 0,
+            "dimensionY": 0,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Leather037_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Leather037_1K-JPG.zip",
+                                    "fileName": "Leather037_1K-JPG.zip",
+                                    "size": 7323418,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Leather037_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Leather037_2K-JPG.zip",
+                                    "fileName": "Leather037_2K-JPG.zip",
+                                    "size": 21182522,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Leather037_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Leather037_4K-JPG.zip",
+                                    "fileName": "Leather037_4K-JPG.zip",
+                                    "size": 61235687,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Leather037_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Leather037_8K-JPG.zip",
+                                    "fileName": "Leather037_8K-JPG.zip",
+                                    "size": 220351472,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Leather037_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Leather037_1K-PNG.zip",
+                                    "fileName": "Leather037_1K-PNG.zip",
+                                    "size": 15751089,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Leather037_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Leather037_2K-PNG.zip",
+                                    "fileName": "Leather037_2K-PNG.zip",
+                                    "size": 57088064,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Leather037_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Leather037_4K-PNG.zip",
+                                    "fileName": "Leather037_4K-PNG.zip",
+                                    "size": 208599269,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Leather037_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Leather037_8K-PNG.zip",
+                                    "fileName": "Leather037_8K-PNG.zip",
+                                    "size": 769415472,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_Color.jpg?76573&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_Displacement.jpg?68707&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_NormalDX.jpg?11857&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_Roughness.jpg?94244",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_Color.jpg?10914,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_Displacement.jpg?67943,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_NormalDX.jpg?19498,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_Roughness.jpg?41330&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/Leather037.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/Leather037.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/Leather037.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/Leather037.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/Leather037.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/Leather037.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/Leather037.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/Leather037.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/Leather037.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/Leather037.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/Leather037.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/Leather037.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/Leather037.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/Leather037.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/Leather037.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/Leather037.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/Leather037.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/Leather037.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/Leather037.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/Leather037.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/Leather037.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/Leather037.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/Leather037.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/Leather037.webp"
+            }
+        }
+    ]
+}

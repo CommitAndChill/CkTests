@@ -1,0 +1,556 @@
+{
+    "searchQuery": {
+        "forceSpecificAssetId": false,
+        "category": [],
+        "assetId": [],
+        "dataType": [
+            "Material"
+        ],
+        "creationMethod": null,
+        "queryString": "terracotta",
+        "sort": "Popular",
+        "createdUsingAssetId": null,
+        "basedOnAssetId": null,
+        "variationsOfAssetId": null,
+        "limit": 60,
+        "offset": 0
+    },
+    "numberOfResults": 3,
+    "currentPageHttp": "https://ambientcg.com/api/v2/full_json?type=material&q=terracotta&sort=popular&limit=60&include=statisticsData%2ClabelData%2CpreviewData%2CtechnicalData%2CfileData",
+    "foundAssets": [
+        {
+            "assetId": "GlazedTerracotta001",
+            "releaseDate": "2022-02-13 00:00:00",
+            "earlyReleaseDate": "2022-02-13 00:00:00",
+            "dataType": "Material",
+            "creationMethod": "PBRProcedural",
+            "category": null,
+            "downloadCount": 23024,
+            "downloadCountMonth": 1696,
+            "downloadCountWeek": 470,
+            "popularityScore": 3.317821609214665,
+            "tags": [
+                "1",
+                "glazed",
+                "terracotta"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Glazed Terracotta 001",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Glazed Terracotta",
+            "shortLink": "https://ambientcg.com/a/GlazedTerracotta001",
+            "dimensionX": 0,
+            "dimensionY": 0,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta001_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta001_1K-JPG.zip",
+                                    "fileName": "GlazedTerracotta001_1K-JPG.zip",
+                                    "size": 4407800,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta001_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta001_2K-JPG.zip",
+                                    "fileName": "GlazedTerracotta001_2K-JPG.zip",
+                                    "size": 14826358,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta001_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta001_4K-JPG.zip",
+                                    "fileName": "GlazedTerracotta001_4K-JPG.zip",
+                                    "size": 60199279,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta001_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta001_8K-JPG.zip",
+                                    "fileName": "GlazedTerracotta001_8K-JPG.zip",
+                                    "size": 258053355,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta001_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta001_1K-PNG.zip",
+                                    "fileName": "GlazedTerracotta001_1K-PNG.zip",
+                                    "size": 13495778,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta001_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta001_2K-PNG.zip",
+                                    "fileName": "GlazedTerracotta001_2K-PNG.zip",
+                                    "size": 50265554,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta001_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta001_4K-PNG.zip",
+                                    "fileName": "GlazedTerracotta001_4K-PNG.zip",
+                                    "size": 197058020,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta001_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta001_8K-PNG.zip",
+                                    "fileName": "GlazedTerracotta001_8K-PNG.zip",
+                                    "size": 790070306,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta001/GlazedTerracotta001_SQ_Color.jpg?471&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta001/GlazedTerracotta001_SQ_Displacement.jpg?6853&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta001/GlazedTerracotta001_SQ_NormalDX.jpg?25318&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta001/GlazedTerracotta001_SQ_Roughness.jpg?44956",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta001/GlazedTerracotta001_SQ_Color.jpg?37888,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta001/GlazedTerracotta001_SQ_Displacement.jpg?99477,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta001/GlazedTerracotta001_SQ_NormalDX.jpg?46583,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta001/GlazedTerracotta001_SQ_Roughness.jpg?16358&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/GlazedTerracotta001.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/GlazedTerracotta001.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/GlazedTerracotta001.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/GlazedTerracotta001.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/GlazedTerracotta001.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/GlazedTerracotta001.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/GlazedTerracotta001.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/GlazedTerracotta001.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/GlazedTerracotta001.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/GlazedTerracotta001.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/GlazedTerracotta001.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/GlazedTerracotta001.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/GlazedTerracotta001.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/GlazedTerracotta001.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/GlazedTerracotta001.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/GlazedTerracotta001.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/GlazedTerracotta001.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/GlazedTerracotta001.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/GlazedTerracotta001.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/GlazedTerracotta001.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/GlazedTerracotta001.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/GlazedTerracotta001.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/GlazedTerracotta001.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/GlazedTerracotta001.webp"
+            }
+        },
+        {
+            "assetId": "GlazedTerracotta002",
+            "releaseDate": "2022-02-13 00:00:00",
+            "earlyReleaseDate": "2022-02-13 00:00:00",
+            "dataType": "Material",
+            "creationMethod": "PBRProcedural",
+            "category": null,
+            "downloadCount": 20017,
+            "downloadCountMonth": 1161,
+            "downloadCountWeek": 340,
+            "popularityScore": 3.0151075031119676,
+            "tags": [
+                "2",
+                "glazed",
+                "terracotta"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Glazed Terracotta 002",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Glazed Terracotta",
+            "shortLink": "https://ambientcg.com/a/GlazedTerracotta002",
+            "dimensionX": 0,
+            "dimensionY": 0,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta002_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta002_1K-JPG.zip",
+                                    "fileName": "GlazedTerracotta002_1K-JPG.zip",
+                                    "size": 4432002,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta002_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta002_2K-JPG.zip",
+                                    "fileName": "GlazedTerracotta002_2K-JPG.zip",
+                                    "size": 14978569,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta002_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta002_4K-JPG.zip",
+                                    "fileName": "GlazedTerracotta002_4K-JPG.zip",
+                                    "size": 60479831,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta002_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta002_8K-JPG.zip",
+                                    "fileName": "GlazedTerracotta002_8K-JPG.zip",
+                                    "size": 266764226,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta002_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta002_1K-PNG.zip",
+                                    "fileName": "GlazedTerracotta002_1K-PNG.zip",
+                                    "size": 13524026,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta002_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta002_2K-PNG.zip",
+                                    "fileName": "GlazedTerracotta002_2K-PNG.zip",
+                                    "size": 50378609,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta002_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta002_4K-PNG.zip",
+                                    "fileName": "GlazedTerracotta002_4K-PNG.zip",
+                                    "size": 198290297,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta002_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta002_8K-PNG.zip",
+                                    "fileName": "GlazedTerracotta002_8K-PNG.zip",
+                                    "size": 799439761,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta002/GlazedTerracotta002_SQ_Color.jpg?97073&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta002/GlazedTerracotta002_SQ_Displacement.jpg?70835&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta002/GlazedTerracotta002_SQ_NormalDX.jpg?84270&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta002/GlazedTerracotta002_SQ_Roughness.jpg?80285",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta002/GlazedTerracotta002_SQ_Color.jpg?40063,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta002/GlazedTerracotta002_SQ_Displacement.jpg?61731,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta002/GlazedTerracotta002_SQ_NormalDX.jpg?35486,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta002/GlazedTerracotta002_SQ_Roughness.jpg?66743&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/GlazedTerracotta002.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/GlazedTerracotta002.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/GlazedTerracotta002.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/GlazedTerracotta002.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/GlazedTerracotta002.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/GlazedTerracotta002.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/GlazedTerracotta002.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/GlazedTerracotta002.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/GlazedTerracotta002.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/GlazedTerracotta002.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/GlazedTerracotta002.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/GlazedTerracotta002.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/GlazedTerracotta002.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/GlazedTerracotta002.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/GlazedTerracotta002.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/GlazedTerracotta002.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/GlazedTerracotta002.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/GlazedTerracotta002.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/GlazedTerracotta002.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/GlazedTerracotta002.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/GlazedTerracotta002.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/GlazedTerracotta002.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/GlazedTerracotta002.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/GlazedTerracotta002.webp"
+            }
+        },
+        {
+            "assetId": "GlazedTerracotta003",
+            "releaseDate": "2022-02-13 00:00:00",
+            "earlyReleaseDate": "2022-02-13 00:00:00",
+            "dataType": "Material",
+            "creationMethod": "PBRProcedural",
+            "category": null,
+            "downloadCount": 15794,
+            "downloadCountMonth": 1089,
+            "downloadCountWeek": 324,
+            "popularityScore": 2.5899789131313593,
+            "tags": [
+                "3",
+                "glazed",
+                "terracotta"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Glazed Terracotta 003",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Glazed Terracotta",
+            "shortLink": "https://ambientcg.com/a/GlazedTerracotta003",
+            "dimensionX": 0,
+            "dimensionY": 0,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta003_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta003_1K-JPG.zip",
+                                    "fileName": "GlazedTerracotta003_1K-JPG.zip",
+                                    "size": 4163660,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta003_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta003_2K-JPG.zip",
+                                    "fileName": "GlazedTerracotta003_2K-JPG.zip",
+                                    "size": 14414221,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta003_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta003_4K-JPG.zip",
+                                    "fileName": "GlazedTerracotta003_4K-JPG.zip",
+                                    "size": 59123997,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta003_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta003_8K-JPG.zip",
+                                    "fileName": "GlazedTerracotta003_8K-JPG.zip",
+                                    "size": 257935612,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta003_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta003_1K-PNG.zip",
+                                    "fileName": "GlazedTerracotta003_1K-PNG.zip",
+                                    "size": 13284050,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta003_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta003_2K-PNG.zip",
+                                    "fileName": "GlazedTerracotta003_2K-PNG.zip",
+                                    "size": 49905108,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta003_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta003_4K-PNG.zip",
+                                    "fileName": "GlazedTerracotta003_4K-PNG.zip",
+                                    "size": 196672736,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=GlazedTerracotta003_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=GlazedTerracotta003_8K-PNG.zip",
+                                    "fileName": "GlazedTerracotta003_8K-PNG.zip",
+                                    "size": 778663624,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta003/GlazedTerracotta003_SQ_Color.jpg?83946&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta003/GlazedTerracotta003_SQ_Displacement.jpg?81638&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta003/GlazedTerracotta003_SQ_NormalDX.jpg?53871&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta003/GlazedTerracotta003_SQ_Roughness.jpg?71914",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta003/GlazedTerracotta003_SQ_Color.jpg?77921,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta003/GlazedTerracotta003_SQ_Displacement.jpg?85049,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta003/GlazedTerracotta003_SQ_NormalDX.jpg?89559,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/GlazedTerracotta003/GlazedTerracotta003_SQ_Roughness.jpg?86408&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/GlazedTerracotta003.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/GlazedTerracotta003.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/GlazedTerracotta003.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/GlazedTerracotta003.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/GlazedTerracotta003.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/GlazedTerracotta003.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/GlazedTerracotta003.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/GlazedTerracotta003.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/GlazedTerracotta003.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/GlazedTerracotta003.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/GlazedTerracotta003.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/GlazedTerracotta003.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/GlazedTerracotta003.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/GlazedTerracotta003.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/GlazedTerracotta003.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/GlazedTerracotta003.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/GlazedTerracotta003.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/GlazedTerracotta003.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/GlazedTerracotta003.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/GlazedTerracotta003.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/GlazedTerracotta003.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/GlazedTerracotta003.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/GlazedTerracotta003.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/GlazedTerracotta003.webp"
+            }
+        }
+    ]
+}

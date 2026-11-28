@@ -1,0 +1,230 @@
+{
+  "algorithm": "PCG64-seeded Gaussian white noise, smooth compact-support integer Fourier bands, fixed height ranges and smoothstep placement composition. No per-image min/max normalization.",
+  "color_space": "Linear data in unsigned 8-bit RGBA PNG; no sRGB, ICC or gamma metadata.",
+  "dependencies": {
+    "Pillow": "12.3.0",
+    "numpy": "2.4.6"
+  },
+  "detail": {
+    "band_limit": "Input modes smoothly taper to zero at 128 cycles/tile in every direction (at least 8 texels/cycle). Most channels <=112 cycles/tile. No single-texel impulses.",
+    "channels": {
+      "A": "dust variation",
+      "B": "rust pitting height (lower = deeper)",
+      "G": "paint orange peel height",
+      "R": "steel machining height"
+    },
+    "file": "IndustrialDetail_RGBA.png",
+    "size": [
+      1024,
+      1024
+    ],
+    "statistics": {
+      "A": {
+        "fraction_above_0_9": 0.00023174285888671875,
+        "fraction_below_0_1": 0.00018405914306640625,
+        "interior_x_mean_step": 0.01869856729654228,
+        "interior_y_mean_step": 0.01840915679566059,
+        "max": 1.0,
+        "mean": 0.5000029096416398,
+        "min": 0.03137254901960784,
+        "percentiles_1_10_50_90_99": [
+          0.22745098039215686,
+          0.34901960784313724,
+          0.5019607843137255,
+          0.6509803921568628,
+          0.7725490196078432
+        ],
+        "stddev": 0.11704979244955162,
+        "wrap_x_mean_step": 0.01892999387254902,
+        "wrap_y_mean_step": 0.018244485294117645
+      },
+      "B": {
+        "fraction_above_0_9": 1.049041748046875e-05,
+        "fraction_below_0_1": 0.0011682510375976562,
+        "interior_x_mean_step": 0.021599833726256873,
+        "interior_y_mean_step": 0.021697514309365,
+        "max": 0.9137254901960784,
+        "mean": 0.6147650101605583,
+        "min": 0.00784313725490196,
+        "percentiles_1_10_50_90_99": [
+          0.16862745098039217,
+          0.4,
+          0.6549019607843137,
+          0.7372549019607844,
+          0.8
+        ],
+        "stddev": 0.13813003675890098,
+        "wrap_x_mean_step": 0.024142156862745096,
+        "wrap_y_mean_step": 0.025815716911764708
+      },
+      "G": {
+        "fraction_above_0_9": 0.0010623931884765625,
+        "fraction_below_0_1": 0.0009679794311523438,
+        "interior_x_mean_step": 0.031010992724924778,
+        "interior_y_mean_step": 0.030741265836735473,
+        "max": 1.0,
+        "mean": 0.4999969108431947,
+        "min": 0.0,
+        "percentiles_1_10_50_90_99": [
+          0.19607843137254902,
+          0.3333333333333333,
+          0.5019607843137255,
+          0.6666666666666666,
+          0.803921568627451
+        ],
+        "stddev": 0.1298006862323577,
+        "wrap_x_mean_step": 0.02592294730392157,
+        "wrap_y_mean_step": 0.02889859068627451
+      },
+      "R": {
+        "fraction_above_0_9": 8.678436279296875e-05,
+        "fraction_below_0_1": 0.0001239776611328125,
+        "interior_x_mean_step": 0.008817947771117243,
+        "interior_y_mean_step": 0.027800815615835778,
+        "max": 0.984313725490196,
+        "mean": 0.5000009873334099,
+        "min": 0.00392156862745098,
+        "percentiles_1_10_50_90_99": [
+          0.24705882352941178,
+          0.3568627450980392,
+          0.5019607843137255,
+          0.6431372549019608,
+          0.7607843137254902
+        ],
+        "stddev": 0.11067016110706249,
+        "wrap_x_mean_step": 0.007586550245098042,
+        "wrap_y_mean_step": 0.02542126225490196
+      }
+    }
+  },
+  "generator_revision": 1,
+  "outputs": {
+    "ChannelPreview.png": {
+      "bytes": 520745,
+      "sha256": "c8837d92c5d3b3fa7b7317d74ee6a8a7a288d0dbae7c9da95b5a06025477ab5e"
+    },
+    "IndustrialDetail_RGBA.png": {
+      "bytes": 2104857,
+      "sha256": "22617b7c9ab3181663a66d62ba98b58970c82897afd721b831dc54fbda95299f"
+    },
+    "IndustrialPlacement_RGBA.png": {
+      "bytes": 132395,
+      "sha256": "e60a4358714611de8f8b11785b50e4f305ad067a55836d18dc39070c02ef16c7"
+    }
+  },
+  "placement": {
+    "band_limit": "All input modes smoothly taper to zero at 32 cycles/tile in every direction (at least 8 texels/cycle). Smoothstep adds gentle harmonics. Use mips at distance.",
+    "channels": {
+      "A": "macro discoloration",
+      "B": "directional grime/streak field (streaks run V)",
+      "G": "oxidation field",
+      "R": "clustered chip field with nested breakup"
+    },
+    "file": "IndustrialPlacement_RGBA.png",
+    "size": [
+      256,
+      256
+    ],
+    "statistics": {
+      "A": {
+        "fraction_above_0_9": 0.0034942626953125,
+        "fraction_below_0_1": 0.0081024169921875,
+        "interior_x_mean_step": 0.00828767781622453,
+        "interior_y_mean_step": 0.0071397419261822375,
+        "max": 0.9803921568627451,
+        "mean": 0.5000228582643995,
+        "min": 0.0,
+        "percentiles_1_10_50_90_99": [
+          0.11372549019607843,
+          0.2823529411764706,
+          0.5058823529411764,
+          0.7137254901960784,
+          0.8627450980392157
+        ],
+        "stddev": 0.1660971061262355,
+        "wrap_x_mean_step": 0.007444852941176472,
+        "wrap_y_mean_step": 0.0064491421568627465
+      },
+      "B": {
+        "fraction_above_0_9": 0.07586669921875,
+        "fraction_below_0_1": 0.1071014404296875,
+        "interior_x_mean_step": 0.07758548394848136,
+        "interior_y_mean_step": 0.01172193387158785,
+        "max": 1.0,
+        "mean": 0.4647542916092218,
+        "min": 0.0,
+        "percentiles_1_10_50_90_99": [
+          0.0,
+          0.09411764705882353,
+          0.4470588235294118,
+          0.8627450980392157,
+          1.0
+        ],
+        "stddev": 0.2797276034416522,
+        "wrap_x_mean_step": 0.05948223039215686,
+        "wrap_y_mean_step": 0.012346813725490197
+      },
+      "G": {
+        "fraction_above_0_9": 0.116455078125,
+        "fraction_below_0_1": 0.1258087158203125,
+        "interior_x_mean_step": 0.029053008458285276,
+        "interior_y_mean_step": 0.029822363994617455,
+        "max": 1.0,
+        "mean": 0.5020656211703431,
+        "min": 0.0,
+        "percentiles_1_10_50_90_99": [
+          0.0,
+          0.07058823529411765,
+          0.5098039215686274,
+          0.9176470588235294,
+          1.0
+        ],
+        "stddev": 0.3027096242459883,
+        "wrap_x_mean_step": 0.027542892156862744,
+        "wrap_y_mean_step": 0.035891544117647056
+      },
+      "R": {
+        "fraction_above_0_9": 0.15118408203125,
+        "fraction_below_0_1": 0.1369476318359375,
+        "interior_x_mean_step": 0.030105908785082663,
+        "interior_y_mean_step": 0.0296172746059208,
+        "max": 1.0,
+        "mean": 0.4998531565946691,
+        "min": 0.0,
+        "percentiles_1_10_50_90_99": [
+          0.0,
+          0.06274509803921569,
+          0.49019607843137253,
+          0.9568627450980393,
+          1.0
+        ],
+        "stddev": 0.3195761580980467,
+        "wrap_x_mean_step": 0.024433210784313722,
+        "wrap_y_mean_step": 0.03451286764705882
+      }
+    }
+  },
+  "provenance": "Original procedural fields generated by this repository script; no third-party image inputs or downloads.",
+  "schema": 1,
+  "seed": 731905,
+  "source": "Tools/UsfMaterials/generate_industrial_palette.py",
+  "source_sha256": "b9cbbf7ffaabc9d638de880203f94ed99de28fd1a20c59d2dd8b855cbf71578a",
+  "tiling_validation": {
+    "construction": "Each field is an inverse FFT of integer modes on a unit torus. Pointwise sums/clamps/smoothsteps preserve periodicity. Quantization is pointwise. Adjacent edge texels are neighbors, intentionally not duplicates.",
+    "edge_check": "Per-channel wrap steps and interior steps reported above; equality of first/last texels is not required for seamless sampling.",
+    "max_integer_mode_unit_period_basis_error": 8.623494204034449e-14
+  },
+  "unreal_import": {
+    "address_x": "Wrap",
+    "address_y": "Wrap",
+    "compress_without_alpha": false,
+    "compression": "TC_Masks",
+    "filter": "Default (trilinear/anisotropic via texture group)",
+    "limitation": "Packed mask block compression may alter heights; compare TC_Masks versus uncompressed RGBA8 in Unreal if gradient artifacts appear. No runtime import or rendered-quality claim accompanies these sources.",
+    "lod_group": "TEXTUREGROUP_World",
+    "mip_generation": "TMGS_SimpleAverage",
+    "sRGB": false,
+    "sampler_type": "Masks",
+    "use": "Sample detail and placement at independent scales. Decode heights as linear scalars; these are not normal maps. Derive restrained tangent detail normals in the pixel shader; fade undersampled detail and retain mips."
+  }
+}

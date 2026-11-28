@@ -1,0 +1,1806 @@
+{
+  "generator_sha256": "44cfa107d8144bcff4cebbe740af2dde45331cbf34e1e7ecdee646ec939b8ca1",
+  "generator_source": "Tools/UsfMaterials/source_batch6_textures.py",
+  "known_download_limit": "CGBookcase officialZIP returned403 once. Actual aligned original1K map PNGs from exact asset-page references were retrieved successfully; noZIP integrity claim is made for that asset.",
+  "licenses": [
+    {
+      "path": "License/ambientcg.html",
+      "provider": "ambientcg",
+      "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+      "spdx": "CC0-1.0",
+      "url": "https://docs.ambientcg.com/license/"
+    },
+    {
+      "path": "License/polyhaven.html",
+      "provider": "polyhaven",
+      "sha256": "46158a6b319ae8ef55acd18bd96d986c9261fb0cc8086124e97bcbefe779a623",
+      "spdx": "CC0-1.0",
+      "url": "https://polyhaven.com/license"
+    },
+    {
+      "path": "License/cgbookcase.html",
+      "provider": "cgbookcase",
+      "sha256": "cd32825cf300cbbfb1cbaf831f194c8114895c80a478e91595d7235a6af2c562",
+      "spdx": "CC0-1.0",
+      "url": "https://www.cgbookcase.com/textures"
+    }
+  ],
+  "maps_root": "Plugins/CkTests/Resources/CkUsf/Batch6Textures",
+  "materials": {
+    "galvanized_steel": {
+      "asset_id": "GalvanizedSteel02",
+      "author": "Dorian Zgraggen / CGBookcase",
+      "author_source": "https://www.cgbookcase.com/textures",
+      "coverage_cm": {
+        "x": null,
+        "y": null
+      },
+      "coverage_note": "No physical coverage specified on the official asset page; do not infer centimeters.",
+      "download_client_receipt": "Metadata/GalvanizedSteel02_download_client.js",
+      "download_route": "Official asset page map-library URLs. These are actual aligned1024-square PNG map images, not rendered sphere previews or query-downscaled images.",
+      "identity_notes": "Official Galvanized Steel02 with actual authored zinc-spangle cells aligned in color/roughness/height; original DirectX normal includes fine finish streaks. No rust overlay or generic-noise spangle substitute. Not a measured zinc-coating thickness or alloy certification.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryGalvanizedSteel",
+      "maps": {
+        "AO": {
+          "bit_depth": 8,
+          "bytes": 750587,
+          "channel_mean": [
+            0.9416579527081972,
+            0.9416579527081972,
+            0.9416579527081972,
+            1.0
+          ],
+          "channel_stddev": [
+            0.06580221192682299,
+            0.06580221192682299,
+            0.06580221192682299,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.011356684581823932,
+            "y": 0.03818502004449141
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical official public1K map PNG; officialZIP host403 so map-library route retained.",
+          "normal_convention": null,
+          "path": "galvanized_steel/Maps/AO.png",
+          "range": [
+            0.4666666666666667,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGalvanizedSteel_AO",
+          "sha256": "432528946874ffb36a06ab74a84670e0f7aad1b997500108a4a8a7bce1e59550",
+          "source_mode": "RGBA",
+          "source_url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_AO.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.013039981617647058,
+            "y": 0.06643497242647059
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 8,
+          "bytes": 387585,
+          "channel_mean": [
+            0.603946872778159,
+            0.603946872778159,
+            0.603946872778159,
+            1.0
+          ],
+          "channel_stddev": [
+            0.03001170564987419,
+            0.03001170564987419,
+            0.03001170564987419,
+            0.0
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.003034837411412512,
+            "y": 0.0030748915791573225
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical official public1K map PNG; officialZIP host403 so map-library route retained.",
+          "normal_convention": null,
+          "path": "galvanized_steel/Maps/BaseColor.png",
+          "range": [
+            0.4666666666666667,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGalvanizedSteel_BaseColor",
+          "sha256": "3ab97c092e225ce690dc6530952115eb5966cfc2a2f3b7d061cee64c673fe67d",
+          "source_mode": "RGBA",
+          "source_url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_BaseColor.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0031795726102941185,
+            "y": 0.0026223575367647052
+          }
+        },
+        "Height": {
+          "bit_depth": 8,
+          "bytes": 871474,
+          "channel_mean": [
+            0.4612203261434015,
+            0.4612203485827972,
+            0.4612203261434015,
+            1.0
+          ],
+          "channel_stddev": [
+            0.16788723107863304,
+            0.16788719013711453,
+            0.16788723107863304,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.017012355903077262,
+            "y": 0.053072900007846494
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical official public1K map PNG; officialZIP host403 so map-library route retained.",
+          "normal_convention": null,
+          "path": "galvanized_steel/Maps/Height.png",
+          "range": [
+            0.00784313725490196,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGalvanizedSteel_Height",
+          "sha256": "5ca3f396d6cda61b74bb3d6740a8f2bf605a9fb569a3044326531102c35ded97",
+          "source_mode": "RGBA",
+          "source_url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_Height.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.018324908088235295,
+            "y": 0.07380227481617647
+          }
+        },
+        "Normal": {
+          "bit_depth": 8,
+          "bytes": 2192217,
+          "channel_mean": [
+            0.5003214293835021,
+            0.5003491158578969,
+            0.9621642991657168,
+            1.0
+          ],
+          "channel_stddev": [
+            0.07677651851233096,
+            0.16951214794583472,
+            0.056181854003633604,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9996462273109465,
+            1.0023501795046186,
+            1.0081635257897377
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.02834428248327679,
+            "y": 0.07225609390872673
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical official public1K map PNG; officialZIP host403 so map-library route retained.",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "galvanized_steel/Maps/Normal.png",
+          "range": [
+            0.027450980392156862,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGalvanizedSteel_Normal",
+          "sha256": "d430455fb1a0db2ecbf193592f5975b24e3e9a2184c04a55ae32a83189c258ec",
+          "source_mode": "RGBA",
+          "source_url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_Normal.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.030765548406862745,
+            "y": 0.09786496629901961
+          }
+        },
+        "Roughness": {
+          "bit_depth": 8,
+          "bytes": 427525,
+          "channel_mean": [
+            0.289876747130987,
+            0.289876747130987,
+            0.289876747130987,
+            1.0
+          ],
+          "channel_stddev": [
+            0.0405093047735198,
+            0.0405093047735198,
+            0.0405093047735198,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.004660557633977345,
+            "y": 0.004726950519485654
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical official public1K map PNG; officialZIP host403 so map-library route retained.",
+          "normal_convention": null,
+          "path": "galvanized_steel/Maps/Roughness.png",
+          "range": [
+            0.2235294117647059,
+            1.0
+          ],
+          "runtime_name": "T_LibraryGalvanizedSteel_Roughness",
+          "sha256": "0504d2a00c2257b612176600895f4051559a593393d2d93a31ee95336028f8d2",
+          "source_mode": "RGBA",
+          "source_url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_Roughness.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.005451516544117647,
+            "y": 0.0036161534926470586
+          }
+        }
+      },
+      "metadata_path": "Metadata/GalvanizedSteel02_asset.html",
+      "metadata_sha256": "6bbc86f165b274b855d0ee2a2f9ac4e8b471331531a7aacde6d77d76b2a97c8d",
+      "normal_convention_source": "Official asset Available Maps labels Normal (DirectX); exact referenced1K Normal map is retained unchanged.",
+      "official_tags": [
+        "Galvanized Steel02"
+      ],
+      "originals": {
+        "AO": {
+          "bytes": 750587,
+          "path": "galvanized_steel/Original/GalvanizedSteel02_1K_AO.png",
+          "sha256": "432528946874ffb36a06ab74a84670e0f7aad1b997500108a4a8a7bce1e59550",
+          "url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_AO.png"
+        },
+        "BaseColor": {
+          "bytes": 387585,
+          "path": "galvanized_steel/Original/GalvanizedSteel02_1K_BaseColor.png",
+          "sha256": "3ab97c092e225ce690dc6530952115eb5966cfc2a2f3b7d061cee64c673fe67d",
+          "url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_BaseColor.png"
+        },
+        "Height": {
+          "bytes": 871474,
+          "path": "galvanized_steel/Original/GalvanizedSteel02_1K_Height.png",
+          "sha256": "5ca3f396d6cda61b74bb3d6740a8f2bf605a9fb569a3044326531102c35ded97",
+          "url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_Height.png"
+        },
+        "Normal": {
+          "bytes": 2192217,
+          "path": "galvanized_steel/Original/GalvanizedSteel02_1K_Normal.png",
+          "sha256": "d430455fb1a0db2ecbf193592f5975b24e3e9a2184c04a55ae32a83189c258ec",
+          "url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_Normal.png"
+        },
+        "Roughness": {
+          "bytes": 427525,
+          "path": "galvanized_steel/Original/GalvanizedSteel02_1K_Roughness.png",
+          "sha256": "0504d2a00c2257b612176600895f4051559a593393d2d93a31ee95336028f8d2",
+          "url": "https://cgbookcase.b-cdn.net/textures/thumbnails/GalvanizedSteel02_1K/GalvanizedSteel02_1K_Roughness.png"
+        }
+      },
+      "provider": "cgbookcase",
+      "source_url": "https://www.cgbookcase.com/textures/galvanized-steel-02",
+      "transform_provenance": "Original publisher PNGs, alignment and aspect retained. All selected normal sources are explicitly native DirectX; no green inversion or resampling baked into source maps.",
+      "unavailable_archive": {
+        "note": "Single ZIP request failed; no archive exists or archive hash is claimed. Individual official1K originals are retained and pinned instead.",
+        "observed_status": 403,
+        "url": "https://cgbookcase-volume.b-cdn.net/t/GalvanizedSteel02_MR_1K.zip"
+      }
+    },
+    "limestone": {
+      "archive": {
+        "bytes": 14946818,
+        "path": "Archives/Tiles139_1K-PNG.zip",
+        "sha256": "58f52c41fb4f44f0c21bdcf08dfd3020b0989924d0f45a8ee9922f92ac7a9acc",
+        "url": "https://ambientcg.com/get?file=Tiles139_1K-PNG.zip"
+      },
+      "asset_id": "Tiles139",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 200,
+        "y": 200,
+        "z": 0
+      },
+      "coverage_note": "Zero means not specified by publisher; no inferred physical scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "Official limestone-tagged beige/cream fine-stone tiles with subtle source spotting and slightly-worn catalog tag. Intact slab layout, not granite, and no added damage. Geological chemistry/grade is not independently measured.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryLimestone",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Tiles139_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 1633105,
+          "channel_mean": [
+            0.7039858761914458,
+            0.6233463661285003,
+            0.5394466437503928,
+            1.0
+          ],
+          "channel_stddev": [
+            0.057623231019006196,
+            0.05422404423320496,
+            0.05189359387218145,
+            0.0
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.010758229569473195,
+            "y": 0.010730595581646638
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "limestone/Maps/BaseColor.png",
+          "range": [
+            0.043137254901960784,
+            1.0
+          ],
+          "runtime_name": "T_LibraryLimestone_BaseColor",
+          "sha256": "59be40db1a758d34925a252948ca114de716dc9ac0d7f256774a7df5efbdeec6",
+          "source_mode": "RGBA",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.07366249234068627,
+            "y": 0.055313648897058816
+          }
+        },
+        "Height": {
+          "archive_member": "Tiles139_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1492958,
+          "channel_mean": [
+            0.5168280540600769
+          ],
+          "channel_stddev": [
+            0.12292587542476835
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0030025391068837057,
+            "y": 0.0029155227760665455
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "limestone/Maps/Height.png",
+          "range": [
+            0.0,
+            1.0
+          ],
+          "runtime_name": "T_LibraryLimestone_Height",
+          "sha256": "3df4fbc000bad9cc1d4b22bdc3f3f0eb2e3b76b5f136894f86841616ef38011e",
+          "source_mode": "I;16",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.20099547236209658,
+            "y": 0.19394318160143437
+          }
+        },
+        "Normal": {
+          "archive_member": "Tiles139_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 4829518,
+          "channel_mean": [
+            0.49955270430630505,
+            0.5004461251051802,
+            0.9978192235913114,
+            1.0
+          ],
+          "channel_stddev": [
+            0.011910777271082798,
+            0.012259151885772215,
+            0.0110258449184661,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9120577222605495,
+            1.0000153785822494,
+            1.0003843936332626
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0019490033458397994,
+            "y": 0.0019482686731522982
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "limestone/Maps/Normal.png",
+          "range": [
+            0.1843137254901961,
+            1.0
+          ],
+          "runtime_name": "T_LibraryLimestone_Normal",
+          "sha256": "0ef469ca84af2dd1c80c9a956c9ffeca0c992fd11e81d944b832d6a5bd73472c",
+          "source_mode": "RGBA",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.028358609068627447,
+            "y": 0.028472541360294115
+          }
+        },
+        "Roughness": {
+          "archive_member": "Tiles139_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 546999,
+          "channel_mean": [
+            0.514117659774481
+          ],
+          "channel_stddev": [
+            0.060166482827098355
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.015504363937045981,
+            "y": 0.015429990727962738
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "limestone/Maps/Roughness.png",
+          "range": [
+            0.23529411764705882,
+            0.8745098039215686
+          ],
+          "runtime_name": "T_LibraryLimestone_Roughness",
+          "sha256": "f361a26cda154f3ddb2b58b7ca485c8039a6c883864e2e9a11aeb92253bc3bc8",
+          "source_mode": "L",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.04762944240196078,
+            "y": 0.035768995098039214
+          }
+        }
+      },
+      "metadata_path": "Metadata/Tiles139.json",
+      "metadata_sha256": "44c02ecef5f5214a14115f1ac715e9185fd260eb592a612f435933ee280d681c",
+      "official_tags": [
+        "139",
+        "bathroom",
+        "beige",
+        "checkered",
+        "classic",
+        "cream",
+        "floor",
+        "grid",
+        "kitchen",
+        "limestone",
+        "natural",
+        "slightly",
+        "smooth",
+        "square",
+        "stone",
+        "tiles",
+        "tiles139",
+        "worn"
+      ],
+      "provider": "ambientcg",
+      "release_date": "2026-06-24 17:00:00",
+      "source_url": "https://ambientcg.com/a/Tiles139",
+      "transform_provenance": "Original publisher PNGs, alignment and aspect retained. All selected normal sources are explicitly native DirectX; no green inversion or resampling baked into source maps."
+    },
+    "linen": {
+      "asset_id": "rough_linen",
+      "author": {
+        "Rico Cilliers": "Processing",
+        "colormass": "Photography"
+      },
+      "coverage_cm": {
+        "x": 27.070813926766288,
+        "y": 27.129998803138733
+      },
+      "coverage_note": "Official millimeter dimensions converted to centimeters; original pixel aspect is retained.",
+      "description": "Free 8K texture: rough blue linen with fine woven crosshatch and natural matte surface - great for upholstery, garments, drapery, and cloth sims.",
+      "files_metadata_path": "Metadata/rough_linen_files.json",
+      "files_metadata_sha256": "14d222418e4dbe1a0fc3e6bbf9776694474cac43fd531b5f77f8da819616cd49",
+      "identity_notes": "Official Rough Linen: actual fine woven crosshatch and irregular/slubby threads. Source identifies linen; no laboratory flax-composition certification. Preserve1024x1026 source aspect; explicitly resize only runtime imports to1024 square for streaming/mips, a0.195% height change.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryLinen",
+      "maps": {
+        "AO": {
+          "bit_depth": 16,
+          "bytes": 2042272,
+          "channel_mean": [
+            0.7725604262867475
+          ],
+          "channel_stddev": [
+            0.11566447769444248
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1026,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.10520934495282326,
+            "y": 0.1229948716834888
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "linen/Maps/AO.png",
+          "range": [
+            0.18475623712520028,
+            0.9951171129930572
+          ],
+          "runtime_name": "T_LibraryLinen_AO",
+          "sha256": "3f9958470d582e5a5a8395acc68733984b8c045413755ef34a2e42da81e5a5b7",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_ao_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.10296557454604782,
+            "y": 0.11888062557221332
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 16,
+          "bytes": 5812140,
+          "channel_mean": [
+            0.5693198686122033,
+            0.6714451900636592,
+            0.8066235147305495
+          ],
+          "channel_stddev": [
+            0.048005037667477435,
+            0.04363007330200324,
+            0.032151404567392274
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1026,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.043690275842551966,
+            "y": 0.045276569723417814
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "linen/Maps/BaseColor.png",
+          "range": [
+            0.3607843137254902,
+            0.8901960784313725
+          ],
+          "runtime_name": "T_LibraryLinen_BaseColor",
+          "sha256": "47444b9ef76fa32e0bfd20484fa63071336eba21e2e2bcb5e3957542bafaeaee",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_diff_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.04041585445094217,
+            "y": 0.044247855392156865
+          }
+        },
+        "Height": {
+          "bit_depth": 16,
+          "bytes": 1983815,
+          "channel_mean": [
+            0.434016497208773
+          ],
+          "channel_stddev": [
+            0.08965061929872735
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1026,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.05904091466980333,
+            "y": 0.07576387085215124
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "linen/Maps/Height.png",
+          "range": [
+            0.024963759822995348,
+            0.9617608911268788
+          ],
+          "runtime_name": "T_LibraryLinen_Height",
+          "sha256": "78b56241190055fce94238d587bc71504b155c5785ace241b455b256166c24a2",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_disp_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.06275626716732915,
+            "y": 0.0761778355554284
+          }
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "bytes": 5652021,
+          "channel_mean": [
+            0.49987529353237,
+            0.49984525722746237,
+            0.9923987432770144
+          ],
+          "channel_stddev": [
+            0.043384768999281655,
+            0.054514926094874856,
+            0.004444982702536131
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9796938689680071,
+            0.9947729595546566,
+            1.0079194294767817
+          ],
+          "height": 1026,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.031155875962072352,
+            "y": 0.03424540565718157
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "linen/Maps/Normal.png",
+          "range": [
+            0.3058823529411765,
+            1.0
+          ],
+          "runtime_name": "T_LibraryLinen_Normal",
+          "sha256": "7bc298ca21ac5550b2fea567a2b34724299f114fe1ea93a1bc78e19ea80f6cbb",
+          "source_mode": "RGB",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_nor_dx_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.032460599574462665,
+            "y": 0.0347515829248366
+          }
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "bytes": 2045070,
+          "channel_mean": [
+            0.7183209090551606
+          ],
+          "channel_stddev": [
+            0.09809461104390632
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1026,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": "Preserve original sources. Explicitly resize runtime import to1024 square if NPOT mips/streaming require it; retain original physical coverage separately.",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.10817070191811692,
+            "y": 0.09531834201306508
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "linen/Maps/Roughness.png",
+          "range": [
+            0.179140917067216,
+            1.0
+          ],
+          "runtime_name": "T_LibraryLinen_Roughness",
+          "sha256": "040eeef8041e3c619e5a17a76bb5f376416ce17f1ac42a04003a67952cc206a3",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_rough_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.09828474316433743,
+            "y": 0.09908180623903258
+          }
+        }
+      },
+      "metadata_path": "Metadata/rough_linen_info.json",
+      "metadata_sha256": "790f1719043c0eaad735bbfd9589dc1396466bc289f0a850acf7f0879c290174",
+      "official_tags": [
+        "blue",
+        "fine",
+        "textile ",
+        "fabric",
+        "woven",
+        "linen",
+        "weave",
+        "crosshatch"
+      ],
+      "originals": {
+        "AO": {
+          "path": "linen/Original/rough_linen_ao_1k.png",
+          "sha256": "3f9958470d582e5a5a8395acc68733984b8c045413755ef34a2e42da81e5a5b7",
+          "upstream_md5": "ba55d8b3e59351a58bc5b1076a41b3ea",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_ao_1k.png"
+        },
+        "BaseColor": {
+          "path": "linen/Original/rough_linen_diff_1k.png",
+          "sha256": "47444b9ef76fa32e0bfd20484fa63071336eba21e2e2bcb5e3957542bafaeaee",
+          "upstream_md5": "c77ee2140db8d88cf15101f091ea55fc",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_diff_1k.png"
+        },
+        "Height": {
+          "path": "linen/Original/rough_linen_disp_1k.png",
+          "sha256": "78b56241190055fce94238d587bc71504b155c5785ace241b455b256166c24a2",
+          "upstream_md5": "f14e9d5ba191b0bc6f6a56c1c37811f5",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_disp_1k.png"
+        },
+        "Normal": {
+          "path": "linen/Original/rough_linen_nor_dx_1k.png",
+          "sha256": "7bc298ca21ac5550b2fea567a2b34724299f114fe1ea93a1bc78e19ea80f6cbb",
+          "upstream_md5": "67be20d6746c858e91fa903e01be3f62",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_nor_dx_1k.png"
+        },
+        "Roughness": {
+          "path": "linen/Original/rough_linen_rough_1k.png",
+          "sha256": "040eeef8041e3c619e5a17a76bb5f376416ce17f1ac42a04003a67952cc206a3",
+          "upstream_md5": "e9107cbc7aae80fe39d140a7fe592c79",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rough_linen/rough_linen_rough_1k.png"
+        }
+      },
+      "provider": "polyhaven",
+      "release_date_unix": 1757078158,
+      "runtime_resize_recipe": {
+        "height_scale": 0.9980506822612085,
+        "original_dimensions": [
+          1024,
+          1026
+        ],
+        "originals_unchanged": true,
+        "reason": "Original NPOT textile requires explicit runtime import resize for mip/streaming compatibility, preserving source receipt.",
+        "runtime_dimensions": [
+          1024,
+          1024
+        ]
+      },
+      "source_url": "https://polyhaven.com/a/rough_linen",
+      "transform_provenance": "Original publisher PNGs, alignment and aspect retained. All selected normal sources are explicitly native DirectX; no green inversion or resampling baked into source maps."
+    },
+    "mosaic": {
+      "archive": {
+        "bytes": 15833786,
+        "path": "Archives/Tiles071_1K-PNG.zip",
+        "sha256": "4187323b25a2a05b51ad7f2e0bf74b6a8ef4194a4e293adb567560b81c868375",
+        "url": "https://ambientcg.com/get?file=Tiles071_1K-PNG.zip"
+      },
+      "asset_id": "Tiles071",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 45,
+        "y": 45,
+        "z": 0
+      },
+      "coverage_note": "Zero means not specified by publisher; no inferred physical scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "Actual intact white hexagonal mosaic with aligned grout. Coating mask derives from source cavity AO; no invented hexagonal grid. Rejected Tiles019 shows visible chips/dirty aged pieces and is retained separately.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryMosaic",
+      "maps": {
+        "AO": {
+          "archive_member": "Tiles071_1K-PNG_AmbientOcclusion.png",
+          "bit_depth": 8,
+          "bytes": 139929,
+          "channel_mean": [
+            0.9773404439290365
+          ],
+          "channel_stddev": [
+            0.09122636512100178
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.017679728828848256,
+            "y": 0.017019463042426162
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "mosaic_clean/Maps/AO.png",
+          "range": [
+            0.30196078431372547,
+            1.0
+          ],
+          "runtime_name": "T_LibraryMosaic_AO",
+          "sha256": "1d89e7801d54c8c2ea706b62b3df099d8e62182d4e5555071aecba81280afc86",
+          "source_mode": "L",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.08824678308823529,
+            "y": 0.05793887867647059
+          }
+        },
+        "BaseColor": {
+          "archive_member": "Tiles071_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 961126,
+          "channel_mean": [
+            0.9236098644877582,
+            0.9224281610318521,
+            0.9219328263315981
+          ],
+          "channel_stddev": [
+            0.056920972943550426,
+            0.060263646619897374,
+            0.0617505256510915
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.016082347630319644,
+            "y": 0.016000686967317067
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "mosaic_clean/Maps/BaseColor.png",
+          "range": [
+            0.5176470588235295,
+            1.0
+          ],
+          "runtime_name": "T_LibraryMosaic_BaseColor",
+          "sha256": "aefe96f4c33cb86b919d6e352e8a5ea97fcf59d4703249dfb8fd02d54ea0e594",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.02305964052287582,
+            "y": 0.049475337009803916
+          }
+        },
+        "Height": {
+          "archive_member": "Tiles071_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1778776,
+          "channel_mean": [
+            0.6197002198864031
+          ],
+          "channel_stddev": [
+            0.23231449240295007
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.028213004032141536,
+            "y": 0.026010036655912637
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "mosaic_clean/Maps/Height.png",
+          "range": [
+            0.0,
+            1.0
+          ],
+          "runtime_name": "T_LibraryMosaic_Height",
+          "sha256": "c687e238ba955d4c99f2aa155234677deb91d8b9b186060311757d244d6cd4ab",
+          "source_mode": "I;16",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.03504310375658046,
+            "y": 0.0645568982700084
+          }
+        },
+        "Normal": {
+          "archive_member": "Tiles071_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 5525632,
+          "channel_mean": [
+            0.5000930299945503,
+            0.49945684320801953,
+            0.9741387385984219
+          ],
+          "channel_stddev": [
+            0.07663919225625072,
+            0.07521920466159913,
+            0.047035453302382124
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.7973331173114242,
+            0.9929780372924544,
+            1.0081025072525098
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0249450995166721,
+            "y": 0.02475279933067231
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "mosaic_clean/Maps/Normal.png",
+          "range": [
+            0.023529411764705882,
+            1.0
+          ],
+          "runtime_name": "T_LibraryMosaic_Normal",
+          "sha256": "d6abbb42c7ea2a114678f2afb53f721a8e9d759352b2250dc3afc0c921a97e60",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.05211397058823528,
+            "y": 0.04878344566993464
+          }
+        },
+        "Roughness": {
+          "archive_member": "Tiles071_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 592909,
+          "channel_mean": [
+            0.511259797040154
+          ],
+          "channel_stddev": [
+            0.07129404846487455
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0221995362783432,
+            "y": 0.022128865445249456
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "mosaic_clean/Maps/Roughness.png",
+          "range": [
+            0.10196078431372549,
+            0.8549019607843137
+          ],
+          "runtime_name": "T_LibraryMosaic_Roughness",
+          "sha256": "e4c909799231629af7ee47595122dbc1bb935423bad87f0dc69d404ef910e19e",
+          "source_mode": "L",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.041184129901960784,
+            "y": 0.0906862745098039
+          }
+        },
+        "TileMask": {
+          "bit_depth": 8,
+          "bytes": 56244,
+          "channel_mean": [
+            0.8536172567629347
+          ],
+          "channel_stddev": [
+            0.3496141994849507
+          ],
+          "color_space": "linear",
+          "coverage_above_half": 0.8545513153076172,
+          "coverage_mean": 0.8536172567629347,
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0381991089140935,
+            "y": 0.034117551972524106
+          },
+          "max_mask_when_source_AO_at_most_0_90": 0,
+          "mode": "L",
+          "modifications": "Source-aligned cavity segmentation: a=AO/255; t=clamp((a-.90)/.09,0,1); s=t*t*(3-2*t); output=round(255*periodic3x3minimum(s)). No spatial hex/grid invented; one-pixel erosion conservatively excludes grout.",
+          "normal_convention": null,
+          "path": "mosaic_clean/Maps/TileMask.png",
+          "range": [
+            0.0,
+            1.0
+          ],
+          "runtime_name": "T_LibraryMosaic_TileMask",
+          "segmentation_rationale": "Absolute Height varies between tilted tile planes and would misclassify low tiles. Actual cavity AO is1 across tile interiors and lower along source grout, allowing stable source-aligned segmentation.",
+          "sha256": "5b7609ed0fa82bb85da55ca854cdb1d642d8c5591719574054bb331ddcfe202c",
+          "source_mode": "L",
+          "source_path": "mosaic_clean/Maps/AO.png",
+          "source_sha256": "1d89e7801d54c8c2ea706b62b3df099d8e62182d4e5555071aecba81280afc86",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "usage": "R=tile/glaze coverage;1tile0grout. Linear map, sample with exact same UVs as sourceBC/N/R.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0017310049019607845,
+            "y": 0.10165824142156862
+          }
+        }
+      },
+      "metadata_path": "Metadata/Tiles071.json",
+      "metadata_sha256": "f9434a5e80962e52c73d8ee66b06d8850f1926322505572b619a7f898064710d",
+      "official_tags": [
+        "71",
+        "bathroom",
+        "hexagon",
+        "mosaic",
+        "tiled",
+        "tiles",
+        "white"
+      ],
+      "provider": "ambientcg",
+      "release_date": "2019-11-18 00:00:00",
+      "source_url": "https://ambientcg.com/a/Tiles071",
+      "transform_provenance": "Original publisher PNGs, alignment and aspect retained. All selected normal sources are explicitly native DirectX; no green inversion or resampling baked into source maps."
+    },
+    "pine": {
+      "asset_id": "coated_pine",
+      "author": {
+        "Charlotte Baglioni": "Scanning ",
+        "Rico Cilliers": "Processing "
+      },
+      "coverage_cm": {
+        "x": 74.00000095367432,
+        "y": 74.00000095367432
+      },
+      "coverage_note": "Official millimeter dimensions converted to centimeters; original pixel aspect is retained.",
+      "description": "Free glossy coated pine PBR texture with varnished finish, knots and light scratches, a warm knotty wood ideal for furniture, floors and interiors.",
+      "files_metadata_path": "Metadata/coated_pine_files.json",
+      "files_metadata_sha256": "06d809ffc0e569080aa8f180967f555c7fcfa36118e1227997c2210ce18c16f0",
+      "identity_notes": "Official Coated Pine, explicitly pine-tagged with real softwood grain and knots. Source includes a varnished finish and light scratches; do not claim pristine raw timber or laboratory species certification. No added aging.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryPine",
+      "maps": {
+        "AO": {
+          "bit_depth": 16,
+          "bytes": 1863252,
+          "channel_mean": [
+            0.8972137964425759
+          ],
+          "channel_stddev": [
+            0.03512011934535515
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.017736659168742407,
+            "y": 0.030406293954289385
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "pine/Maps/AO.png",
+          "range": [
+            0.6788433661402304,
+            0.9897154192416266
+          ],
+          "runtime_name": "T_LibraryPine_AO",
+          "sha256": "a2aea2f0f2a771dd59a04a5ad49f9b19f05950085ed32dc774c9fa801e6f2571",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_ao_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.01804039587624933,
+            "y": 0.032244578278782327
+          }
+        },
+        "BaseColor": {
+          "bit_depth": 16,
+          "bytes": 6091142,
+          "channel_mean": [
+            0.40846218034696913,
+            0.22240687351719818,
+            0.024653752645121044,
+            1.0
+          ],
+          "channel_stddev": [
+            0.05527840710691113,
+            0.03910973922288999,
+            0.01858943613107853,
+            0.0
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.007570466060630019,
+            "y": 0.014559892127213786
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "pine/Maps/BaseColor.png",
+          "range": [
+            0.0,
+            1.0
+          ],
+          "runtime_name": "T_LibraryPine_BaseColor",
+          "sha256": "129cf8a9c2f21e47e918c2a8c1d9591b60b42dd94cd2f3a2b9aaf6a6a7b574d0",
+          "source_mode": "RGBA",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_diff_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.006908700980392157,
+            "y": 0.020030062806372546
+          }
+        },
+        "Height": {
+          "bit_depth": 16,
+          "bytes": 1666246,
+          "channel_mean": [
+            0.5014345620911245
+          ],
+          "channel_stddev": [
+            0.009347877203083272
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.00373140848283688,
+            "y": 0.006006592299724028
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "pine/Maps/Height.png",
+          "range": [
+            0.4067597467002365,
+            0.5851834897383078
+          ],
+          "runtime_name": "T_LibraryPine_Height",
+          "sha256": "dd41fa47c5a6e8f288dd3aabeb6546781569014c7ca258198ad69ec7fb8e9faa",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_disp_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.00364715955691615,
+            "y": 0.022633987325474926
+          }
+        },
+        "Normal": {
+          "bit_depth": 16,
+          "bytes": 5772575,
+          "channel_mean": [
+            0.500022117764337,
+            0.499985414392813,
+            0.9959319021196938,
+            1.0
+          ],
+          "channel_stddev": [
+            0.004964486046750134,
+            0.010590554092627266,
+            0.004586090511123774,
+            0.0
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9609923744307006,
+            0.9924203323739336,
+            1.000630328063758
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0037377759823687485,
+            "y": 0.005545330970700835
+          },
+          "mode": "RGBA",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "pine/Maps/Normal.png",
+          "range": [
+            0.4235294117647059,
+            1.0
+          ],
+          "runtime_name": "T_LibraryPine_Normal",
+          "sha256": "a40e9c6eb75b9e0275106c428212b5455ce366774e7ddab87910158acb0af9f4",
+          "source_mode": "RGBA",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_nor_dx_1k.png",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.00520737591911764,
+            "y": 0.005446729473039212
+          }
+        },
+        "Roughness": {
+          "bit_depth": 16,
+          "bytes": 1756302,
+          "channel_mean": [
+            0.31111773175633706
+          ],
+          "channel_stddev": [
+            0.02979567614228076
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.007937786781957116,
+            "y": 0.014947428515822024
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical1K publisher PNG, no resampling or new grain",
+          "normal_convention": null,
+          "path": "pine/Maps/Roughness.png",
+          "range": [
+            0.14563210498207066,
+            0.6799877927824827
+          ],
+          "runtime_name": "T_LibraryPine_Roughness",
+          "sha256": "da25363fb392738b488055f0bc712837ce719fb4432382cb700f54357f25cb34",
+          "source_mode": "I;16",
+          "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_rough_1k.png",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.007248229118982223,
+            "y": 0.01857137705519951
+          }
+        }
+      },
+      "metadata_path": "Metadata/coated_pine_info.json",
+      "metadata_sha256": "3e15d92e7323bcbe0dd97c22207aac83d2031ff6278271877152bec7cf24457c",
+      "official_tags": [
+        "knots",
+        "glossy surface",
+        "coated finish",
+        "pine",
+        "coated wood",
+        "pine wood",
+        "varnished wood",
+        "scratched",
+        "knotty pine"
+      ],
+      "originals": {
+        "AO": {
+          "path": "pine/Original/coated_pine_ao_1k.png",
+          "sha256": "a2aea2f0f2a771dd59a04a5ad49f9b19f05950085ed32dc774c9fa801e6f2571",
+          "upstream_md5": "bb2509f4dfaa5abadc23bd4b6a1843ad",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_ao_1k.png"
+        },
+        "BaseColor": {
+          "path": "pine/Original/coated_pine_diff_1k.png",
+          "sha256": "129cf8a9c2f21e47e918c2a8c1d9591b60b42dd94cd2f3a2b9aaf6a6a7b574d0",
+          "upstream_md5": "82ca171f9460f4c092913be8ea483231",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_diff_1k.png"
+        },
+        "Height": {
+          "path": "pine/Original/coated_pine_disp_1k.png",
+          "sha256": "dd41fa47c5a6e8f288dd3aabeb6546781569014c7ca258198ad69ec7fb8e9faa",
+          "upstream_md5": "50a728ff7ba74d95dd60d5d004b38334",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_disp_1k.png"
+        },
+        "Normal": {
+          "path": "pine/Original/coated_pine_nor_dx_1k.png",
+          "sha256": "a40e9c6eb75b9e0275106c428212b5455ce366774e7ddab87910158acb0af9f4",
+          "upstream_md5": "700d25fa77dfbbeaab6026b22a1d7a6a",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_nor_dx_1k.png"
+        },
+        "Roughness": {
+          "path": "pine/Original/coated_pine_rough_1k.png",
+          "sha256": "da25363fb392738b488055f0bc712837ce719fb4432382cb700f54357f25cb34",
+          "upstream_md5": "064e6d101ad4909d30d08fbedea9c5c3",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coated_pine/coated_pine_rough_1k.png"
+        }
+      },
+      "provider": "polyhaven",
+      "release_date_unix": 1786448942,
+      "source_url": "https://polyhaven.com/a/coated_pine",
+      "transform_provenance": "Original publisher PNGs, alignment and aspect retained. All selected normal sources are explicitly native DirectX; no green inversion or resampling baked into source maps."
+    },
+    "smooth_leather": {
+      "archive": {
+        "bytes": 16109248,
+        "path": "Archives/Leather038_1K-PNG.zip",
+        "sha256": "a5840974a0509b0f36b0b965eac908221f4c61ee7f84d31b415fd6612a3b45dc",
+        "url": "https://ambientcg.com/get?file=Leather038_1K-PNG.zip"
+      },
+      "asset_id": "Leather038",
+      "author": "ambientCG / Lennart Demes (publisher; no individual author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means not specified by publisher; no inferred physical scale.",
+      "creation_method": "PBRMultiAngle",
+      "identity_notes": "Actual fine smooth orange/brown leather grain, distinct from black patent and coarse pebbled leather. No independently invented pebble pattern, added wear or patent coating.",
+      "license": "CC0-1.0",
+      "look_id": "LibrarySmoothLeather",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Leather038_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 1570225,
+          "channel_mean": [
+            0.826825770220889,
+            0.4296424155202131,
+            0.18654196496108014
+          ],
+          "channel_stddev": [
+            0.02169362897673288,
+            0.020134937540808532,
+            0.015838346232076146
+          ],
+          "color_space": "sRGB",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.01589150992651052,
+            "y": 0.014649931178483124
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "smooth_leather/Maps/BaseColor.png",
+          "range": [
+            0.10980392156862745,
+            0.9294117647058824
+          ],
+          "runtime_name": "T_LibrarySmoothLeather_BaseColor",
+          "sha256": "ebf2ecdc56281ef6a5393010b6aac387e2cc086fcfe5c28cd28f30d3db47bedb",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0205078125,
+            "y": 0.019112540849673204
+          }
+        },
+        "Height": {
+          "archive_member": "Leather038_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1904946,
+          "channel_mean": [
+            0.5319803173012506
+          ],
+          "channel_stddev": [
+            0.035808840952207995
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint16",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.03548204902171938,
+            "y": 0.02775029797125393
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "smooth_leather/Maps/Height.png",
+          "range": [
+            0.1206683451590753,
+            0.9534294651712826
+          ],
+          "runtime_name": "T_LibrarySmoothLeather_Height",
+          "sha256": "419148f3c0d70f9296ee72c661e602a3a487d1ab7ab8e9576fd886ee5048cbe2",
+          "source_mode": "I;16",
+          "statistics_divisor": 65535.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0448818051661326,
+            "y": 0.041763302171549554
+          }
+        },
+        "Normal": {
+          "archive_member": "Leather038_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 5272430,
+          "channel_mean": [
+            0.5001872791963148,
+            0.5000164106780394,
+            0.9940774394029656
+          ],
+          "channel_stddev": [
+            0.016589205628325464,
+            0.012246764611686512,
+            0.0043082869861571105
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "decoded_normal_length_percentiles_1_50_99": [
+            0.9645065950701796,
+            0.9922343610746371,
+            1.0009376611262943
+          ],
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.01215618690861812,
+            "y": 0.009558229552003267
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": "DirectX tangent space; do not flip green",
+          "path": "smooth_leather/Maps/Normal.png",
+          "range": [
+            0.35294117647058826,
+            1.0
+          ],
+          "runtime_name": "T_LibrarySmoothLeather_Normal",
+          "sha256": "02bb2132b85516133db250d9e51838903d6f1c42384d2469f1de0577f6514aca",
+          "source_mode": "RGB",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.018673406862745098,
+            "y": 0.017098141339869283
+          }
+        },
+        "Roughness": {
+          "archive_member": "Leather038_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 649056,
+          "channel_mean": [
+            0.3650785782757927
+          ],
+          "channel_stddev": [
+            0.023498967095608104
+          ],
+          "color_space": "linear",
+          "decoded_dtype": "uint8",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "npot_note": null,
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.02794921013982328,
+            "y": 0.023327166200668926
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical publisher PNG",
+          "normal_convention": null,
+          "path": "smooth_leather/Maps/Roughness.png",
+          "range": [
+            0.16470588235294117,
+            0.5725490196078431
+          ],
+          "runtime_name": "T_LibrarySmoothLeather_Roughness",
+          "sha256": "960e78a99e7976b0bfaff2982449c38d8abf466701e12b63cb5952dbab4754d6",
+          "source_mode": "L",
+          "statistics_divisor": 255.0,
+          "statistics_precision_note": "Pillow decodes RGB16 PNGs as RGB8; grayscale16 remains16-bit. Statistics describe decoded pixels, not original RGB16 precision.",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.03564644607843137,
+            "y": 0.03423330269607843
+          }
+        }
+      },
+      "metadata_path": "Metadata/Leather038.json",
+      "metadata_sha256": "913a3fd78faf8197b7c75bbb4df73488c5b530c9e32232acdcc6c3b5980aba21",
+      "official_tags": [
+        "38",
+        "brown",
+        "fine",
+        "leather",
+        "orange",
+        "smooth"
+      ],
+      "provider": "ambientcg",
+      "release_date": "2025-03-14 09:00:00",
+      "source_url": "https://ambientcg.com/a/Leather038",
+      "transform_provenance": "Original publisher PNGs, alignment and aspect retained. All selected normal sources are explicitly native DirectX; no green inversion or resampling baked into source maps."
+    }
+  },
+  "required_helper": "Tools/UsfMaterials/source_batch2_textures.py",
+  "required_helper_sha256": "f279cceb7551d5a0638e62b1ebc8eeb54c35db360e04cea26b1da01644a4ad0c",
+  "retained_candidates": {
+    "Tiles019": "Rejected visible chips/dirty aged mosaic pieces; original mosaic/Maps and archive retained. Selected clean Tiles071 uses mosaic_clean/Maps."
+  },
+  "retrieved_utc": "2026-10-19T23:26:17.945537+00:00",
+  "runtime_channels": {
+    "default": [
+      "BaseColor",
+      "Normal",
+      "Roughness"
+    ],
+    "mosaic_extra": [
+      "TileMask"
+    ]
+  },
+  "runtime_texture_count": 19,
+  "schema_version": 1,
+  "verification_scope": "Official CC0 snapshots/metadata; publisher ZIP size/CRC or PolyHavenMD5; per-file SHA256 pins and truePNGdimensions/bitdepth/conventions, aligned source overview/detail and actual cavity-mask segmentation. No editor import, runtime quality, optical calibration, measured chemistry/alloy or artistic acceptance is claimed."
+}

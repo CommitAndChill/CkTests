@@ -1,0 +1,1145 @@
+{
+  "generator_source": "Tools/UsfMaterials/source_batch1_textures.py",
+  "license": {
+    "sha256": "60138e09b277c89977841462634b36e99d7bae5b77174777813502069c59461c",
+    "snapshot": "License/ambientCG-license.html",
+    "spdx": "CC0-1.0",
+    "terms": "Raw downloadable assets may be copied, modified and redistributed, including commercially; attribution is optional.",
+    "url": "https://docs.ambientcg.com/license/"
+  },
+  "materials": {
+    "aluminum": {
+      "api_url": "https://ambientcg.com/api/v2/full_json?id=Metal051A&include=tagData%2CdisplayData%2CdownloadData%2CdimensionsData",
+      "archive": {
+        "bytes": 11889756,
+        "path": "Archives/Metal051A_1K-PNG.zip",
+        "sha256": "3c130a5195c17e0efc4ef2b44e75e9a112ffaf20b46144c6c9165cf92de06984",
+        "url": "https://ambientcg.com/get?file=Metal051A_1K-PNG.zip"
+      },
+      "asset_id": "Metal051A",
+      "author": "ambientCG / Lennart Demes (site operator; no separate per-asset author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means unspecified by upstream; do not infer real-world scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "Official aluminum/brushed source with circular brushing. Texture does not establish a uniform linear brush tangent.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryAluminum",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Metal051A_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 400823,
+          "channel_mean": [
+            0.014144426233628216
+          ],
+          "channel_stddev": [
+            0.014917693432045086
+          ],
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.011226191738303337,
+            "y": 0.01093305265654649
+          },
+          "mode": "P",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "aluminum/Maps/BaseColor.png",
+          "sha256": "4fba4ba6bdd8661ed989bb7d0877e16ee76c671e55729651011e0687cd8387b5",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.013116574754901961,
+            "y": 0.011550245098039216
+          }
+        },
+        "Height": {
+          "archive_member": "Metal051A_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1293039,
+          "channel_mean": [
+            0.4884378559831133
+          ],
+          "channel_stddev": [
+            0.0006486524851856689
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0004712701787699556,
+            "y": 0.0004596527183004058
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "aluminum/Maps/Height.png",
+          "sha256": "07c4ef5a96a8c14eb9bf2aff348b2eb62126252ea59e2f83f8816eefc639da6b",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.000337874084458685,
+            "y": 0.0006554226749065362
+          }
+        },
+        "Normal": {
+          "archive_member": "Metal051A_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 4209526,
+          "channel_mean": [
+            0.0019001238168123858,
+            0.0019000432561804015,
+            0.0037298417595584025
+          ],
+          "channel_stddev": [
+            7.075682166760974e-05,
+            7.081779840678453e-05,
+            7.100010216344409e-05
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 5.079674093780536e-06,
+            "y": 5.202381129285953e-06
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": "DirectX tangent space (+X,-Y,+Z); do not flip green on import",
+          "path": "aluminum/Maps/Normal.png",
+          "sha256": "e43990266fff39ff314463784904cf106dfbec6ea073a312901c23b8f7a59212",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 1.010810858065664e-05,
+            "y": 3.998539266549676e-06
+          }
+        },
+        "Roughness": {
+          "archive_member": "Metal051A_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 426087,
+          "channel_mean": [
+            0.17918274075377222
+          ],
+          "channel_stddev": [
+            0.009531914098699579
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.006712748332470818,
+            "y": 0.00664202883316083
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "aluminum/Maps/Roughness.png",
+          "sha256": "448a9913a845c66f21b9dc666a384a68b44bac72486504f4e1be0b9426eec1d0",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.005629595588235294,
+            "y": 0.008903952205882353
+          }
+        }
+      },
+      "metadata_path": "Metadata/Metal051A.json",
+      "metadata_sha256": "6a4b5e6532ff9c4fc2bf8c29233978efe87e7484de17d8d09ecda6eb0861fdd8",
+      "official_tags": [
+        "51",
+        "aluminum",
+        "brushed",
+        "circular",
+        "metal"
+      ],
+      "release_date": "2024-08-10 12:00:00",
+      "source_url": "https://ambientcg.com/a/Metal051A"
+    },
+    "leather": {
+      "api_url": "https://ambientcg.com/api/v2/full_json?id=Leather037&include=tagData%2CdisplayData%2CdownloadData%2CdimensionsData",
+      "archive": {
+        "bytes": 15751089,
+        "path": "Archives/Leather037_1K-PNG.zip",
+        "sha256": "b1cbc98a04f548a1b68cf881dca5cd2dcbd405c571b9d0940f8a102f481b626b",
+        "url": "https://ambientcg.com/get?file=Leather037_1K-PNG.zip"
+      },
+      "asset_id": "Leather037",
+      "author": "ambientCG / Lennart Demes (site operator; no separate per-asset author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means unspecified by upstream; do not infer real-world scale.",
+      "creation_method": "PBRMultiAngle",
+      "identity_notes": "Clean dark brown leather; inspect source pores for pebbled leather suitability.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryLeather",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Leather037_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 489318,
+          "channel_mean": [
+            0.015484420925963159
+          ],
+          "channel_stddev": [
+            0.02298117281768156
+          ],
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.016404670219749676,
+            "y": 0.01545267292828666
+          },
+          "mode": "P",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "leather/Maps/BaseColor.png",
+          "sha256": "f7e24e580a1de22e64f79bf1deff88a70003c3db259b48fdea26ab6025428f20",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.015839460784313725,
+            "y": 0.0166015625
+          }
+        },
+        "Height": {
+          "archive_member": "Leather037_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 2011119,
+          "channel_mean": [
+            0.5494972131650109
+          ],
+          "channel_stddev": [
+            0.17074620909782767
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.08952630232530974,
+            "y": 0.0865353930166044
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "leather/Maps/Height.png",
+          "sha256": "c5539be2fe04c997896e7bed2985ac4090cd120359133cfc5052b499fe06aa62",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.09357890225642786,
+            "y": 0.09266042536907759
+          }
+        },
+        "Normal": {
+          "archive_member": "Leather037_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 5529898,
+          "channel_mean": [
+            0.0019455365551847746,
+            0.0019457265915449667,
+            0.0038762627454205435
+          ],
+          "channel_stddev": [
+            0.00018518486442999028,
+            0.00018594471627468568,
+            1.8461089489091364e-05
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 9.328430446516818e-05,
+            "y": 9.119418200287862e-05
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": "DirectX tangent space (+X,-Y,+Z); do not flip green on import",
+          "path": "leather/Maps/Normal.png",
+          "sha256": "b7cb90b76b07e8d81e6bc92e7c299f7895f2bdb100889b820e94ac0cfc22f4f6",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 9.903462844281683e-05,
+            "y": 9.608912063528393e-05
+          }
+        },
+        "Roughness": {
+          "archive_member": "Leather037_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 702024,
+          "channel_mean": [
+            0.397115281048943
+          ],
+          "channel_stddev": [
+            0.05983865044892505
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.03803182441109386,
+            "y": 0.037055610061717745
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "leather/Maps/Roughness.png",
+          "sha256": "e26cdd46e82aa1192f5bdebd7891d76c15b28297aea0d55dee78d966477d4933",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.046966911764705875,
+            "y": 0.04627757352941177
+          }
+        }
+      },
+      "metadata_path": "Metadata/Leather037.json",
+      "metadata_sha256": "5880f6ddecf68e3ef202b2c414f109a296eee3ed9c3f7b0eddda590e207704f7",
+      "official_tags": [
+        "37",
+        "brown",
+        "clean",
+        "dark",
+        "leather"
+      ],
+      "release_date": "2022-08-14 00:00:00",
+      "source_url": "https://ambientcg.com/a/Leather037"
+    },
+    "oak": {
+      "api_url": "https://ambientcg.com/api/v2/full_json?id=Wood049&include=tagData%2CdisplayData%2CdownloadData%2CdimensionsData",
+      "archive": {
+        "bytes": 15312889,
+        "path": "Archives/Wood049_1K-PNG.zip",
+        "sha256": "5859189c2be4588287aa84e77adbd38ba4a7d219122a31ee65674de72cb3e74b",
+        "url": "https://ambientcg.com/get?file=Wood049_1K-PNG.zip"
+      },
+      "asset_id": "Wood049",
+      "author": "ambientCG / Lennart Demes (site operator; no separate per-asset author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 80,
+        "y": 80,
+        "z": 0
+      },
+      "coverage_note": "Zero means unspecified by upstream; do not infer real-world scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "Official oak/furniture/smooth wood identity. Finishing is a shader coat over authored oak grain, not baked into new invented grain.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryOak",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Wood049_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 1068635,
+          "channel_mean": [
+            0.4823612100959082,
+            0.3882103901286104,
+            0.3049410801284362
+          ],
+          "channel_stddev": [
+            0.0570338609497622,
+            0.04774038367064122,
+            0.04031813449180193
+          ],
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.006576338176195862,
+            "y": 0.0232030087002217
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "oak/Maps/BaseColor.png",
+          "sha256": "2590dd053fb000d395259d645ec62ee08706fe991202390c3e43791295e3ea3c",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0075929330065359485,
+            "y": 0.024946384803921567
+          }
+        },
+        "Height": {
+          "archive_member": "Wood049_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1769654,
+          "channel_mean": [
+            0.48209174320555354
+          ],
+          "channel_stddev": [
+            0.10264741828344973
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.01037118086995592,
+            "y": 0.04475662720946778
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "oak/Maps/Height.png",
+          "sha256": "c67c3e6229303299dd3097be1509fbe04c853879a50273734f5911aabdd30ec2",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.010234065051117722,
+            "y": 0.0395004369087129
+          }
+        },
+        "Normal": {
+          "archive_member": "Wood049_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 5217690,
+          "channel_mean": [
+            0.0019455372827916332,
+            0.001945440161828067,
+            0.00386038361330138
+          ],
+          "channel_stddev": [
+            5.696753365739267e-05,
+            0.00023463749694182837,
+            3.520954415848505e-05
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 3.508733683157225e-05,
+            "y": 9.341127458935569e-05
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": "DirectX tangent space (+X,-Y,+Z); do not flip green on import",
+          "path": "oak/Maps/Normal.png",
+          "sha256": "17c8f85b19963cf51938f7fe2c4678e30278e713c01a879c08f226516b670ac9",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 3.653820477607385e-05,
+            "y": 8.344777599755857e-05
+          }
+        },
+        "Roughness": {
+          "archive_member": "Wood049_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 639207,
+          "channel_mean": [
+            0.5042709874171838
+          ],
+          "channel_stddev": [
+            0.06310355153461404
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.020885365005606348,
+            "y": 0.05349161383761715
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "oak/Maps/Roughness.png",
+          "sha256": "f0b52bcc9ebea6d50eb194039c14e23915bad809dd7b1b34f3d13395d17d3ec9",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.024253216911764706,
+            "y": 0.060209865196078426
+          }
+        }
+      },
+      "metadata_path": "Metadata/Wood049.json",
+      "metadata_sha256": "542a9e4eaccb6935286c95fdb6f46896c3d459dd0c58c809478f0edccb342957",
+      "official_tags": [
+        "049",
+        "49",
+        "brown",
+        "furniture",
+        "grain",
+        "horizontal",
+        "interior",
+        "modern",
+        "natural",
+        "oak",
+        "plain",
+        "smooth",
+        "wood",
+        "wood049"
+      ],
+      "release_date": "2020-09-27 00:00:00",
+      "source_url": "https://ambientcg.com/a/Wood049"
+    },
+    "plastic": {
+      "api_url": "https://ambientcg.com/api/v2/full_json?id=Plastic013A&include=tagData%2CdisplayData%2CdownloadData%2CdimensionsData",
+      "archive": {
+        "bytes": 15602541,
+        "path": "Archives/Plastic013A_1K-PNG.zip",
+        "sha256": "0fac90b85a4b58dad30bcfb444c93b212eb24a87a800622d85155809bd5ace80",
+        "url": "https://ambientcg.com/get?file=Plastic013A_1K-PNG.zip"
+      },
+      "asset_id": "Plastic013A",
+      "author": "ambientCG / Lennart Demes (site operator; no separate per-asset author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means unspecified by upstream; do not infer real-world scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "White authored plastic surface; matte molded appearance is a shader finish rather than certified polymer/molding-process provenance.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryPlastic",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Plastic013A_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 555861,
+          "channel_mean": [
+            0.03294236800249885
+          ],
+          "channel_stddev": [
+            0.02124896209374661
+          ],
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.022942721810131676,
+            "y": 0.02138408515899028
+          },
+          "mode": "P",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "plastic/Maps/BaseColor.png",
+          "sha256": "c50288758c9470fbdbf45d2c3369e765597d4c6423675b62637df8b17db325d0",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.026041666666666664,
+            "y": 0.020075061274509802
+          }
+        },
+        "Height": {
+          "archive_member": "Plastic013A_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1982447,
+          "channel_mean": [
+            0.6717787010132915
+          ],
+          "channel_stddev": [
+            0.05795941769734254
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.07940874710914808,
+            "y": 0.04985311842579287
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "plastic/Maps/Height.png",
+          "sha256": "077fd0f4030e7808dee0bc213dd2e9005cbc3cd905d6c4f9032c3ce5384f3d73",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0955382262340734,
+            "y": 0.0460883556973373
+          }
+        },
+        "Normal": {
+          "archive_member": "Plastic013A_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 5563046,
+          "channel_mean": [
+            0.0019454980211252913,
+            0.001945496871506444,
+            0.003808317477694681
+          ],
+          "channel_stddev": [
+            0.0001492510988587723,
+            8.34098198650868e-05,
+            2.6900859010082938e-05
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.0001153354025787026,
+            "y": 7.980312164616307e-05
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": "DirectX tangent space (+X,-Y,+Z); do not flip green on import",
+          "path": "plastic/Maps/Normal.png",
+          "sha256": "6d0efd812d7ce1591c680b47d86a86e9d5fa44fc185e0f66efb55cd626da4528",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.00014292915204343736,
+            "y": 7.320058779023931e-05
+          }
+        },
+        "Roughness": {
+          "archive_member": "Plastic013A_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 605435,
+          "channel_mean": [
+            0.4005364174936332
+          ],
+          "channel_stddev": [
+            0.02285850597335071
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.026861056005980103,
+            "y": 0.01713094236961647
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "plastic/Maps/Roughness.png",
+          "sha256": "716af3827ef40025a5a4b145d27f0c25cc6742a45952f4417bde3f60dd798ff6",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.040793504901960785,
+            "y": 0.020526960784313725
+          }
+        }
+      },
+      "metadata_path": "Metadata/Plastic013A.json",
+      "metadata_sha256": "9d0f8c4a8906b5486d418960f8ace2e141de63684a2acd3601b4ab160482d45b",
+      "official_tags": [
+        "13",
+        "plastic",
+        "white"
+      ],
+      "release_date": "2023-07-20 12:00:00",
+      "source_url": "https://ambientcg.com/a/Plastic013A"
+    },
+    "silk": {
+      "api_url": "https://ambientcg.com/api/v2/full_json?id=Fabric082A&include=tagData%2CdisplayData%2CdownloadData%2CdimensionsData",
+      "archive": {
+        "bytes": 14710719,
+        "path": "Archives/Fabric082A_1K-PNG.zip",
+        "sha256": "15810f52cbcce871515348921127daf22362c1f89b329d144b8aecfa9e92c48d",
+        "url": "https://ambientcg.com/get?file=Fabric082A_1K-PNG.zip"
+      },
+      "asset_id": "Fabric082A",
+      "author": "ambientCG / Lennart Demes (site operator; no separate per-asset author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means unspecified by upstream; do not infer real-world scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "Fine smooth woven fabric, not an identified silk fiber or satin weave. Intended silk shading is an artistic interpretation; the authored weave is retained.",
+      "license": "CC0-1.0",
+      "look_id": "LibrarySilk",
+      "maps": {
+        "AO": {
+          "archive_member": "Fabric082A_1K-PNG_AmbientOcclusion.png",
+          "bit_depth": 8,
+          "bytes": 588826,
+          "channel_mean": [
+            0.7388374029421338
+          ],
+          "channel_stddev": [
+            0.017426476006664363
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.021501108691277106,
+            "y": 0.01568895863880743
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "silk/Maps/AO.png",
+          "sha256": "7e796580f7435a19af96c531951a8f9cb0500e9becad3907023d9f62fe023bbe",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.03426011029411764,
+            "y": 0.019833792892156865
+          }
+        },
+        "BaseColor": {
+          "archive_member": "Fabric082A_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 683041,
+          "channel_mean": [
+            0.07072065764782476
+          ],
+          "channel_stddev": [
+            0.05064742359656744
+          ],
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.05643548192431909,
+            "y": 0.05351103165789776
+          },
+          "mode": "P",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "silk/Maps/BaseColor.png",
+          "sha256": "05dd11ee9c29b07dc91df6d8e82e00c91355070eb44e7673c1e8ad266c23e335",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.06464843749999999,
+            "y": 0.05601639093137255
+          }
+        },
+        "Height": {
+          "archive_member": "Fabric082A_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1825452,
+          "channel_mean": [
+            0.6504997118665177
+          ],
+          "channel_stddev": [
+            0.015944496967067675
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.01893045051343886,
+            "y": 0.01408401005972087
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "silk/Maps/Height.png",
+          "sha256": "c133f204a2cecf88f3e8188cb5ee2c0404a4360ce27a7088f9b2354ca2e8bf8f",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.035361620937285426,
+            "y": 0.019054018129625386
+          }
+        },
+        "Normal": {
+          "archive_member": "Fabric082A_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 4884985,
+          "channel_mean": [
+            0.0019466668342389372,
+            0.0019478181993399703,
+            0.0035485276007207384
+          ],
+          "channel_stddev": [
+            2.061031438753335e-05,
+            1.3244554896359533e-05,
+            2.6356152875799723e-05
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 1.934276467143888e-05,
+            "y": 1.5149099271783155e-05
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": "DirectX tangent space (+X,-Y,+Z); do not flip green on import",
+          "path": "silk/Maps/Normal.png",
+          "sha256": "ad11c32fcba4b653658cc2a7b3e9f3d6cba37ff012578c5e8f75983dedcd5169",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 7.600204884158588e-05,
+            "y": 2.2774288866000326e-05
+          }
+        },
+        "Roughness": {
+          "archive_member": "Fabric082A_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 503123,
+          "channel_mean": [
+            0.8516841065649895
+          ],
+          "channel_stddev": [
+            0.027064881255625263
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.020941349872060262,
+            "y": 0.010857425356506236
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "silk/Maps/Roughness.png",
+          "sha256": "cb7f56ad0558e70c7841b286e8bc4c2954a8f938eaee8836a65089c0bf95b1ea",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.024701286764705878,
+            "y": 0.013472732843137254
+          }
+        }
+      },
+      "metadata_path": "Metadata/Fabric082A.json",
+      "metadata_sha256": "48450c448d3545ab9a1ada1efe34dce212e2442232f4896c943e7aa40498d91d",
+      "official_tags": [
+        "82",
+        "fabric",
+        "fine",
+        "grey",
+        "smooth",
+        "woven"
+      ],
+      "release_date": "2025-07-08 15:00:00",
+      "source_url": "https://ambientcg.com/a/Fabric082A"
+    },
+    "tile": {
+      "api_url": "https://ambientcg.com/api/v2/full_json?id=Tiles032&include=tagData%2CdisplayData%2CdownloadData%2CdimensionsData",
+      "archive": {
+        "bytes": 11219471,
+        "path": "Archives/Tiles032_1K-PNG.zip",
+        "sha256": "ac24cfe4b6def0cc7fd8e885cb0987c3c361a237f2659862ae8d9d4d66925624",
+        "url": "https://ambientcg.com/get?file=Tiles032_1K-PNG.zip"
+      },
+      "asset_id": "Tiles032",
+      "author": "ambientCG / Lennart Demes (site operator; no separate per-asset author field)",
+      "author_source": "https://docs.ambientcg.com/legal/",
+      "coverage_cm": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "coverage_note": "Zero means unspecified by upstream; do not infer real-world scale.",
+      "creation_method": "PBRProcedural",
+      "identity_notes": "Clean reflective green glazed subway tiles. Grout mask is derived from this exact source height map.",
+      "license": "CC0-1.0",
+      "look_id": "LibraryTile",
+      "maps": {
+        "BaseColor": {
+          "archive_member": "Tiles032_1K-PNG_Color.png",
+          "bit_depth": 8,
+          "bytes": 383122,
+          "channel_mean": [
+            0.11895266514239326,
+            0.3095431421295497,
+            0.21395611856508548
+          ],
+          "channel_stddev": [
+            0.11061245892408218,
+            0.06853517393680089,
+            0.08923333301930095
+          ],
+          "color_space": "sRGB",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Default",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": true
+          },
+          "interior_step_mean": {
+            "x": 0.005491772863837617,
+            "y": 0.015618748262990435
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "tile/Maps/BaseColor.png",
+          "sha256": "31956cc33d7f6858ac83797c33a16147af65c1fc2803a2495737350108fa4f5f",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0033905228758169953,
+            "y": 0.00500919117647059
+          }
+        },
+        "Height": {
+          "archive_member": "Tiles032_1K-PNG_Displacement.png",
+          "bit_depth": 16,
+          "bytes": 1388327,
+          "channel_mean": [
+            0.8144013793169975
+          ],
+          "channel_stddev": [
+            0.24484839645254347
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.007125256669790441,
+            "y": 0.020998729584229502
+          },
+          "mode": "I;16",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "tile/Maps/Height.png",
+          "sha256": "5d32acf34200abd6dbc31c19c9a9a6097a7647ffdd8a75675d59331a2cf44b72",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.00316749876020447,
+            "y": 0.005681139491302358
+          }
+        },
+        "Normal": {
+          "archive_member": "Tiles032_1K-PNG_NormalDX.png",
+          "bit_depth": 16,
+          "bytes": 3940448,
+          "channel_mean": [
+            0.001945581666810453,
+            0.00194654506195385,
+            0.0037980494896172226
+          ],
+          "channel_stddev": [
+            0.00014349439244797915,
+            0.00025830776706871507,
+            0.00026968521677197134
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Normalmap",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 1.5209467132357684e-05,
+            "y": 3.152763350475742e-05
+          },
+          "mode": "RGB",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": "DirectX tangent space (+X,-Y,+Z); do not flip green on import",
+          "path": "tile/Maps/Normal.png",
+          "sha256": "b9169bf3d9aa2c4194ef65e4c16965b6a4a4b8f1ecb86a01aeb397f38ce65546",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 3.570372701609827e-05,
+            "y": 6.855135455608964e-05
+          }
+        },
+        "Roughness": {
+          "archive_member": "Tiles032_1K-PNG_Roughness.png",
+          "bit_depth": 8,
+          "bytes": 211626,
+          "channel_mean": [
+            0.2088303809072457
+          ],
+          "channel_stddev": [
+            0.28536820570817784
+          ],
+          "color_space": "linear",
+          "height": 1024,
+          "import_settings": {
+            "address_x": "Wrap",
+            "address_y": "Wrap",
+            "compression": "TC_Masks",
+            "flip_green_channel": false,
+            "mips": "TMGS_SimpleAverage",
+            "sRGB": false
+          },
+          "interior_step_mean": {
+            "x": 0.007709720694851742,
+            "y": 0.02214683450970809
+          },
+          "mode": "L",
+          "modifications": "None; byte-identical upstream PNG",
+          "normal_convention": null,
+          "path": "tile/Maps/Roughness.png",
+          "sha256": "9f9cc360f3329e64b07a5aa8305a4ca2bf17c3214f9c7c83716e4144cfca5505",
+          "width": 1024,
+          "wrap_step_mean": {
+            "x": 0.0008003982843137254,
+            "y": 0.0
+          }
+        }
+      },
+      "metadata_path": "Metadata/Tiles032.json",
+      "metadata_sha256": "86107518545b62a843617a6df9b47dba8e8f3f2a9459a0b39601317e1833ad87",
+      "official_tags": [
+        "32",
+        "bathroom",
+        "clean",
+        "dark",
+        "green",
+        "reflective",
+        "shiny",
+        "smooth",
+        "subway",
+        "tiles"
+      ],
+      "release_date": "2019-03-05 00:00:00",
+      "source_url": "https://ambientcg.com/a/Tiles032"
+    }
+  },
+  "retrieved_utc": "2026-10-19T07:21:01.716750+00:00",
+  "schema_version": 1,
+  "validation": "Source ZIP CRCs, required maps, dimensions, exact source-map hashes and boundary-neighbor steps. No runtime import, shading or artistic acceptance is claimed."
+}

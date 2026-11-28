@@ -1,0 +1,122 @@
+{
+  "direction_alignment": "Metal009 maps have parallel horizontal brush marks (U axis); a constant axial tangent replaces circular cell orientation.",
+  "generator_sha256": "0c7f63eaa502fc5df8c2e4e49011d840e37a05e18612bb61e82f3fb7935a59c4",
+  "generator_source": "Tools/UsfMaterials/source_linear_aluminum.py",
+  "identity_statement": "Machining data originates from authored brushed STEEL Metal009; the game material independently authors ALUMINUM reflectance. This is a reusable surface-finish recipe, not a scanned linear-brushed aluminum asset or proof of physical equivalence between alloys.",
+  "license": {
+    "official_url": "https://docs.ambientcg.com/license/",
+    "retained_snapshot": "License/ambientCG-license.html",
+    "spdx": "CC0-1.0"
+  },
+  "look_id": "LibraryAluminum",
+  "maps": {
+    "BaseColor": {
+      "bit_depth": 8,
+      "bytes": 400823,
+      "color_space": "sRGB",
+      "height": 1024,
+      "import_settings": {
+        "address_x": "Wrap",
+        "address_y": "Wrap",
+        "compression": "TC_Default",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": true
+      },
+      "mode": "P",
+      "modifications": "None; existing upstream source file referenced without copying or alteration",
+      "normal_convention": null,
+      "path": "aluminum/Maps/BaseColor.png",
+      "runtime_name": "T_LibraryAluminum_BaseColor",
+      "sha256": "4fba4ba6bdd8661ed989bb7d0877e16ee76c671e55729651011e0687cd8387b5",
+      "source_asset_id": "Metal051A",
+      "width": 1024
+    },
+    "Direction": {
+      "bit_depth": 8,
+      "bytes": 77,
+      "color_space": "linear",
+      "decode": "theta=.5*atan2(2*G-1,2*R-1); theta is axial, modulo pi",
+      "height": 4,
+      "import_settings": {
+        "address_x": "Wrap",
+        "address_y": "Wrap",
+        "compression": "TC_Masks",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": false
+      },
+      "mode": "RGB",
+      "modifications": "Analytical constant field only; no invented machining grain or source alteration",
+      "normal_convention": null,
+      "packing": "RGB=(255,128,255): R=(1+cos(2theta))/2, G=(1+sin(2theta))/2, B=confidence1; ideal theta=0 radians, horizontal U-axis brushing",
+      "path": "AluminumLinear_v2/Direction.png",
+      "quantization_note": "RGB8 cannot encode .5 exactly; G128 gives decoded angle about .1123 degrees. This is the requested constant encoding, not spatial variation.",
+      "runtime_name": "T_LibraryAluminumLinear_Direction",
+      "sha256": "5a0cd934f59bdf97b1f8442ccb594cb097b26365f405a5175a6ce90fee27c054",
+      "width": 4
+    },
+    "Normal": {
+      "bit_depth": 16,
+      "bytes": 4505273,
+      "color_space": "linear",
+      "height": 1024,
+      "import_settings": {
+        "address_x": "Wrap",
+        "address_y": "Wrap",
+        "compression": "TC_Normalmap",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": false
+      },
+      "mode": "RGB",
+      "modifications": "None; existing upstream source file referenced without copying or alteration",
+      "normal_convention": "DirectX tangent space; do not flip green",
+      "path": "Candidates/Metal009_NormalDX.png",
+      "runtime_name": "T_LibraryAluminumLinear_Normal",
+      "sha256": "1c007ae655e5c877ba2f92e0fe62eace193f46a56f3f6054cab25cb4bef86df4",
+      "source_asset_id": "Metal009",
+      "width": 1024
+    },
+    "Roughness": {
+      "bit_depth": 8,
+      "bytes": 420839,
+      "color_space": "linear",
+      "height": 1024,
+      "import_settings": {
+        "address_x": "Wrap",
+        "address_y": "Wrap",
+        "compression": "TC_Masks",
+        "flip_green_channel": false,
+        "mips": "TMGS_SimpleAverage",
+        "sRGB": false
+      },
+      "mode": "L",
+      "modifications": "None; existing upstream source file referenced without copying or alteration",
+      "normal_convention": null,
+      "path": "Candidates/Metal009_Roughness.png",
+      "runtime_name": "T_LibraryAluminumLinear_Roughness",
+      "sha256": "d3307a704f1708d6643c263983469827ea13818ba366083c4e93a1cec27c7317",
+      "source_asset_id": "Metal009",
+      "width": 1024
+    }
+  },
+  "maps_root": "Plugins/CkTests/Resources/CkUsf/Batch1Textures",
+  "recipe_id": "AluminumLinear_v2",
+  "schema_version": 1,
+  "sources": {
+    "Metal009": {
+      "api_url": "https://ambientcg.com/api/v2/full_json?id=Metal009&include=tagData,displayData,downloadData",
+      "author": "ambientCG / Lennart Demes",
+      "identity": "Brushed steel; procedural PBR source, not aluminum",
+      "url": "https://ambientcg.com/a/Metal009",
+      "usage": "Only existing linear machining NormalDX and Roughness are reused; no steel source BaseColor is used."
+    },
+    "Metal051A": {
+      "author": "ambientCG / Lennart Demes",
+      "url": "https://ambientcg.com/a/Metal051A",
+      "usage": "Existing aluminum BaseColor remains unchanged. Circular normal, height, and direction maps are excluded from this recipe."
+    }
+  },
+  "verification_scope": "Pinned source hashes, decoded image dimensions, deterministic constant direction and receipt. No Unreal import, compilation, rendering, or artistic acceptance is claimed."
+}

@@ -1,0 +1,203 @@
+{
+    "searchQuery": {
+        "forceSpecificAssetId": false,
+        "category": [],
+        "assetId": [
+            "cardboard002"
+        ],
+        "dataType": [],
+        "creationMethod": null,
+        "queryString": "",
+        "sort": "Popular",
+        "createdUsingAssetId": null,
+        "basedOnAssetId": null,
+        "variationsOfAssetId": null,
+        "limit": 100,
+        "offset": 0
+    },
+    "numberOfResults": 1,
+    "currentPageHttp": "https://ambientcg.com/api/v2/full_json?id=cardboard002&sort=popular&limit=100&include=statisticsData%2ClabelData%2CpreviewData%2CtechnicalData%2CfileData",
+    "foundAssets": [
+        {
+            "assetId": "Cardboard002",
+            "releaseDate": "2020-04-12 00:00:00",
+            "earlyReleaseDate": "2020-04-12 00:00:00",
+            "dataType": "Material",
+            "creationMethod": "PBRProcedural",
+            "category": null,
+            "downloadCount": 47421,
+            "downloadCountMonth": 4142,
+            "downloadCountWeek": 1245,
+            "popularityScore": 4.102143857473836,
+            "tags": [
+                "2",
+                "brown",
+                "cardboard",
+                "clean",
+                "paper",
+                "smooth"
+            ],
+            "dataTypeName": "Material",
+            "dataTypeDescription": "A photo texture with PBR maps.",
+            "creationMethodName": "Height field photogrammetry",
+            "creationMethodDescription": "Displacement generated using photogrammetry.",
+            "displayName": "Cardboard 002",
+            "customDisplayName": "",
+            "description": "",
+            "displayCategory": "Cardboard",
+            "shortLink": "https://ambientcg.com/a/Cardboard002",
+            "dimensionX": 0,
+            "dimensionY": 0,
+            "dimensionZ": 0,
+            "createdUsing": [],
+            "basedOnThis": [],
+            "variations": [],
+            "nextVariationAssetId": null,
+            "previousVariationAssetId": null,
+            "nextAssetId": null,
+            "previousAssetId": null,
+            "downloadFolders": {
+                "default": {
+                    "title": "default",
+                    "downloadFiletypeCategories": {
+                        "zip": {
+                            "title": "zip",
+                            "downloads": [
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Cardboard002_1K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Cardboard002_1K-JPG.zip",
+                                    "fileName": "Cardboard002_1K-JPG.zip",
+                                    "size": 6039839,
+                                    "filetype": "zip",
+                                    "attribute": "1K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Cardboard002_2K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Cardboard002_2K-JPG.zip",
+                                    "fileName": "Cardboard002_2K-JPG.zip",
+                                    "size": 23268285,
+                                    "filetype": "zip",
+                                    "attribute": "2K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Cardboard002_4K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Cardboard002_4K-JPG.zip",
+                                    "fileName": "Cardboard002_4K-JPG.zip",
+                                    "size": 93999263,
+                                    "filetype": "zip",
+                                    "attribute": "4K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Cardboard002_8K-JPG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Cardboard002_8K-JPG.zip",
+                                    "fileName": "Cardboard002_8K-JPG.zip",
+                                    "size": 379645018,
+                                    "filetype": "zip",
+                                    "attribute": "8K-JPG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Cardboard002_1K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Cardboard002_1K-PNG.zip",
+                                    "fileName": "Cardboard002_1K-PNG.zip",
+                                    "size": 15293182,
+                                    "filetype": "zip",
+                                    "attribute": "1K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Cardboard002_2K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Cardboard002_2K-PNG.zip",
+                                    "fileName": "Cardboard002_2K-PNG.zip",
+                                    "size": 60502699,
+                                    "filetype": "zip",
+                                    "attribute": "2K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Cardboard002_4K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Cardboard002_4K-PNG.zip",
+                                    "fileName": "Cardboard002_4K-PNG.zip",
+                                    "size": 242442649,
+                                    "filetype": "zip",
+                                    "attribute": "4K-PNG",
+                                    "zipContent": []
+                                },
+                                {
+                                    "fullDownloadPath": "https://ambientcg.com/get?file=Cardboard002_8K-PNG.zip",
+                                    "downloadLink": "https://ambientcg.com/get?file=Cardboard002_8K-PNG.zip",
+                                    "fileName": "Cardboard002_8K-PNG.zip",
+                                    "size": 980992793,
+                                    "filetype": "zip",
+                                    "attribute": "8K-PNG",
+                                    "zipContent": []
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "previewLinks": [
+                {
+                    "url": "https://releases.pbr.one/main/material-shading.html#normal_type=directx&color_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Cardboard002/Cardboard002_SQ_Color.jpg?95492&displacement_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Cardboard002/Cardboard002_SQ_Displacement.jpg?34316&normal_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Cardboard002/Cardboard002_SQ_NormalDX.jpg?59101&roughness_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Cardboard002/Cardboard002_SQ_Roughness.jpg?76103",
+                    "name": {
+                        "id": 4,
+                        "slug": "pbr-one-material-shading",
+                        "title": "3D Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                },
+                {
+                    "url": "https://releases.pbr.one/main/texture-tiling.html#texture_url=https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Cardboard002/Cardboard002_SQ_Color.jpg?52918,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Cardboard002/Cardboard002_SQ_Displacement.jpg?66088,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Cardboard002/Cardboard002_SQ_NormalDX.jpg?7934,https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Cardboard002/Cardboard002_SQ_Roughness.jpg?25944&texture_name=Color,Displacement,Normal,Roughness",
+                    "name": {
+                        "id": 3,
+                        "slug": "pbr-one-material-maps",
+                        "title": "Tiling Preview",
+                        "description": "description"
+                    },
+                    "displayName": "",
+                    "iconName": ""
+                }
+            ],
+            "previewType": "Default",
+            "maps": [
+                "color",
+                "displacement",
+                "normal",
+                "roughness"
+            ],
+            "hasUsd": false,
+            "previewImage": {
+                "64-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-PNG/Cardboard002.png",
+                "128-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-PNG/Cardboard002.png",
+                "256-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-PNG/Cardboard002.png",
+                "512-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-PNG/Cardboard002.png",
+                "1024-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-PNG/Cardboard002.png",
+                "2048-PNG": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-PNG/Cardboard002.png",
+                "64-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-FFFFFF/Cardboard002.jpg",
+                "128-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-FFFFFF/Cardboard002.jpg",
+                "256-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-FFFFFF/Cardboard002.jpg",
+                "512-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-FFFFFF/Cardboard002.jpg",
+                "1024-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-FFFFFF/Cardboard002.jpg",
+                "2048-JPG-FFFFFF": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-FFFFFF/Cardboard002.jpg",
+                "64-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-JPG-242424/Cardboard002.jpg",
+                "128-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-JPG-242424/Cardboard002.jpg",
+                "256-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-JPG-242424/Cardboard002.jpg",
+                "512-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-JPG-242424/Cardboard002.jpg",
+                "1024-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-JPG-242424/Cardboard002.jpg",
+                "2048-JPG-242424": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-JPG-242424/Cardboard002.jpg",
+                "64-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/64-WEBP/Cardboard002.webp",
+                "128-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/128-WEBP/Cardboard002.webp",
+                "256-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/256-WEBP/Cardboard002.webp",
+                "512-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/512-WEBP/Cardboard002.webp",
+                "1024-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/1024-WEBP/Cardboard002.webp",
+                "2048-WEBP": "https://acg-media.struffelproductions.com/file/ambientCG-Web/media/thumbnail/2048-WEBP/Cardboard002.webp"
+            }
+        }
+    ]
+}

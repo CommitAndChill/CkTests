@@ -1,0 +1,19 @@
+{
+    "searchQuery": {
+        "forceSpecificAssetId": false,
+        "category": [],
+        "assetId": [],
+        "dataType": [],
+        "creationMethod": null,
+        "queryString": "molded",
+        "sort": "Popular",
+        "createdUsingAssetId": null,
+        "basedOnAssetId": null,
+        "variationsOfAssetId": null,
+        "limit": 80,
+        "offset": 0
+    },
+    "numberOfResults": 0,
+    "currentPageHttp": "https://ambientcg.com/api/v2/full_json?q=molded&sort=popular&limit=80&include=statisticsData%2ClabelData%2CpreviewData%2CtechnicalData%2CfileData",
+    "foundAssets": []
+}
